@@ -1,0 +1,39 @@
+import { useState } from "react";
+import axios from "axios";
+
+export function usePut() {
+  const baseUrl = import.meta.env.VITE_API_BASE_URL;
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [data, setData] = useState(null);
+
+  const putData = async (endpoint, body) => {
+    setLoading(true);
+    setError(null);
+
+    // معالجة الرابط لتجنب // مكررة
+    const url =
+      baseUrl.endsWith('/') && endpoint.startsWith('/')
+        ? baseUrl + endpoint.slice(1)
+        : baseUrl + endpoint;
+
+    try {
+      const token = localStorage.getItem("token");
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+
+      const response = await axios.put(url, body, { headers });
+      setData(response.data);
+
+      setLoading(false);
+
+      return response.data;
+    } catch (err) {
+      const message = err.response?.data?.message || err.message || "Error occurred";
+      setError(message);
+      setLoading(false);
+      throw err;
+    }
+  };
+
+  return { data, loading, error, putData };
+}
