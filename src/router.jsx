@@ -45,6 +45,26 @@ const router = createBrowserRouter([
         ),
       },
 
+      // ✅ Route جديد للـ order page
+      {
+        path: "/order-page",
+        element: (
+          <ProtectedRoute permissionKey="Home">
+            {" "}
+            {/* نفس permission الـ Home */}
+            <Home />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "/delivery-order",
+        element: (
+          <ProtectedRoute permissionKey="Home">
+            <Home />
+          </ProtectedRoute>
+        ),
+      },
+
       {
         path: "Cashier",
         children: [
@@ -56,40 +76,9 @@ const router = createBrowserRouter([
               </ProtectedRoute>
             ),
           },
-          // {
-          //   path: "add",
-          //   element: (
-          //     <ProtectedRoute permissionKey="Village">
-          //       <VillageAdd />
-          //     </ProtectedRoute>
-          //   ),
-          // },
-          // {
-          //   path: "single-page-v/:id",
-          //   element: (
-          //     <ProtectedRoute permissionKey="Village Gallery">
-          //       <SinglePageV />
-          //     </ProtectedRoute>
-          //   ),
-          // },
-          // {
-          //   path: "single-page-v/:id/add",
-          //   element: (
-          //     <ProtectedRoute permissionKey="Village Admin">
-          //       <VAdminAdd />
-          //     </ProtectedRoute>
-          //   ),
-          // },
-          // {
-          //   path: "single-page-v/:id/invoice/:invoiceId",
-          //   element: (
-          //     <ProtectedRoute permissionKey="VillagesInvoiceView">
-          //       <InvoiceCard />
-          //     </ProtectedRoute>
-          //   ),
-          // },
         ],
       },
+      
       {
         path: "item",
         children: [
@@ -101,14 +90,6 @@ const router = createBrowserRouter([
               </ProtectedRoute>
             ),
           },
-          // {
-          //   path: "add",
-          //   element: (
-          //     <ProtectedRoute permissionKey="Village Admin Role">
-          //       <VAdminRoleAdd />
-          //     </ProtectedRoute>
-          //   ),
-          // },
         ],
       },
 
@@ -123,14 +104,6 @@ const router = createBrowserRouter([
               </ProtectedRoute>
             ),
           },
-          // {
-          //   path: "add",
-          //   element: (
-          //     <ProtectedRoute permissionKey="Appartment Type">
-          //       <UnitsAdd />
-          //     </ProtectedRoute>
-          //   ),
-          // },
         ],
       },
       {
@@ -144,22 +117,6 @@ const router = createBrowserRouter([
               </ProtectedRoute>
             ),
           },
-          // {
-          //   path: "add",
-          //   element: (
-          //     <ProtectedRoute permissionKey="User">
-          //       <UsersAdd />
-          //     </ProtectedRoute>
-          //   ),
-          // },
-          // {
-          //   path: "single-page-u/:id",
-          //   element: (
-          //     <ProtectedRoute permissionKey="User">
-          //       <SinglePageU />
-          //     </ProtectedRoute>
-          //   ),
-          // },
         ],
       },
       {

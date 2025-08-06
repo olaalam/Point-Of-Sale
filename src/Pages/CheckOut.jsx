@@ -24,7 +24,7 @@ const CheckOut = ({
   notes = "Customer requested no plastic bag.",
   source = "web",
   updateOrderItems,
-  orderType, // ✅ Now correctly accepted as a prop
+  orderType,
 }) => {
   const branch_id = localStorage.getItem("branch_id");
   const cashierId = localStorage.getItem("cashier_id");
@@ -37,10 +37,19 @@ const CheckOut = ({
   } = useGet(`captain/selection_lists?branch_id=${branch_id}`);
 
   const { postData, loading } = usePost();
-
   const [paymentSplits, setPaymentSplits] = useState([]);
   const [customerPaid, setCustomerPaid] = useState("");
   const tableId = localStorage.getItem("table_id") || null;
+  const [deliveryModelOpen, setDeliveryModelOpen] = useState(false);
+  const [selectedDeliveryId, setSelectedDeliveryId] = useState(null);
+  const [orderId, setOrderId] = useState(null);
+
+  const {
+    data: deliveryData,
+    loading: deliveryLoading,
+    error: deliveryError,
+  } = useGet("cashier/delivery_lists");
+
   const requiredTotal = useMemo(() => {
     if (orderType === "dine_in") {
       return orderItems
@@ -104,12 +113,10 @@ const CheckOut = ({
       );
 
       const currentSum = updatedSplits.reduce((acc, s) => acc + s.amount, 0);
-
       const totalExcludingCurrent = prevSplits.reduce(
         (acc, s) => (s.id === id ? acc : acc + s.amount),
         0
       );
-
       const maxAllowed = requiredTotal - totalExcludingCurrent;
 
       if (currentSum > requiredTotal) {
@@ -161,7 +168,7 @@ const CheckOut = ({
     orderType === "dine_in"
       ? "cashier/dine_in_payment"
       : orderType === "delivery"
-      ? "cashier/delivery_payment"
+      ? "cashier/delivery_order"
       : "cashier/take_away_order";
 
   const handleSubmitOrder = async () => {
@@ -174,223 +181,337 @@ const CheckOut = ({
       amount: s.amount,
     }));
 
-    // --- MODIFICATION START ---
     let productsToSend;
     let newAmountToPay;
 
     if (orderType === "dine_in") {
-      // Filter for 'done' items
       const doneItems = orderItems.filter(
         (item) => item.preparation_status === "done"
       );
-
-      // Calculate the new amountToPay based on done items only
       newAmountToPay = doneItems.reduce(
         (acc, item) => acc + item.price * item.count,
         0
       );
-
-      // Format only the done products
-      productsToSend = doneItems.map((item) => ({
+      productsToSend = orderItems.map((item) => ({
         product_id: item.id,
         count: item.count,
+        addons:
+          item.selectedExtras?.map((addon_id) => ({
+            addon_id,
+            count: item.count || 1,
+          })) || [],
+        exclude_id: item.exclude_id || [],
+        extra_id: item.extra_id || [],
+        variation: item.selectedVariation
+          ? [
+              {
+                variation_id: item.selectedVariation,
+                option_id: [], // عدلي حسب شكل الـ options لو في
+              },
+            ]
+          : [],
       }));
 
       if (productsToSend.length === 0) {
         return toast.error("No done items to process for dine-in order.");
       }
     } else {
-      // For other order types, send all items as before
       productsToSend = orderItems.map((item) => ({
         product_id: item.id,
         count: item.count,
+        addons:
+          item.selectedExtras?.map((addon_id) => ({
+            addon_id,
+            count: item.count || 1, // أو خليها 1 دائمًا لو مش محتاجة تعدد
+          })) || [],
+
+        exclude_id: item.exclude_id || [],
+        extra_id: item.extra_id || [],
+        variation: item.variation
+          ? [
+              {
+                variation_id: item.variation.variation_id,
+                option_id: item.variation.option_id || [],
+              },
+            ]
+          : [],
       }));
-      newAmountToPay = amountToPay; // Keep the original amountToPay
+      newAmountToPay = amountToPay;
     }
-    // --- MODIFICATION END ---
 
     const payload = {
       financials: formattedFinancials,
       cashier_id: cashierId,
-      amount: newAmountToPay, // Use the new amountToPay
-      total_tax: totalTax, // Assuming tax is still calculated on all items or needs re-calculation based on newAmountToPay if tax is dynamic
+      amount: newAmountToPay,
+      total_tax: totalTax,
       total_discount: totalDiscount,
       notes,
+      products: productsToSend,
       ...(orderType === "dine_in" && { table_id: tableId }),
+      ...(orderType === "delivery" && {
+        address_id: localStorage.getItem("selected_address_id") || "",
+        user_id: localStorage.getItem("selected_user_id") || "",
+        cash_with_delivery: parseFloat(customerPaid) || 0,
+      }),
     };
 
     try {
-      await postData(endpoint, payload);
+      const response = await postData(endpoint, payload);
+      console.log("Order Submission Response:", response);
+
       toast.success("Order placed successfully!");
-      localStorage.setItem("last_order_type", orderType); // ✅ Store the type here
-      console.log("onClose is:", typeof onClose);
+      localStorage.setItem("last_order_type", orderType);
 
-      setTimeout(() => {
-        try {
-          console.log("Clearing cart...");
-          // For dine-in, remove only the done items from the local state/cart
-          if (orderType === "dine_in") {
-            const remainingItems = orderItems.filter(
-              (item) => item.preparation_status !== "done"
-            );
-            updateOrderItems(remainingItems);
-            // Optionally, update localStorage.removeItem("cart") or handle it based on your cart management logic
-            localStorage.setItem("cart", JSON.stringify(remainingItems)); // Update cart with remaining items
-          } else {
-            updateOrderItems([]);
-            localStorage.removeItem("cart");
-          }
-
-          console.log("Closing modal...");
-          onClose?.(); // استخدمي ? في حال onClose مش معرفة
-
-          console.log("Navigating...");
+      if (orderType === "delivery") {
+        const newOrderId = response?.success?.id;
+        if (newOrderId) {
+          setOrderId(newOrderId);
+          console.log("New Order ID:", newOrderId);
+          setDeliveryModelOpen(true);
+        } else {
+          toast.error(
+            "Order ID not returned from server. Cannot assign delivery."
+          );
+          onClose();
           navigate("/orders");
-        } catch (err) {
-          console.error("Error in success flow:", err);
         }
-      }, 1500);
+      } else {
+        onClose();
+        navigate("/orders");
+      }
     } catch (e) {
       console.error("Submit error:", e);
       toast.error(e.message || "Submission failed");
     }
   };
 
-  if (isLoading) return <Loading />;
-  if (isError) return <p className="text-red-500">{isError.message}</p>;
+  const handleAssignDelivery = async () => {
+    // إضافة هذا الشرط للتأكد من وجود orderId قبل إرسال الطلب
+    if (!orderId) {
+      toast.error("Order ID is missing. Please try again.");
+      return;
+    }
+
+    if (!selectedDeliveryId) {
+      return toast.error("Please select a delivery person.");
+    }
+
+    const payload = {
+      delivery_id: selectedDeliveryId,
+    };
+
+    try {
+      await postData(`cashier/determine_delivery/${orderId}`, payload);
+      toast.success("Delivery person assigned successfully!");
+      setDeliveryModelOpen(false);
+      onClose();
+      navigate("/orders");
+    } catch (e) {
+      console.error("Assign delivery error:", e);
+      toast.error(e.message || "Failed to assign delivery person.");
+    }
+  };
+
+  const handleSkip = () => {
+    setDeliveryModelOpen(false);
+    onClose();
+    navigate("/orders");
+  };
+
+  if (isLoading || deliveryLoading) return <Loading />;
+  if (isError || deliveryError)
+    return (
+      <p className="text-red-500">
+        {isError?.message || deliveryError?.message}
+      </p>
+    );
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4">
-      <div className="relative w-full max-w-2xl bg-white p-8 rounded-2xl shadow-2xl border">
-        <ToastContainer position="bottom-right" />
+      {/* Delivery Selection Modal */}
+      {deliveryModelOpen && (
+        <div className="relative w-full max-w-md bg-white p-6 rounded-lg shadow-md">
+          <button
+            onClick={handleSkip}
+            className="absolute top-2 right-2 text-gray-500 hover:text-gray-700 transition-colors text-xl"
+          >
+            ×
+          </button>
+          <h2 className="text-xl font-semibold mb-4 text-bg-primary text-center">
+            Assign Delivery Person
+          </h2>
 
-        <button onClick={onClose} className="absolute top-4 right-4 text-xl">
-          ×
-        </button>
-        <h2 className="text-2xl font-semibold mb-6">Process Payment</h2>
-
-        <div className="mb-6 border-b pb-4">
-          <div className="flex justify-between mb-2">
-            <span>Total Amount:</span>
-            <span>{requiredTotal.toFixed(2)} EGP</span>
-          </div>
-          <div className="flex justify-between mb-2">
-            <span>Remaining:</span>
-            <span
-              className={
-                remainingAmount > 0 ? "text-orange-500" : "text-green-600"
-              }
+          <div className="space-y-4">
+            <Select
+              className="w-full border rounded-md"
+              onValueChange={(val) => setSelectedDeliveryId(val)}
             >
-              {remainingAmount.toFixed(2)} EGP
-            </span>
+              <SelectTrigger className="border rounded-md w-full">
+                <SelectValue placeholder="Select a delivery person" />
+              </SelectTrigger>
+              <SelectContent>
+                {deliveryData?.deliveries?.map((d) => (
+                  <SelectItem
+                    className="text-bg-primary hover:bg-gray-100"
+                    key={d.id}
+                    value={String(d.id)}
+                  >
+                    {d.f_name} {d.l_name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <div className="flex w-full space-x-2">
+              <Button
+                onClick={handleAssignDelivery}
+                className="flex-1 bg-bg-primary text-white hover:bg-bg-secondary focus:bg-bg-secondary rounded-md shadow-sm transition-colors"
+              >
+                Assign Delivery
+              </Button>
+              <Button
+                variant="outline"
+                onClick={handleSkip}
+                className="flex-1 border border-gray-300 rounded-md shadow-sm hover:bg-gray-100 transition-colors"
+              >
+                Skip
+              </Button>
+            </div>
           </div>
-          {changeAmount > 0 && (
-            <div className="flex justify-between">
-              <span>Change:</span>
-              <span className="text-green-600">
-                {changeAmount.toFixed(2)} EGP
+        </div>
+      )}
+
+      {/* Main Checkout Modal */}
+      {!deliveryModelOpen && (
+        <div className="relative w-full max-w-2xl bg-white p-8 rounded-2xl shadow-2xl border">
+          <ToastContainer position="bottom-right" />
+          <button onClick={onClose} className="absolute top-4 right-4 text-xl">
+            ×
+          </button>
+          <h2 className="text-2xl font-semibold mb-6">Process Payment</h2>
+          <div className="mb-6 border-b pb-4">
+            <div className="flex justify-between mb-2">
+              <span>Total Amount:</span>
+              <span>{requiredTotal.toFixed(2)} EGP</span>
+            </div>
+            <div className="flex justify-between mb-2">
+              <span>Remaining:</span>
+              <span
+                className={
+                  remainingAmount > 0 ? "text-orange-500" : "text-green-600"
+                }
+              >
+                {remainingAmount.toFixed(2)} EGP
               </span>
             </div>
-          )}
-        </div>
-
-        <div className="space-y-6">
-          {paymentSplits.map((split) => (
-            <div key={split.id} className="flex items-center space-x-4">
-              <div className="w-40">
-                <Select
-                  value={String(split.accountId)}
-                  onValueChange={(val) => handleAccountChange(split.id, val)}
-                >
-                  <SelectTrigger>
-                    <SelectValue>
-                      {getAccountNameById(split.accountId)}
-                    </SelectValue>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {data.financial_account.map((acc) => (
-                      <SelectItem key={acc.id} value={String(acc.id)}>
-                        {acc.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="relative flex-grow">
-                <Input
-                  type="number"
-                  value={split.amount === 0 ? "" : String(split.amount)}
-                  onChange={(e) => handleAmountChange(split.id, e.target.value)}
-                  className="pl-16"
-                />
-                <span className="absolute left-3 top-1/2 -translate-y-1/2">
-                  EGP
+            {changeAmount > 0 && (
+              <div className="flex justify-between">
+                <span>Change:</span>
+                <span className="text-green-600">
+                  {changeAmount.toFixed(2)} EGP
                 </span>
               </div>
-              {paymentSplits.length > 1 && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => handleRemoveSplit(split.id)}
-                >
-                  ×
-                </Button>
-              )}
+            )}
+          </div>
+          <div className="space-y-6">
+            {paymentSplits.map((split) => (
+              <div key={split.id} className="flex items-center space-x-4">
+                <div className="w-40">
+                  <Select
+                    value={String(split.accountId)}
+                    onValueChange={(val) => handleAccountChange(split.id, val)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue>
+                        {getAccountNameById(split.accountId)}
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      {data.financial_account.map((acc) => (
+                        <SelectItem key={acc.id} value={String(acc.id)}>
+                          {acc.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="relative flex-grow">
+                  <Input
+                    type="number"
+                    value={split.amount === 0 ? "" : String(split.amount)}
+                    onChange={(e) =>
+                      handleAmountChange(split.id, e.target.value)
+                    }
+                    className="pl-16"
+                  />
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2">
+                    EGP
+                  </span>
+                </div>
+                {paymentSplits.length > 1 && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => handleRemoveSplit(split.id)}
+                  >
+                    ×
+                  </Button>
+                )}
+              </div>
+            ))}
+            {remainingAmount > 0 && (
+              <Button
+                variant="link"
+                onClick={handleAddSplit}
+                className="text-sm text-blue-600"
+              >
+                + Add account split
+              </Button>
+            )}
+            <div className="border-t pt-4">
+              <p
+                className={`text-xs ${
+                  isTotalMet ? "text-green-600" : "text-red-500"
+                }`}
+              >
+                {isTotalMet
+                  ? "Total matches required amount."
+                  : `Sum Must Equal ${requiredTotal.toFixed(2)} EGP To Proceed`}
+              </p>
             </div>
-          ))}
-
-          {remainingAmount > 0 && (
-            <Button
-              variant="link"
-              onClick={handleAddSplit}
-              className="text-sm text-blue-600"
-            >
-              + Add account split
-            </Button>
-          )}
-
-          <div className="border-t pt-4">
-            <p
-              className={`text-xs ${
-                isTotalMet ? "text-green-600" : "text-red-500"
-              }`}
-            >
-              {isTotalMet
-                ? "Total matches required amount."
-                : `Sum Must Equal ${requiredTotal.toFixed(2)} EGP To Proceed`}
-            </p>
+          </div>
+          <Button
+            className="w-full bg-red-600 text-white mt-6"
+            disabled={!isTotalMet || loading}
+            onClick={handleSubmitOrder}
+          >
+            {loading ? "Processing..." : "Confirm & Pay"}
+          </Button>
+          <div className="mt-6">
+            <label className="block text-sm mb-1">
+              Amount Paid by Customer
+            </label>
+            <div className="relative">
+              <Input
+                type="number"
+                placeholder="Enter amount paid"
+                value={customerPaid}
+                onChange={(e) => setCustomerPaid(e.target.value)}
+                className="pl-16"
+              />
+              <span className="absolute left-3 top-1/2 -translate-y-1/2">
+                EGP
+              </span>
+            </div>
+            {parseFloat(customerPaid) > requiredTotal && (
+              <p className="mt-2 text-green-600 text-sm font-semibold">
+                Change Due: {calculatedChange.toFixed(2)} EGP
+              </p>
+            )}
           </div>
         </div>
+      )}
 
-        <Button
-          className="w-full bg-red-600 text-white mt-6"
-          disabled={!isTotalMet || loading}
-          onClick={handleSubmitOrder}
-        >
-          {loading ? "Processing..." : "Confirm & Pay"}
-        </Button>
-
-        <div className="mt-6">
-          <label className="block text-sm mb-1">Amount Paid by Customer</label>
-          <div className="relative">
-            <Input
-              type="number"
-              placeholder="Enter amount paid"
-              value={customerPaid}
-              onChange={(e) => setCustomerPaid(e.target.value)}
-              className="pl-16"
-            />
-            <span className="absolute left-3 top-1/2 -translate-y-1/2">
-              EGP
-            </span>
-          </div>
-          {parseFloat(customerPaid) > requiredTotal && (
-            <p className="mt-2 text-green-600 text-sm font-semibold">
-              Change Due: {calculatedChange.toFixed(2)} EGP
-            </p>
-          )}
-        </div>
-      </div>
+      <ToastContainer />
     </div>
   );
 };

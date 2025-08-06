@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { Users } from "lucide-react";
 import {
   Pagination,
@@ -13,17 +13,14 @@ import { useGet } from "@/Hooks/useGet";
 import Loading from "@/components/Loading";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-const Dine = ({ orderType: propOrderType }) => {
-  const location = useLocation();
+const Dine = () => {
   const navigate = useNavigate();
-
-  const orderType = propOrderType || location.state?.orderType || "dine_in";
   const branch_id = localStorage.getItem("branch_id");
 
   const [selectedTable, setSelectedTable] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
-  const [selectedLocationId, setSelectedLocationId] = useState(null); // لتحديد التاب الحالي
+  const [selectedLocationId, setSelectedLocationId] = useState(null);
 
   const { data, isLoading, error } = useGet(
     `captain/selection_lists?branch_id=${branch_id}`
@@ -38,11 +35,10 @@ const Dine = ({ orderType: propOrderType }) => {
     }
 
     if (locations.length > 0 && !selectedLocationId) {
-      setSelectedLocationId(locations[0].id); // أول تاب بشكل افتراضي
+      setSelectedLocationId(locations[0].id);
     }
-  }, [locations, selectedLocationId]); // Add selectedLocationId to dependencies
+  }, [locations, selectedLocationId]);
 
-  // Reset currentPage when selectedLocationId changes
   useEffect(() => {
     setCurrentPage(1);
   }, [selectedLocationId]);
@@ -78,16 +74,20 @@ const Dine = ({ orderType: propOrderType }) => {
     }
   };
 
-  const handleSelectTable = (table) => {
-    setSelectedTable(table.id);
-    localStorage.setItem("table_id", table.id);
-    navigate("/", {
-      state: {
-        orderType: "dine_in",
-        tableId: table.id,
-      },
-    });
-  };
+const handleSelectTable = (table) => {
+  console.log("Table selected:", table.id);
+  setSelectedTable(table.id);
+  localStorage.setItem("table_id", table.id);
+  localStorage.setItem("order_type", "dine_in");
+
+  // استخدم الـ route الجديد
+  navigate("/order-page", {
+    state: {
+      order_type: "dine_in",  // تأكيد نوع الطلب
+      table_id: table.id,     // إضافة الـ table_id
+    },
+  });
+};
 
   const TableCard = ({ table }) => (
     <div
@@ -101,9 +101,7 @@ const Dine = ({ orderType: propOrderType }) => {
       onClick={() => handleSelectTable(table)}
     >
       <div className="text-center">
-        <div className="text-3xl font-extrabold mb-2">
-          {table.table_number}
-        </div>
+        <div className="text-3xl font-extrabold mb-2">{table.table_number}</div>
         <div className="flex items-center justify-center gap-2 text-base font-medium">
           <Users size={20} />
           <span>Capacity: {table.capacity}</span>
@@ -142,7 +140,7 @@ const Dine = ({ orderType: propOrderType }) => {
             value={selectedLocationId?.toString()}
             onValueChange={(val) => {
               setSelectedLocationId(parseInt(val));
-              setCurrentPage(1); // Reset to first page when changing tab
+              setCurrentPage(1);
             }}
             className="w-full"
           >
@@ -174,7 +172,6 @@ const Dine = ({ orderType: propOrderType }) => {
                     </div>
                   )}
 
-                  {/* Pagination */}
                   {tablesToDisplay.length > itemsPerPage && (
                     <Pagination className="mt-8">
                       <PaginationContent>
@@ -208,9 +205,7 @@ const Dine = ({ orderType: propOrderType }) => {
                             href="#"
                             onClick={(e) => {
                               e.preventDefault();
-                              setCurrentPage((prev) =>
-                                Math.min(prev + 1, totalPages)
-                              );
+                              setCurrentPage((prev) => Math.min(prev + 1, totalPages));
                             }}
                           />
                         </PaginationItem>

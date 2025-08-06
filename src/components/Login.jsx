@@ -32,7 +32,6 @@ const handleLogin = async () => {
     localStorage.setItem("user", JSON.stringify(res.cashier));
     localStorage.setItem("branch_id", res.cashier.branch_id);
 
-    // 👇 اقري cashier_id بعد التخزين
     const cashierId = localStorage.getItem("cashier_id");
 
     if (!cashierId) {

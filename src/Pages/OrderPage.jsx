@@ -10,41 +10,59 @@ export default function OrderPage({
   allowQuantityEdit = true,
   propOrderType,
   propTableId,
+  propUserId,
 }) {
   const [ordersByTable, setOrdersByTable] = useState({});
+  const [ordersByUser, setOrdersByUser] = useState({});
   const [takeAwayItems, setTakeAwayItems] = useState(initialCart);
   const [isLoading, setIsLoading] = useState(false);
   const location = useLocation();
 
-  const currentOrderType =
-    propOrderType ||
-    location.state?.orderType ||
-    localStorage.getItem("orderType") ||
-    "take_away";
+  // ✅ استخدم القيم التي تم تمريرها كـ props بشكل أساسي، وإذا لم تكن موجودة استخدم state أو localStorage
+  const currentOrderType = propOrderType || location.state?.orderType || localStorage.getItem("order_type") || "take_away";
+  const currentTableId = propTableId || location.state?.tableId || localStorage.getItem("table_id") || null;
+  const currentUserId = propUserId || location.state?.delivery_user_id || localStorage.getItem("delivery_user_id") || null;
 
-  const currentTableId = propTableId || location.state?.tableId || null;
-  console.log("Current table:", currentTableId);
-  
+  // ✅ Debugging logs
+  console.log("OrderPage Component Props:", { propOrderType, propTableId, propUserId });
+  console.log("OrderPage Component State/Props combined:", { currentOrderType, currentTableId, currentUserId });
+
   const isDineIn = currentOrderType === "dine_in" && !!currentTableId;
+  const isDelivery = currentOrderType === "delivery" && !!currentUserId;
 
-  const { data, loading } = useGet(
+  const { data: dineInData, loading: dineInLoading } = useGet(
     isDineIn && currentTableId ? `cashier/dine_in_table_order/${currentTableId}` : null
+  );
+
+  const { data: deliveryData, loading: deliveryLoading } = useGet(
+    isDelivery && currentUserId ? `cashier/delivery_order/${currentUserId}` : null
   );
 
   // ✅ Fetch dine-in order from API response
   useEffect(() => {
-    if (isDineIn && currentTableId && data?.success) {
+    if (isDineIn && currentTableId && dineInData?.success) {
       setOrdersByTable((prev) => ({
         ...prev,
-        [currentTableId]: Array.isArray(data.success) ? data.success : [],
+        [currentTableId]: Array.isArray(dineInData.success) ? dineInData.success : [],
       }));
-      console.log("Fetched dine-in order:", data.success);
+      console.log("Fetched dine-in order:", dineInData.success);
     }
-  }, [isDineIn, currentTableId, data]);
+  }, [isDineIn, currentTableId, dineInData]);
+
+  // ✅ Fetch delivery order from API response
+  useEffect(() => {
+    if (isDelivery && currentUserId && deliveryData?.success) {
+      setOrdersByUser((prev) => ({
+        ...prev,
+        [currentUserId]: Array.isArray(deliveryData.success) ? deliveryData.success : [],
+      }));
+      console.log("Fetched delivery order:", deliveryData.success);
+    }
+  }, [isDelivery, currentUserId, deliveryData]);
 
   // ✅ Load take-away cart from localStorage
   useEffect(() => {
-    if (!isDineIn) {
+    if (currentOrderType === "take_away") {
       const storedCartString = localStorage.getItem("cart");
       if (storedCartString && storedCartString !== "undefined") {
         try {
@@ -58,12 +76,12 @@ export default function OrderPage({
         setTakeAwayItems([]);
       }
     }
-  }, [isDineIn]);
+  }, [currentOrderType]);
 
   // ✅ Listen to localStorage changes
   useEffect(() => {
     const handleStorageChange = () => {
-      if (!isDineIn) {
+      if (currentOrderType === "take_away") {
         const updatedCartString = localStorage.getItem("cart");
         if (updatedCartString) {
           try {
@@ -81,21 +99,26 @@ export default function OrderPage({
 
     window.addEventListener("storage", handleStorageChange);
     return () => window.removeEventListener("storage", handleStorageChange);
-  }, [isDineIn]);
+  }, [currentOrderType]);
 
-  // ✅ Ensure currentOrderItems is always an array
   const currentOrderItems = isDineIn
     ? Array.isArray(ordersByTable[currentTableId]) ? ordersByTable[currentTableId] : []
+    : isDelivery
+    ? Array.isArray(ordersByUser[currentUserId]) ? ordersByUser[currentUserId] : []
     : Array.isArray(takeAwayItems) ? takeAwayItems : [];
 
   const updateOrderItems = (newItems) => {
-    // Ensure newItems is always an array
     const safeNewItems = Array.isArray(newItems) ? newItems : [];
-    
+
     if (isDineIn) {
       setOrdersByTable((prev) => ({
         ...prev,
         [currentTableId]: safeNewItems,
+      }));
+    } else if (isDelivery) {
+      setOrdersByUser((prev) => ({
+        ...prev,
+        [currentUserId]: safeNewItems,
       }));
     } else {
       setTakeAwayItems(safeNewItems);
@@ -104,9 +127,8 @@ export default function OrderPage({
   };
 
   const handleAddItem = (product) => {
-    // Double-check that currentOrderItems is an array
     const safeCurrentItems = Array.isArray(currentOrderItems) ? currentOrderItems : [];
-    
+
     const existingIndex = safeCurrentItems.findIndex(
       (item) => item.id === product.id
     );
@@ -140,7 +162,8 @@ export default function OrderPage({
           allowQuantityEdit={allowQuantityEdit}
           orderType={currentOrderType}
           tableId={currentTableId}
-          isLoading={loading || isLoading}
+          userId={currentUserId}
+          isLoading={dineInLoading || deliveryLoading || isLoading}
         />
       </div>
 

@@ -1,15 +1,30 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
+import { usePost } from "@/Hooks/usePost";
+import { toast } from "react-toastify";
 
 export default function Navbar() {
   const navigate = useNavigate();
+  const { postData } = usePost();
 
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
-    localStorage.removeItem("branch_id");
-    localStorage.removeItem("cart");
-    navigate("/login");
+  const handleLogout = async () => {
+    try {
+      // استدعاء API تسجيل الخروج
+      await postData("api/logout", {});
+
+      // حذف البيانات من التخزين
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+      localStorage.removeItem("branch_id");
+      localStorage.removeItem("cart");
+
+      toast.success("Logged out successfully");
+
+      // الرجوع لصفحة تسجيل الدخول
+      navigate("/login");
+    } catch (err) {
+      toast.error(err?.message || "Error while logging out");
+    }
   };
 
   return (
@@ -37,4 +52,3 @@ export default function Navbar() {
     </div>
   );
 }
-

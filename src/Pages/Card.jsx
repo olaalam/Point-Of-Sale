@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+
 import Loading from "@/components/Loading";
 import { Button } from "@/components/ui/button";
 import CheckOut from "./CheckOut";
@@ -13,6 +14,7 @@ import {
 import { usePost } from "@/Hooks/usePost";
 import { useGet } from "@/Hooks/useGet";
 import { ToastContainer, toast } from "react-toastify";
+
 const TAX_RATE = 0;
 const OTHER_CHARGE = 0;
 
@@ -22,24 +24,31 @@ const PREPARATION_STATUSES = {
     icon: Circle,
     color: "text-gray-400",
     nextStatus: "preparing",
+    canSendToAPI: false
   },
   preparing: {
     label: "Preparing",
-    icon: Hourglass,
+    icon: Hourglass, 
     color: "text-orange-500",
     nextStatus: "pick_up",
+    apiValue: "preparing",
+    canSendToAPI: true
   },
   pick_up: {
     label: "Pick Up",
     icon: ChefHat,
-    color: "text-blue-500",
+    color: "text-blue-500", 
     nextStatus: "done",
+    apiValue: "pick_up",
+    canSendToAPI: true
   },
   done: {
     label: "Done",
     icon: CheckCircle,
     color: "text-green-500",
-    nextStatus: "done",
+    nextStatus: "done", 
+    apiValue: "done",
+    canSendToAPI: true
   },
 };
 
@@ -55,30 +64,51 @@ export default function Card({
   const [bulkStatus, setBulkStatus] = useState("");
   const { data } = useGet(`cashier/dine_in_table_order/${tableId}`);
   const { loading: apiLoading, error: apiError, postData } = usePost();
+ 
+  console.log("Received orderType:", orderType);
+  console.log("Card component received tableId:", tableId);
 
   const isLoading = apiLoading;
+
   useEffect(() => {
     if (data && Array.isArray(data.success)) {
       const mappedItems = data.success.flatMap((item) => {
-        // في حالة وجود allExtras
+        const mappedItemsArray = [];
+        
+        // إضافة المنتج الأساسي
+        const baseItem = {
+          id: item.id,
+          cart_id: item.cart_id,
+          name: item.name ?? "No name",
+          // استخدام السعر بعد الخصم إذا كان متوفراً، وإلا السعر الأساسي
+          price: item.price_after_discount ?? item.price ?? 0,
+          originalPrice: item.price ?? 0, // حفظ السعر الأساسي للمقارنة
+          count: item.count ?? 1,
+          preparation_status: item.preparation_status || item.prepration || "pending",
+          type: 'main_item'
+        };
+        mappedItemsArray.push(baseItem);
+
+        // إضافة الـ addons إذا كانت موجودة
         if (Array.isArray(item.allExtras) && item.allExtras.length > 0) {
-          return item.allExtras.map((extra) => ({
-            id: extra.id,
-            name: extra.name ?? "No name",
-            price: extra.price_after_discount ?? extra.price ?? 0,
-            count: 1,
-            preparation_status: extra.preparation_status || "pending",
-          }));
+          item.allExtras.forEach((extra) => {
+            const addonItem = {
+              id: `${item.id}_addon_${extra.id}`, // معرف فريد للـ addon
+              cart_id: item.cart_id,
+              parent_id: item.id, // ربط الـ addon بالمنتج الأساسي
+              name: `${item.name} - ${extra.name}`, // اسم يوضح أنه addon
+              price: extra.price_after_discount ?? extra.price ?? 0,
+              originalPrice: extra.price ?? 0,
+              count: extra.count ?? 1, // استخدام الكمية الصحيحة للـ addon
+              preparation_status: extra.preparation_status || item.prepration || "pending",
+              type: 'addon',
+              addon_id: extra.id
+            };
+            mappedItemsArray.push(addonItem);
+          });
         }
 
-        // في حالة عدم وجود allExtras نستخدم بيانات المنتج نفسه
-        return {
-          id: item.id,
-          name: item.name ?? "No name",
-          price: item.price_after_discount ?? item.price ?? 0,
-          count: item.count ?? 1,
-          preparation_status: item.preparation_status || "pending",
-        };
+        return mappedItemsArray;
       });
 
       updateOrderItems(mappedItems);
@@ -90,26 +120,37 @@ export default function Card({
       if (item.id === itemId) {
         const currentStatus = item.preparation_status || "pending";
         const nextStatus =
-          PREPARATION_STATUSES[currentStatus]?.nextStatus || "pending";
+          PREPARATION_STATUSES[currentStatus]?.nextStatus || "preparing";
 
-        if (nextStatus) {
-          const payload = new URLSearchParams();
-          payload.append("preparing[0][cart_id]", itemId);
-          payload.append("table_id", tableId);
-          payload.append("preparing[0][status]", nextStatus);
+        if (nextStatus && nextStatus !== "pending" && item.cart_id && tableId) {
+          const formData = new FormData();
+          formData.append("preparing[0][cart_id]", item.cart_id.toString());
+          formData.append("table_id", tableId.toString());
+          formData.append("preparing[0][status]", PREPARATION_STATUSES[nextStatus]?.apiValue);
 
-          // Explicitly send as x-www-form-urlencoded
-          postData("cashier/preparing", payload)
+          console.log("Sending single item update:", {
+            cart_id: item.cart_id,
+            table_id: tableId,
+            status: PREPARATION_STATUSES[nextStatus]?.apiValue
+          });
+
+          postData("cashier/preparing", formData)
             .then((responseData) => {
-              console.log(
-                "Single item backend update successful:",
-                responseData
-              );
+              console.log("Single item backend update successful:", responseData);
+              toast.success("Status updated successfully!");
             })
             .catch((err) => {
               console.error("Failed to update single item status:", err);
+              toast.error("Failed to update status. Please try again.");
             });
+        } else if (nextStatus === "pending") {
+          console.log("Status changed to pending - frontend only");
+          toast.info("Status changed to pending");
+        } else {
+          console.error("Missing required data:", { cart_id: item.cart_id, tableId, nextStatus });
+          toast.error("Missing required data for status update");
         }
+       
         return { ...item, preparation_status: nextStatus };
       }
       return item;
@@ -119,16 +160,24 @@ export default function Card({
     localStorage.setItem("cart", JSON.stringify(updatedItems));
   };
 
+  // حساب المجاميع مع الأخذ في الاعتبار الخصومات والـ addons
   const { subTotal, totalTax, totalOtherCharge, totalAmountDisplay } =
     useMemo(() => {
       const itemsToCalculate = Array.isArray(orderItems) ? orderItems : [];
+      
+      // حساب المجموع الفرعي بضرب السعر (بعد الخصم) في الكمية
       const calculatedSubTotal = itemsToCalculate.reduce(
-        (acc, item) => acc + item.price * item.count,
+        (acc, item) => {
+          const itemPrice = item.price || 0;
+          const itemCount = item.count || 1;
+          return acc + (itemPrice * itemCount);
+        },
         0
       );
+      
       const calculatedTax = calculatedSubTotal * TAX_RATE;
-      const calculatedTotalDisplay =
-        calculatedSubTotal + calculatedTax + OTHER_CHARGE;
+      const calculatedTotalDisplay = calculatedSubTotal + calculatedTax + OTHER_CHARGE;
+      
       return {
         subTotal: calculatedSubTotal,
         totalTax: calculatedTax,
@@ -145,7 +194,7 @@ export default function Card({
         (item) => item.preparation_status === "done"
       );
       const servedSubTotal = servedItems.reduce(
-        (acc, item) => acc + item.price * item.count,
+        (acc, item) => acc + (item.price * item.count),
         0
       );
       const servedTax = servedSubTotal * TAX_RATE;
@@ -176,7 +225,6 @@ export default function Card({
       .map((item) => {
         if (item.id === id) {
           const newCount = item.count - 1;
-          // لا تسمح بالوصول لأقل من 1 إذا العنصر في مرحلة done
           if (item.preparation_status === "done" && newCount < 1) {
             return item;
           }
@@ -191,7 +239,7 @@ export default function Card({
 
   const handleCheckOut = () => {
     if (orderType === "dine_in" && checkoutItems.length === 0) {
-      toast(
+      toast.warning(
         "No served items available for checkout. Please serve items first."
       );
       return;
@@ -214,52 +262,78 @@ export default function Card({
   const statusOrder = ["pending", "preparing", "pick_up", "done"];
 
   const applyBulkStatus = async () => {
-    if (!bulkStatus || selectedItems.length === 0) return;
+    if (!bulkStatus || selectedItems.length === 0) {
+      toast.warning("Please select items and choose a status");
+      return;
+    }
+
+    if (!tableId) {
+      toast.error("Table ID is missing");
+      return;
+    }
 
     const itemsToUpdateOnBackend = [];
 
     const updatedItems = orderItems.map((item) => {
       if (!selectedItems.includes(item.id)) return item;
+     
       const currentIndex = statusOrder.indexOf(
         item.preparation_status || "pending"
       );
       const targetIndex = statusOrder.indexOf(bulkStatus);
-      if (targetIndex < currentIndex) return item;
-
-      if (
-        bulkStatus === "preparing" ||
-        bulkStatus === "pick_up" ||
-        bulkStatus === "done"
-      ) {
-        itemsToUpdateOnBackend.push({
-          cart_id: item.id,
-          table_id: tableId,
-          status: bulkStatus,
-        }); // Ensure tableId is not undefined here
+     
+      if (targetIndex < currentIndex) {
+        console.log(`Skipping item ${item.id}: target status is before current status`);
+        return item;
       }
+
+      if (bulkStatus !== "pending" && item.cart_id && PREPARATION_STATUSES[bulkStatus]?.canSendToAPI) {
+        itemsToUpdateOnBackend.push({
+          cart_id: item.cart_id,
+          status: PREPARATION_STATUSES[bulkStatus]?.apiValue,
+        });
+      } else if (!item.cart_id && bulkStatus !== "pending") {
+        console.error(`Item ${item.id} is missing cart_id`);
+      }
+     
       return { ...item, preparation_status: bulkStatus };
     });
 
     if (itemsToUpdateOnBackend.length > 0) {
-      const bulkPayload = new URLSearchParams();
+      console.log("Items to update on backend:", itemsToUpdateOnBackend);
+
+      const formData = new FormData();
+      formData.append("table_id", tableId.toString());
+     
       itemsToUpdateOnBackend.forEach((item, index) => {
-        bulkPayload.append(`preparing[${index}][cart_id]`, item.cart_id);
-        bulkPayload.append(`preparing[${index}][table_id]`, item.table_id);
-        bulkPayload.append(`preparing[${index}][status]`, item.status);
+        formData.append(`preparing[${index}][cart_id]`, item.cart_id.toString());
+        formData.append(`preparing[${index}][status]`, item.status);
       });
 
-      // Explicitly send as x-www-form-urlencoded
-      postData("cashier/preparing", bulkPayload)
-        .then((responseData) => {
-          console.log("Bulk backend update successful:", responseData);
-        })
-        .catch((err) => {
-          console.error("Failed to apply bulk status:", err);
-        });
+      console.log("Bulk update payload:");
+      for (let [key, value] of formData.entries()) {
+        console.log(`${key}: ${value}`);
+      }
+
+      try {
+        const responseData = await postData("cashier/preparing", formData);
+        console.log("Bulk backend update successful:", responseData);
+        toast.success(`Successfully updated ${itemsToUpdateOnBackend.length} items to ${PREPARATION_STATUSES[bulkStatus]?.label}`);
+      } catch (err) {
+        console.error("Failed to apply bulk status:", err);
+        toast.error("Failed to update status. Please try again.");
+        return;
+      }
+    } else if (bulkStatus === "pending") {
+      toast.info(`Status changed to ${PREPARATION_STATUSES[bulkStatus]?.label} `);
+    } else {
+      toast.warning("No valid items to update");
+      return;
     }
 
     updateOrderItems(updatedItems);
     setSelectedItems([]);
+    setBulkStatus("");
   };
 
   const currentLowestSelectedStatus = useMemo(() => {
@@ -275,11 +349,9 @@ export default function Card({
 
   useEffect(() => {
     if (apiError) {
-      toast(`API Error: ${apiError}`);
+      toast.error(`API Error: ${apiError}`);
     }
-    // Add a console log to quickly check the tableId prop value
-    console.log("Card component received tableId:", tableId);
-  }, [apiError, tableId]);
+  }, [apiError]);
 
   const SummaryRow = ({ label, value }) => (
     <div className="grid grid-cols-2 gap-10 py-2">
@@ -305,25 +377,29 @@ export default function Card({
                 <SelectValue placeholder="-- Choose Status --" />
               </SelectTrigger>
               <SelectContent className="bg-white border border-gray-200 rounded-md shadow-lg">
-                {Object.entries(PREPARATION_STATUSES).map(([key, value]) => {
-                  const isStatusBeforeLowestSelected =
-                    statusOrder.indexOf(key) <
-                    statusOrder.indexOf(currentLowestSelectedStatus);
-
-                  return (
+                {Object.entries(PREPARATION_STATUSES)
+                  .filter(([key]) => {
+                    const isStatusBeforeLowestSelected =
+                      statusOrder.indexOf(key) <
+                      statusOrder.indexOf(currentLowestSelectedStatus);
+                   
+                    return !isStatusBeforeLowestSelected;
+                  })
+                  .map(([key, value]) => (
                     <SelectItem
                       key={key}
                       value={key}
-                      className="px-4 py-2 hover:bg-gray-100 cursor-pointer data-[disabled]:opacity-50 data-[disabled]:cursor-not-allowed"
-                      disabled={isStatusBeforeLowestSelected}
+                      className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
                     >
                       <div className="flex items-center gap-2">
                         <value.icon size={16} className={value.color} />
                         <span>{value.label}</span>
+                        {!value.canSendToAPI && (
+                          <span className="text-xs text-gray-500"></span>
+                        )}
                       </div>
                     </SelectItem>
-                  );
-                })}
+                  ))}
               </SelectContent>
             </Select>
             <Button
@@ -331,7 +407,7 @@ export default function Card({
               className="bg-bg-primary text-white hover:bg-red-700 text-sm"
               disabled={selectedItems.length === 0 || !bulkStatus || isLoading}
             >
-              Apply Status
+              Apply Status ({selectedItems.length} selected)
             </Button>
           </div>
         )}
@@ -388,10 +464,15 @@ export default function Card({
                   PREPARATION_STATUSES.pending;
                 const StatusIcon = statusInfo.icon;
 
+                // عرض الخصم إذا كان موجود
+                const hasDiscount = item.originalPrice && item.price < item.originalPrice;
+
                 return (
                   <tr
                     key={`${item.id}-${item.preparation_status}-${index}`}
-                    className="border-b last:border-b-0 hover:bg-gray-50"
+                    className={`border-b last:border-b-0 hover:bg-gray-50 ${
+                      item.type === 'addon' ? 'bg-blue-50' : ''
+                    }`}
                   >
                     <td className="py-1 px-2">
                       <input
@@ -402,8 +483,35 @@ export default function Card({
                       />
                     </td>
 
-                    <td className="font-small py-1 px-2">{item.name}</td>
-                    <td className="py-1 px-2">{item.price.toFixed(2)}</td>
+                    <td className="font-small py-1 px-2">
+                      <div>
+                        <span className={item.type === 'addon' ? 'text-blue-600 text-sm' : ''}>
+                          {item.name}
+                        </span>
+                        {item.type === 'addon' && (
+                          <span className="text-xs text-gray-500 block">
+                            (Add-on)
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="py-1 px-2">
+                      <div>
+                        <span className={hasDiscount ? 'text-green-600 font-semibold' : ''}>
+                          {item.price.toFixed(2)}
+                        </span>
+                        {hasDiscount && (
+                          <div>
+                            <span className="text-xs text-gray-500 line-through">
+                              {item.originalPrice.toFixed(2)}
+                            </span>
+                            {/* <span className="text-xs text-green-600 ml-1">
+                              ({(((item.originalPrice - item.price) / item.originalPrice) * 100).toFixed(0)}% off)
+                            </span> */}
+                          </div>
+                        )}
+                      </div>
+                    </td>
                     <td className="py-1 px-2">
                       <div className="flex items-center gap-1">
                         <button
@@ -450,7 +558,14 @@ export default function Card({
                       </td>
                     ) : null}
                     <td className="text-right py-3 px-4">
-                      {(item.price * item.count).toFixed(2)}
+                      <span className="font-semibold">
+                        {(item.price * item.count).toFixed(2)}
+                      </span>
+                      {hasDiscount && (
+                        <div className="text-xs text-gray-500 line-through">
+                          {(item.originalPrice * item.count).toFixed(2)}
+                        </div>
+                      )}
                     </td>
                   </tr>
                 );
@@ -470,7 +585,6 @@ export default function Card({
 
       <hr className="my-6 border-t-2 border-gray-200" />
 
-      {/* Display additional information for dine_in orders */}
       {orderType === "dine_in" && (
         <>
           <div className="grid grid-cols-2 gap-4 items-center mb-4">

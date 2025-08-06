@@ -8,73 +8,79 @@ import { useNavigate } from "react-router-dom";
 import Loading from "@/components/Loading";
 import { usePost } from "@/Hooks/usePost";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
+import {  ToastContainer } from "react-toastify";
 
 export default function Delivery({ orderType: propOrderType }) {
   const [searchQuery, setSearchQuery] = useState("");
-  const orderType = propOrderType || location.state?.orderType || "delivery";
+ const orderType = propOrderType || "delivery";
 
-  const [filteredCustomers, setFilteredCustomers] = useState([]);
+  const [filteredusers, setFilteredusers] = useState([]);
   const navigate = useNavigate();
-  const [selectedCustomer, setSelectedCustomer] = useState(null);
+  const [selecteduser, setSelecteduser] = useState(null);
   const [editData, setEditData] = useState({ name: "", phone: "" });
   const [openDialog, setOpenDialog] = useState(false);
   const [selectedAddressId, setSelectedAddressId] = useState(null);
+  const [selectedUserId, setSelectedUserId] = useState(null);
 
   // جرب تغيير endpoint ليشمل العناوين
-  const { data, error, isLoading, refetch } = useGet(
-    "cashier/customer?include=addresses"
-  );
+  const { data, error, isLoading, refetch } = useGet("cashier/user");
   const { postData } = usePost();
 
   // إضافة console.log للتشخيص
   useEffect(() => {
     console.log("Raw data from API:", data);
-    if (data?.customers) {
-      console.log("Customers array:", data.customers);
-      data.customers.forEach((customer, index) => {
-        console.log(`Customer ${index}:`, customer);
-        console.log(`Customer ${index} addresses:`, customer.addresses);
+    if (data?.users) {
+      console.log("users array:", data?.users);
+      data?.users.forEach((user, index) => {
+        console.log(`user ${index}:`, user);
+        console.log(`user ${index} address:`, user?.address);
       });
-      setFilteredCustomers(data.customers);
+      setFilteredusers(data.users);
     }
   }, [data]);
 
   const handleInstantSearch = (query) => {
     setSearchQuery(query);
 
-    if (!data?.customers) {
-      setFilteredCustomers([]);
+    if (!data?.users) {
+      setFilteredusers([]);
       return;
     }
 
     if (!query) {
-      setFilteredCustomers(data.customers);
+      setFilteredusers(data.users);
       return;
     }
 
     const lowerCaseQuery = query.toLowerCase();
-    const filtered = data.customers.filter((customer) => {
-      const matchesName = customer.name.toLowerCase().includes(lowerCaseQuery);
+    const filtered = data.users.filter((user) => {
+      const fullName = `${user.f_name} ${user.l_name}`.toLowerCase();
+      const matchesName = fullName.includes(lowerCaseQuery);
       const matchesPhone =
-        customer.phone && String(customer.phone).includes(lowerCaseQuery);
+        user.phone && String(user.phone).includes(lowerCaseQuery);
       return matchesName || matchesPhone;
     });
-    setFilteredCustomers(filtered);
+    setFilteredusers(filtered);
   };
 
   const handleAddUser = () => {
     navigate("/add");
   };
 
-  const handleEditClick = (customer) => {
-    setSelectedCustomer(customer);
-    setEditData({ name: customer.name, phone: customer.phone });
+  const handleEditClick = (user) => {
+    setSelecteduser(user);
+    setEditData({
+      f_name: user.f_name,
+      l_name: user.l_name,
+      phone: user.phone,
+      phone_2: user.phone_2,
+    });
     setOpenDialog(true);
   };
 
   const handleSaveEdit = async () => {
-    if (!selectedCustomer) return;
-    await postData(`cashier/customer/update/${selectedCustomer.id}`, editData);
+    if (!selecteduser) return;
+    await postData(`cashier/user/update/${selecteduser.id}`, editData);
     setOpenDialog(false);
     refetch();
   };
@@ -82,6 +88,38 @@ export default function Delivery({ orderType: propOrderType }) {
   const handleEditAddressClick = (address) => {
     navigate(`add/${address.id}`);
   };
+
+  // Modified handleConfirmDelivery function
+  const handleConfirmDelivery = (user, addressId) => {
+    const selectedAddress = user.address.find(addr => addr.id === addressId);
+    
+    // Store user data in localStorage
+    localStorage.setItem("selected_user_id", user.id);
+    localStorage.setItem("selected_address_id", addressId);
+    localStorage.setItem("order_type", "delivery");
+    
+    // Store complete user data for quick access
+    const userData = {
+      id: user.id,
+      f_name: user.f_name,
+      l_name: user.l_name,
+      phone: user.phone,
+      phone_2: user.phone_2,
+      selectedAddress: selectedAddress
+    };
+    localStorage.setItem("selected_user_data", JSON.stringify(userData));
+ console.log("Attempting to navigate to /order-page with state:", { orderType: "delivery", userId: user.id, addressId: addressId });
+
+    // Navigate to items page
+  navigate("/delivery-order", {
+  state: {
+  orderType: "delivery",
+  userId: user.id,
+  addressId: addressId,
+  },
+ });
+ };
+
   console.log("Order Type:", orderType);
   return (
     <div className="min-h-screen  bg-gray-100">
@@ -91,7 +129,7 @@ export default function Delivery({ orderType: propOrderType }) {
         <div className="flex gap-2 items-center my-6">
           <Input
             type="text"
-            placeholder="Search Customer Name or Phone"
+            placeholder="Search user Name or Phone"
             value={searchQuery}
             onChange={(e) => handleInstantSearch(e.target.value)}
             className="flex-grow p-3 text-lg rounded-lg border-gray-300 bg-white"
@@ -109,47 +147,50 @@ export default function Delivery({ orderType: propOrderType }) {
         {error && <p className="text-bg-primary">Error: {error.message}</p>}
 
         <div className="w-full grid grid-cols-2 gap-6 space-y-4">
-          {filteredCustomers.length === 0 &&
+          {filteredusers.length === 0 &&
             !isLoading &&
             !error &&
             searchQuery && (
               <p className="text-gray-500 text-center">
-                No customers found matching your search.
+                No users found matching your search.
               </p>
             )}
-          {filteredCustomers.map((customer) => (
+          {filteredusers.map((user) => (
             <div
-              key={customer.id}
+              key={user.id}
               className="bg-white rounded-lg p-4 my-4 shadow-sm"
             >
               <div className="flex gap-6 mb-4">
-                {/* Customer Name */}
+                {/* user Name */}
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
                     <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
                       <User className="w-4 h-4 text-bg-primary" />
                     </div>
-                    <span className="text-gray-800">{customer.name}</span>
+                    <span className="text-gray-800">
+                      {" "}
+                      {user.f_name} {user.l_name}
+                    </span>
                   </div>
                   <Pencil
                     className="w-4 h-4 text-bg-primary cursor-pointer ml-4"
-                    onClick={() => handleEditClick(customer)}
+                    onClick={() => handleEditClick(user)}
                   />
                 </div>
 
-                {/* Customer Phone */}
+                {/* user Phone */}
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
                     <Phone className="w-4 h-4 text-bg-primary" />
-                    <span className="text-gray-800">{customer.phone}</span>
+                    <span className="text-gray-800">{user.phone}</span>
                   </div>
                 </div>
               </div>
-              {/* Customer Addresses */}
-              {customer.addresses && customer.addresses.length > 0 ? (
-                customer.addresses.map((address, index) => (
+              {/* user address */}
+              {user.address && user.address.length > 0 ? (
+                user.address.map((address, index) => (
                   <div
-                    key={address.id || index}
+                    key={`${user.id}-${address.id}-${index}`}
                     className="flex items-center justify-between mb-3"
                   >
                     <div
@@ -159,7 +200,11 @@ export default function Delivery({ orderType: propOrderType }) {
         ? "bg-red-100 border border-bg-primary"
         : "bg-gray-100"
     }`}
-                      onClick={() => setSelectedAddressId(address.id)}
+                      onClick={() => {
+                        setSelectedAddressId(address.id);
+                        setSelectedUserId(user.id);
+                        setSelecteduser(user);
+                      }}
                     >
                       <MapPin className="w-4 h-4  text-bg-primary" />
                       <span className="text-gray-800">
@@ -179,22 +224,30 @@ export default function Delivery({ orderType: propOrderType }) {
               ) : (
                 <div className="flex items-center gap-2 text-gray-500 text-sm mb-3">
                   <MapPin className="w-4 h-4" />
-                  <span>No addresses available</span>
+                  <span>No address available</span>
                 </div>
               )}
 
-              {console.log(
-                `Customer ${customer.name} addresses:`,
-                customer.addresses
-              )}
+              {console.log(`user ${user.name} address:`, user.address)}
 
               {/* Add Address Button */}
-              <button
-                className="w-[40%] bg-bg-primary text-white p-2 rounded-xl font-medium"
-                onClick={() => navigate(`/add?customer_id=${customer.id}`)}
-              >
-                + Add Another Address
-              </button>
+              <div className="flex gap-4 mt-4">
+                <button
+                  className="w-[50%] bg-bg-primary text-white p-2 rounded-xl font-medium"
+                  onClick={() => navigate(`/add?user_id=${user.id}`)}
+                >
+                  + Add Another Address
+                </button>
+
+                {selectedAddressId && selectedUserId === user.id && (
+                  <button
+                    className="w-[50%] bg-green-600 text-white p-2 rounded-xl font-medium"
+                    onClick={() => handleConfirmDelivery(user, selectedAddressId)}
+                  >
+                    Confirm Delivery
+                  </button>
+                )}
+              </div>
             </div>
           ))}
         </div>
@@ -203,12 +256,22 @@ export default function Delivery({ orderType: propOrderType }) {
       <Dialog open={openDialog} onOpenChange={setOpenDialog}>
         <DialogContent className="space-y-4 bg-white">
           <h2 className="text-xl font-semibold text-center text-bg-primary">
-            Edit Customer
+            Edit user
           </h2>
           <Input
-            value={editData.name}
-            onChange={(e) => setEditData({ ...editData, name: e.target.value })}
-            placeholder="Customer Name"
+            value={editData.f_name}
+            onChange={(e) =>
+              setEditData({ ...editData, f_name: e.target.value })
+            }
+            placeholder="First Name"
+            className="border-gray-300"
+          />
+          <Input
+            value={editData.l_name}
+            onChange={(e) =>
+              setEditData({ ...editData, l_name: e.target.value })
+            }
+            placeholder="Last Name"
             className="border-gray-300"
           />
           <Input
@@ -219,6 +282,14 @@ export default function Delivery({ orderType: propOrderType }) {
             placeholder="Phone"
             className="border-gray-300"
           />
+          <Input
+            value={editData.phone_2}
+            onChange={(e) =>
+              setEditData({ ...editData, phone_2: e.target.value })
+            }
+            placeholder="Another Phone"
+            className="border-gray-300"
+          />
           <Button
             onClick={handleSaveEdit}
             className="w-full bg-bg-primary hover:bg-red-700 text-white"
@@ -227,6 +298,7 @@ export default function Delivery({ orderType: propOrderType }) {
           </Button>
         </DialogContent>
       </Dialog>
+      <ToastContainer position="top-right" autoClose={5000} />
     </div>
   );
 }
