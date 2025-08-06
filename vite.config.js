@@ -14,5 +14,5 @@ const __dirname = path.dirname(__filename);export default defineConfig({
       "@": path.resolve(__dirname, "src"),
     },
   },
-
+  base:'/Point-of-sale/',
 })

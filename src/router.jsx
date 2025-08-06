@@ -139,6 +139,9 @@ const router = createBrowserRouter([
       },
     ],
   },
-]);
+],
+{
+  basename: "/Point-of-sale/", 
+});
 
 export default router;
