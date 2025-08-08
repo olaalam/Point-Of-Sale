@@ -126,32 +126,37 @@ export default function OrderPage({
     }
   };
 
-  const handleAddItem = (product) => {
-    const safeCurrentItems = Array.isArray(currentOrderItems) ? currentOrderItems : [];
+const handleAddItem = (product) => {
+  const safeCurrentItems = Array.isArray(currentOrderItems) ? currentOrderItems : [];
 
-    const existingIndex = safeCurrentItems.findIndex(
-      (item) => item.id === product.id
-    );
+  const existingItemIndex = safeCurrentItems.findIndex(
+    (item) =>
+      item.id === product.id &&
+      item.selectedVariation === product.selectedVariation &&
+      JSON.stringify(item.selectedExtras?.sort()) ===
+        JSON.stringify(product.selectedExtras?.sort())
+  );
 
-    let updatedItems = [];
+  let updatedItems = [...safeCurrentItems];
 
-    if (existingIndex !== -1) {
-      updatedItems = [...safeCurrentItems];
-      updatedItems[existingIndex].count += 1;
-    } else {
-      updatedItems = [
-        ...safeCurrentItems,
-        {
-          ...product,
-          count: 1,
-          preparation_status: "pending",
-          preparation: "",
-        },
-      ];
-    }
+  if (existingItemIndex !== -1) {
+    // لو العنصر موجود، زوّد الكمية وأضف الـ addons
+    updatedItems[existingItemIndex] = {
+      ...updatedItems[existingItemIndex],
+      count: updatedItems[existingItemIndex].count + product.count,
+      addons: [...updatedItems[existingItemIndex].addons, ...product.addons],
+    };
+  } else {
+    // لو العنصر جديد، أضفه
+    updatedItems.push({
+      ...product,
+      count: product.count || 1,
+      preparation_status: product.preparation_status || "pending",
+    });
+  }
 
-    updateOrderItems(updatedItems);
-  };
+  updateOrderItems(updatedItems);
+};
 
   return (
     <div className="flex flex-col-reverse lg:flex-row gap-6 h-full w-full px-4">

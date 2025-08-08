@@ -1,4 +1,5 @@
-// hooks/useProductModal.js (FIXED VERSION)
+
+// 1. this file contains the logic for managing product modal state and interactions
 import { useState, useEffect } from "react";
 
 export const useProductModal = () => {
@@ -14,20 +15,24 @@ export const useProductModal = () => {
     console.log("Opening modal for product:", product);
     setSelectedProduct(product);
     
-    // If variations exist, set the first one as default
+    // Find size variation and set first option as default
     if (product.variations && product.variations.length > 0) {
-      setSelectedVariation(product.variations[0].id);
+      const sizeVariation = product.variations.find(v => v.name.toLowerCase() === "size");
+      if (sizeVariation && sizeVariation.options && sizeVariation.options.length > 0) {
+        setSelectedVariation(sizeVariation.options[0].id);
+        console.log("Set default variation option:", sizeVariation.options[0]);
+      } else {
+        setSelectedVariation(null);
+      }
     } else {
       setSelectedVariation(null);
     }
     
-    // Reset extras and quantity
     setSelectedExtras([]);
     setQuantity(1);
     setIsProductModalOpen(true);
   };
 
-  // Function to close product modal
   const closeProductModal = () => {
     setIsProductModalOpen(false);
     setSelectedProduct(null);
@@ -37,15 +42,11 @@ export const useProductModal = () => {
     setTotalPrice(0);
   };
 
-  // Function to handle variation (size) change
-const handleVariationChange = (variationId, optionId) => {
-  setSelectedVariation({
-    variation_id: variationId,
-    option_ids: [optionId],
-  });
-};
+  const handleVariationChange = (optionId) => {
+    console.log("Variation option changed to:", optionId);
+    setSelectedVariation(optionId);
+  };
 
-  // Function to handle extra (addon) selection change
   const handleExtraChange = (extraId) => {
     console.log("Extra changed:", extraId);
     setSelectedExtras((prev) => {
@@ -57,7 +58,6 @@ const handleVariationChange = (variationId, optionId) => {
     });
   };
 
-  // useEffect to recalculate total price whenever quantity, variation, or extras change
   useEffect(() => {
     if (!selectedProduct) {
       setTotalPrice(0);
@@ -71,21 +71,24 @@ const handleVariationChange = (variationId, optionId) => {
       selectedVariation
     });
 
-    // Start with base product price (after discount if available)
+    // Start with base product price
     let basePrice = selectedProduct.price_after_discount ?? selectedProduct.price ?? 0;
-    console.log("Base price:", basePrice);
+    console.log("Base product price:", basePrice);
 
-    // Handle variation pricing if needed (currently variations don't seem to have different prices)
-    // If variations have different prices, you can add that logic here
+    // Handle variation pricing (from selected option)
     if (selectedVariation && selectedProduct.variations) {
-      const selectedVar = selectedProduct.variations.find(v => v.id === selectedVariation);
-      if (selectedVar && selectedVar.price) {
-        basePrice = selectedVar.price_after_discount ?? selectedVar.price ?? basePrice;
-        console.log("Variation price:", basePrice);
+      const sizeVariation = selectedProduct.variations.find(v => v.name.toLowerCase() === "size");
+      if (sizeVariation && sizeVariation.options) {
+        const selectedOption = sizeVariation.options.find(opt => opt.id === selectedVariation);
+        if (selectedOption) {
+          // Use option price instead of base product price
+          basePrice = selectedOption.price_after_tax ?? selectedOption.price ?? basePrice;
+          console.log("Using variation option price:", basePrice, selectedOption);
+        }
       }
     }
 
-    // Add prices from selected extras (addons)
+    // Add prices from selected extras
     let addonsPrice = 0;
     if (selectedExtras.length > 0 && selectedProduct.addons) {
       selectedExtras.forEach((extraId) => {
@@ -98,13 +101,16 @@ const handleVariationChange = (variationId, optionId) => {
       });
     }
 
-    // Calculate total price per unit
     const pricePerUnit = basePrice + addonsPrice;
-    console.log("Price per unit (base + addons):", pricePerUnit);
-
-    // Calculate total price with quantity
     const calculatedTotalPrice = pricePerUnit * quantity;
-    console.log("Final total price:", calculatedTotalPrice);
+    
+    console.log("Price calculation:", {
+      basePrice,
+      addonsPrice,
+      pricePerUnit,
+      quantity,
+      calculatedTotalPrice
+    });
 
     setTotalPrice(calculatedTotalPrice);
   }, [quantity, selectedExtras, selectedProduct, selectedVariation]);

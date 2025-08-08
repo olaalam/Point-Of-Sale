@@ -171,119 +171,122 @@ const CheckOut = ({
       ? "cashier/delivery_order"
       : "cashier/take_away_order";
 
-  const handleSubmitOrder = async () => {
-    if (!isTotalMet || totalScheduled === 0) {
-      return toast.error(`Total must equal ${requiredTotal.toFixed(2)} EGP.`);
-    }
+const handleSubmitOrder = async () => {
+  if (!isTotalMet || totalScheduled === 0) {
+    return toast.error(`Total must equal ${requiredTotal.toFixed(2)} EGP.`);
+  }
 
-    const formattedFinancials = paymentSplits.map((s) => ({
-      id: parseInt(s.accountId),
-      amount: s.amount,
+  const formattedFinancials = paymentSplits.map((s) => ({
+    id: parseInt(s.accountId),
+    amount: s.amount,
+  }));
+
+  let productsToSend;
+  let newAmountToPay;
+
+  if (orderType === "dine_in") {
+    const doneItems = orderItems.filter(
+      (item) => item.preparation_status === "done"
+    );
+    newAmountToPay = doneItems.reduce(
+      (acc, item) => acc + item.price * item.count,
+      0
+    );
+    
+    productsToSend = doneItems.map((item) => ({
+      product_id: item.id,
+      count: item.count,
+      
+      // Handle addons properly
+      addons: item.selectedAddons?.map((addon) => ({
+        addon_id: addon.addon_id,
+        count: addon.count,
+      })) || [],
+      
+      // Handle variations properly
+      variation: item.variation ? [{
+        variation_id: item.variation.variation_id,
+        option_id: [item.variation.option_id]
+      }] : [],
+      
+      exclude_id: item.exclude_id || [],
+      extra_id: item.extra_id || [],
     }));
 
-    let productsToSend;
-    let newAmountToPay;
+    console.log("Products to send for dine_in:", productsToSend);
 
-    if (orderType === "dine_in") {
-      const doneItems = orderItems.filter(
-        (item) => item.preparation_status === "done"
-      );
-      newAmountToPay = doneItems.reduce(
-        (acc, item) => acc + item.price * item.count,
-        0
-      );
-      productsToSend = orderItems.map((item) => ({
-        product_id: item.id,
-        count: item.count,
-        addons:
-          item.selectedExtras?.map((addon_id) => ({
-            addon_id,
-            count: item.count || 1,
-          })) || [],
-        exclude_id: item.exclude_id || [],
-        extra_id: item.extra_id || [],
-        variation: item.selectedVariation
-          ? [
-              {
-                variation_id: item.selectedVariation,
-                option_id: [], // عدلي حسب شكل الـ options لو في
-              },
-            ]
-          : [],
-      }));
+  } else {
+    // For takeaway/delivery
+    productsToSend = orderItems.map((item) => ({
+      product_id: item.id,
+      count: item.count,
+      
+      // Handle addons
+      addons: item.selectedAddons?.map((addon) => ({
+        addon_id: addon.addon_id,
+        count: addon.count,
+      })) || [],
+      
+      // Handle variations
+      variation: item.variation ? [{
+        variation_id: item.variation.variation_id,
+        option_id: [item.variation.option_id]
+      }] : [],
+      
+      exclude_id: item.exclude_id || [],
+      extra_id: item.extra_id || [],
+    }));
+    
+    console.log("Products to send for takeaway/delivery:", productsToSend);
+    newAmountToPay = amountToPay;
+  }
 
-      if (productsToSend.length === 0) {
-        return toast.error("No done items to process for dine-in order.");
-      }
-    } else {
-      productsToSend = orderItems.map((item) => ({
-        product_id: item.id,
-        count: item.count,
-        addons:
-          item.selectedExtras?.map((addon_id) => ({
-            addon_id,
-            count: item.count || 1, // أو خليها 1 دائمًا لو مش محتاجة تعدد
-          })) || [],
+  const payload = {
+    financials: formattedFinancials,
+    cashier_id: cashierId,
+    amount: newAmountToPay,
+    total_tax: totalTax,
+    total_discount: totalDiscount,
+    notes,
+    products: productsToSend,
+    ...(orderType === "dine_in" && { table_id: tableId }),
+    ...(orderType === "delivery" && {
+      address_id: localStorage.getItem("selected_address_id") || "",
+      user_id: localStorage.getItem("selected_user_id") || "",
+      cash_with_delivery: parseFloat(customerPaid) || 0,
+    }),
+  };
 
-        exclude_id: item.exclude_id || [],
-        extra_id: item.extra_id || [],
-        variation: item.variation
-          ? [
-              {
-                variation_id: item.variation.variation_id,
-                option_id: item.variation.option_id || [],
-              },
-            ]
-          : [],
-      }));
-      newAmountToPay = amountToPay;
-    }
+  console.log("Final payload being sent:", JSON.stringify(payload, null, 2));
 
-    const payload = {
-      financials: formattedFinancials,
-      cashier_id: cashierId,
-      amount: newAmountToPay,
-      total_tax: totalTax,
-      total_discount: totalDiscount,
-      notes,
-      products: productsToSend,
-      ...(orderType === "dine_in" && { table_id: tableId }),
-      ...(orderType === "delivery" && {
-        address_id: localStorage.getItem("selected_address_id") || "",
-        user_id: localStorage.getItem("selected_user_id") || "",
-        cash_with_delivery: parseFloat(customerPaid) || 0,
-      }),
-    };
+  try {
+    const response = await postData(endpoint, payload);
+    console.log("Order Submission Response:", response);
+    toast.success("Order placed successfully!");
+    
+    // Continue with rest of the logic...
+    localStorage.setItem("last_order_type", orderType);
 
-    try {
-      const response = await postData(endpoint, payload);
-      console.log("Order Submission Response:", response);
-
-      toast.success("Order placed successfully!");
-      localStorage.setItem("last_order_type", orderType);
-
-      if (orderType === "delivery") {
-        const newOrderId = response?.success?.id;
-        if (newOrderId) {
-          setOrderId(newOrderId);
-          console.log("New Order ID:", newOrderId);
-          setDeliveryModelOpen(true);
-        } else {
-          toast.error(
-            "Order ID not returned from server. Cannot assign delivery."
-          );
-          onClose();
-          navigate("/orders");
-        }
+    if (orderType === "delivery") {
+      const newOrderId = response?.success?.id;
+      if (newOrderId) {
+        setOrderId(newOrderId);
+        console.log("New Order ID:", newOrderId);
+        setDeliveryModelOpen(true);
       } else {
+        toast.error("Order ID not returned from server. Cannot assign delivery.");
         onClose();
         navigate("/orders");
       }
-    } catch (e) {
-      console.error("Submit error:", e);
-      toast.error(e.message || "Submission failed");
+    } else {
+      onClose();
+      navigate("/orders");
     }
-  };
+  } catch (e) {
+    console.error("Submit error:", e);
+    toast.error(e.message || "Submission failed");
+  }
+};
 
   const handleAssignDelivery = async () => {
     // إضافة هذا الشرط للتأكد من وجود orderId قبل إرسال الطلب
@@ -338,7 +341,7 @@ const CheckOut = ({
             ×
           </button>
           <h2 className="text-xl font-semibold mb-4 text-bg-primary text-center">
-            Assign Delivery Person
+            Assign Delivery Man
           </h2>
 
           <div className="space-y-4">

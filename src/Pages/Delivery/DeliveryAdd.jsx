@@ -502,9 +502,11 @@ export default function DeliveryAdd() {
         f_name: values.f_name,
         l_name: values.l_name,
         phone: values.phone,
-        phone_2: values.phone_2 || null,
         addresses: [addressObject],
       };
+      if (values.phone_2?.trim()) {
+        finalPayload.phone_2 = values.phone_2;
+      }
       apiEndpoint = "cashier/user/add";
     }
 
@@ -551,27 +553,27 @@ export default function DeliveryAdd() {
   // Loading state for address lists
   if (isLoadingLists) {
     return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <Loading />
-    </div>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <Loading />
+      </div>
     );
   }
 
   // Loading state for edit mode or add another address mode
   if (isEditMode && isLoadingEditData) {
     return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <Loading />
-    </div>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <Loading />
+      </div>
     );
   }
 
   // Show loading for user data in add-another-address mode
   if (isAddAnotherAddress && isLoadinguserData) {
     return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <Loading />
-    </div>
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <Loading />
+      </div>
     );
   }
 
@@ -775,7 +777,7 @@ export default function DeliveryAdd() {
                           value={field.value}
                         >
                           <FormControl>
-                            <SelectTrigger>
+                            <SelectTrigger className="!w-full">
                               <SelectValue placeholder="Select City" />
                             </SelectTrigger>
                           </FormControl>
@@ -803,12 +805,13 @@ export default function DeliveryAdd() {
                       <FormItem>
                         <FormLabel>Zone *</FormLabel>
                         <Select
+                        className="!w-full"
                           onValueChange={field.onChange}
                           value={field.value}
                           disabled={availableZones.length === 0}
                         >
                           <FormControl>
-                            <SelectTrigger>
+                            <SelectTrigger className="!w-full">
                               <SelectValue placeholder="Select Zone" />
                             </SelectTrigger>
                           </FormControl>
@@ -840,7 +843,7 @@ export default function DeliveryAdd() {
                         value={field.value}
                       >
                         <FormControl>
-                          <SelectTrigger>
+                            <SelectTrigger className="!w-full">
                             <SelectValue placeholder="Select Type" />
                           </SelectTrigger>
                         </FormControl>
@@ -868,15 +871,6 @@ export default function DeliveryAdd() {
                     </FormItem>
                   )}
                 />
-
-                {/* Map coordinates display */}
-                {formattedMapCoordinates && (
-                  <div className="bg-gray-100 p-3 rounded-lg text-sm text-gray-700">
-                    <strong>Location Coordinates:</strong>{" "}
-                    {formattedMapCoordinates}
-                  </div>
-                )}
-
                 <Button
                   type="submit"
                   className="w-full mt-4 bg-bg-primary hover:bg-red-700 cursor-pointer transition-all"

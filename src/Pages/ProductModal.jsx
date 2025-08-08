@@ -1,4 +1,4 @@
-// components/ProductModal.jsx
+//page for single product modal when i press on img of one product this modal show (UI)
 import React from "react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -27,13 +27,13 @@ const ProductModal = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      
+       
       <DialogContent className="w-[90vw] !max-w-[500px] p-0 rounded-2xl shadow-2xl overflow-y-auto max-h-[90vh] scrollbar-width-none [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
          
         <div className="flex flex-col">
             {/* Top Section: Image and Close Button */} 
           <div className="relative">
-             
+              
             <img
               src={
                 selectedProduct.image_link || "https://via.placeholder.com/400"
@@ -41,7 +41,7 @@ const ProductModal = ({
               alt={selectedProduct.name}
               className="w-full h-48 object-cover"
             />
-             
+              
             <button
               onClick={onClose}
               className="absolute top-4 right-4 text-white bg-black bg-opacity-50 rounded-full p-2 hover:bg-opacity-75 transition-colors"
@@ -63,12 +63,12 @@ const ProductModal = ({
                 />
                   
               </svg>
-               
+                
             </button>
-             
+              
             {selectedProduct.discount && (
               <div className="absolute bottom-4 left-4 bg-white text-red-600 font-bold px-3 py-1 rounded-full text-xs">
-                 {selectedProduct.discount.amount}% Off  
+                  {selectedProduct.discount.amount}% Off  
                 
               </div>
             )}
@@ -77,28 +77,28 @@ const ProductModal = ({
             {/* Middle Section: Details, Variations, and Addons */}
           
           <div className="p-4 flex-1">
-             
+              
             <div className="flex justify-between items-center mb-2">
                 
               <h3 className="text-xl font-bold text-gray-800">
-                 {selectedProduct.name}  
+                  {selectedProduct.name}  
               </h3>
                 
               <span className="text-xl font-semibold text-red-600">
-                 {(totalPrice || 0).toFixed(2)} EGP   
+                  {(totalPrice || 0).toFixed(2)} EGP   
               </span>
-               
+                
             </div>
-             
+              
             <p className="text-gray-500 text-sm mb-4">
                 
               {selectedProduct.description &&
               selectedProduct.description !== "null"
                 ? selectedProduct.description
                 : "No description available."}
-               
+                
             </p>
-              {/* Sizes section (from variations data) */} 
+              {/* Sizes section (from variations data) */}  
             {variationOptions.length > 0 && (
               <div className="mb-4">
                   
@@ -129,7 +129,7 @@ const ProductModal = ({
                         {(option.price_after_tax ?? option.price).toFixed(2)}{" "}
                         EGP   
                       </span>
-                       
+                        
                     </label>
                   ))}
                     
@@ -137,7 +137,7 @@ const ProductModal = ({
                   
               </div>
             )}
-              {/* Addons section */} 
+              {/* Addons section */}  
             {selectedProduct.addons && selectedProduct.addons.length > 0 && (
               <div className="mb-4">
                   
@@ -158,17 +158,17 @@ const ProductModal = ({
                           ? "bg-red-600 text-white border-red-600"
                           : "bg-gray-100 text-gray-700 border-gray-300 hover:border-red-400"
                       }
-  `}
+   `}
                     >
                         
                       <span className="capitalize">{addon.name}</span> 
-                       
+                        
                       <span className="text-xs">
                            (   
                         {(addon.price_after_discount ?? addon.price).toFixed(2)}{" "}
                         EGP    )   
                       </span>
-                       
+                        
                     </button>
                   ))}
                     
@@ -176,7 +176,7 @@ const ProductModal = ({
                   
               </div>
             )}
-              {/* Excludes section */} 
+              {/* Excludes section */}  
             {selectedProduct.excludes &&
               selectedProduct.excludes.length > 0 && (
                 <div className="mb-4">
@@ -186,7 +186,7 @@ const ProductModal = ({
                   </h4>
                    
                   <ul className="flex flex-wrap gap-2 text-xs text-gray-600">
-                     
+                      
                     {selectedProduct.excludes.map((item) => (
                       <li
                         key={item.id}
@@ -204,14 +204,14 @@ const ProductModal = ({
           </div>
             {/* Bottom Section: Total and Quantity */} 
           <div className="p-4 border-t border-gray-200">
-             
+              
             <div className="flex items-center justify-between mb-4">
                 
               <div className="text-lg font-bold">
-                 Total   
+                  Total   
                 <span className="text-red-600">
                     {(totalPrice || 0).toFixed(2)} EGP  
-                  
+                   
                 </span>
                   
               </div>
@@ -281,7 +281,7 @@ const ProductModal = ({
           </div>
            
         </div>
-        
+         
       </DialogContent>
       
     </Dialog>

@@ -86,9 +86,20 @@ export default function OrdersView() {
   if (error)
     return <div className="text-red-500 text-center">Error loading data.</div>;
 
-  const filteredOrders = orders.filter((order) =>
-    order.order_number?.toString().includes(search)
+const filteredOrders = orders.filter((order) => {
+  const status = statuses[order.id];
+  const isVisible = orderType === "take_away"
+    ? status !== "pick_up"
+    : orderType === "delivery"
+    ? status !== "delivered"
+    : true;
+
+  return (
+    order.order_number?.toString().includes(search) &&
+    isVisible
   );
+});
+
 
   const handleStatusChange = async (orderId, newStatus) => {
     setUpdatingStatus(prev => ({ ...prev, [orderId]: true }));

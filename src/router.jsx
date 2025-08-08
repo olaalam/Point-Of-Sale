@@ -124,7 +124,7 @@ const router = createBrowserRouter([
         element: <DeliveryAdd />,
       },
       {
-        path: "add/:id", // حالة التعديل
+        path: "/order-page/add/:id", // حالة التعديل
         element: <DeliveryAdd />,
       },
 
@@ -141,7 +141,8 @@ const router = createBrowserRouter([
   },
 ],
 {
-  basename: "/Point-of-sale/", 
-});
+  basename: "/point-of-sale", 
+}
+);
 
 export default router;

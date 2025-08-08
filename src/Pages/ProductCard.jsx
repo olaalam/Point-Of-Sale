@@ -1,5 +1,5 @@
-// components/ProductCard.jsx
-import React from "react";
+//page for product card component that displays product details and allows adding to order (products div)
+import React, { useState } from "react";
 import {
   Dialog,
   DialogTrigger,
@@ -9,7 +9,22 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 
-const ProductCard = ({ product, onAddToOrder, onOpenModal, orderLoading }) => {
+const ProductCard = ({ product, onAddToOrder, onOpenModal }) => {
+  // إضافة state منفصل لكل كارت
+  const [isCurrentItemLoading, setIsCurrentItemLoading] = useState(false);
+
+  // دالة للتعامل مع إضافة المنتج مع loading منفصل
+  const handleAddToOrder = async (product) => {
+    setIsCurrentItemLoading(true);
+    try {
+      await onAddToOrder(product);
+    } catch (error) {
+      console.error("Error adding product:", error);
+    } finally {
+      setIsCurrentItemLoading(false);
+    }
+  };
+
   return (
     <div className="bg-white border border-gray-200 rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-200 relative pb-16">
       {/* Clickable image and name - Opens Modal */}
@@ -62,18 +77,18 @@ const ProductCard = ({ product, onAddToOrder, onOpenModal, orderLoading }) => {
         </div>
       </div>
 
-      {/* Add to Order - Updated with loading state */}
+      {/* Add to Order - Updated with individual loading state */}
       <div className="absolute bottom-0 left-0 right-0 p-3 bg-white">
         <button
-          onClick={() => onAddToOrder(product)}
-          disabled={orderLoading}
+          onClick={() => handleAddToOrder(product)}
+          disabled={isCurrentItemLoading}
           className={`w-full py-1 px-2 text-sm rounded transition-colors ${
-            orderLoading
+            isCurrentItemLoading
               ? "bg-gray-400 text-gray-200 cursor-not-allowed"
               : "bg-bg-primary text-white hover:bg-red-700"
           }`}
         >
-          {orderLoading ? "Adding..." : "Add to Order"}
+          {isCurrentItemLoading ? "Adding..." : "Add to Order"}
         </button>
       </div>
     </div>

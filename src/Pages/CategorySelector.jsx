@@ -12,7 +12,7 @@ const CategorySelector = ({ categories, selectedCategory, onCategorySelect }) =>
   }
 
   return (
-    <div className="flex flex-nowrap w-[100%] space-x-4 pb-4 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden ">
+<div className="flex flex-nowrap w-full space-x-4 pb-4 overflow-x-auto scroll-hidden">
       {/* "All" button */}
       <div className="flex-shrink-0">
         <Button

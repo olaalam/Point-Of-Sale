@@ -8,11 +8,11 @@ import { useNavigate } from "react-router-dom";
 import Loading from "@/components/Loading";
 import { usePost } from "@/Hooks/usePost";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import {  ToastContainer } from "react-toastify";
+import { ToastContainer } from "react-toastify";
 
 export default function Delivery({ orderType: propOrderType }) {
   const [searchQuery, setSearchQuery] = useState("");
- const orderType = propOrderType || "delivery";
+  const orderType = propOrderType || "delivery";
 
   const [filteredusers, setFilteredusers] = useState([]);
   const navigate = useNavigate();
@@ -91,13 +91,13 @@ export default function Delivery({ orderType: propOrderType }) {
 
   // Modified handleConfirmDelivery function
   const handleConfirmDelivery = (user, addressId) => {
-    const selectedAddress = user.address.find(addr => addr.id === addressId);
-    
+    const selectedAddress = user.address.find((addr) => addr.id === addressId);
+
     // Store user data in localStorage
     localStorage.setItem("selected_user_id", user.id);
     localStorage.setItem("selected_address_id", addressId);
     localStorage.setItem("order_type", "delivery");
-    
+
     // Store complete user data for quick access
     const userData = {
       id: user.id,
@@ -105,26 +105,31 @@ export default function Delivery({ orderType: propOrderType }) {
       l_name: user.l_name,
       phone: user.phone,
       phone_2: user.phone_2,
-      selectedAddress: selectedAddress
+      selectedAddress: selectedAddress,
     };
     localStorage.setItem("selected_user_data", JSON.stringify(userData));
- console.log("Attempting to navigate to /order-page with state:", { orderType: "delivery", userId: user.id, addressId: addressId });
+    console.log("Attempting to navigate to /order-page with state:", {
+      orderType: "delivery",
+      userId: user.id,
+      addressId: addressId,
+    });
 
     // Navigate to items page
-  navigate("/delivery-order", {
-  state: {
-  orderType: "delivery",
-  userId: user.id,
-  addressId: addressId,
-  },
- });
- };
+    navigate("/delivery-order", {
+      state: {
+        orderType: "delivery",
+        userId: user.id,
+        addressId: addressId,
+      },
+    });
+  };
 
   console.log("Order Type:", orderType);
   return (
-    <div className="min-h-screen  bg-gray-100">
+<div className={`bg-gray-100 min-h-screen ${!searchQuery && filteredusers.length === 0 ? "flex items-center justify-center" : ""}`}>
+
       {/* Content */}
-      <div className="max-w-6xl mx-auto p-6">
+      <div className="max-w-6xl mx-auto px-6 py-3">
         {/* Search and Add User */}
         <div className="flex gap-2 items-center my-6">
           <Input
@@ -146,111 +151,117 @@ export default function Delivery({ orderType: propOrderType }) {
         {isLoading && <Loading />}
         {error && <p className="text-bg-primary">Error: {error.message}</p>}
 
-        <div className="w-full grid grid-cols-2 gap-6 space-y-4">
-          {filteredusers.length === 0 &&
-            !isLoading &&
-            !error &&
-            searchQuery && (
-              <p className="text-gray-500 text-center">
+        {searchQuery ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {filteredusers.length === 0 && !isLoading && !error ? (
+              <p className="text-gray-500 text-center col-span-2">
                 No users found matching your search.
               </p>
-            )}
-          {filteredusers.map((user) => (
-            <div
-              key={user.id}
-              className="bg-white rounded-lg p-4 my-4 shadow-sm"
-            >
-              <div className="flex gap-6 mb-4">
-                {/* user Name */}
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 bg-red-100 rounded-full flex items-center justify-center">
-                      <User className="w-4 h-4 text-bg-primary" />
-                    </div>
-                    <span className="text-gray-800">
-                      {" "}
-                      {user.f_name} {user.l_name}
-                    </span>
-                  </div>
-                  <Pencil
-                    className="w-4 h-4 text-bg-primary cursor-pointer ml-4"
-                    onClick={() => handleEditClick(user)}
-                  />
-                </div>
-
-                {/* user Phone */}
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <Phone className="w-4 h-4 text-bg-primary" />
-                    <span className="text-gray-800">{user.phone}</span>
-                  </div>
-                </div>
-              </div>
-              {/* user address */}
-              {user.address && user.address.length > 0 ? (
-                user.address.map((address, index) => (
-                  <div
-                    key={`${user.id}-${address.id}-${index}`}
-                    className="flex items-center justify-between mb-3"
-                  >
-                    <div
-                      className={`flex items-center gap-2 cursor-pointer p-2 rounded-md transition-all 
-    ${
-      selectedAddressId === address.id
-        ? "bg-red-100 border border-bg-primary"
-        : "bg-gray-100"
-    }`}
-                      onClick={() => {
-                        setSelectedAddressId(address.id);
-                        setSelectedUserId(user.id);
-                        setSelecteduser(user);
-                      }}
-                    >
-                      <MapPin className="w-4 h-4  text-bg-primary" />
-                      <span className="text-gray-800">
-                        {address.zone?.zone || address.zone || "Unknown Zone"} -{" "}
-                        {address.address || address.name || "No address"}
-                      </span>
+            ) : (
+              filteredusers.map((user) => (
+                <div
+                  key={user.id}
+                  className="bg-white rounded-xl shadow-md p-6 transition hover:shadow-lg border"
+                >
+                  {/* Header */}
+                  <div className="flex justify-between items-start mb-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
+                        <User className="w-5 h-5 text-bg-primary" />
+                      </div>
+                      <div className="text-lg font-semibold text-gray-800">
+                        {user.f_name} {user.l_name}
+                      </div>
                     </div>
                     <Pencil
-                      className="w-4 h-4 ms-2 text-bg-primary cursor-pointer"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleEditAddressClick(address);
-                      }}
+                      className="w-5 h-5 text-bg-primary cursor-pointer"
+                      onClick={() => handleEditClick(user)}
                     />
                   </div>
-                ))
-              ) : (
-                <div className="flex items-center gap-2 text-gray-500 text-sm mb-3">
-                  <MapPin className="w-4 h-4" />
-                  <span>No address available</span>
+
+                  {/* Phone */}
+                  <div className="flex items-center gap-2 mb-4 text-gray-700">
+                    <Phone className="w-4 h-4 text-bg-primary" />
+                    <span className="text-md">{user.phone}</span>
+                  </div>
+
+                  {/* Addresses */}
+                  <div className="space-y-3">
+                    {user.address && user.address.length > 0 ? (
+                      user.address.map((address, index) => (
+                        <div
+                          key={`${user.id}-${address.id}-${index}`}
+                          className={`flex justify-between items-center p-3 rounded-lg cursor-pointer border transition-all ${
+                            selectedAddressId === address.id
+                              ? "bg-red-50 border-red-500"
+                              : "bg-gray-50"
+                          }`}
+                          onClick={() => {
+                            setSelectedAddressId(address.id);
+                            setSelectedUserId(user.id);
+                            setSelecteduser(user);
+                          }}
+                        >
+                          <div className="flex gap-2 items-start">
+                            <MapPin className="w-5 h-5 mt-1 text-bg-primary" />
+                            <span className="text-sm text-gray-800">
+                              {address.zone?.zone ||
+                                address.zone ||
+                                "Unknown Zone"}{" "}
+                              -{" "}
+                              {address.address || address.name || "No address"}
+                            </span>
+                          </div>
+                          <Pencil
+                            className="w-4 h-4 text-bg-primary cursor-pointer"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleEditAddressClick(address);
+                            }}
+                          />
+                        </div>
+                      ))
+                    ) : (
+                      <div className="flex items-center gap-2 text-gray-500 text-sm mb-3">
+                        <MapPin className="w-4 h-4" />
+                        <span>No address available</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Buttons */}
+                  <div className="flex gap-4 mt-5">
+                    <button
+                      className="w-1/2 bg-bg-primary hover:bg-red-700 text-white py-2 rounded-md"
+                      onClick={() => navigate(`/add?user_id=${user.id}`)}
+                    >
+                      + Add Address
+                    </button>
+
+                    {selectedAddressId && selectedUserId === user.id && (
+                      <button
+                        className="w-1/2 bg-green-600 hover:bg-green-700 text-white py-2 rounded-md"
+                        onClick={() =>
+                          handleConfirmDelivery(user, selectedAddressId)
+                        }
+                      >
+                        Confirm Delivery
+                      </button>
+                    )}
+                  </div>
                 </div>
-              )}
+              ))
+            )}
+          </div>
+        ) : (
+<div className="flex justify-center items-center h-[60vh]">
+  <p className="text-center text-gray-500 text-lg">
+    🔍 Please search by name or phone to find users.
+  </p>
+</div>
 
-              {console.log(`user ${user.name} address:`, user.address)}
 
-              {/* Add Address Button */}
-              <div className="flex gap-4 mt-4">
-                <button
-                  className="w-[50%] bg-bg-primary text-white p-2 rounded-xl font-medium"
-                  onClick={() => navigate(`/add?user_id=${user.id}`)}
-                >
-                  + Add Another Address
-                </button>
-
-                {selectedAddressId && selectedUserId === user.id && (
-                  <button
-                    className="w-[50%] bg-green-600 text-white p-2 rounded-xl font-medium"
-                    onClick={() => handleConfirmDelivery(user, selectedAddressId)}
-                  >
-                    Confirm Delivery
-                  </button>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
+        )}
       </div>
 
       <Dialog open={openDialog} onOpenChange={setOpenDialog}>
