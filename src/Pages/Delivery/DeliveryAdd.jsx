@@ -1,446 +1,42 @@
-import React, { useEffect, useState } from "react";
-import { z } from "zod";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
-import { Input } from "@/components/ui/input";
+//main component for adding or editing delivery addresses which calling the custom hooks and components
+import React from "react";
+import { Form } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
 import { usePost } from "@/Hooks/usePost";
 import { toast, ToastContainer } from "react-toastify";
-import { useGet } from "@/Hooks/useGet";
-// --- Leaflet Imports ---
-import { MapContainer, TileLayer, Marker, useMapEvents } from "react-leaflet";
-import "leaflet/dist/leaflet.css";
-import L from "leaflet";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import "react-toastify/dist/ReactToastify.css";
-import { useParams } from "react-router-dom";
 import Loading from "@/components/Loading";
+import { useDeliveryForm } from "@/Hooks/useDeliveryForm";
+import MapComponent from "@/components/MapComponent";
+import UserFormFields from "./UserFormFields";
+import AddressFormFields from "./AddressFormFields";
 
-// Fix for default Leaflet marker icon
-delete L.Icon.Default.prototype._getIconUrl;
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl:
-    "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png",
-  iconUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png",
-  shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
-});
+// Import our custom components
 
-// Component to handle map click events
-const MapClickHandler = ({ setSelectedLocation, setLocationName, form }) => {
-  useMapEvents({
-    click(e) {
-      const { lat, lng } = e.latlng;
-      setSelectedLocation({ lat, lng });
-
-      // Try different approaches to avoid CORS
-      const tryGeocode = async () => {
-        try {
-          // Method 1: Try with different parameters
-          const response = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&accept-language=en&addressdetails=1`,
-            {
-              method: "GET",
-              mode: "cors",
-              headers: {
-                Accept: "application/json",
-              },
-            }
-          );
-
-          if (response.ok) {
-            const data = await response.json();
-            if (data && data.display_name) {
-              setLocationName(data.display_name);
-              form.setValue("address", data.display_name, {
-                shouldValidate: true,
-              });
-              return;
-            }
-          }
-        } catch (error) {
-          console.warn("Method 1 failed:", error);
-        }
-
-        // Method 2: Try with JSONP-like approach using a different service
-        try {
-          const response = await fetch(
-            `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=en`
-          );
-
-          if (response.ok) {
-            const data = await response.json();
-            if (data && (data.display_name || data.locality)) {
-              const address =
-                data.display_name || `${data.locality}, ${data.countryName}`;
-              setLocationName(address);
-              form.setValue("address", address, { shouldValidate: true });
-              return;
-            }
-          }
-        } catch (error) {
-          console.warn("Method 2 failed:", error);
-        }
-
-        // Fallback: Use coordinates
-        const fallbackAddress = `Location: ${lat.toFixed(4)}, ${lng.toFixed(
-          4
-        )}`;
-        setLocationName(fallbackAddress);
-        form.setValue("address", fallbackAddress, { shouldValidate: true });
-      };
-
-      tryGeocode();
-    },
-  });
-  return null;
-};
-
-// --- Schema Definition ---
-const addressSchema = z.object({
-  city_id: z.string().min(1, "City is required"),
-  zone_id: z.string().min(1, "Zone is required"),
-  address: z
-    .string()
-    .min(5, "Address is required and must be at least 5 characters."),
-  street: z.coerce.number().nullable().optional(),
-  building_num: z.coerce.number().nullable().optional(),
-  floor_num: z.coerce.number().nullable().optional(),
-  apartment: z.coerce.number().nullable().optional(),
-  additional_data: z.string().optional(),
-  type: z.string().min(1, "Type is required."),
-});
-
-const adduserSchema = addressSchema.extend({
-  f_name: z.string().min(2, "First name must be at least 2 characters."),
-  l_name: z.string().min(2, "Last name must be at least 2 characters."),
-  phone: z.string().min(5, "Phone must be at least 5 characters."),
-  phone_2: z.string().optional(),
-});
 
 export default function DeliveryAdd() {
-  const [selectedLocation, setSelectedLocation] = useState({
-    lat: 31.2001, // Default to Alexandria, Egypt
-    lng: 29.9187,
-  });
-  const [locationName, setLocationName] = useState("");
-  const [selectedCityId, setSelectedCityId] = useState("");
-  const [availableZones, setAvailableZones] = useState([]);
-
-  const { id } = useParams(); // For address ID in edit mode
-  const isEditMode = Boolean(id);
-  const [formattedMapCoordinates, setFormattedMapCoordinates] = useState("");
-
-  const location = useLocation();
-  const searchParams = new URLSearchParams(location.search);
-  const userIdFromUrl = searchParams.get("user_id");
-  const isAddAnotherAddress = searchParams.has("user_id");
-
-  // Fetch cities and zones data from the new API
-  const { data: addressListsData, isLoading: isLoadingLists } = useGet(
-    "cashier/user/address/lists"
-  );
-  const cities = addressListsData?.cities || [];
-  const zones = addressListsData?.zones || [];
-
-  // useGet for address data in edit mode
-  const { data: editAddressData, isLoading: isLoadingEditData } = useGet(
-    isEditMode ? `cashier/user/address/${id}` : null
-  );
-
-  // useGet for user data in "add another address" mode
-  const { data: userData, isLoading: isLoadinguserData } = useGet(
-    isAddAnotherAddress && userIdFromUrl
-      ? `cashier/user/${userIdFromUrl}`
-      : null
-  );
+  const {
+    form,
+    selectedLocation,
+    setSelectedLocation,
+    locationName,
+    setLocationName,
+    availableZones,
+    formattedMapCoordinates,
+    cities,
+    isEditMode,
+    isAddAnotherAddress,
+    userIdFromUrl,
+    editAddressData,
+    isLoadingLists,
+    isLoadingEditData,
+    isLoadinguserData,
+    handleCityChange,
+    handleMarkerDragEnd,
+  } = useDeliveryForm();
 
   const navigate = useNavigate();
-
-  // Determine which schema to use based on the mode
-  const currentFormSchema =
-    isEditMode || isAddAnotherAddress ? addressSchema : adduserSchema;
-
-  const form = useForm({
-    resolver: zodResolver(currentFormSchema),
-    defaultValues: {
-      f_name: "",
-      l_name: "",
-      phone: "",
-      phone_2: "",
-      city_id: "",
-      zone_id: "",
-      address: "",
-      street: null,
-      building_num: null,
-      floor_num: null,
-      apartment: null,
-      additional_data: "",
-      type: "",
-    },
-  });
-
-  // Helper function to parse coordinates from the map string
-  const parseCoordinates = (mapString) => {
-    if (!mapString) return { latitude: null, longitude: null };
-
-    // Check if it's a Google Maps URL
-    if (mapString.includes("maps?q=")) {
-      const url = new URL(mapString);
-      const qParam = url.searchParams.get("q");
-      if (qParam) {
-        const [lat, lng] = qParam.split(",").map(Number);
-        return { latitude: lat, longitude: lng };
-      }
-    }
-
-    // Assume it's a comma-separated string
-    const [lat, lng] = mapString.split(",").map(Number);
-    return { latitude: lat, longitude: lng };
-  };
-
-  // Improved city change handler - filter zones by city_id
-  const handleCityChange = (cityId) => {
-    setSelectedCityId(cityId);
-    form.setValue("city_id", cityId);
-    form.setValue("zone_id", ""); // Reset zone selection
-
-    // Filter zones based on actual city relationship
-    // You might need to adjust this based on your API response structure
-    const cityZones = zones.filter((zone) => {
-      // If your zones have a city_id field, use that
-      if (zone.city_id) {
-        return zone.city_id.toString() === cityId;
-      }
-      // Otherwise, you might need a different filtering logic
-      // For now, show all zones if no city_id relationship exists
-      return true;
-    });
-
-    setAvailableZones(cityZones);
-  };
-
-  // Effect to populate form fields when in EDIT mode
-  useEffect(() => {
-    if (
-      isEditMode &&
-      editAddressData &&
-      editAddressData.addresses &&
-      editAddressData.addresses.length > 0
-    ) {
-      console.log("editAddressData for populating form:", editAddressData);
-
-      // 🔴 التغيير هنا: قراءة أول كائن من مصفوفة 'addresses'
-      const address = editAddressData.addresses[0];
-
-      // 🔴 الكود الآن يستخدم 'address' بدلاً من 'editAddressData'
-      const { latitude, longitude } = parseCoordinates(address.map);
-
-      // Set available zones and handle city selection
-      const cityId = address.city_id?.toString() || "";
-      if (cityId) {
-        setSelectedCityId(cityId);
-        handleCityChange(cityId);
-      } else {
-        setAvailableZones(zones);
-      }
-
-      form.reset({
-        city_id: cityId,
-        zone_id: address.zone_id?.toString() || "",
-        address: address.address || "",
-        street: address.street ?? null,
-        building_num: address.building_num ?? null,
-        floor_num: address.floor_num ?? null,
-        apartment: address.apartment ?? null,
-        additional_data: address.additional_data || "",
-        type: address.type?.toLowerCase() || "",
-      });
-
-      if (latitude && longitude) {
-        const loc = { lat: latitude, lng: longitude };
-        setSelectedLocation(loc);
-        setLocationName(address.address || "");
-      }
-    }
-  }, [editAddressData, isEditMode, form, zones]);
-
-  // Initialize zones when data is loaded
-  useEffect(() => {
-    if (zones.length > 0 && !isEditMode) {
-      setAvailableZones(zones);
-    }
-  }, [zones, isEditMode]);
-
-  // Get user's current location on mount (only in Add Mode, not Edit/AddAnotherAddress Mode)
-  useEffect(() => {
-    if (!isEditMode && !isAddAnotherAddress && navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          const loc = {
-            lat: position.coords.latitude,
-            lng: position.coords.longitude,
-          };
-          setSelectedLocation(loc);
-
-          const tryGeocode = async () => {
-            try {
-              const response = await fetch(
-                `https://nominatim.openstreetmap.org/reverse?format=json&lat=${loc.lat}&lon=${loc.lng}&accept-language=en&addressdetails=1`,
-                {
-                  method: "GET",
-                  mode: "cors",
-                  headers: {
-                    Accept: "application/json",
-                  },
-                }
-              );
-
-              if (response.ok) {
-                const data = await response.json();
-                if (data && data.display_name) {
-                  setLocationName(data.display_name);
-                  form.setValue("address", data.display_name, {
-                    shouldValidate: true,
-                  });
-                  return;
-                }
-              }
-            } catch (error) {
-              console.warn("Nominatim failed:", error);
-            }
-
-            try {
-              const response = await fetch(
-                `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${loc.lat}&longitude=${loc.lng}&localityLanguage=en`
-              );
-
-              if (response.ok) {
-                const data = await response.json();
-                if (data && (data.display_name || data.locality)) {
-                  const address =
-                    data.display_name ||
-                    `${data.locality}, ${data.countryName}`;
-                  setLocationName(address);
-                  form.setValue("address", address, { shouldValidate: true });
-                  return;
-                }
-              }
-            } catch (error) {
-              console.warn("BigDataCloud failed:", error);
-            }
-
-            const fallbackAddress = `Location: ${loc.lat.toFixed(
-              4
-            )}, ${loc.lng.toFixed(4)}`;
-            setLocationName(fallbackAddress);
-            form.setValue("address", fallbackAddress, { shouldValidate: true });
-          };
-
-          tryGeocode();
-        },
-        (error) => {
-          console.error("Error fetching location", error);
-          const fallback = { lat: 31.2001, lng: 29.9187 };
-          setSelectedLocation(fallback);
-          const defaultAddress = "Alexandria, Egypt (Default Location)";
-          setLocationName(defaultAddress);
-          form.setValue("address", defaultAddress, { shouldValidate: true });
-        }
-      );
-    } else if (isAddAnotherAddress) {
-      // For add another address mode, set a default address if none exists
-      if (!locationName) {
-        const defaultAddress = "Click on map to select address";
-        setLocationName(defaultAddress);
-        form.setValue("address", defaultAddress, { shouldValidate: true });
-      }
-    }
-  }, [isEditMode, isAddAnotherAddress, form]);
-
-  // Update formattedMapCoordinates whenever selectedLocation changes
-  useEffect(() => {
-    if (selectedLocation) {
-      setFormattedMapCoordinates(
-        `${selectedLocation.lat.toFixed(6)},${selectedLocation.lng.toFixed(6)}`
-      );
-    }
-  }, [selectedLocation]);
-
-  // Handle marker drag end
-  const handleMarkerDragEnd = (e) => {
-    const marker = e.target;
-    const { lat, lng } = marker.getLatLng();
-    setSelectedLocation({ lat, lng });
-
-    const tryGeocode = async () => {
-      try {
-        const response = await fetch(
-          `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&accept-language=en&addressdetails=1`,
-          {
-            method: "GET",
-            mode: "cors",
-            headers: {
-              Accept: "application/json",
-            },
-          }
-        );
-
-        if (response.ok) {
-          const data = await response.json();
-          if (data && data.display_name) {
-            setLocationName(data.display_name);
-            form.setValue("address", data.display_name, {
-              shouldValidate: true,
-            });
-            return;
-          }
-        }
-      } catch (error) {
-        console.warn("Nominatim failed:", error);
-      }
-
-      try {
-        const response = await fetch(
-          `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=en`
-        );
-
-        if (response.ok) {
-          const data = await response.json();
-          if (data && (data.display_name || data.locality)) {
-            const address =
-              data.display_name || `${data.locality}, ${data.countryName}`;
-            setLocationName(address);
-            form.setValue("address", address, { shouldValidate: true });
-            return;
-          }
-        }
-      } catch (error) {
-        console.warn("BigDataCloud failed:", error);
-      }
-
-      const fallbackAddress = `Location: ${lat.toFixed(4)}, ${lng.toFixed(4)}`;
-      setLocationName(fallbackAddress);
-      form.setValue("address", fallbackAddress, { shouldValidate: true });
-    };
-
-    tryGeocode();
-  };
-
   const { loading, error, postData } = usePost();
 
   const onSubmit = async (values) => {
@@ -488,7 +84,7 @@ export default function DeliveryAdd() {
         ...addressObject, // Spread the address object
         user_id: editAddressData?.user_id,
       };
-      apiEndpoint = `cashier/user/address/update/${id}`;
+      apiEndpoint = `cashier/user/address/update/${editAddressData?.addresses[0]?.id}`;
     } else if (isAddAnotherAddress) {
       // Add Another Address Mode - Changed to send a single object
       finalPayload = {
@@ -526,8 +122,6 @@ export default function DeliveryAdd() {
         );
         if (!isEditMode && !isAddAnotherAddress) {
           form.reset();
-          setSelectedCityId("");
-          setAvailableZones([]);
         }
         setTimeout(() => {
           navigate("/");
@@ -589,53 +183,14 @@ export default function DeliveryAdd() {
         </h2>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Left - Map */}
-          <div className="rounded-2xl overflow-hidden shadow-lg h-[600px]">
-            {selectedLocation.lat && selectedLocation.lng ? (
-              <MapContainer
-                center={selectedLocation}
-                zoom={13}
-                scrollWheelZoom={true}
-                className="w-full h-full"
-                style={{ minHeight: "100%", zIndex: 1 }}
-              >
-                <TileLayer
-                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-                />
-                <Marker
-                  position={selectedLocation}
-                  draggable={true}
-                  eventHandlers={{
-                    dragend: handleMarkerDragEnd,
-                  }}
-                />
-                <MapClickHandler
-                  setSelectedLocation={setSelectedLocation}
-                  setLocationName={setLocationName}
-                  form={form}
-                />
-              </MapContainer>
-            ) : (
-              <div className="flex items-center justify-center w-full h-full bg-gray-200 text-gray-500">
-                Loading Map...
-              </div>
-            )}
-
-            {/* Manual Location Input */}
-            <div className="my-5 p-4">
-              <Input
-                value={locationName}
-                onChange={(e) => {
-                  setLocationName(e.target.value);
-                  form.setValue("address", e.target.value, {
-                    shouldValidate: true,
-                  });
-                }}
-                placeholder="Enter your location manually or click on map"
-                className="w-full"
-              />
-            </div>
-          </div>
+          <MapComponent
+            selectedLocation={selectedLocation}
+            setSelectedLocation={setSelectedLocation}
+            locationName={locationName}
+            setLocationName={setLocationName}
+            form={form}
+            onMarkerDragEnd={handleMarkerDragEnd}
+          />
 
           {/* Right - Form */}
           <div className="bg-white rounded-2xl p-6 shadow-lg">
@@ -646,231 +201,19 @@ export default function DeliveryAdd() {
               >
                 {/* User fields only in Add User mode */}
                 {!isEditMode && !isAddAnotherAddress && (
-                  <>
-                    <FormField
-                      control={form.control}
-                      name="f_name"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>First Name</FormLabel>
-                          <FormControl>
-                            <Input placeholder="First Name" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="l_name"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Last Name</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Last Name" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="phone"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Phone Number</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Phone Number" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="phone_2"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Phone Number 2 (Optional)</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Phone Number 2" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </>
+                  <UserFormFields form={form} />
                 )}
 
                 {/* Address fields - show in all modes */}
-                <FormField
-                  control={form.control}
-                  name="address"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Address (from Map)</FormLabel>
-                      <FormControl>
-                        <Input
-                          placeholder="Address"
-                          {...field}
-                          value={locationName}
-                          onChange={(e) => {
-                            setLocationName(e.target.value);
-                            field.onChange(e.target.value);
-                          }}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
+                <AddressFormFields
+                  form={form}
+                  locationName={locationName}
+                  setLocationName={setLocationName}
+                  cities={cities}
+                  availableZones={availableZones}
+                  handleCityChange={handleCityChange}
                 />
 
-                {/* Grid for number fields */}
-                <div className="grid grid-cols-2 gap-4">
-                  {["street", "building_num", "floor_num", "apartment"].map(
-                    (name) => (
-                      <FormField
-                        key={name}
-                        control={form.control}
-                        name={name}
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>
-                              {name
-                                .replace("_", " ")
-                                .replace(/\b\w/g, (l) => l.toUpperCase())}
-                            </FormLabel>
-                            <FormControl>
-                              <Input
-                                type="number"
-                                {...field}
-                                onChange={(e) => {
-                                  const value = e.target.value;
-                                  field.onChange(
-                                    value === "" ? null : Number(value)
-                                  );
-                                }}
-                                value={field.value === null ? "" : field.value}
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    )
-                  )}
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  {/* City Selection */}
-                  <FormField
-                    control={form.control}
-                    name="city_id"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>City *</FormLabel>
-                        <Select
-                          onValueChange={handleCityChange}
-                          value={field.value}
-                        >
-                          <FormControl>
-                            <SelectTrigger className="!w-full">
-                              <SelectValue placeholder="Select City" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {cities.map((city) => (
-                              <SelectItem
-                                key={city.id}
-                                value={city.id.toString()}
-                              >
-                                {city.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-
-                  {/* Zone Selection */}
-                  <FormField
-                    control={form.control}
-                    name="zone_id"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Zone *</FormLabel>
-                        <Select
-                        className="!w-full"
-                          onValueChange={field.onChange}
-                          value={field.value}
-                          disabled={availableZones.length === 0}
-                        >
-                          <FormControl>
-                            <SelectTrigger className="!w-full">
-                              <SelectValue placeholder="Select Zone" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {availableZones.map((zone) => (
-                              <SelectItem
-                                key={zone.id}
-                                value={zone.id.toString()}
-                              >
-                                {zone.zone}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                <FormField
-                  control={form.control}
-                  name="type"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Type *</FormLabel>
-                      <Select
-                        onValueChange={field.onChange}
-                        value={field.value}
-                      >
-                        <FormControl>
-                            <SelectTrigger className="!w-full">
-                            <SelectValue placeholder="Select Type" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="home">Home</SelectItem>
-                          <SelectItem value="work">Work</SelectItem>
-                          <SelectItem value="other">Other</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="additional_data"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Additional Data</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Additional Data" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
                 <Button
                   type="submit"
                   className="w-full mt-4 bg-bg-primary hover:bg-red-700 cursor-pointer transition-all"

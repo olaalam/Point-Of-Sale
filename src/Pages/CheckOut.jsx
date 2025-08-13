@@ -204,10 +204,19 @@ const handleSubmitOrder = async () => {
       })) || [],
       
       // Handle variations properly
-      variation: item.variation ? [{
-        variation_id: item.variation.variation_id,
-        option_id: [item.variation.option_id]
-      }] : [],
+variation:
+  item.variation &&
+  item.variation.variation_id &&
+  item.variation.option_id != null
+    ? [
+        {
+          variation_id: item.variation.variation_id,
+          option_id: [parseInt(item.variation.option_id)],
+        },
+      ]
+    : [],
+
+
       
       exclude_id: item.exclude_id || [],
       extra_id: item.extra_id || [],
@@ -228,10 +237,18 @@ const handleSubmitOrder = async () => {
       })) || [],
       
       // Handle variations
-      variation: item.variation ? [{
-        variation_id: item.variation.variation_id,
-        option_id: [item.variation.option_id]
-      }] : [],
+variation:
+  item.variation &&
+  item.variation.variation_id &&
+  item.variation.option_id != null
+    ? [
+        {
+          variation_id: item.variation.variation_id,
+          option_id: [parseInt(item.variation.option_id)],
+        },
+      ]
+    : [],
+
       
       exclude_id: item.exclude_id || [],
       extra_id: item.extra_id || [],

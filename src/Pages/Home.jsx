@@ -86,7 +86,12 @@ export default function Home() {
 
   // ✅ Debugging logs
   console.log("Home Component State:", state);
-
+const handleClose = () => {
+    localStorage.removeItem("selected_user_id");
+    localStorage.removeItem("selected_address_id");
+    localStorage.removeItem("order_type");
+    setState({ ...state, deliveryUserId: null, orderType: "delivery", tabValue: "delivery" });
+};
   return (
     <div className="min-h-screen bg-white flex flex-col items-center py-8">
       <Tabs
@@ -136,6 +141,7 @@ export default function Home() {
             <OrderPage
               propOrderType="delivery"
               propUserId={state.deliveryUserId}
+              onClose={handleClose}
             />
           ) : (
             <Delivery onCustomerSelect={handleDeliveryUserSelect} />

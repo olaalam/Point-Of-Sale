@@ -1,41 +1,43 @@
-import { useState, useEffect, useCallback } from "react"; // Import useCallback
+import { useState, useEffect, useCallback } from "react";
 import axios from "axios";
 
-export function useGet(endpoint) {
+export function useGet(initialEndpoint) {
   const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-const baseUrl = import.meta.env.VITE_API_BASE_URL;
+  const baseUrl = import.meta.env.VITE_API_BASE_URL;
 
-  // Define the fetch function
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (endpoint = initialEndpoint) => {
     if (!endpoint) {
-      setLoading(false); // If no URL, stop loading and return
-      return;
+      setLoading(false);
+      return null;
     }
-
+    
     setLoading(true);
     setError(null);
-
+    
     try {
-      // You'll need to add authentication headers here if required
-   const token = localStorage.getItem('token');
-  const headers = token ? { Authorization: `Bearer ${token}` } : {};
- const response = await axios.get(`${baseUrl}${endpoint}`, { headers });
-
+      const token = localStorage.getItem('token');
+      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      const response = await axios.get(`${baseUrl}${endpoint}`, { headers });
       setData(response.data);
       setLoading(false);
+      return response.data; // return the data so it can be used
     } catch (err) {
       const message = err.response?.data?.message || err.message || "Error occurred";
-      setError(new Error(message)); // Store error as an Error object
+      const errorObj = new Error(message);
+      setError(errorObj);
       setLoading(false);
+      throw errorObj; // throw the error so it can be caught in components
     }
-  }, [endpoint]); // Dependency: re-create fetchData if URL changes
+  }, [baseUrl, initialEndpoint]);
 
-  // Use useEffect to call fetchData on mount and when URL changes
+  // Only fetch on mount if initialEndpoint is provided
   useEffect(() => {
-    fetchData();
-  }, [fetchData]); // Dependency: re-run effect when fetchData itself changes (due to url change)
+    if (initialEndpoint) {
+      fetchData();
+    }
+  }, [fetchData, initialEndpoint]);
 
-  return { data, isLoading: loading, error, refetch: fetchData }; // Renamed 'loading' to 'isLoading' for consistency
+  return { data, isLoading: loading, error, refetch: fetchData };
 }

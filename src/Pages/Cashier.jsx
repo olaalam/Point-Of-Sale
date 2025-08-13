@@ -66,7 +66,7 @@ export default function Cashier() {
 
     try {
       await putData(`cashier/home/active_cashier/${id}`, {});
-      navigate("/");
+      navigate("/shift?action=open");
     } catch (err) {
       console.error("Error activating cashier:", err);
     }

@@ -1,13 +1,24 @@
 // components/DeliveryInfo.jsx
 import React from "react";
 import Loading from "@/components/Loading";
+import { XCircle } from "lucide-react"; // Import XCircle for the close icon
 
-const DeliveryInfo = ({ orderType, deliveryUserData, userLoading, userError }) => {
-  // Don't render anything if not delivery order
-  if (orderType !== "delivery") return null;
-
+const DeliveryInfo = ({ orderType, deliveryUserData, userLoading, userError, onClose }) => {
+  const handleClose = () => {
+    if (onClose) {
+      onClose();
+    }
+  };
+   if (orderType !== "delivery") return null;
   return (
-    <div className="bg-white shadow-lg p-6 rounded-lg mb-6 border border-gray-200">
+    <div className="bg-white shadow-lg p-6 rounded-lg mb-6 border border-gray-200 relative">
+      <button
+        onClick={handleClose}
+        className="absolute top-2 right-2 text-gray-500 hover:text-gray-800 transition-colors"
+        aria-label="Close delivery info"
+      >
+        <XCircle className="w-6 h-6" />
+      </button>
       <h3 className="text-lg font-semibold text-bg-primary mb-4 flex items-center">
         <span className="mr-2">🚚</span>
         Delivery Information

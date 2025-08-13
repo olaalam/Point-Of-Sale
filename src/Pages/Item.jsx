@@ -20,7 +20,7 @@ const INITIAL_PRODUCT_ROWS = 2;
 const PRODUCTS_PER_ROW = 4;
 const PRODUCTS_TO_SHOW_INITIALLY = INITIAL_PRODUCT_ROWS * PRODUCTS_PER_ROW;
 
-export default function Item({ fetchEndpoint, onAddToOrder }) {
+export default function Item({ fetchEndpoint, onAddToOrder  ,onClose }) {
   // State management
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -95,31 +95,46 @@ export default function Item({ fetchEndpoint, onAddToOrder }) {
   };
 
   // FIXED handleAddToOrder function - Now handles variations properly
-  const handleAddToOrder = async (product, customQuantity = 1) => {
+const handleAddToOrder = async (product, customQuantity = 1) => {
     console.log("Adding product to order:", product);
     
-    // Handle variation pricing and data
+    // Initialize the variables
     let productBasePrice = product.price_after_discount ?? product.price ?? 0;
-    let selectedVariationData = null;
+    const allSelectedVariationsData = []; // <-- The fix is here
     
     // Check if product has variations and one is selected
-    if (product.selectedVariation && product.variations) {
-      const sizeVariation = product.variations.find(v => v.name.toLowerCase() === "size");
-      if (sizeVariation && sizeVariation.options) {
-        const selectedOption = sizeVariation.options.find(opt => opt.id === product.selectedVariation);
-        if (selectedOption) {
-          // Use variation option price instead of base product price
-          productBasePrice = selectedOption.price_after_tax ?? selectedOption.price ?? productBasePrice;
-          selectedVariationData = {
-            variation_id: sizeVariation.id,
-            option_id: selectedOption.id,
-            variation_name: sizeVariation.name,
-            option_name: selectedOption.name,
-            price: selectedOption.price_after_tax ?? selectedOption.price
-          };
-          console.log("Selected variation data:", selectedVariationData);
-        }
-      }
+    if (product.variations && product.selectedVariations) {
+        product.variations.forEach(variation => {
+            if (variation.type === 'single' && product.selectedVariations[variation.id]) {
+                // Handle single-select variations like 'size'
+                const selectedOption = variation.options.find(opt => opt.id === product.selectedVariations[variation.id]);
+                if (selectedOption) {
+                    productBasePrice = selectedOption.price_after_tax ?? selectedOption.price;
+                    allSelectedVariationsData.push({
+                        variation_id: variation.id,
+                        option_id: selectedOption.id,
+                        variation_name: variation.name,
+                        option_name: selectedOption.name,
+                        price: selectedOption.price_after_tax ?? selectedOption.price
+                    });
+                }
+            } else if (variation.type === 'multiple' && product.selectedVariations[variation.id]) {
+                // Handle multi-select variations like 'toppings'
+                product.selectedVariations[variation.id].forEach(optionId => {
+                    const selectedOption = variation.options.find(opt => opt.id === optionId);
+                    if (selectedOption) {
+                        productBasePrice += selectedOption.price_after_tax ?? selectedOption.price;
+                        allSelectedVariationsData.push({
+                            variation_id: variation.id,
+                            option_id: selectedOption.id,
+                            variation_name: variation.name,
+                            option_name: selectedOption.name,
+                            price: selectedOption.price_after_tax ?? selectedOption.price
+                        });
+                    }
+                });
+            }
+        });
     }
 
     console.log("Product base price (with variation):", productBasePrice);
@@ -129,20 +144,20 @@ export default function Item({ fetchEndpoint, onAddToOrder }) {
     const selectedAddonsData = [];
     
     if (product.selectedExtras && product.selectedExtras.length > 0 && product.addons) {
-      product.selectedExtras.forEach(extraId => {
-        const addon = product.addons.find(a => a.id === extraId);
-        if (addon) {
-          const addonPrice = addon.price_after_discount ?? addon.price ?? 0;
-          addonsTotalPrice += addonPrice;
-          selectedAddonsData.push({
-            addon_id: addon.id,
-            name: addon.name,
-            price: addonPrice,
-            count: customQuantity // Use the actual quantity for each addon
-          });
-          console.log(`Addon ${addon.name}: ${addonPrice}`);
-        }
-      });
+        product.selectedExtras.forEach(extraId => {
+            const addon = product.addons.find(a => a.id === extraId);
+            if (addon) {
+                const addonPrice = addon.price_after_discount ?? addon.price ?? 0;
+                addonsTotalPrice += addonPrice;
+                selectedAddonsData.push({
+                    addon_id: addon.id,
+                    name: addon.name,
+                    price: addonPrice,
+                    count: customQuantity // Use the actual quantity for each addon
+                });
+                console.log(`Addon ${addon.name}: ${addonPrice}`);
+            }
+        });
     }
     console.log("Total addons price:", addonsTotalPrice);
     console.log("Selected addons data:", selectedAddonsData);
@@ -157,25 +172,26 @@ export default function Item({ fetchEndpoint, onAddToOrder }) {
 
     // Create the order item with correct pricing and variation data
     const orderItem = {
-      ...product,
-      count: customQuantity,
-      // Use the correct price per unit (with variation + addons)
-      price: pricePerUnit, 
-      // Keep original prices for reference
-      originalPrice: product.price,
-      discountedPrice: product.price_after_discount,
-      // Total price for this line item
-      totalPrice: finalTotalPrice,
-      
-      // Store variation data for backend submission
-      variation: selectedVariationData,
-      selectedVariation: product.selectedVariation, // Keep for frontend use
-      
-      // Store addons data for backend submission
-      selectedAddons: selectedAddonsData,
-      selectedExtras: product.selectedExtras || [], // Keep for frontend use
-      
-      ...(orderType === "dine_in" && { preparation_status: "pending" }),
+        ...product,
+        count: customQuantity,
+        // Use the correct price per unit (with variation + addons)
+        price: pricePerUnit, 
+        // Keep original prices for reference
+        originalPrice: product.price,
+        discountedPrice: product.price_after_discount,
+        // Total price for this line item
+        totalPrice: finalTotalPrice,
+        
+        // Store variation data for backend submission
+        variation: allSelectedVariationsData, // <-- This is still problematic
+        allSelectedVariations: allSelectedVariationsData, // <-- Use the new array here
+        selectedVariation: product.selectedVariation, // Keep for frontend use
+        
+        // Store addons data for backend submission
+        selectedAddons: selectedAddonsData,
+        selectedExtras: product.selectedExtras || [], // Keep for frontend use
+        
+        ...(orderType === "dine_in" && { preparation_status: "pending" }),
     };
 
     console.log("Order item being added:", orderItem);
@@ -183,30 +199,16 @@ export default function Item({ fetchEndpoint, onAddToOrder }) {
     // Add item to local state (the cart)
     onAddToOrder(orderItem);
 
-    // // Show success message with variation and addon info
-    // const itemName = product.name;
-    // const variationText = selectedVariationData 
-    //   ? ` (${selectedVariationData.option_name})`
-    //   : "";
-    // const addonsText = selectedAddonsData.length > 0
-    //   ? ` with ${selectedAddonsData.map(addon => addon.name).join(", ")}`
-    //   : "";
-    // const displayPrice = selectedVariationData 
-    //   ? selectedVariationData.price.toFixed(2)
-    //   : (product.price_after_discount ?? product.price).toFixed(2);
-
-    // // toast.success(`${itemName}${variationText}${addonsText} added to cart! Price: ${pricePerUnit.toFixed(2)} EGP`);
-
     // For dine_in, submit to backend immediately
     if (orderType === "dine_in") {
-      try {
-        await submitItemToBackend(postData, orderItem, customQuantity, orderType);
-      } catch (error) {
-        console.error("Error submitting item to backend:", error);
-        toast.error(`Failed to submit "${product.name}" to backend`);
-      }
+        try {
+            await submitItemToBackend(postData, orderItem, customQuantity, orderType);
+        } catch (error) {
+            console.error("Error submitting item to backend:", error);
+            toast.error(`Failed to submit "${product.name}" to backend`);
+        }
     }
-  };
+};
 
   // Handle adding to cart from modal - FIXED VERSION
   const handleAddFromModal = (enhancedProduct) => {
@@ -254,6 +256,7 @@ export default function Item({ fetchEndpoint, onAddToOrder }) {
         deliveryUserData={deliveryUserData}
         userLoading={userLoading}
         userError={userError}
+        onClose={onClose}
       />
 
       {/* Category Selector */}

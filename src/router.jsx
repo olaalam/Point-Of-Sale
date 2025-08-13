@@ -13,6 +13,7 @@ import TakeAway from "./Pages/TakeAway";
 import NotFound from "./Pages/NotFound";
 import DeliveryAdd from "./Pages/Delivery/DeliveryAdd";
 import OrdersView from "./Pages/OrdersView";
+import Shift from "./Pages/Shift";
 
 const router = createBrowserRouter([
   {
@@ -44,7 +45,14 @@ const router = createBrowserRouter([
           </ProtectedRoute>
         ),
       },
-
+      {
+        path: "/deliveryusers",
+        element: (
+          <ProtectedRoute permissionKey="Home">
+            <Home />
+          </ProtectedRoute>
+        ),
+      },
       // ✅ Route جديد للـ order page
       {
         path: "/order-page",
@@ -66,7 +74,7 @@ const router = createBrowserRouter([
       },
 
       {
-        path: "Cashier",
+        path: "cashier",
         children: [
           {
             index: true,
@@ -131,6 +139,14 @@ const router = createBrowserRouter([
       {
         path: "orders",
         element: <OrdersView />,
+      },
+      {
+        path: "shift",
+        element: (
+          <ProtectedRoute permissionKey="Shift">
+              <Shift/>
+          </ProtectedRoute>
+        ),
       },
 
       {

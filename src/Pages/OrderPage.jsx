@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import Card from "./Card";
 import Item from "./Item";
-import { useLocation } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useGet } from "@/Hooks/useGet";
 
 export default function OrderPage({
@@ -17,7 +17,7 @@ export default function OrderPage({
   const [takeAwayItems, setTakeAwayItems] = useState(initialCart);
   const [isLoading, setIsLoading] = useState(false);
   const location = useLocation();
-
+const navigate = useNavigate();
   // ✅ استخدم القيم التي تم تمريرها كـ props بشكل أساسي، وإذا لم تكن موجودة استخدم state أو localStorage
   const currentOrderType = propOrderType || location.state?.orderType || localStorage.getItem("order_type") || "take_away";
   const currentTableId = propTableId || location.state?.tableId || localStorage.getItem("table_id") || null;
@@ -96,7 +96,15 @@ export default function OrderPage({
         }
       }
     };
+  const handleClose = () => {
+    // حذف البيانات من localStorage لإلغاء اختيار العميل
+    localStorage.removeItem("selected_user_id");
+    localStorage.removeItem("selected_address_id");
+    localStorage.removeItem("order_type");
 
+    // العودة إلى المسار الرئيسي (Home)
+    navigate("/");
+  };
     window.addEventListener("storage", handleStorageChange);
     return () => window.removeEventListener("storage", handleStorageChange);
   }, [currentOrderType]);
@@ -157,6 +165,15 @@ const handleAddItem = (product) => {
 
   updateOrderItems(updatedItems);
 };
+  const handleClose = () => {
+    // حذف البيانات من localStorage لإلغاء اختيار العميل
+    localStorage.removeItem("selected_user_id");
+    localStorage.removeItem("selected_address_id");
+    localStorage.removeItem("order_type");
+
+    // العودة إلى المسار الرئيسي (Home)
+    navigate("/");
+  };
 
   return (
     <div className="flex flex-col-reverse lg:flex-row gap-6 h-full w-full px-4">
@@ -173,7 +190,7 @@ const handleAddItem = (product) => {
       </div>
 
       <div className="w-full lg:w-3/5 overflow-auto">
-        <Item onAddToOrder={handleAddItem} fetchEndpoint={fetchEndpoint} />
+        <Item onAddToOrder={handleAddItem} fetchEndpoint={fetchEndpoint} onClose={handleClose} />
       </div>
     </div>
   );

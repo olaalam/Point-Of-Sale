@@ -436,9 +436,9 @@ export default function Card({
   return (
     <div className="overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden mb-10 pb-10 ">
       {isLoading && (
-        <div className="bg-white p-6 rounded-lg shadow-lg">
-          <Loading />
-        </div>
+      <div className="flex justify-center items-center h-40">
+        <Loading />
+      </div>
       )}
       <h2 className="text-bg-primary text-3xl font-bold mb-6">Order Details</h2>
 

@@ -86,7 +86,7 @@ export default function Delivery({ orderType: propOrderType }) {
   };
 
   const handleEditAddressClick = (address) => {
-    navigate(`add/${address.id}`);
+    navigate(`order-page/add/${address.id}`);
   };
 
   // Modified handleConfirmDelivery function

@@ -20,10 +20,10 @@ const ProductModal = ({
 }) => {
   if (!selectedProduct) return null; // البحث عن الـ variation الخاص بالـ "Size" أو أي variation مطلوب // هذا يفترض أن هناك variation واحد فقط وهو المطلوب.
 
-  const sizeVariation = selectedProduct.variations?.find(
-    (v) => v.name.toLowerCase() === "size"
-  );
-  const variationOptions = sizeVariation?.options || [];
+  const hasVariations = selectedProduct.variations && selectedProduct.variations.length > 0;
+  const hasAddons = selectedProduct.addons && selectedProduct.addons.length > 0;
+  const hasExcludes = selectedProduct.excludes && selectedProduct.excludes.length > 0;
+
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -99,44 +99,38 @@ const ProductModal = ({
                 
             </p>
               {/* Sizes section (from variations data) */}  
-            {variationOptions.length > 0 && (
-              <div className="mb-4">
-                  
-                <h4 className="text-sm font-semibold text-gray-700 mb-2">
-                    {sizeVariation.name} (Required)  
-                  
-                </h4>
-                  
-                <div className="space-y-2">
-                   
-                  {variationOptions.map((option) => (
-                    <label
-                      key={option.id}
-                      className="flex items-center space-x-2"
-                    >
-                        
-                      <input
-                        type="radio"
-                        name="variation"
-                        value={option.id}
-                        checked={selectedVariation === option.id}
-                        onChange={() => onVariationChange(option.id)}
-                        className="form-radio h-4 w-4 text-red-600"
-                      />
-                        
-                      <span className="text-sm text-gray-700 capitalize">
-                           {option.name} -{" "}
-                        {(option.price_after_tax ?? option.price).toFixed(2)}{" "}
-                        EGP   
-                      </span>
-                        
-                    </label>
-                  ))}
-                    
-                </div>
-                  
-              </div>
-            )}
+{hasVariations && (
+              <div className="mb-4">
+                {selectedProduct.variations.map(variation => (
+                  <div key={variation.id} className="mb-4">
+                    <h4 className="text-sm font-semibold text-gray-700 mb-2">
+                      {variation.name} {variation.required ? "(Required)" : "(Optional)"}
+                    </h4>
+                    {/* Single-select variations (e.g., size) */}
+                    {variation.type === 'single' && (
+                      <div className="space-y-2">
+                        {variation.options.map(option => (
+                          <label key={option.id} className="flex items-center space-x-2">
+                            <input
+                              type="radio"
+                              name={`variation-${variation.id}`}
+                              value={option.id}
+                              checked={selectedVariation[variation.id] === option.id}
+                              onChange={() => onVariationChange(variation.id, option.id)}
+                              className="form-radio h-4 w-4 text-red-600"
+                            />
+                            <span className="text-sm text-gray-700 capitalize">
+                              {option.name} - {(option.price_after_tax ?? option.price).toFixed(2)} EGP
+                            </span>
+                          </label>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
               {/* Addons section */}  
             {selectedProduct.addons && selectedProduct.addons.length > 0 && (
               <div className="mb-4">
