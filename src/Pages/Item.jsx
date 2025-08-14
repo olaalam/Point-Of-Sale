@@ -94,20 +94,22 @@ export default function Item({ fetchEndpoint, onAddToOrder  ,onClose }) {
     );
   };
 
-  // FIXED handleAddToOrder function - Now handles variations properly
+// في Item.jsx - إصلاح handleAddToOrder
+
 const handleAddToOrder = async (product, customQuantity = 1) => {
     console.log("Adding product to order:", product);
     
-    // Initialize the variables
     let productBasePrice = product.price_after_discount ?? product.price ?? 0;
-    const allSelectedVariationsData = []; // <-- The fix is here
+    const allSelectedVariationsData = [];
     
-    // Check if product has variations and one is selected
-    if (product.variations && product.selectedVariations) {
+    // إصلاح: استخدام selectedVariation بدلاً من selectedVariations
+    const selectedVariations = product.selectedVariation || selectedVariation || {};
+    
+    // Handle variations
+    if (product.variations && Object.keys(selectedVariations).length > 0) {
         product.variations.forEach(variation => {
-            if (variation.type === 'single' && product.selectedVariations[variation.id]) {
-                // Handle single-select variations like 'size'
-                const selectedOption = variation.options.find(opt => opt.id === product.selectedVariations[variation.id]);
+            if (variation.type === 'single' && selectedVariations[variation.id]) {
+                const selectedOption = variation.options.find(opt => opt.id === selectedVariations[variation.id]);
                 if (selectedOption) {
                     productBasePrice = selectedOption.price_after_tax ?? selectedOption.price;
                     allSelectedVariationsData.push({
@@ -118,9 +120,8 @@ const handleAddToOrder = async (product, customQuantity = 1) => {
                         price: selectedOption.price_after_tax ?? selectedOption.price
                     });
                 }
-            } else if (variation.type === 'multiple' && product.selectedVariations[variation.id]) {
-                // Handle multi-select variations like 'toppings'
-                product.selectedVariations[variation.id].forEach(optionId => {
+            } else if (variation.type === 'multiple' && selectedVariations[variation.id] && Array.isArray(selectedVariations[variation.id])) {
+                selectedVariations[variation.id].forEach(optionId => {
                     const selectedOption = variation.options.find(opt => opt.id === optionId);
                     if (selectedOption) {
                         productBasePrice += selectedOption.price_after_tax ?? selectedOption.price;
@@ -137,9 +138,7 @@ const handleAddToOrder = async (product, customQuantity = 1) => {
         });
     }
 
-    console.log("Product base price (with variation):", productBasePrice);
-
-    // Calculate addons price and create addon data for backend
+    // FIXED: Calculate addons and create proper addon data
     let addonsTotalPrice = 0;
     const selectedAddonsData = [];
     
@@ -153,53 +152,44 @@ const handleAddToOrder = async (product, customQuantity = 1) => {
                     addon_id: addon.id,
                     name: addon.name,
                     price: addonPrice,
-                    count: customQuantity // Use the actual quantity for each addon
+                    count: customQuantity
                 });
-                console.log(`Addon ${addon.name}: ${addonPrice}`);
             }
         });
     }
-    console.log("Total addons price:", addonsTotalPrice);
-    console.log("Selected addons data:", selectedAddonsData);
 
-    // Calculate final price per unit (base + addons)
     const pricePerUnit = productBasePrice + addonsTotalPrice;
-    console.log("Price per unit (base + addons):", pricePerUnit);
-
-    // Calculate total price with quantity
     const finalTotalPrice = pricePerUnit * customQuantity;
-    console.log("Final total price:", finalTotalPrice);
 
-    // Create the order item with correct pricing and variation data
+    // FIXED: Create order item with proper data structure
     const orderItem = {
         ...product,
         count: customQuantity,
-        // Use the correct price per unit (with variation + addons)
-        price: pricePerUnit, 
-        // Keep original prices for reference
+        price: pricePerUnit,
         originalPrice: product.price,
         discountedPrice: product.price_after_discount,
-        // Total price for this line item
         totalPrice: finalTotalPrice,
         
-        // Store variation data for backend submission
-        variation: allSelectedVariationsData, // <-- This is still problematic
-        allSelectedVariations: allSelectedVariationsData, // <-- Use the new array here
-        selectedVariation: product.selectedVariation, // Keep for frontend use
+        // Store variation data properly
+        allSelectedVariations: allSelectedVariationsData,
+        selectedVariation: selectedVariations, // Keep for frontend use
         
-        // Store addons data for backend submission
+        // FIXED: Store addons data properly for backend
         selectedAddons: selectedAddonsData,
         selectedExtras: product.selectedExtras || [], // Keep for frontend use
+        
+        // FIXED: Store exclusions properly
+        selectedExcludes: product.selectedExcludes || [],
         
         ...(orderType === "dine_in" && { preparation_status: "pending" }),
     };
 
-    console.log("Order item being added:", orderItem);
+    console.log("Final order item:", orderItem);
+    console.log("Selected addons data:", selectedAddonsData);
+    console.log("All selected variations:", allSelectedVariationsData);
 
-    // Add item to local state (the cart)
     onAddToOrder(orderItem);
 
-    // For dine_in, submit to backend immediately
     if (orderType === "dine_in") {
         try {
             await submitItemToBackend(postData, orderItem, customQuantity, orderType);

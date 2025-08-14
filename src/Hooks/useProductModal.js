@@ -1,135 +1,207 @@
-// 2. New useProductModal.js
+// useProductModal.js
 import { useState, useEffect } from "react";
 
 export const useProductModal = () => {
-const [selectedProduct, setSelectedProduct] = useState(null);
-const [isProductModalOpen, setIsProductModalOpen] = useState(false);
-// Now an object to hold multiple variations: { variationId1: optionId, variationId2: optionId }
-const [selectedVariation, setSelectedVariation] = useState({});
-const [selectedExtras, setSelectedExtras] = useState([]);
-const [quantity, setQuantity] = useState(1);
-const [totalPrice, setTotalPrice] = useState(0);
+  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [isProductModalOpen, setIsProductModalOpen] = useState(false);
+  const [selectedVariation, setSelectedVariation] = useState({});
+  const [selectedExtras, setSelectedExtras] = useState([]);
+  const [selectedExcludes, setSelectedExcludes] = useState([]); // New state for exclusions
+  const [quantity, setQuantity] = useState(1);
+  const [totalPrice, setTotalPrice] = useState(0);
+  const [validationErrors, setValidationErrors] = useState({}); // New state for validation
 
-const openProductModal = (product) => {
- console.log("Opening modal for product:", product);
- setSelectedProduct(product);
- 
- const initialSelectedVariations = {};
- if (product.variations && product.variations.length > 0) {
- product.variations.forEach(variation => {
-  if (variation.type === 'single' && variation.options.length > 0) {
-  // Set default for single-select variations
-  initialSelectedVariations[variation.id] = variation.options[0].id;
-  }
- });
- }
- setSelectedVariation(initialSelectedVariations);
- 
- setSelectedExtras([]);
- setQuantity(1);
- setIsProductModalOpen(true);
-};
+  const openProductModal = (product) => {
+    
+    setSelectedProduct(product);
+const initialSelectedVariations = {};
+if (product.variations && product.variations.length > 0) {
+    product.variations.forEach(variation => {
+        if (variation.type === 'single' && variation.options.length > 0) {
+            initialSelectedVariations[variation.id] = variation.options[0].id;
+        } else if (variation.type === 'multiple') {
+            // This is the correct initialization for multi-select
+            initialSelectedVariations[variation.id] = []; 
+        }
+    });
+}
+setSelectedVariation(initialSelectedVariations);
 
-const closeProductModal = () => {
- setIsProductModalOpen(false);
- setSelectedProduct(null);
- setSelectedVariation({});
- setSelectedExtras([]);
- setQuantity(1);
- setTotalPrice(0);
-};
+    setSelectedExtras([]);
+    setSelectedExcludes([]); // Reset exclusions
+    setQuantity(1);
+    setTotalPrice(0);
+    setValidationErrors({}); // Reset validation errors
+    setIsProductModalOpen(true);
+  };
 
-const handleVariationChange = (variationId, optionId) => {
- console.log("Variation option changed:", { variationId, optionId });
- setSelectedVariation(prev => ({ ...prev, [variationId]: optionId }));
-};
+  const closeProductModal = () => {
+    setIsProductModalOpen(false);
+    setSelectedProduct(null);
+    setSelectedVariation({});
+    setSelectedExtras([]);
+    setSelectedExcludes([]);
+    setQuantity(1);
+    setTotalPrice(0);
+    setValidationErrors({});
+  };
 
-const handleExtraChange = (extraId) => {
- console.log("Extra changed:", extraId);
- setSelectedExtras((prev) => {
- const newExtras = prev.includes(extraId)
-  ? prev.filter((id) => id !== extraId)
-  : [...prev, extraId];
- console.log("New selected extras:", newExtras);
- return newExtras;
- });
-};
+  const handleVariationChange = (variationId, optionId) => {
+    setSelectedVariation((prev) => {
+      const variation = selectedProduct.variations.find(
+        (v) => v.id === variationId
+      );
+      if (!variation) return prev;
 
-useEffect(() => {
- if (!selectedProduct) {
- setTotalPrice(0);
- return;
- }
+      if (variation.type === "single") {
+        return { ...prev, [variationId]: optionId };
+      } else if (variation.type === "multiple") {
+        const currentOptions = prev[variationId] || [];
+        const isSelected = currentOptions.includes(optionId);
+        let newOptions;
 
- console.log("Recalculating price for:", {
- product: selectedProduct.name,
- quantity,
- selectedExtras,
- selectedVariation
- });
+        if (isSelected) {
+          newOptions = currentOptions.filter((id) => id !== optionId);
+        } else {
+          newOptions = [...currentOptions, optionId];
+        }
+        return { ...prev, [variationId]: newOptions };
+      }
 
- // Start with base product price
- let basePrice = selectedProduct.price_after_discount ?? selectedProduct.price ?? 0;
- console.log("Base product price:", basePrice);
+      return prev;
+    });
+  };
 
- // Handle variation pricing dynamically
- if (selectedProduct.variations) {
- selectedProduct.variations.forEach(variation => {
-  const selectedOptionId = selectedVariation[variation.id];
-  if (selectedOptionId) {
-  const selectedOption = variation.options.find(opt => opt.id === selectedOptionId);
-  if (selectedOption) {
-   // If it's a single variation, its price overrides the base price
-   if (variation.type === 'single') {
-   basePrice = selectedOption.price_after_tax ?? selectedOption.price ?? basePrice;
-   } else if (variation.type === 'multiple') {
-   // For multiple variations, add their prices
-   basePrice += selectedOption.price_after_tax ?? selectedOption.price ?? 0;
-   }
-  }
-  }
- });
- }
+  const handleExtraChange = (extraId) => {
+    setSelectedExtras((prev) => {
+      return prev.includes(extraId)
+        ? prev.filter((id) => id !== extraId)
+        : [...prev, extraId];
+    });
+  };
 
- // Add prices from selected extras (same logic as before)
- let addonsPrice = 0;
- if (selectedExtras.length > 0 && selectedProduct.addons) {
- selectedExtras.forEach((extraId) => {
-  const addon = selectedProduct.addons.find((addon) => addon.id === extraId);
-  if (addon) {
-  const addonPrice = addon.price_after_discount ?? addon.price ?? 0;
-  addonsPrice += addonPrice;
-  console.log(`Added addon ${addon.name}: ${addonPrice}`);
-  }
- });
- }
+  const handleExclusionChange = (excludeId) => {
+    setSelectedExcludes((prev) => {
+      return prev.includes(excludeId)
+        ? prev.filter((id) => id !== excludeId)
+        : [...prev, excludeId];
+    });
+  };
 
- const pricePerUnit = basePrice + addonsPrice;
- const calculatedTotalPrice = pricePerUnit * quantity;
- 
- console.log("Price calculation:", {
- basePrice,
- addonsPrice,
- pricePerUnit,
- quantity,
- calculatedTotalPrice
- });
+  useEffect(() => {
+    if (!selectedProduct) {
+      setTotalPrice(0);
+      return;
+    }
 
- setTotalPrice(calculatedTotalPrice);
-}, [quantity, selectedExtras, selectedProduct, selectedVariation]);
+    let basePrice =
+      selectedProduct.price_after_discount ?? selectedProduct.price ?? 0;
+    let totalVariationsPrice = 0;
+    const newErrors = {};
 
-return {
- selectedProduct,
- isProductModalOpen,
- selectedVariation,
- selectedExtras,
- quantity,
- totalPrice,
- openProductModal,
- closeProductModal,
- handleVariationChange,
- handleExtraChange,
- setQuantity,
- setIsProductModalOpen,
-};
+    // Calculate variation pricing and validate constraints
+    if (selectedProduct.variations) {
+      selectedProduct.variations.forEach((variation) => {
+        const selectedOptions = selectedVariation[variation.id];
+
+        if (
+          variation.required &&
+          (!selectedOptions ||
+            (Array.isArray(selectedOptions) && selectedOptions.length === 0))
+        ) {
+          newErrors[
+            variation.id
+          ] = `Please select an option for ${variation.name}.`;
+        }
+
+        if (variation.type === "single" && selectedOptions) {
+          const selectedOption = variation.options.find(
+            (opt) => opt.id === selectedOptions
+          );
+          if (selectedOption) {
+            basePrice =
+              selectedOption.price_after_tax ??
+              selectedOption.price ??
+              basePrice;
+          }
+        } else if (
+          variation.type === "multiple" &&
+          selectedOptions &&
+          selectedOptions.length > 0
+        ) {
+          if (
+            variation.min_options &&
+            selectedOptions.length < variation.min_options
+          ) {
+            newErrors[
+              variation.id
+            ] = `Please select at least ${variation.min_options} options for ${variation.name}.`;
+          }
+          if (
+            variation.max_options &&
+            selectedOptions.length > variation.max_options
+          ) {
+            newErrors[
+              variation.id
+            ] = `You can select a maximum of ${variation.max_options} options for ${variation.name}.`;
+          }
+
+          selectedOptions.forEach((optionId) => {
+            const selectedOption = variation.options.find(
+              (opt) => opt.id === optionId
+            );
+            if (selectedOption) {
+              totalVariationsPrice +=
+                selectedOption.price_after_tax ?? selectedOption.price ?? 0;
+            }
+          });
+        }
+      });
+    }
+
+    // Add prices from selected extras
+    let addonsPrice = 0;
+    if (selectedExtras.length > 0 && selectedProduct.addons) {
+      selectedExtras.forEach((extraId) => {
+        const addon = selectedProduct.addons.find(
+          (addon) => addon.id === extraId
+        );
+        if (addon) {
+          addonsPrice += addon.price_after_discount ?? addon.price ?? 0;
+        }
+      });
+    }
+
+    const pricePerUnit = basePrice + totalVariationsPrice + addonsPrice;
+    const calculatedTotalPrice = pricePerUnit * quantity;
+
+    setTotalPrice(calculatedTotalPrice);
+    setValidationErrors(newErrors);
+  }, [
+    quantity,
+    selectedExtras,
+    selectedExcludes,
+    selectedProduct,
+    selectedVariation,
+  ]);
+
+  const hasErrors = Object.keys(validationErrors).length > 0;
+
+  return {
+    selectedProduct,
+    isProductModalOpen,
+    selectedVariation,
+    selectedExtras,
+    selectedExcludes, // Expose new state
+    quantity,
+    totalPrice,
+    validationErrors, // Expose new state
+    hasErrors, // Expose a boolean for easy access
+    openProductModal,
+    closeProductModal,
+    handleVariationChange,
+    handleExtraChange,
+    handleExclusionChange, // Expose new handler
+    setQuantity,
+  };
 };

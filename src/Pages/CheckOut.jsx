@@ -176,112 +176,97 @@ const handleSubmitOrder = async () => {
     return toast.error(`Total must equal ${requiredTotal.toFixed(2)} EGP.`);
   }
 
-  const formattedFinancials = paymentSplits.map((s) => ({
-    id: parseInt(s.accountId),
-    amount: s.amount,
-  }));
+const processProductItem = (item) => {
+ // Group variations by variation_id
+ const groupedVariations = item.allSelectedVariations?.reduce((acc, variation) => {
+ const existing = acc.find((v) => v.variation_id === variation.variation_id);
+ if (existing) {
+ existing.option_id = Array.isArray(existing.option_id)
+ ? [...existing.option_id, variation.option_id]
+ : [existing.option_id, variation.option_id];
+ } else {
+ acc.push({
+ variation_id: variation.variation_id,
+ option_id: [variation.option_id],
+ });
+ }
+ return acc;
+ }, []) || [];
+
+ const productData = {
+ product_id: item.id.toString(),
+ count: item.count.toString(),
+ note: item.note || "Product Note",
+ addons: (item.selectedAddons || []).map((addon) => ({
+ addon_id: addon.addon_id.toString(),
+ count: (addon.count || 1).toString(),
+ })),
+ variation: groupedVariations.map(v => ({
+ variation_id: v.variation_id.toString(),
+ option_id: v.option_id.map(id => id.toString()),
+ })),
+ exclude_id: (item.selectedExcludes || []).map(id => id.toString()),
+ };
+    
+    // Check if selectedExtras exist and are not empty before adding extra_id
+ if (item.selectedExtras && item.selectedExtras.length > 0) {
+ productData.extra_id = item.selectedExtras.map(id => id.toString());
+ }
+
+ return productData;
+};
 
   let productsToSend;
   let newAmountToPay;
 
   if (orderType === "dine_in") {
-    const doneItems = orderItems.filter(
-      (item) => item.preparation_status === "done"
-    );
-    newAmountToPay = doneItems.reduce(
-      (acc, item) => acc + item.price * item.count,
-      0
-    );
-    
-    productsToSend = doneItems.map((item) => ({
-      product_id: item.id,
-      count: item.count,
-      
-      // Handle addons properly
-      addons: item.selectedAddons?.map((addon) => ({
-        addon_id: addon.addon_id,
-        count: addon.count,
-      })) || [],
-      
-      // Handle variations properly
-variation:
-  item.variation &&
-  item.variation.variation_id &&
-  item.variation.option_id != null
-    ? [
-        {
-          variation_id: item.variation.variation_id,
-          option_id: [parseInt(item.variation.option_id)],
-        },
-      ]
-    : [],
-
-
-      
-      exclude_id: item.exclude_id || [],
-      extra_id: item.extra_id || [],
-    }));
-
-    console.log("Products to send for dine_in:", productsToSend);
-
+    const doneItems = orderItems.filter((item) => item.preparation_status === "done");
+    newAmountToPay = doneItems.reduce((acc, item) => acc + item.price * item.count, 0);
+    productsToSend = doneItems.map(processProductItem);
   } else {
-    // For takeaway/delivery
-    productsToSend = orderItems.map((item) => ({
-      product_id: item.id,
-      count: item.count,
-      
-      // Handle addons
-      addons: item.selectedAddons?.map((addon) => ({
-        addon_id: addon.addon_id,
-        count: addon.count,
-      })) || [],
-      
-      // Handle variations
-variation:
-  item.variation &&
-  item.variation.variation_id &&
-  item.variation.option_id != null
-    ? [
-        {
-          variation_id: item.variation.variation_id,
-          option_id: [parseInt(item.variation.option_id)],
-        },
-      ]
-    : [],
-
-      
-      exclude_id: item.exclude_id || [],
-      extra_id: item.extra_id || [],
-    }));
-    
-    console.log("Products to send for takeaway/delivery:", productsToSend);
+    productsToSend = orderItems.map(processProductItem);
     newAmountToPay = amountToPay;
   }
 
+  // Format financials according to your JSON structure
+  const formattedFinancials = paymentSplits.map((s) => ({
+    id: s.accountId.toString(),
+    amount: s.amount.toString(),
+  }));
+
+  // Create the payload in the exact format you specified
   const payload = {
-    financials: formattedFinancials,
-    cashier_id: cashierId,
-    amount: newAmountToPay,
-    total_tax: totalTax,
-    total_discount: totalDiscount,
-    notes,
+    amount: newAmountToPay.toString(),
+    total_tax: totalTax.toString(),
+    total_discount: totalDiscount.toString(),
+    notes: notes || "note",
     products: productsToSend,
-    ...(orderType === "dine_in" && { table_id: tableId }),
-    ...(orderType === "delivery" && {
-      address_id: localStorage.getItem("selected_address_id") || "",
-      user_id: localStorage.getItem("selected_user_id") || "",
-      cash_with_delivery: parseFloat(customerPaid) || 0,
-    }),
+    source: source,
+    financials: formattedFinancials,
+    cashier_id: cashierId.toString(),
   };
 
-  console.log("Final payload being sent:", JSON.stringify(payload, null, 2));
+  // Add additional fields based on order type
+  if (orderType === "dine_in") {
+    payload.table_id = tableId;
+  } else if (orderType === "delivery") {
+    payload.address_id = localStorage.getItem("selected_address_id") || "";
+    payload.user_id = localStorage.getItem("selected_user_id") || "";
+    payload.cash_with_delivery = (parseFloat(customerPaid) || 0).toString();
+  }
+
+  console.log("Payload to send:", JSON.stringify(payload, null, 2));
 
   try {
-    const response = await postData(endpoint, payload);
+    const response = await postData(endpoint, payload, {
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+
     console.log("Order Submission Response:", response);
     toast.success("Order placed successfully!");
-    
-    // Continue with rest of the logic...
+
     localStorage.setItem("last_order_type", orderType);
 
     if (orderType === "delivery") {
@@ -304,7 +289,6 @@ variation:
     toast.error(e.message || "Submission failed");
   }
 };
-
   const handleAssignDelivery = async () => {
     // إضافة هذا الشرط للتأكد من وجود orderId قبل إرسال الطلب
     if (!orderId) {
