@@ -171,126 +171,115 @@ const CheckOut = ({
       ? "cashier/delivery_order"
       : "cashier/take_away_order";
 
-const handleSubmitOrder = async () => {
-  if (!isTotalMet || totalScheduled === 0) {
-    return toast.error(`Total must equal ${requiredTotal.toFixed(2)} EGP.`);
-  }
+  const handleSubmitOrder = async () => {
+    if (!isTotalMet || totalScheduled === 0) {
+      return toast.error(`Total must equal ${requiredTotal.toFixed(2)} EGP.`);
+    }
 
-const processProductItem = (item) => {
- // Group variations by variation_id
- const groupedVariations = item.allSelectedVariations?.reduce((acc, variation) => {
- const existing = acc.find((v) => v.variation_id === variation.variation_id);
- if (existing) {
- existing.option_id = Array.isArray(existing.option_id)
- ? [...existing.option_id, variation.option_id]
- : [existing.option_id, variation.option_id];
- } else {
- acc.push({
- variation_id: variation.variation_id,
- option_id: [variation.option_id],
- });
- }
- return acc;
- }, []) || [];
+    const processProductItem = (item) => {
+      const groupedVariations = item.allSelectedVariations?.reduce((acc, variation) => {
+        const existing = acc.find((v) => v.variation_id === variation.variation_id);
+        if (existing) {
+          existing.option_id = Array.isArray(existing.option_id)
+            ? [...existing.option_id, variation.option_id]
+            : [existing.option_id, variation.option_id];
+        } else {
+          acc.push({
+            variation_id: variation.variation_id.toString(),
+            option_id: [variation.option_id.toString()],
+          });
+        }
+        return acc;
+      }, []) || [];
 
- const productData = {
- product_id: item.id.toString(),
- count: item.count.toString(),
- note: item.note || "Product Note",
- addons: (item.selectedAddons || []).map((addon) => ({
- addon_id: addon.addon_id.toString(),
- count: (addon.count || 1).toString(),
- })),
- variation: groupedVariations.map(v => ({
- variation_id: v.variation_id.toString(),
- option_id: v.option_id.map(id => id.toString()),
- })),
- exclude_id: (item.selectedExcludes || []).map(id => id.toString()),
- };
-    
-    // Check if selectedExtras exist and are not empty before adding extra_id
- if (item.selectedExtras && item.selectedExtras.length > 0) {
- productData.extra_id = item.selectedExtras.map(id => id.toString());
- }
+      const productData = {
+        product_id: item.id.toString(),
+        count: item.count.toString(),
+        note: item.note || "Product Note",
+        addons: (item.selectedAddons || []).map((addon) => ({
+          addon_id: addon.addon_id.toString(),
+          count: (addon.count || 1).toString(),
+        })),
+        variation: groupedVariations,
+        exclude_id: (item.selectedExcludes || []).map(id => id.toString()),
+        extra_id: (item.allExtras?.length > 0 && item.selectedExtras?.length > 0)
+          ? item.selectedExtras.map(id => id.toString())
+          : [],
+      };
 
- return productData;
-};
+      return productData;
+    };
 
-  let productsToSend;
-  let newAmountToPay;
+    let productsToSend;
+    let newAmountToPay;
 
-  if (orderType === "dine_in") {
-    const doneItems = orderItems.filter((item) => item.preparation_status === "done");
-    newAmountToPay = doneItems.reduce((acc, item) => acc + item.price * item.count, 0);
-    productsToSend = doneItems.map(processProductItem);
-  } else {
-    productsToSend = orderItems.map(processProductItem);
-    newAmountToPay = amountToPay;
-  }
+    if (orderType === "dine_in") {
+      const doneItems = orderItems.filter((item) => item.preparation_status === "done");
+      newAmountToPay = doneItems.reduce((acc, item) => acc + item.price * item.count, 0);
+      productsToSend = doneItems.map(processProductItem);
+    } else {
+      productsToSend = orderItems.map(processProductItem);
+      newAmountToPay = amountToPay;
+    }
 
-  // Format financials according to your JSON structure
-  const formattedFinancials = paymentSplits.map((s) => ({
-    id: s.accountId.toString(),
-    amount: s.amount.toString(),
-  }));
+    const payload = {
+      amount: newAmountToPay.toString(),
+      total_tax: totalTax.toString(),
+      total_discount: totalDiscount.toString(),
+      notes: notes || "note",
+      products: productsToSend,
+      source: source,
+      financials: paymentSplits.map((s) => ({
+        id: s.accountId.toString(),
+        amount: s.amount.toString(),
+      })),
+      cashier_id: cashierId.toString(),
+    };
 
-  // Create the payload in the exact format you specified
-  const payload = {
-    amount: newAmountToPay.toString(),
-    total_tax: totalTax.toString(),
-    total_discount: totalDiscount.toString(),
-    notes: notes || "note",
-    products: productsToSend,
-    source: source,
-    financials: formattedFinancials,
-    cashier_id: cashierId.toString(),
-  };
+    if (orderType === "dine_in") {
+      payload.table_id = tableId;
+    } else if (orderType === "delivery") {
+      payload.address_id = localStorage.getItem("selected_address_id") || "";
+      payload.user_id = localStorage.getItem("selected_user_id") || "";
+      payload.cash_with_delivery = (parseFloat(customerPaid) || 0).toString();
+    }
 
-  // Add additional fields based on order type
-  if (orderType === "dine_in") {
-    payload.table_id = tableId;
-  } else if (orderType === "delivery") {
-    payload.address_id = localStorage.getItem("selected_address_id") || "";
-    payload.user_id = localStorage.getItem("selected_user_id") || "";
-    payload.cash_with_delivery = (parseFloat(customerPaid) || 0).toString();
-  }
+    console.log("Payload to send:", JSON.stringify(payload, null, 2));
 
-  console.log("Payload to send:", JSON.stringify(payload, null, 2));
+    try {
+      const response = await postData(endpoint, payload, {
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
 
-  try {
-    const response = await postData(endpoint, payload, {
-      headers: {
-        "Content-Type": "application/json",
-      },
-    });
+      console.log("Order Submission Response:", response);
+      toast.success("Order placed successfully!");
 
-    console.log("Order Submission Response:", response);
-    toast.success("Order placed successfully!");
+      localStorage.setItem("last_order_type", orderType);
 
-    localStorage.setItem("last_order_type", orderType);
-
-    if (orderType === "delivery") {
-      const newOrderId = response?.success?.id;
-      if (newOrderId) {
-        setOrderId(newOrderId);
-        console.log("New Order ID:", newOrderId);
-        setDeliveryModelOpen(true);
+      if (orderType === "delivery") {
+        const newOrderId = response?.success?.id;
+        if (newOrderId) {
+          setOrderId(newOrderId);
+          console.log("New Order ID:", newOrderId);
+          setDeliveryModelOpen(true);
+        } else {
+          toast.error("Order ID not returned from server. Cannot assign delivery.");
+          onClose();
+          navigate("/orders");
+        }
       } else {
-        toast.error("Order ID not returned from server. Cannot assign delivery.");
         onClose();
         navigate("/orders");
       }
-    } else {
-      onClose();
-      navigate("/orders");
+    } catch (e) {
+      console.error("Submit error:", e);
+      toast.error(e.message || "Submission failed");
     }
-  } catch (e) {
-    console.error("Submit error:", e);
-    toast.error(e.message || "Submission failed");
-  }
-};
+  };
+
   const handleAssignDelivery = async () => {
-    // إضافة هذا الشرط للتأكد من وجود orderId قبل إرسال الطلب
     if (!orderId) {
       toast.error("Order ID is missing. Please try again.");
       return;
@@ -332,7 +321,6 @@ const processProductItem = (item) => {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4">
-      {/* Delivery Selection Modal */}
       {deliveryModelOpen && (
         <div className="relative w-full max-w-md bg-white p-6 rounded-lg shadow-md">
           <button
@@ -384,7 +372,6 @@ const processProductItem = (item) => {
         </div>
       )}
 
-      {/* Main Checkout Modal */}
       {!deliveryModelOpen && (
         <div className="relative w-full max-w-2xl bg-white p-8 rounded-2xl shadow-2xl border">
           <ToastContainer position="bottom-right" />
