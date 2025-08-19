@@ -14,7 +14,7 @@ export const useProductModal = () => {
   const openProductModal = (product) => {
     console.log("Opening product modal:", product);
     console.log("Product addons:", product.addons);
-    console.log("Product allExtras:", product.allExtras);
+    console.log("Product extras:", product.allExtras);
     
     setSelectedProduct(product);
     const initialSelectedVariations = {};

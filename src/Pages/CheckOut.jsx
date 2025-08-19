@@ -288,6 +288,8 @@ const processProductItem = (item) => {
       const response = await postData(endpoint, payload, {
         headers: {
           "Content-Type": "application/json",
+
+          
         },
       });
 
