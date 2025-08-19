@@ -39,12 +39,14 @@ export default function Item({ fetchEndpoint, onAddToOrder  ,onClose }) {
     isProductModalOpen,
     selectedVariation,
     selectedExtras,
+    selectedExcludes,
     quantity,
     totalPrice,
     openProductModal,
     closeProductModal,
     handleVariationChange,
     handleExtraChange,
+    handleExclusionChange,
     setQuantity,
   } = useProductModal();
 
@@ -317,10 +319,12 @@ const handleAddToOrder = async (product, customQuantity = 1) => {
         selectedProduct={selectedProduct}
         selectedVariation={selectedVariation}
         selectedExtras={selectedExtras}
+        selectedExcludes={selectedExcludes}
         quantity={quantity}
         totalPrice={totalPrice}
         onVariationChange={handleVariationChange}
         onExtraChange={handleExtraChange}
+        onExclusionChange={handleExclusionChange}
         onQuantityChange={setQuantity}
         onAddFromModal={handleAddFromModal}
         orderLoading={orderLoading}

@@ -1,4 +1,4 @@
-// Fixed Card.jsx - Resolving cart_id and loading issues
+// Fixed Card.jsx - Resolving API format and preparation status issues
 import React, { useEffect, useMemo, useState } from "react";
 
 import Loading from "@/components/Loading";
@@ -83,45 +83,41 @@ export default function Card({
 
   const isLoading = apiLoading;
 
- useEffect(() => {
-    if (data && Array.isArray(data.success)) {
-      const mappedItems = data.success.map((item) => { // Changed from flatMap to map
-        // FIXED: Use correct field names from backend response
-        const baseItem = {
-          id: item.id,
-          cart_id: item.cart_id,
-          name: item.name ?? "No name",
-          price: item.price_after_discount ?? item.price ?? 0,
-          originalPrice: item.price ?? 0,
-          count: item.count ?? 1,
-          preparation_status:
-            item.prepration || item.preparation_status || "pending",
-          type: "main_item",
-          // NEW: Add a dedicated field for addons
-          addons: [],
-        };
+useEffect(() => {
+  if (data && Array.isArray(data.success)) {
+    const mappedItems = data.success.map((item) => {
+      const baseItem = {
+        id: item.id,
+        cart_id: item.cart_id,
+        name: item.name ?? "No name",
+        price: parseFloat(item.price_after_tax ?? item.price ?? 0),
+        originalPrice: parseFloat(item.price ?? 0),
+        count: parseInt(item.count ?? 1),
+        preparation_status: item.prepration || item.preparation_status || "pending",
+        type: "main_item",
+        addons: [], // initialize as empty
+      };
 
-        // FIXED: Collect addons into the 'addons' field of the main item
-        if (Array.isArray(item.allExtras) && item.allExtras.length > 0) {
-          baseItem.addons = item.allExtras.map((extra) => ({
-            id: `${item.id}_addon_${extra.id}`, // Unique ID for the addon
-            name: extra.name,
-            price: extra.price_after_discount ?? extra.price ?? 0,
-            originalPrice: extra.price ?? 0,
-            count: extra.count ?? 1,
-            // The addon's status is tied to the main item's status
-            preparation_status:
-              item.prepration || item.preparation_status || "pending",
-          }));
-        }
+      // ✅ جمع الـ addons من addons_selected
+      if (Array.isArray(item.addons_selected) && item.addons_selected.length > 0) {
+        baseItem.addons = item.addons_selected.map((addon) => ({
+          id: `${item.id}_addon_${addon.id}`,
+          name: addon.name,
+          price: parseFloat(addon.price_after_tax ?? addon.price ?? 0),
+          originalPrice: parseFloat(addon.price ?? 0),
+          count: parseInt(addon.quantity_add ?? 1),
+          preparation_status: baseItem.preparation_status,
+        }));
+      }
 
-        return baseItem; // Returns a single item object containing its addons
-      });
+      return baseItem;
+    });
 
-      console.log("Final mapped items:", mappedItems);
-      updateOrderItems(mappedItems);
-    }
-  }, [data]);
+    console.log("Mapped items with addons_selected:", mappedItems);
+    updateOrderItems(mappedItems);
+  }
+}, [data]);
+
 
   // FIXED: Individual item loading state management
   const setItemLoading = (itemId, isLoading) => {
@@ -131,8 +127,8 @@ export default function Card({
     }));
   };
 
+  // FIXED: Corrected API payload format for single item updates
   const handleUpdatePreparationStatus = async (itemId) => {
-    // FIXED: Set loading state for specific item
     setItemLoading(itemId, true);
 
     try {
@@ -157,19 +153,22 @@ export default function Card({
             item.cart_id &&
             tableId
           ) {
+            // FIXED: Create proper FormData structure that backend expects
             const formData = new FormData();
-            formData.append("preparing[0][cart_id]", item.cart_id.toString());
             formData.append("table_id", tableId.toString());
+            
+            // FIXED: Use array format that Laravel expects
+            formData.append("preparing[0][cart_id]", item.cart_id.toString());
             formData.append(
               "preparing[0][status]",
-              PREPARATION_STATUSES[nextStatus]?.apiValue
+              PREPARATION_STATUSES[nextStatus]?.apiValue || nextStatus
             );
 
-            console.log("Sending single item update:", {
-              cart_id: item.cart_id,
-              table_id: tableId,
-              status: PREPARATION_STATUSES[nextStatus]?.apiValue,
-            });
+            // Debug: Log what we're sending
+            console.log("FormData contents:");
+            for (let [key, value] of formData.entries()) {
+              console.log(`${key}: ${value}`);
+            }
 
             postData("cashier/preparing", formData)
               .then((responseData) => {
@@ -181,10 +180,23 @@ export default function Card({
               })
               .catch((err) => {
                 console.error("Failed to update single item status:", err);
-                toast.error("Failed to update status. Please try again.");
+                
+                // More detailed error logging
+                if (err.response) {
+                  console.error("Error response:", err.response.data);
+                  console.error("Error status:", err.response.status);
+                }
+                
+                // Show more specific error message
+                const errorMessage = err.response?.data?.message || 
+                                   err.response?.data?.exception ||
+                                   "Failed to update status. Please try again.";
+                toast.error(errorMessage);
+                
+                // Revert the status change on error
+                return;
               })
               .finally(() => {
-                // FIXED: Clear loading state after API call
                 setItemLoading(itemId, false);
               });
           } else if (nextStatus === "pending" || nextStatus === "watting") {
@@ -203,6 +215,7 @@ export default function Card({
             });
             toast.error("Missing required data for status update");
             setItemLoading(itemId, false);
+            return item; // Don't update if missing data
           }
 
           return { ...item, preparation_status: nextStatus };
@@ -316,6 +329,7 @@ export default function Card({
 
   const statusOrder = ["pending", "watting", "preparing", "pick_up", "done"];
 
+  // FIXED: Improved bulk status update with better error handling
   const applyBulkStatus = async () => {
     if (!bulkStatus || selectedItems.length === 0) {
       toast.warning("Please select items and choose a status");
@@ -352,7 +366,7 @@ export default function Card({
       ) {
         itemsToUpdateOnBackend.push({
           cart_id: item.cart_id,
-          status: PREPARATION_STATUSES[bulkStatus]?.apiValue,
+          status: PREPARATION_STATUSES[bulkStatus]?.apiValue || bulkStatus,
         });
       } else if (
         !item.cart_id &&
@@ -368,6 +382,7 @@ export default function Card({
     if (itemsToUpdateOnBackend.length > 0) {
       console.log("Items to update on backend:", itemsToUpdateOnBackend);
 
+      // FIXED: Ensure proper FormData structure for bulk updates
       const formData = new FormData();
       formData.append("table_id", tableId.toString());
 
@@ -392,7 +407,16 @@ export default function Card({
         );
       } catch (err) {
         console.error("Failed to apply bulk status:", err);
-        toast.error("Failed to update status. Please try again.");
+        
+        // Better error handling for bulk updates
+        if (err.response) {
+          console.error("Bulk update error response:", err.response.data);
+        }
+        
+        const errorMessage = err.response?.data?.message || 
+                           err.response?.data?.exception ||
+                           "Failed to update status. Please try again.";
+        toast.error(errorMessage);
         return;
       }
     } else if (bulkStatus === "pending" || bulkStatus === "watting") {

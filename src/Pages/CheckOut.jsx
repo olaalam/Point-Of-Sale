@@ -18,7 +18,7 @@ import { useNavigate } from "react-router-dom";
 const CheckOut = ({
   amountToPay,
   orderItems,
-  onClose,
+  onClose,    
   totalTax,
   totalDiscount,
   notes = "Customer requested no plastic bag.",
@@ -176,39 +176,77 @@ const CheckOut = ({
       return toast.error(`Total must equal ${requiredTotal.toFixed(2)} EGP.`);
     }
 
-    const processProductItem = (item) => {
-      const groupedVariations = item.allSelectedVariations?.reduce((acc, variation) => {
-        const existing = acc.find((v) => v.variation_id === variation.variation_id);
-        if (existing) {
-          existing.option_id = Array.isArray(existing.option_id)
-            ? [...existing.option_id, variation.option_id]
-            : [existing.option_id, variation.option_id];
-        } else {
-          acc.push({
-            variation_id: variation.variation_id.toString(),
-            option_id: [variation.option_id.toString()],
+// CheckOut.jsx - Fixed processProductItem function
+const processProductItem = (item) => {
+  const groupedVariations = item.allSelectedVariations?.reduce((acc, variation) => {
+    const existing = acc.find((v) => v.variation_id === variation.variation_id);
+    if (existing) {
+      existing.option_id = Array.isArray(existing.option_id)
+        ? [...existing.option_id, variation.option_id]
+        : [existing.option_id, variation.option_id];
+    } else {
+      acc.push({
+        variation_id: variation.variation_id.toString(),
+        option_id: [variation.option_id.toString()],
+      });
+    }
+    return acc;
+  }, []) || [];
+
+  // FIXED: Separate real extras from addons
+  const realExtrasIds = [];
+  const addonItems = [];
+
+  if (item.selectedExtras && item.selectedExtras.length > 0) {
+    item.selectedExtras.forEach(extraId => {
+      // Check if this ID belongs to allExtras (real extras)
+      const isRealExtra = item.allExtras?.some(extra => extra.id === extraId);
+      
+      if (isRealExtra) {
+        realExtrasIds.push(extraId.toString());
+      } else {
+        // It's an addon, find it in the addons array
+        const addon = item.addons?.find(addon => addon.id === extraId);
+        if (addon) {
+          addonItems.push({
+            addon_id: extraId.toString(),
+            count: "1", // Default count, you might want to make this dynamic
           });
         }
-        return acc;
-      }, []) || [];
+      }
+    });
+  }
 
-      const productData = {
-        product_id: item.id.toString(),
-        count: item.count.toString(),
-        note: item.note || "Product Note",
-        addons: (item.selectedAddons || []).map((addon) => ({
-          addon_id: addon.addon_id.toString(),
-          count: (addon.count || 1).toString(),
-        })),
-        variation: groupedVariations,
-        exclude_id: (item.selectedExcludes || []).map(id => id.toString()),
-        extra_id: (item.allExtras?.length > 0 && item.selectedExtras?.length > 0)
-          ? item.selectedExtras.map(id => id.toString())
-          : [],
-      };
+  // Also add any selectedAddons data if it exists
+  if (item.selectedAddons && item.selectedAddons.length > 0) {
+    item.selectedAddons.forEach(addonData => {
+      // Check if this addon is not already added
+      const alreadyExists = addonItems.some(existing => existing.addon_id === addonData.addon_id.toString());
+      if (!alreadyExists) {
+        addonItems.push({
+          addon_id: addonData.addon_id.toString(),
+          count: (addonData.count || 1).toString(),
+        });
+      }
+    });
+  }
 
-      return productData;
-    };
+  const productData = {
+    product_id: item.id.toString(),
+    count: item.count.toString(),
+    note: item.note || "Product Note",
+    addons: addonItems,
+    variation: groupedVariations,
+    exclude_id: (item.selectedExcludes || []).map(id => id.toString()),
+    extra_id: realExtrasIds, // Only real extras, not addons
+  };
+
+  console.log("Processed product data:", productData);
+  console.log("Real extras:", realExtrasIds);
+  console.log("Addons:", addonItems);
+
+  return productData;
+};
 
     let productsToSend;
     let newAmountToPay;

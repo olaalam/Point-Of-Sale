@@ -1,4 +1,4 @@
-// useProductModal.js
+// useProductModal.js - إصلاح دعم الـ extras
 import { useState, useEffect } from "react";
 
 export const useProductModal = () => {
@@ -6,32 +6,34 @@ export const useProductModal = () => {
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
   const [selectedVariation, setSelectedVariation] = useState({});
   const [selectedExtras, setSelectedExtras] = useState([]);
-  const [selectedExcludes, setSelectedExcludes] = useState([]); // New state for exclusions
+  const [selectedExcludes, setSelectedExcludes] = useState([]);
   const [quantity, setQuantity] = useState(1);
   const [totalPrice, setTotalPrice] = useState(0);
-  const [validationErrors, setValidationErrors] = useState({}); // New state for validation
+  const [validationErrors, setValidationErrors] = useState({});
 
   const openProductModal = (product) => {
+    console.log("Opening product modal:", product);
+    console.log("Product addons:", product.addons);
+    console.log("Product allExtras:", product.allExtras);
     
     setSelectedProduct(product);
-const initialSelectedVariations = {};
-if (product.variations && product.variations.length > 0) {
-    product.variations.forEach(variation => {
-        if (variation.type === 'single' && variation.options.length > 0) {
-            initialSelectedVariations[variation.id] = variation.options[0].id;
-        } else if (variation.type === 'multiple') {
-            // This is the correct initialization for multi-select
-            initialSelectedVariations[variation.id] = []; 
-        }
-    });
-}
-setSelectedVariation(initialSelectedVariations);
+    const initialSelectedVariations = {};
+    if (product.variations && product.variations.length > 0) {
+        product.variations.forEach(variation => {
+            if (variation.type === 'single' && variation.options.length > 0) {
+                initialSelectedVariations[variation.id] = variation.options[0].id;
+            } else if (variation.type === 'multiple') {
+                initialSelectedVariations[variation.id] = []; 
+            }
+        });
+    }
+    setSelectedVariation(initialSelectedVariations);
 
     setSelectedExtras([]);
-    setSelectedExcludes([]); // Reset exclusions
+    setSelectedExcludes([]);
     setQuantity(1);
     setTotalPrice(0);
-    setValidationErrors({}); // Reset validation errors
+    setValidationErrors({});
     setIsProductModalOpen(true);
   };
 
@@ -73,10 +75,15 @@ setSelectedVariation(initialSelectedVariations);
   };
 
   const handleExtraChange = (extraId) => {
+    console.log("handleExtraChange called with:", extraId);
+    console.log("Current selectedExtras:", selectedExtras);
+    
     setSelectedExtras((prev) => {
-      return prev.includes(extraId)
+      const newExtras = prev.includes(extraId)
         ? prev.filter((id) => id !== extraId)
         : [...prev, extraId];
+      console.log("New selectedExtras:", newExtras);
+      return newExtras;
     });
   };
 
@@ -159,21 +166,47 @@ setSelectedVariation(initialSelectedVariations);
       });
     }
 
-    // Add prices from selected extras
+    // FIXED: Add prices from selected extras - فصل بين addons و allExtras
     let addonsPrice = 0;
-    if (selectedExtras.length > 0 && selectedProduct.addons) {
-      selectedExtras.forEach((extraId) => {
-        const addon = selectedProduct.addons.find(
-          (addon) => addon.id === extraId
-        );
-        if (addon) {
-          addonsPrice += addon.price_after_discount ?? addon.price ?? 0;
+    if (selectedExtras.length > 0) {
+        // حساب سعر الـ addons (المدفوعة)
+        if (selectedProduct.addons && selectedProduct.addons.length > 0) {
+            selectedExtras.forEach((extraId) => {
+                const addon = selectedProduct.addons.find((addon) => addon.id === extraId);
+                if (addon) {
+                    const addonPrice = addon.price_after_discount ?? addon.price ?? 0;
+                    console.log("Adding addon price:", addonPrice, "for:", addon.name);
+                    addonsPrice += addonPrice;
+                }
+            });
         }
-      });
+        
+        // حساب سعر الـ allExtras (قد تكون مجانية أو مدفوعة)
+        if (selectedProduct.allExtras && selectedProduct.allExtras.length > 0) {
+            selectedExtras.forEach((extraId) => {
+                const extra = selectedProduct.allExtras.find((extra) => extra.id === extraId);
+                if (extra) {
+                    const extraPrice = extra.price_after_discount ?? extra.price ?? 0;
+                    console.log("Adding extra price:", extraPrice, "for:", extra.name);
+                    addonsPrice += extraPrice;
+                }
+            });
+        }
+        
+        console.log("Total addons + extras price:", addonsPrice);
     }
 
     const pricePerUnit = basePrice + totalVariationsPrice + addonsPrice;
     const calculatedTotalPrice = pricePerUnit * quantity;
+
+    console.log("Price calculation:", {
+        basePrice,
+        totalVariationsPrice,
+        addonsPrice,
+        pricePerUnit,
+        calculatedTotalPrice,
+        quantity
+    });
 
     setTotalPrice(calculatedTotalPrice);
     setValidationErrors(newErrors);
@@ -192,16 +225,16 @@ setSelectedVariation(initialSelectedVariations);
     isProductModalOpen,
     selectedVariation,
     selectedExtras,
-    selectedExcludes, // Expose new state
+    selectedExcludes,
     quantity,
     totalPrice,
-    validationErrors, // Expose new state
-    hasErrors, // Expose a boolean for easy access
+    validationErrors,
+    hasErrors,
     openProductModal,
     closeProductModal,
     handleVariationChange,
     handleExtraChange,
-    handleExclusionChange, // Expose new handler
+    handleExclusionChange,
     setQuantity,
   };
 };
