@@ -18,11 +18,12 @@ import { useNavigate } from "react-router-dom";
 const CheckOut = ({
   amountToPay,
   orderItems,
-  onClose,    
+  onClose,
   totalTax,
   totalDiscount,
   notes = "Customer requested no plastic bag.",
   source = "web",
+  totalDineInItems,
   updateOrderItems,
   orderType,
 }) => {
@@ -52,9 +53,8 @@ const CheckOut = ({
 
   const requiredTotal = useMemo(() => {
     if (orderType === "dine_in") {
-      return orderItems
-        .filter((item) => item.preparation_status === "done")
-        .reduce((acc, item) => acc + item.price * item.count, 0);
+      // For dine-in, use selected items (already filtered in Card.jsx)
+      return orderItems.reduce((acc, item) => acc + item.price * item.count, 0);
     } else {
       return amountToPay;
     }
@@ -164,160 +164,168 @@ const CheckOut = ({
 
   const isTotalMet = totalScheduled >= requiredTotal;
 
-  const endpoint =
-    orderType === "dine_in"
-      ? "cashier/dine_in_payment"
-      : orderType === "delivery"
-      ? "cashier/delivery_order"
-      : "cashier/take_away_order";
-
-  const handleSubmitOrder = async () => {
-    if (!isTotalMet || totalScheduled === 0) {
-      return toast.error(`Total must equal ${requiredTotal.toFixed(2)} EGP.`);
-    }
-
-// CheckOut.jsx - Fixed processProductItem function
-const processProductItem = (item) => {
-  const groupedVariations = item.allSelectedVariations?.reduce((acc, variation) => {
-    const existing = acc.find((v) => v.variation_id === variation.variation_id);
-    if (existing) {
-      existing.option_id = Array.isArray(existing.option_id)
-        ? [...existing.option_id, variation.option_id]
-        : [existing.option_id, variation.option_id];
-    } else {
-      acc.push({
-        variation_id: variation.variation_id.toString(),
-        option_id: [variation.option_id.toString()],
-      });
-    }
-    return acc;
-  }, []) || [];
-
-  // FIXED: Separate real extras from addons
-  const realExtrasIds = [];
-  const addonItems = [];
-
-  if (item.selectedExtras && item.selectedExtras.length > 0) {
-    item.selectedExtras.forEach(extraId => {
-      // Check if this ID belongs to allExtras (real extras)
-      const isRealExtra = item.allExtras?.some(extra => extra.id === extraId);
-      
-      if (isRealExtra) {
-        realExtrasIds.push(extraId.toString());
+  // Updated endpoint selection logic
+  const getEndpoint = () => {
+    if (orderType === "dine_in") {
+      if (orderItems.length < totalDineInItems) {
+        return "cashier/dine_in_split_payment";
       } else {
-        // It's an addon, find it in the addons array
-        const addon = item.addons?.find(addon => addon.id === extraId);
-        if (addon) {
-          addonItems.push({
-            addon_id: extraId.toString(),
-            count: "1", // Default count, you might want to make this dynamic
-          });
-        }
+        return "cashier/dine_in_payment";
       }
-    });
-  }
-
-  // Also add any selectedAddons data if it exists
-  if (item.selectedAddons && item.selectedAddons.length > 0) {
-    item.selectedAddons.forEach(addonData => {
-      // Check if this addon is not already added
-      const alreadyExists = addonItems.some(existing => existing.addon_id === addonData.addon_id.toString());
-      if (!alreadyExists) {
-        addonItems.push({
-          addon_id: addonData.addon_id.toString(),
-          count: (addonData.count || 1).toString(),
-        });
-      }
-    });
-  }
-
-  const productData = {
-    product_id: item.id.toString(),
-    count: item.count.toString(),
-    note: item.note || "Product Note",
-    addons: addonItems,
-    variation: groupedVariations,
-    exclude_id: (item.selectedExcludes || []).map(id => id.toString()),
-    extra_id: realExtrasIds, // Only real extras, not addons
-  };
-
-  console.log("Processed product data:", productData);
-  console.log("Real extras:", realExtrasIds);
-  console.log("Addons:", addonItems);
-
-  return productData;
-};
-
-    let productsToSend;
-    let newAmountToPay;
-
-    if (orderType === "dine_in") {
-      const doneItems = orderItems.filter((item) => item.preparation_status === "done");
-      newAmountToPay = doneItems.reduce((acc, item) => acc + item.price * item.count, 0);
-      productsToSend = doneItems.map(processProductItem);
-    } else {
-      productsToSend = orderItems.map(processProductItem);
-      newAmountToPay = amountToPay;
-    }
-
-    const payload = {
-      amount: newAmountToPay.toString(),
-      total_tax: totalTax.toString(),
-      total_discount: totalDiscount.toString(),
-      notes: notes || "note",
-      products: productsToSend,
-      source: source,
-      financials: paymentSplits.map((s) => ({
-        id: s.accountId.toString(),
-        amount: s.amount.toString(),
-      })),
-      cashier_id: cashierId.toString(),
-    };
-
-    if (orderType === "dine_in") {
-      payload.table_id = tableId;
     } else if (orderType === "delivery") {
-      payload.address_id = localStorage.getItem("selected_address_id") || "";
-      payload.user_id = localStorage.getItem("selected_user_id") || "";
-      payload.cash_with_delivery = (parseFloat(customerPaid) || 0).toString();
-    }
-
-    console.log("Payload to send:", JSON.stringify(payload, null, 2));
-
-    try {
-      const response = await postData(endpoint, payload, {
-        headers: {
-          "Content-Type": "application/json",
-
-          
-        },
-      });
-
-      console.log("Order Submission Response:", response);
-      toast.success("Order placed successfully!");
-
-      localStorage.setItem("last_order_type", orderType);
-
-      if (orderType === "delivery") {
-        const newOrderId = response?.success?.id;
-        if (newOrderId) {
-          setOrderId(newOrderId);
-          console.log("New Order ID:", newOrderId);
-          setDeliveryModelOpen(true);
-        } else {
-          toast.error("Order ID not returned from server. Cannot assign delivery.");
-          onClose();
-          navigate("/orders");
-        }
-      } else {
-        onClose();
-        navigate("/orders");
-      }
-    } catch (e) {
-      console.error("Submit error:", e);
-      toast.error(e.message || "Submission failed");
+      return "cashier/delivery_order";
+    } else {
+      return "cashier/take_away_order";
     }
   };
+
+const handleSubmitOrder = async () => {
+ if (!isTotalMet || totalScheduled === 0) {
+ return toast.error(`Total must equal ${requiredTotal.toFixed(2)} EGP.`);
+ }
+
+ const processProductItem = (item) => {
+ const groupedVariations = item.allSelectedVariations?.reduce((acc, variation) => {
+ const existing = acc.find((v) => v.variation_id === variation.variation_id);
+ if (existing) {
+ existing.option_id = Array.isArray(existing.option_id)
+ ? [...existing.option_id, variation.option_id]
+ : [existing.option_id, variation.option_id];
+ } else {
+ acc.push({
+ variation_id: variation.variation_id.toString(),
+ option_id: [variation.option_id.toString()],
+ });
+ }
+ return acc;
+ }, []) || [];
+
+ const realExtrasIds = [];
+ const addonItems = [];
+
+ if (item.selectedExtras && item.selectedExtras.length > 0) {
+ item.selectedExtras.forEach(extraId => {
+ const isRealExtra = item.allExtras?.some(extra => extra.id === extraId);
+
+ if (isRealExtra) {
+ realExtrasIds.push(extraId.toString());
+ } else {
+ const addon = item.addons?.find(addon => addon.id === extraId);
+ if (addon) {
+  addonItems.push({
+  addon_id: extraId.toString(),
+  count: "1",
+  });
+ }
+ }
+ });
+ }
+
+ if (item.selectedAddons && item.selectedAddons.length > 0) {
+ item.selectedAddons.forEach(addonData => {
+ const alreadyExists = addonItems.some(existing => existing.addon_id === addonData.addon_id.toString());
+ if (!alreadyExists) {
+ addonItems.push({
+  addon_id: addonData.addon_id.toString(),
+  count: (addonData.count || 1).toString(),
+ });
+ }
+ });
+ }
+
+ // Remove cart_id from the product object
+ return {
+ product_id: item.id.toString(),
+ count: item.count.toString(),
+ note: item.note || "Product Note",
+ addons: addonItems,
+ variation: groupedVariations,
+ exclude_id: (item.selectedExcludes || []).map(id => id.toString()),
+ extra_id: realExtrasIds,
+ };
+ };
+
+ const endpoint = getEndpoint();
+ console.log("Using endpoint:", endpoint);
+
+ let productsToSend = orderItems.map(processProductItem);
+ let newAmountToPay = amountToPay;
+
+ const basePayload = {
+ amount: newAmountToPay.toString(),
+ total_tax: totalTax.toString(),
+ total_discount: totalDiscount.toString(),
+ notes: notes || "note",
+ source: source,
+ financials: paymentSplits.map((s) => ({
+ id: s.accountId.toString(),
+ amount: s.amount.toString(),
+ })),
+ cashier_id: cashierId.toString(),
+ };
+
+ let payload;
+ 
+ if (orderType === "dine_in") {
+ // 👈 التعديل هنا: استخراج الـ cart_id في مصفوفة منفصلة
+ const cartIdsToSend = orderItems.map(item => item.cart_id.toString());
+ 
+ payload = {
+ ...basePayload,
+ table_id: tableId.toString(),
+ products: productsToSend,
+ cart_id: cartIdsToSend, // إضافة مصفوفة الـ cart_id
+ };
+ } else if (orderType === "delivery") {
+ payload = {
+ ...basePayload,
+ products: productsToSend,
+ address_id: localStorage.getItem("selected_address_id") || "",
+ user_id: localStorage.getItem("selected_user_id") || "",
+ cash_with_delivery: (parseFloat(customerPaid) || 0).toString(),
+ };
+ } else {
+ payload = {
+ ...basePayload,
+ products: productsToSend,
+ };
+ }
+
+ console.log("Payload to send:", JSON.stringify(payload, null, 2));
+ console.log("Endpoint:", endpoint);
+
+ try {
+ const response = await postData(endpoint, payload, {
+ headers: {
+ "Content-Type": "application/json",
+ },
+ });
+
+ console.log("Order Submission Response:", response);
+ toast.success("Order placed successfully!");
+
+ localStorage.setItem("last_order_type", orderType);
+
+ if (orderType === "delivery") {
+ const newOrderId = response?.success?.id;
+ if (newOrderId) {
+ setOrderId(newOrderId);
+ console.log("New Order ID:", newOrderId);
+ setDeliveryModelOpen(true);
+ } else {
+ toast.error("Order ID not returned from server. Cannot assign delivery.");
+ onClose();
+ navigate("/orders");
+ }
+ } else {
+ onClose();
+ navigate("/orders");
+ }
+ } catch (e) {
+ console.error("Submit error:", e);
+ toast.error(e.message || "Submission failed");
+ }
+};
 
   const handleAssignDelivery = async () => {
     if (!orderId) {
@@ -418,7 +426,14 @@ const processProductItem = (item) => {
           <button onClick={onClose} className="absolute top-4 right-4 text-xl">
             ×
           </button>
-          <h2 className="text-2xl font-semibold mb-6">Process Payment</h2>
+          <h2 className="text-2xl font-semibold mb-6">
+            Process Payment
+            {orderType === "dine_in" && (
+              <span className="text-sm text-gray-600 ml-2">
+                (Split Payment - {orderItems.length} items)
+              </span>
+            )}
+          </h2>
           <div className="mb-6 border-b pb-4">
             <div className="flex justify-between mb-2">
               <span>Total Amount:</span>
@@ -443,6 +458,22 @@ const processProductItem = (item) => {
               </div>
             )}
           </div>
+
+          {/* Show selected items summary for split payment */}
+          {orderType === "dine_in" && (
+            <div className="mb-6 bg-green-50 p-4 rounded-lg">
+              <h3 className="font-semibold text-green-800 mb-2">Items for Payment:</h3>
+              <div className="space-y-1">
+                {orderItems.map((item) => (
+                  <div key={item.temp_id} className="flex justify-between text-sm">
+                    <span>{item.name} (x{item.count})</span>
+                    <span>{(item.price * item.count).toFixed(2)} EGP</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           <div className="space-y-6">
             {paymentSplits.map((split) => (
               <div key={split.id} className="flex items-center space-x-4">

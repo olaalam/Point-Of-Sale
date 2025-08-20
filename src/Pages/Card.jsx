@@ -1,4 +1,4 @@
-// Fixed Card.jsx - Complete component with temp_id solution
+// Updated Card.jsx with Split Payment Selection for Dine-in
 import React, { useEffect, useMemo, useState } from "react";
 
 import Loading from "@/components/Loading";
@@ -69,6 +69,7 @@ export default function Card({
 }) {
   const [showModal, setShowModal] = useState(false);
   const [selectedItems, setSelectedItems] = useState([]);
+  const [selectedPaymentItems, setSelectedPaymentItems] = useState([]); // New state for payment selection
   const [bulkStatus, setBulkStatus] = useState("");
   const [itemLoadingStates, setItemLoadingStates] = useState({});
 
@@ -84,14 +85,13 @@ export default function Card({
   useEffect(() => {
     if (data && Array.isArray(data.success)) {
       const mappedItems = data.success.map((item) => {
-        // Generate temp_id for backend items
         const createTempId = () => {
           return `${item.id}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
         };
 
         const baseItem = {
-          id: item.id, // Keep original ID for backend
-          temp_id: createTempId(), // Add temp_id for frontend operations
+          id: item.id,
+          temp_id: createTempId(),
           cart_id: item.cart_id,
           name: item.name ?? "No name",
           price: parseFloat(item.price_after_tax ?? item.price ?? 0),
@@ -102,7 +102,6 @@ export default function Card({
           addons: [],
         };
 
-        // Add addons from addons_selected
         if (Array.isArray(item.addons_selected) && item.addons_selected.length > 0) {
           baseItem.addons = item.addons_selected.map((addon) => ({
             id: `${baseItem.temp_id}_addon_${addon.id}`,
@@ -244,22 +243,30 @@ export default function Card({
       };
     }, [orderItems]);
 
+  // Get all done items for selection
+  const doneItems = useMemo(() => {
+    const safeOrderItems = Array.isArray(orderItems) ? orderItems : [];
+    return safeOrderItems.filter((item) => item.preparation_status === "done");
+  }, [orderItems]);
+
+  // Calculate totals for selected payment items
   const { checkoutItems, amountToPay } = useMemo(() => {
     const safeOrderItems = Array.isArray(orderItems) ? orderItems : [];
 
     if (orderType === "dine_in") {
-      const servedItems = safeOrderItems.filter(
-        (item) => item.preparation_status === "done"
+      // Use selected payment items instead of all done items
+      const itemsToPayFor = safeOrderItems.filter(
+        (item) => selectedPaymentItems.includes(item.temp_id)
       );
-      const servedSubTotal = servedItems.reduce(
+      const selectedSubTotal = itemsToPayFor.reduce(
         (acc, item) => acc + item.price * item.count,
         0
       );
-      const servedTax = servedSubTotal * TAX_RATE;
-      const servedTotal = servedSubTotal + servedTax + OTHER_CHARGE;
+      const selectedTax = selectedSubTotal * TAX_RATE;
+      const selectedTotal = selectedSubTotal + selectedTax + OTHER_CHARGE;
       return {
-        checkoutItems: servedItems,
-        amountToPay: servedTotal,
+        checkoutItems: itemsToPayFor,
+        amountToPay: selectedTotal,
       };
     }
 
@@ -267,7 +274,7 @@ export default function Card({
       checkoutItems: safeOrderItems,
       amountToPay: totalAmountDisplay,
     };
-  }, [orderItems, orderType, totalAmountDisplay]);
+  }, [orderItems, orderType, totalAmountDisplay, selectedPaymentItems]);
 
   const handleIncrease = (itemTempId) => {
     const safeOrderItems = Array.isArray(orderItems) ? orderItems : [];
@@ -296,9 +303,9 @@ export default function Card({
   };
 
   const handleCheckOut = () => {
-    if (orderType === "dine_in" && checkoutItems.length === 0) {
+    if (orderType === "dine_in" && selectedPaymentItems.length === 0) {
       toast.warning(
-        "No served items available for checkout. Please serve items first."
+        "Please select items to pay for from the done items list."
       );
       return;
     }
@@ -313,10 +320,26 @@ export default function Card({
     );
   };
 
+  // New function for payment item selection
+  const toggleSelectPaymentItem = (tempId) => {
+    setSelectedPaymentItems((prev) =>
+      prev.includes(tempId) 
+        ? prev.filter((itemTempId) => itemTempId !== tempId) 
+        : [...prev, tempId]
+    );
+  };
+
   const handleSelectAll = () => {
     const allTempIds = orderItems.map((item) => item.temp_id);
     const isAllSelected = selectedItems.length === allTempIds.length;
     setSelectedItems(isAllSelected ? [] : allTempIds);
+  };
+
+  // New function for selecting all payment items
+  const handleSelectAllPaymentItems = () => {
+    const allDoneTempIds = doneItems.map((item) => item.temp_id);
+    const isAllSelected = selectedPaymentItems.length === allDoneTempIds.length;
+    setSelectedPaymentItems(isAllSelected ? [] : allDoneTempIds);
   };
 
   const statusOrder = ["pending", "watting", "preparing", "pick_up", "done"];
@@ -527,6 +550,11 @@ export default function Card({
                   Preparation
                 </th>
               )}
+              {orderType === "dine_in" && (
+                <th className="py-3 px-4 text-left text-gray-600 font-semibold">
+                  Pay
+                </th>
+              )}
               <th className="py-3 px-4 text-right text-gray-600 font-semibold">
                 Total
               </th>
@@ -537,7 +565,7 @@ export default function Card({
             {!Array.isArray(orderItems) || orderItems.length === 0 ? (
               <tr>
                 <td
-                  colSpan={orderType === "dine_in" ? 6 : 5}
+                  colSpan={orderType === "dine_in" ? 7 : 5}
                   className="text-center py-4 text-gray-500"
                 >
                   No items found for this order.
@@ -553,13 +581,14 @@ export default function Card({
                 const hasDiscount =
                   item.originalPrice && item.price < item.originalPrice;
                 const isItemLoading = itemLoadingStates[item.temp_id] || false;
+                const isDoneItem = item.preparation_status === "done";
 
                 return (
                   <tr
                     key={item.temp_id || `${item.id}-${index}`}
                     className={`border-b last:border-b-0 hover:bg-gray-50 ${
                       item.type === "addon" ? "bg-blue-50" : ""
-                    }`}
+                    } ${selectedPaymentItems.includes(item.temp_id) ? "bg-green-50" : ""}`}
                   >
                     <td className="py-1 px-2">
                       <input
@@ -656,6 +685,19 @@ export default function Card({
                         </div>
                       </td>
                     ) : null}
+                    {orderType === "dine_in" && (
+                      <td className="py-1 px-2 text-center">
+                        {isDoneItem && (
+                          <input
+                            type="checkbox"
+                            checked={selectedPaymentItems.includes(item.temp_id)}
+                            onChange={() => toggleSelectPaymentItem(item.temp_id)}
+                            className="w-4 h-4 accent-green-500"
+                            title="Select for payment"
+                          />
+                        )}
+                      </td>
+                    )}
                     <td className="text-right py-3 px-4">
                       <span className="font-semibold">
                         {(item.price * item.count).toFixed(2)}
@@ -673,6 +715,51 @@ export default function Card({
           </tbody>
         </table>
       </div>
+
+      {/* Done Items Payment Selection Section for Dine-in */}
+      {orderType === "dine_in" && doneItems.length > 0 && (
+        <>
+          <div className="mt-6 bg-green-50 p-4 rounded-lg">
+            <div className="flex justify-between items-center mb-3">
+              <h3 className="text-lg font-semibold text-green-800">
+                Ready for Payment ({doneItems.length} items)
+              </h3>
+              <Button
+                onClick={handleSelectAllPaymentItems}
+                variant="outline"
+                size="sm"
+                className="text-green-600 border-green-300 hover:bg-green-100"
+              >
+                {selectedPaymentItems.length === doneItems.length ? "Deselect All" : "Select All"}
+              </Button>
+            </div>
+            <p className="text-sm text-green-700 mb-3">
+              Select items you want to process payment for ({selectedPaymentItems.length} selected)
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+              {doneItems.map((item) => (
+                <div
+                  key={item.temp_id}
+                  className={`flex items-center gap-3 p-2 rounded ${
+                    selectedPaymentItems.includes(item.temp_id) ? "bg-green-100" : "bg-white"
+                  }`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={selectedPaymentItems.includes(item.temp_id)}
+                    onChange={() => toggleSelectPaymentItem(item.temp_id)}
+                    className="w-4 h-4 accent-green-500"
+                  />
+                  <span className="flex-1">{item.name}</span>
+                  <span className="text-sm font-medium">
+                    {item.count} × {item.price.toFixed(2)} = {(item.count * item.price).toFixed(2)} EGP
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
 
       <hr className="my-6 border-t-2 border-gray-200" />
 
@@ -694,7 +781,7 @@ export default function Card({
           </div>
           <div className="grid grid-cols-2 gap-4 items-center mb-4">
             <p className="text-gray-600">
-              Served Items ({checkoutItems.length}):
+              Selected Items ({selectedPaymentItems.length}):
             </p>
             <p className="text-right text-lg font-semibold text-green-600">
               {amountToPay.toFixed(2)} EGP
@@ -716,17 +803,20 @@ export default function Card({
           variant="outline"
           className="bg-bg-primary px-8 py-4 text-white hover:bg-red-700 hover:text-white transition-all text-lg font-semibold rounded-md"
           onClick={handleCheckOut}
-          disabled={orderType === "dine_in" && checkoutItems.length === 0}
+          disabled={orderType === "dine_in" && selectedPaymentItems.length === 0}
         >
           Check Out{" "}
-          {orderType === "dine_in" && checkoutItems.length === 0
-            ? "(No Served Items)"
+          {orderType === "dine_in" && selectedPaymentItems.length === 0
+            ? "(Select Items to Pay)"
+            : orderType === "dine_in" 
+            ? `(${selectedPaymentItems.length} items)`
             : ""}
         </Button>
       </div>
 
       {showModal && (
         <CheckOut
+         totalDineInItems={orderItems.length}
           onClose={() => setShowModal(false)}
           amountToPay={amountToPay}
           orderItems={checkoutItems}
