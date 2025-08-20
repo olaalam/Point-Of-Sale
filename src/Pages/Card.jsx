@@ -1,4 +1,4 @@
-// Fixed Card.jsx - Resolving API format and preparation status issues
+// Fixed Card.jsx - Complete component with temp_id solution
 import React, { useEffect, useMemo, useState } from "react";
 
 import Loading from "@/components/Loading";
@@ -28,7 +28,6 @@ const PREPARATION_STATUSES = {
     canSendToAPI: false,
   },
   watting: {
-    // Added watting status to match backend response
     label: "Waiting",
     icon: Circle,
     color: "text-yellow-400",
@@ -71,7 +70,6 @@ export default function Card({
   const [showModal, setShowModal] = useState(false);
   const [selectedItems, setSelectedItems] = useState([]);
   const [bulkStatus, setBulkStatus] = useState("");
-  // FIXED: Add loading state for individual items
   const [itemLoadingStates, setItemLoadingStates] = useState({});
 
   const { data } = useGet(`cashier/dine_in_table_order/${tableId}`);
@@ -79,67 +77,71 @@ export default function Card({
 
   console.log("Received orderType:", orderType);
   console.log("Card component received tableId:", tableId);
-  console.log("Backend response data:", data); // Debug backend response
+  console.log("Backend response data:", data);
 
   const isLoading = apiLoading;
 
-useEffect(() => {
-  if (data && Array.isArray(data.success)) {
-    const mappedItems = data.success.map((item) => {
-      const baseItem = {
-        id: item.id,
-        cart_id: item.cart_id,
-        name: item.name ?? "No name",
-        price: parseFloat(item.price_after_tax ?? item.price ?? 0),
-        originalPrice: parseFloat(item.price ?? 0),
-        count: parseInt(item.count ?? 1),
-        preparation_status: item.prepration || item.preparation_status || "pending",
-        type: "main_item",
-        addons: [], // initialize as empty
-      };
+  useEffect(() => {
+    if (data && Array.isArray(data.success)) {
+      const mappedItems = data.success.map((item) => {
+        // Generate temp_id for backend items
+        const createTempId = () => {
+          return `${item.id}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        };
 
-      // ✅ جمع الـ addons من addons_selected
-      if (Array.isArray(item.addons_selected) && item.addons_selected.length > 0) {
-        baseItem.addons = item.addons_selected.map((addon) => ({
-          id: `${item.id}_addon_${addon.id}`,
-          name: addon.name,
-          price: parseFloat(addon.price_after_tax ?? addon.price ?? 0),
-          originalPrice: parseFloat(addon.price ?? 0),
-          count: parseInt(addon.quantity_add ?? 1),
-          preparation_status: baseItem.preparation_status,
-        }));
-      }
+        const baseItem = {
+          id: item.id, // Keep original ID for backend
+          temp_id: createTempId(), // Add temp_id for frontend operations
+          cart_id: item.cart_id,
+          name: item.name ?? "No name",
+          price: parseFloat(item.price_after_tax ?? item.price ?? 0),
+          originalPrice: parseFloat(item.price ?? 0),
+          count: parseInt(item.count ?? 1),
+          preparation_status: item.prepration || item.preparation_status || "pending",
+          type: "main_item",
+          addons: [],
+        };
 
-      return baseItem;
-    });
+        // Add addons from addons_selected
+        if (Array.isArray(item.addons_selected) && item.addons_selected.length > 0) {
+          baseItem.addons = item.addons_selected.map((addon) => ({
+            id: `${baseItem.temp_id}_addon_${addon.id}`,
+            name: addon.name,
+            price: parseFloat(addon.price_after_tax ?? addon.price ?? 0),
+            originalPrice: parseFloat(addon.price ?? 0),
+            count: parseInt(addon.quantity_add ?? 1),
+            preparation_status: baseItem.preparation_status,
+          }));
+        }
 
-    console.log("Mapped items with addons_selected:", mappedItems);
-    updateOrderItems(mappedItems);
-  }
-}, [data]);
+        return baseItem;
+      });
 
+      console.log("Mapped items with temp_ids:", mappedItems);
+      updateOrderItems(mappedItems);
+    }
+  }, [data]);
 
-  // FIXED: Individual item loading state management
-  const setItemLoading = (itemId, isLoading) => {
+  const setItemLoading = (itemTempId, isLoading) => {
     setItemLoadingStates((prev) => ({
       ...prev,
-      [itemId]: isLoading,
+      [itemTempId]: isLoading,
     }));
   };
 
-  // FIXED: Corrected API payload format for single item updates
-  const handleUpdatePreparationStatus = async (itemId) => {
-    setItemLoading(itemId, true);
+  const handleUpdatePreparationStatus = async (itemTempId) => {
+    setItemLoading(itemTempId, true);
 
     try {
       const updatedItems = orderItems.map((item) => {
-        if (item.id === itemId) {
+        if (item.temp_id === itemTempId) {
           const currentStatus = item.preparation_status || "pending";
           const nextStatus =
             PREPARATION_STATUSES[currentStatus]?.nextStatus || "preparing";
 
           console.log("Updating item status:", {
-            itemId,
+            itemTempId,
+            itemId: item.id,
             currentStatus,
             nextStatus,
             cart_id: item.cart_id,
@@ -153,18 +155,14 @@ useEffect(() => {
             item.cart_id &&
             tableId
           ) {
-            // FIXED: Create proper FormData structure that backend expects
             const formData = new FormData();
             formData.append("table_id", tableId.toString());
-            
-            // FIXED: Use array format that Laravel expects
             formData.append("preparing[0][cart_id]", item.cart_id.toString());
             formData.append(
               "preparing[0][status]",
               PREPARATION_STATUSES[nextStatus]?.apiValue || nextStatus
             );
 
-            // Debug: Log what we're sending
             console.log("FormData contents:");
             for (let [key, value] of formData.entries()) {
               console.log(`${key}: ${value}`);
@@ -172,32 +170,25 @@ useEffect(() => {
 
             postData("cashier/preparing", formData)
               .then((responseData) => {
-                console.log(
-                  "Single item backend update successful:",
-                  responseData
-                );
+                console.log("Single item backend update successful:", responseData);
                 toast.success("Status updated successfully!");
               })
               .catch((err) => {
                 console.error("Failed to update single item status:", err);
                 
-                // More detailed error logging
                 if (err.response) {
                   console.error("Error response:", err.response.data);
                   console.error("Error status:", err.response.status);
                 }
                 
-                // Show more specific error message
                 const errorMessage = err.response?.data?.message || 
                                    err.response?.data?.exception ||
                                    "Failed to update status. Please try again.";
                 toast.error(errorMessage);
-                
-                // Revert the status change on error
                 return;
               })
               .finally(() => {
-                setItemLoading(itemId, false);
+                setItemLoading(itemTempId, false);
               });
           } else if (nextStatus === "pending" || nextStatus === "watting") {
             console.log("Status changed to pending/waiting - frontend only");
@@ -206,7 +197,7 @@ useEffect(() => {
                 PREPARATION_STATUSES[nextStatus]?.label || nextStatus
               }`
             );
-            setItemLoading(itemId, false);
+            setItemLoading(itemTempId, false);
           } else {
             console.error("Missing required data:", {
               cart_id: item.cart_id,
@@ -214,8 +205,8 @@ useEffect(() => {
               nextStatus,
             });
             toast.error("Missing required data for status update");
-            setItemLoading(itemId, false);
-            return item; // Don't update if missing data
+            setItemLoading(itemTempId, false);
+            return item;
           }
 
           return { ...item, preparation_status: nextStatus };
@@ -227,11 +218,10 @@ useEffect(() => {
       localStorage.setItem("cart", JSON.stringify(updatedItems));
     } catch (error) {
       console.error("Error in handleUpdatePreparationStatus:", error);
-      setItemLoading(itemId, false);
+      setItemLoading(itemTempId, false);
     }
   };
 
-  // Rest of your existing code remains the same...
   const { subTotal, totalTax, totalOtherCharge, totalAmountDisplay } =
     useMemo(() => {
       const itemsToCalculate = Array.isArray(orderItems) ? orderItems : [];
@@ -279,19 +269,19 @@ useEffect(() => {
     };
   }, [orderItems, orderType, totalAmountDisplay]);
 
-  const handleIncrease = (id) => {
+  const handleIncrease = (itemTempId) => {
     const safeOrderItems = Array.isArray(orderItems) ? orderItems : [];
     const updatedItems = safeOrderItems.map((item) =>
-      item.id === id ? { ...item, count: item.count + 1 } : item
+      item.temp_id === itemTempId ? { ...item, count: item.count + 1 } : item
     );
     updateOrderItems(updatedItems);
   };
 
-  const handleDecrease = (id) => {
+  const handleDecrease = (itemTempId) => {
     const safeOrderItems = Array.isArray(orderItems) ? orderItems : [];
     const updatedItems = safeOrderItems
       .map((item) => {
-        if (item.id === id) {
+        if (item.temp_id === itemTempId) {
           const newCount = item.count - 1;
           if (item.preparation_status === "done" && newCount < 1) {
             return item;
@@ -315,21 +305,22 @@ useEffect(() => {
     setShowModal(true);
   };
 
-  const toggleSelectItem = (id) => {
+  const toggleSelectItem = (tempId) => {
     setSelectedItems((prev) =>
-      prev.includes(id) ? prev.filter((itemId) => itemId !== id) : [...prev, id]
+      prev.includes(tempId) 
+        ? prev.filter((itemTempId) => itemTempId !== tempId) 
+        : [...prev, tempId]
     );
   };
 
   const handleSelectAll = () => {
-    const allIds = orderItems.map((item) => item.id);
-    const isAllSelected = selectedItems.length === allIds.length;
-    setSelectedItems(isAllSelected ? [] : allIds);
+    const allTempIds = orderItems.map((item) => item.temp_id);
+    const isAllSelected = selectedItems.length === allTempIds.length;
+    setSelectedItems(isAllSelected ? [] : allTempIds);
   };
 
   const statusOrder = ["pending", "watting", "preparing", "pick_up", "done"];
 
-  // FIXED: Improved bulk status update with better error handling
   const applyBulkStatus = async () => {
     if (!bulkStatus || selectedItems.length === 0) {
       toast.warning("Please select items and choose a status");
@@ -344,7 +335,7 @@ useEffect(() => {
     const itemsToUpdateOnBackend = [];
 
     const updatedItems = orderItems.map((item) => {
-      if (!selectedItems.includes(item.id)) return item;
+      if (!selectedItems.includes(item.temp_id)) return item;
 
       const currentIndex = statusOrder.indexOf(
         item.preparation_status || "pending"
@@ -353,7 +344,7 @@ useEffect(() => {
 
       if (targetIndex < currentIndex) {
         console.log(
-          `Skipping item ${item.id}: target status is before current status`
+          `Skipping item ${item.temp_id}: target status is before current status`
         );
         return item;
       }
@@ -373,7 +364,7 @@ useEffect(() => {
         bulkStatus !== "pending" &&
         bulkStatus !== "watting"
       ) {
-        console.error(`Item ${item.id} is missing cart_id`);
+        console.error(`Item ${item.temp_id} is missing cart_id`);
       }
 
       return { ...item, preparation_status: bulkStatus };
@@ -382,7 +373,6 @@ useEffect(() => {
     if (itemsToUpdateOnBackend.length > 0) {
       console.log("Items to update on backend:", itemsToUpdateOnBackend);
 
-      // FIXED: Ensure proper FormData structure for bulk updates
       const formData = new FormData();
       formData.append("table_id", tableId.toString());
 
@@ -408,7 +398,6 @@ useEffect(() => {
       } catch (err) {
         console.error("Failed to apply bulk status:", err);
         
-        // Better error handling for bulk updates
         if (err.response) {
           console.error("Bulk update error response:", err.response.data);
         }
@@ -436,7 +425,7 @@ useEffect(() => {
   const currentLowestSelectedStatus = useMemo(() => {
     if (selectedItems.length === 0) return statusOrder[0];
     const selectedItemStatuses = orderItems
-      .filter((item) => selectedItems.includes(item.id))
+      .filter((item) => selectedItems.includes(item.temp_id))
       .map((item) => item.preparation_status || "pending");
     const lowestStatusIndex = Math.min(
       ...selectedItemStatuses.map((status) => statusOrder.indexOf(status))
@@ -460,9 +449,9 @@ useEffect(() => {
   return (
     <div className="overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden mb-10 pb-10 ">
       {isLoading && (
-      <div className="flex justify-center items-center h-40">
-        <Loading />
-      </div>
+        <div className="flex justify-center items-center h-40">
+          <Loading />
+        </div>
       )}
       <h2 className="text-bg-primary text-3xl font-bold mb-6">Order Details</h2>
 
@@ -563,12 +552,11 @@ useEffect(() => {
 
                 const hasDiscount =
                   item.originalPrice && item.price < item.originalPrice;
-                // FIXED: Check individual item loading state
-                const isItemLoading = itemLoadingStates[item.id] || false;
+                const isItemLoading = itemLoadingStates[item.temp_id] || false;
 
                 return (
                   <tr
-                    key={`${item.id}-${item.preparation_status}-${index}`}
+                    key={item.temp_id || `${item.id}-${index}`}
                     className={`border-b last:border-b-0 hover:bg-gray-50 ${
                       item.type === "addon" ? "bg-blue-50" : ""
                     }`}
@@ -576,8 +564,8 @@ useEffect(() => {
                     <td className="py-1 px-2">
                       <input
                         type="checkbox"
-                        checked={selectedItems.includes(item.id)}
-                        onChange={() => toggleSelectItem(item.id)}
+                        checked={selectedItems.includes(item.temp_id)}
+                        onChange={() => toggleSelectItem(item.temp_id)}
                         className="w-4 h-4 accent-bg-primary"
                       />
                     </td>
@@ -617,7 +605,7 @@ useEffect(() => {
                       <div className="flex items-center gap-1">
                         <button
                           onClick={() =>
-                            allowQuantityEdit && handleDecrease(item.id)
+                            allowQuantityEdit && handleDecrease(item.temp_id)
                           }
                           disabled={!allowQuantityEdit}
                           className={`px-2 py-1 rounded ${
@@ -632,7 +620,7 @@ useEffect(() => {
                           {item.count}
                         </span>
                         <button
-                          onClick={() => handleIncrease(item.id)}
+                          onClick={() => handleIncrease(item.temp_id)}
                           className="px-2 py-1 bg-gray-200 rounded hover:bg-gray-300"
                         >
                           +
@@ -644,7 +632,7 @@ useEffect(() => {
                         <div className="flex items-center gap-2">
                           <button
                             onClick={() =>
-                              handleUpdatePreparationStatus(item.id)
+                              handleUpdatePreparationStatus(item.temp_id)
                             }
                             title={`Change status to ${
                               PREPARATION_STATUSES[statusInfo.nextStatus]
@@ -659,7 +647,6 @@ useEffect(() => {
                             }`}
                             disabled={isItemLoading}
                           >
-                            {/* FIXED: Show loading indicator for specific item */}
                             {isItemLoading ? (
                               <div className="w-5 h-5 border-2 border-gray-300 border-t-current rounded-full animate-spin"></div>
                             ) : (

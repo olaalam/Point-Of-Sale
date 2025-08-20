@@ -1,4 +1,4 @@
-// Item.jsx - Main Component (Fixed Pricing Logic with Variations)
+// Item.jsx - Complete Component with temp_id solution
 import React, { useState, useMemo, useEffect } from "react";
 import { useGet } from "@/Hooks/useGet";
 import { usePost } from "@/Hooks/usePost";
@@ -20,7 +20,7 @@ const INITIAL_PRODUCT_ROWS = 2;
 const PRODUCTS_PER_ROW = 4;
 const PRODUCTS_TO_SHOW_INITIALLY = INITIAL_PRODUCT_ROWS * PRODUCTS_PER_ROW;
 
-export default function Item({ fetchEndpoint, onAddToOrder  ,onClose }) {
+export default function Item({ fetchEndpoint, onAddToOrder, onClose }) {
   // State management
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -96,16 +96,21 @@ export default function Item({ fetchEndpoint, onAddToOrder  ,onClose }) {
     );
   };
 
-// في Item.jsx - إصلاح handleAddToOrder
+  // Helper function to create temp_id
+  const createTempId = (productId) => {
+    return `${productId}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  };
 
-const handleAddToOrder = async (product, customQuantity = 1) => {
+  // Fixed handleAddToOrder with temp_id
+  const handleAddToOrder = async (product, customQuantity = 1) => {
     console.log("Adding product to order:", product);
     
     let productBasePrice = product.price_after_discount ?? product.price ?? 0;
     const allSelectedVariationsData = [];
     
-    // إصلاح: استخدام selectedVariation بدلاً من selectedVariations
     const selectedVariations = product.selectedVariation || selectedVariation || {};
+    const productSelectedExtras = product.selectedExtras || selectedExtras || [];
+    const productSelectedExcludes = product.selectedExcludes || selectedExcludes || [];
     
     // Handle variations
     if (product.variations && Object.keys(selectedVariations).length > 0) {
@@ -140,12 +145,12 @@ const handleAddToOrder = async (product, customQuantity = 1) => {
         });
     }
 
-    // FIXED: Calculate addons and create proper addon data
+    // Calculate addons and create proper addon data
     let addonsTotalPrice = 0;
     const selectedAddonsData = [];
     
-    if (product.selectedExtras && product.selectedExtras.length > 0 && product.addons) {
-        product.selectedExtras.forEach(extraId => {
+    if (productSelectedExtras.length > 0 && product.addons) {
+        productSelectedExtras.forEach(extraId => {
             const addon = product.addons.find(a => a.id === extraId);
             if (addon) {
                 const addonPrice = addon.price_after_discount ?? addon.price ?? 0;
@@ -163,9 +168,11 @@ const handleAddToOrder = async (product, customQuantity = 1) => {
     const pricePerUnit = productBasePrice + addonsTotalPrice;
     const finalTotalPrice = pricePerUnit * customQuantity;
 
-    // FIXED: Create order item with proper data structure
+    // Create order item with temp_id
     const orderItem = {
         ...product,
+        id: product.id, // Keep original ID for backend
+        temp_id: createTempId(product.id), // Add temp_id for frontend operations
         count: customQuantity,
         price: pricePerUnit,
         originalPrice: product.price,
@@ -174,21 +181,20 @@ const handleAddToOrder = async (product, customQuantity = 1) => {
         
         // Store variation data properly
         allSelectedVariations: allSelectedVariationsData,
-        selectedVariation: selectedVariations, // Keep for frontend use
+        selectedVariation: selectedVariations,
         
-        // FIXED: Store addons data properly for backend
+        // Store addons data properly for backend
         selectedAddons: selectedAddonsData,
-        selectedExtras: product.selectedExtras || [], // Keep for frontend use
+        selectedExtras: productSelectedExtras,
         
-        // FIXED: Store exclusions properly
-        selectedExcludes: product.selectedExcludes || [],
+        // Store exclusions properly
+        selectedExcludes: productSelectedExcludes,
         
         ...(orderType === "dine_in" && { preparation_status: "pending" }),
     };
 
-    console.log("Final order item:", orderItem);
-    console.log("Selected addons data:", selectedAddonsData);
-    console.log("All selected variations:", allSelectedVariationsData);
+    console.log("Final order item with temp_id:", orderItem);
+    console.log("Temp ID:", orderItem.temp_id);
 
     onAddToOrder(orderItem);
 
@@ -200,12 +206,11 @@ const handleAddToOrder = async (product, customQuantity = 1) => {
             toast.error(`Failed to submit "${product.name}" to backend`);
         }
     }
-};
+  };
 
-  // Handle adding to cart from modal - FIXED VERSION
+  // Handle adding to cart from modal
   const handleAddFromModal = (enhancedProduct) => {
     console.log("Adding from modal:", enhancedProduct);
-    // Use the enhanced product data from the modal which includes selectedVariation and selectedExtras
     handleAddToOrder(enhancedProduct, enhancedProduct.quantity);
   };
 
@@ -312,7 +317,7 @@ const handleAddToOrder = async (product, customQuantity = 1) => {
         </div>
       </div>
 
-      {/* Product Modal - FIXED VERSION */}
+      {/* Product Modal */}
       <ProductModal
         isOpen={isProductModalOpen}
         onClose={closeProductModal}
