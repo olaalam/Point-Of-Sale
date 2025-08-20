@@ -16,8 +16,10 @@ export default function OrderPage({
   const [ordersByUser, setOrdersByUser] = useState({});
   const [takeAwayItems, setTakeAwayItems] = useState(initialCart);
   const [isLoading, setIsLoading] = useState(false);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
   const location = useLocation();
-const navigate = useNavigate();
+  const navigate = useNavigate();
+
   // ✅ استخدم القيم التي تم تمريرها كـ props بشكل أساسي، وإذا لم تكن موجودة استخدم state أو localStorage
   const currentOrderType = propOrderType || location.state?.orderType || localStorage.getItem("order_type") || "take_away";
   const currentTableId = propTableId || location.state?.tableId || localStorage.getItem("table_id") || null;
@@ -30,13 +32,54 @@ const navigate = useNavigate();
   const isDineIn = currentOrderType === "dine_in" && !!currentTableId;
   const isDelivery = currentOrderType === "delivery" && !!currentUserId;
 
-  const { data: dineInData, loading: dineInLoading } = useGet(
+  const { data: dineInData, loading: dineInLoading, refetch: refetchDineIn } = useGet(
     isDineIn && currentTableId ? `cashier/dine_in_table_order/${currentTableId}` : null
   );
 
-  const { data: deliveryData, loading: deliveryLoading } = useGet(
+  const { data: deliveryData, loading: deliveryLoading, refetch: refetchDelivery } = useGet(
     isDelivery && currentUserId ? `cashier/delivery_order/${currentUserId}` : null
   );
+
+  // Function لـ refresh البيانات
+  const refreshCartData = async () => {
+    try {
+      setIsLoading(true);
+      console.log("Refreshing cart data...");
+      
+      if (isDineIn && currentTableId) {
+        console.log("Refetching dine-in data for table:", currentTableId);
+        if (refetchDineIn) {
+          await refetchDineIn();
+        }
+      } else if (isDelivery && currentUserId) {
+        console.log("Refetching delivery data for user:", currentUserId);
+        if (refetchDelivery) {
+          await refetchDelivery();
+        }
+      } else if (currentOrderType === "take_away") {
+        console.log("Refreshing take-away cart from localStorage");
+        const storedCartString = localStorage.getItem("cart");
+        if (storedCartString && storedCartString !== "undefined") {
+          try {
+            const storedCart = JSON.parse(storedCartString);
+            setTakeAwayItems(Array.isArray(storedCart) ? storedCart : []);
+          } catch (error) {
+            console.error("Error parsing cart JSON:", error);
+            setTakeAwayItems([]);
+          }
+        }
+      }
+      
+      // Force re-render by updating refresh trigger
+      setRefreshTrigger(prev => prev + 1);
+      
+      console.log("Cart data refreshed successfully");
+    } catch (error) {
+      console.error("Error refreshing cart data:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // ✅ Fetch dine-in order from API response
   useEffect(() => {
@@ -96,15 +139,7 @@ const navigate = useNavigate();
         }
       }
     };
-  const handleClose = () => {
-    // حذف البيانات من localStorage لإلغاء اختيار العميل
-    localStorage.removeItem("selected_user_id");
-    localStorage.removeItem("selected_address_id");
-    localStorage.removeItem("order_type");
 
-    // العودة إلى المسار الرئيسي (Home)
-    navigate("/");
-  };
     window.addEventListener("storage", handleStorageChange);
     return () => window.removeEventListener("storage", handleStorageChange);
   }, [currentOrderType]);
@@ -134,42 +169,45 @@ const navigate = useNavigate();
     }
   };
 
-const handleAddItem = (product) => {
-  const safeCurrentItems = Array.isArray(currentOrderItems) ? currentOrderItems : [];
+  const handleAddItem = (product) => {
+    const safeCurrentItems = Array.isArray(currentOrderItems) ? currentOrderItems : [];
 
-  const existingItemIndex = safeCurrentItems.findIndex(
-    (item) =>
-      item.id === product.id &&
-      item.selectedVariation === product.selectedVariation &&
-      JSON.stringify(item.selectedExtras?.sort()) ===
-        JSON.stringify(product.selectedExtras?.sort())
-  );
+    const existingItemIndex = safeCurrentItems.findIndex(
+      (item) =>
+        item.id === product.id &&
+        item.selectedVariation === product.selectedVariation &&
+        JSON.stringify(item.selectedExtras?.sort()) ===
+          JSON.stringify(product.selectedExtras?.sort())
+    );
 
-  let updatedItems = [...safeCurrentItems];
+    let updatedItems = [...safeCurrentItems];
 
-  if (existingItemIndex !== -1) {
-    // لو العنصر موجود، زوّد الكمية وأضف الـ addons
-    updatedItems[existingItemIndex] = {
-      ...updatedItems[existingItemIndex],
-      count: updatedItems[existingItemIndex].count + product.count,
-      addons: [...updatedItems[existingItemIndex].addons, ...product.addons],
-    };
-  } else {
-    // لو العنصر جديد، أضفه
-    updatedItems.push({
-      ...product,
-      count: product.count || 1,
-      preparation_status: product.preparation_status || "pending",
-    });
-  }
+    if (existingItemIndex !== -1) {
+      // لو العنصر موجود، زوّد الكمية وأضف الـ addons
+      updatedItems[existingItemIndex] = {
+        ...updatedItems[existingItemIndex],
+        count: updatedItems[existingItemIndex].count + product.count,
+        addons: [...updatedItems[existingItemIndex].addons, ...product.addons],
+      };
+    } else {
+      // لو العنصر جديد، أضفه
+      updatedItems.push({
+        ...product,
+        count: product.count || 1,
+        preparation_status: product.preparation_status || "pending",
+      });
+    }
 
-  updateOrderItems(updatedItems);
-};
+    updateOrderItems(updatedItems);
+  };
+
   const handleClose = () => {
     // حذف البيانات من localStorage لإلغاء اختيار العميل
     localStorage.removeItem("selected_user_id");
     localStorage.removeItem("selected_address_id");
     localStorage.removeItem("order_type");
+    localStorage.removeItem("table_id");
+    localStorage.removeItem("delivery_user_id");
 
     // العودة إلى المسار الرئيسي (Home)
     navigate("/");
@@ -179,6 +217,7 @@ const handleAddItem = (product) => {
     <div className="flex flex-col-reverse lg:flex-row gap-6 h-full w-full px-4">
       <div className="min-w-[31rem] lg:w-[31rem] flex-shrink-0">
         <Card
+          key={refreshTrigger} // هذا هيسبب re-render للـ Card بعد refresh
           orderItems={currentOrderItems}
           updateOrderItems={updateOrderItems}
           allowQuantityEdit={allowQuantityEdit}
@@ -190,7 +229,12 @@ const handleAddItem = (product) => {
       </div>
 
       <div className="w-full lg:w-3/5 overflow-auto">
-        <Item onAddToOrder={handleAddItem} fetchEndpoint={fetchEndpoint} onClose={handleClose} />
+        <Item 
+          onAddToOrder={handleAddItem} 
+          fetchEndpoint={fetchEndpoint} 
+          onClose={handleClose}
+          refreshCartData={refreshCartData} 
+        />
       </div>
     </div>
   );

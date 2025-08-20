@@ -1,4 +1,4 @@
-// Item.jsx - Complete Component with temp_id solution
+// Item.jsx - Complete Component with temp_id solution and data refresh
 import React, { useState, useMemo, useEffect } from "react";
 import { useGet } from "@/Hooks/useGet";
 import { usePost } from "@/Hooks/usePost";
@@ -20,15 +20,16 @@ const INITIAL_PRODUCT_ROWS = 2;
 const PRODUCTS_PER_ROW = 4;
 const PRODUCTS_TO_SHOW_INITIALLY = INITIAL_PRODUCT_ROWS * PRODUCTS_PER_ROW;
 
-export default function Item({ fetchEndpoint, onAddToOrder, onClose }) {
+export default function Item({ fetchEndpoint, onAddToOrder, onClose, refreshCartData }) {
   // State management
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [visibleProductCount, setVisibleProductCount] = useState(PRODUCTS_TO_SHOW_INITIALLY);
   const [branchIdState, setBranchIdState] = useState(localStorage.getItem("branch_id"));
 
-  // Get order type
+  // Get order type and table ID
   const orderType = localStorage.getItem("order_type") || "dine_in";
+  const tableId = localStorage.getItem("table_id");
 
   // Custom hooks
   const { deliveryUserData, userLoading, userError } = useDeliveryUser(orderType);
@@ -101,7 +102,7 @@ export default function Item({ fetchEndpoint, onAddToOrder, onClose }) {
     return `${productId}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   };
 
-  // Fixed handleAddToOrder with temp_id
+  // Fixed handleAddToOrder with temp_id and refresh
   const handleAddToOrder = async (product, customQuantity = 1) => {
     console.log("Adding product to order:", product);
     
@@ -196,15 +197,29 @@ export default function Item({ fetchEndpoint, onAddToOrder, onClose }) {
     console.log("Final order item with temp_id:", orderItem);
     console.log("Temp ID:", orderItem.temp_id);
 
+    // Add to order
     onAddToOrder(orderItem);
 
+    // Submit to backend for dine_in orders
     if (orderType === "dine_in") {
         try {
             await submitItemToBackend(postData, orderItem, customQuantity, orderType);
+            console.log("Item submitted to backend successfully");
+            
+            // Refresh cart data after successful backend submission
+            if (refreshCartData && typeof refreshCartData === 'function') {
+                console.log("Refreshing cart data...");
+                await refreshCartData();
+            }
+            
+            toast.success(`"${product.name}" added successfully!`);
         } catch (error) {
             console.error("Error submitting item to backend:", error);
             toast.error(`Failed to submit "${product.name}" to backend`);
         }
+    } else {
+        // For non-dine_in orders, still show success message
+        toast.success(`"${product.name}" added to cart!`);
     }
   };
 
