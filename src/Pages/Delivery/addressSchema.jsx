@@ -7,7 +7,7 @@ export const addressSchema = z.object({
   address: z
     .string()
     .min(5, "Address is required and must be at least 5 characters."),
-  street: z.string().min(2, "street must be at least 2 characters."),
+  street: z.string(),
   building_num: z.coerce.number().nullable().optional(),
   floor_num: z.coerce.number().nullable().optional(),
   apartment: z.coerce.number().nullable().optional(),

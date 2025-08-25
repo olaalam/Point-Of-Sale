@@ -24,7 +24,6 @@ const CheckOut = ({
   notes = "Customer requested no plastic bag.",
   source = "web",
   totalDineInItems,
-  updateOrderItems,
   orderType,
 }) => {
   const branch_id = localStorage.getItem("branch_id");
@@ -107,6 +106,10 @@ const CheckOut = ({
 
   const handleAmountChange = (id, value) => {
     const newAmount = parseFloat(value) || 0;
+    if (newAmount < 0) {
+      toast.error("Amount cannot be negative.");
+      return;
+    }
     setPaymentSplits((prevSplits) => {
       const updatedSplits = prevSplits.map((split) =>
         split.id === id ? { ...split, amount: newAmount } : split
@@ -179,153 +182,162 @@ const CheckOut = ({
     }
   };
 
-const handleSubmitOrder = async () => {
- if (!isTotalMet || totalScheduled === 0) {
- return toast.error(`Total must equal ${requiredTotal.toFixed(2)} EGP.`);
- }
+  const handleSubmitOrder = async () => {
+    if (!isTotalMet || totalScheduled === 0) {
+      return toast.error(`Total must equal ${requiredTotal.toFixed(2)} EGP.`);
+    }
 
- const processProductItem = (item) => {
- const groupedVariations = item.allSelectedVariations?.reduce((acc, variation) => {
- const existing = acc.find((v) => v.variation_id === variation.variation_id);
- if (existing) {
- existing.option_id = Array.isArray(existing.option_id)
- ? [...existing.option_id, variation.option_id]
- : [existing.option_id, variation.option_id];
- } else {
- acc.push({
- variation_id: variation.variation_id.toString(),
- option_id: [variation.option_id.toString()],
- });
- }
- return acc;
- }, []) || [];
+    const processProductItem = (item) => {
+      const groupedVariations =
+        item.allSelectedVariations?.reduce((acc, variation) => {
+          const existing = acc.find(
+            (v) => v.variation_id === variation.variation_id
+          );
+          if (existing) {
+            existing.option_id = Array.isArray(existing.option_id)
+              ? [...existing.option_id, variation.option_id]
+              : [existing.option_id, variation.option_id];
+          } else {
+            acc.push({
+              variation_id: variation.variation_id.toString(),
+              option_id: [variation.option_id.toString()],
+            });
+          }
+          return acc;
+        }, []) || [];
 
- const realExtrasIds = [];
- const addonItems = [];
+      const realExtrasIds = [];
+      const addonItems = [];
 
- if (item.selectedExtras && item.selectedExtras.length > 0) {
- item.selectedExtras.forEach(extraId => {
- const isRealExtra = item.allExtras?.some(extra => extra.id === extraId);
+      if (item.selectedExtras && item.selectedExtras.length > 0) {
+        item.selectedExtras.forEach((extraId) => {
+          const isRealExtra = item.allExtras?.some(
+            (extra) => extra.id === extraId
+          );
 
- if (isRealExtra) {
- realExtrasIds.push(extraId.toString());
- } else {
- const addon = item.addons?.find(addon => addon.id === extraId);
- if (addon) {
-  addonItems.push({
-  addon_id: extraId.toString(),
-  count: "1",
-  });
- }
- }
- });
- }
+          if (isRealExtra) {
+            realExtrasIds.push(extraId.toString());
+          } else {
+            const addon = item.addons?.find((addon) => addon.id === extraId);
+            if (addon) {
+              addonItems.push({
+                addon_id: extraId.toString(),
+                count: "1",
+              });
+            }
+          }
+        });
+      }
 
- if (item.selectedAddons && item.selectedAddons.length > 0) {
- item.selectedAddons.forEach(addonData => {
- const alreadyExists = addonItems.some(existing => existing.addon_id === addonData.addon_id.toString());
- if (!alreadyExists) {
- addonItems.push({
-  addon_id: addonData.addon_id.toString(),
-  count: (addonData.count || 1).toString(),
- });
- }
- });
- }
+      if (item.selectedAddons && item.selectedAddons.length > 0) {
+        item.selectedAddons.forEach((addonData) => {
+          const alreadyExists = addonItems.some(
+            (existing) => existing.addon_id === addonData.addon_id.toString()
+          );
+          if (!alreadyExists) {
+            addonItems.push({
+              addon_id: addonData.addon_id.toString(),
+              count: (addonData.count || 1).toString(),
+            });
+          }
+        });
+      }
 
- // Remove cart_id from the product object
- return {
- product_id: item.id.toString(),
- count: item.count.toString(),
- note: item.note || "Product Note",
- addons: addonItems,
- variation: groupedVariations,
- exclude_id: (item.selectedExcludes || []).map(id => id.toString()),
- extra_id: realExtrasIds,
- };
- };
+      // Remove cart_id from the product object
+      return {
+        product_id: item.id.toString(),
+        count: item.count.toString(),
+        note: item.note || "Product Note",
+        addons: addonItems,
+        variation: groupedVariations,
+        exclude_id: (item.selectedExcludes || []).map((id) => id.toString()),
+        extra_id: realExtrasIds,
+      };
+    };
 
- const endpoint = getEndpoint();
- console.log("Using endpoint:", endpoint);
+    const endpoint = getEndpoint();
+    console.log("Using endpoint:", endpoint);
 
- let productsToSend = orderItems.map(processProductItem);
- let newAmountToPay = amountToPay;
+    let productsToSend = orderItems.map(processProductItem);
+    let newAmountToPay = amountToPay;
 
- const basePayload = {
- amount: newAmountToPay.toString(),
- total_tax: totalTax.toString(),
- total_discount: totalDiscount.toString(),
- notes: notes || "note",
- source: source,
- financials: paymentSplits.map((s) => ({
- id: s.accountId.toString(),
- amount: s.amount.toString(),
- })),
- cashier_id: cashierId.toString(),
- };
+    const basePayload = {
+      amount: newAmountToPay.toString(),
+      total_tax: totalTax.toString(),
+      total_discount: totalDiscount.toString(),
+      notes: notes || "note",
+      source: source,
+      financials: paymentSplits.map((s) => ({
+        id: s.accountId.toString(),
+        amount: s.amount.toString(),
+      })),
+      cashier_id: cashierId.toString(),
+    };
 
- let payload;
- 
- if (orderType === "dine_in") {
- // 👈 التعديل هنا: استخراج الـ cart_id في مصفوفة منفصلة
- const cartIdsToSend = orderItems.map(item => item.cart_id.toString());
- 
- payload = {
- ...basePayload,
- table_id: tableId.toString(),
- products: productsToSend,
- cart_id: cartIdsToSend, // إضافة مصفوفة الـ cart_id
- };
- } else if (orderType === "delivery") {
- payload = {
- ...basePayload,
- products: productsToSend,
- address_id: localStorage.getItem("selected_address_id") || "",
- user_id: localStorage.getItem("selected_user_id") || "",
- cash_with_delivery: (parseFloat(customerPaid) || 0).toString(),
- };
- } else {
- payload = {
- ...basePayload,
- products: productsToSend,
- };
- }
+    let payload;
 
- console.log("Payload to send:", JSON.stringify(payload, null, 2));
- console.log("Endpoint:", endpoint);
+    if (orderType === "dine_in") {
+      // 👈 التعديل هنا: استخراج الـ cart_id في مصفوفة منفصلة
+      const cartIdsToSend = orderItems.map((item) => item.cart_id.toString());
 
- try {
- const response = await postData(endpoint, payload, {
- headers: {
- "Content-Type": "application/json",
- },
- });
+      payload = {
+        ...basePayload,
+        table_id: tableId.toString(),
+        products: productsToSend,
+        cart_id: cartIdsToSend, // إضافة مصفوفة الـ cart_id
+      };
+    } else if (orderType === "delivery") {
+      payload = {
+        ...basePayload,
+        products: productsToSend,
+        address_id: localStorage.getItem("selected_address_id") || "",
+        user_id: localStorage.getItem("selected_user_id") || "",
+        cash_with_delivery: (parseFloat(customerPaid) || 0).toString(),
+      };
+    } else {
+      payload = {
+        ...basePayload,
+        products: productsToSend,
+      };
+    }
 
- console.log("Order Submission Response:", response);
- toast.success("Order placed successfully!");
+    console.log("Payload to send:", JSON.stringify(payload, null, 2));
+    console.log("Endpoint:", endpoint);
 
- localStorage.setItem("last_order_type", orderType);
+    try {
+      const response = await postData(endpoint, payload, {
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
 
- if (orderType === "delivery") {
- const newOrderId = response?.success?.id;
- if (newOrderId) {
- setOrderId(newOrderId);
- console.log("New Order ID:", newOrderId);
- setDeliveryModelOpen(true);
- } else {
- toast.error("Order ID not returned from server. Cannot assign delivery.");
- onClose();
- navigate("/orders");
- }
- } else {
- onClose();
- navigate("/orders");
- }
- } catch (e) {
- console.error("Submit error:", e);
- toast.error(e.message || "Submission failed");
- }
-};
+      console.log("Order Submission Response:", response);
+      toast.success("Order placed successfully!");
+
+      localStorage.setItem("last_order_type", orderType);
+
+      if (orderType === "delivery") {
+        const newOrderId = response?.success?.id;
+        if (newOrderId) {
+          setOrderId(newOrderId);
+          console.log("New Order ID:", newOrderId);
+          setDeliveryModelOpen(true);
+        } else {
+          toast.error(
+            "Order ID not returned from server. Cannot assign delivery."
+          );
+          onClose();
+          navigate("/orders");
+        }
+      } else {
+        onClose();
+        navigate("/orders");
+      }
+    } catch (e) {
+      console.error("Submit error:", e);
+      toast.error(e.message || "Submission failed");
+    }
+  };
 
   const handleAssignDelivery = async () => {
     if (!orderId) {
@@ -462,11 +474,18 @@ const handleSubmitOrder = async () => {
           {/* Show selected items summary for split payment */}
           {orderType === "dine_in" && (
             <div className="mb-6 bg-green-50 p-4 rounded-lg">
-              <h3 className="font-semibold text-green-800 mb-2">Items for Payment:</h3>
+              <h3 className="font-semibold text-green-800 mb-2">
+                Items for Payment:
+              </h3>
               <div className="space-y-1">
                 {orderItems.map((item) => (
-                  <div key={item.temp_id} className="flex justify-between text-sm">
-                    <span>{item.name} (x{item.count})</span>
+                  <div
+                    key={item.temp_id}
+                    className="flex justify-between text-sm"
+                  >
+                    <span>
+                      {item.name} (x{item.count})
+                    </span>
                     <span>{(item.price * item.count).toFixed(2)} EGP</span>
                   </div>
                 ))}
@@ -499,6 +518,7 @@ const handleSubmitOrder = async () => {
                 <div className="relative flex-grow">
                   <Input
                     type="number"
+                    min="0"
                     value={split.amount === 0 ? "" : String(split.amount)}
                     onChange={(e) =>
                       handleAmountChange(split.id, e.target.value)
@@ -555,9 +575,18 @@ const handleSubmitOrder = async () => {
             <div className="relative">
               <Input
                 type="number"
+                min="0"
                 placeholder="Enter amount paid"
                 value={customerPaid}
-                onChange={(e) => setCustomerPaid(e.target.value)}
+                onChange={(e) => {
+                  const value = e.target.value;
+
+                  if (parseFloat(value) < 0) {
+                    toast.error("Amount cannot be negative.");
+                    return;
+                  }
+                  setCustomerPaid(value);
+                }}
                 className="pl-16"
               />
               <span className="absolute left-3 top-1/2 -translate-y-1/2">
