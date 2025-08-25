@@ -1,12 +1,9 @@
-// Updated Card.jsx with Split Payment Selection and Table Transfer Logic
 import React, { useEffect, useMemo, useState } from "react";
-// Import useNavigate for navigation (Requires react-router-dom)
-import { useNavigate } from "react-router-dom"; 
-
+import { useNavigate } from "react-router-dom";
 import Loading from "@/components/Loading";
 import { Button } from "@/components/ui/button";
 import CheckOut from "./CheckOut";
-import { Circle, Hourglass, CheckCircle, ChefHat } from "lucide-react"; // Import SwapHorizontal for the icon
+import { Circle, Hourglass, CheckCircle, ChefHat, Trash2 } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -17,6 +14,14 @@ import {
 import { usePost } from "@/Hooks/usePost";
 import { useGet } from "@/Hooks/useGet";
 import { ToastContainer, toast } from "react-toastify";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 
 const TAX_RATE = 0;
 const OTHER_CHARGE = 0;
@@ -71,13 +76,16 @@ export default function Card({
 }) {
   const [showModal, setShowModal] = useState(false);
   const [selectedItems, setSelectedItems] = useState([]);
-  const [selectedPaymentItems, setSelectedPaymentItems] = useState([]); 
+  const [selectedPaymentItems, setSelectedPaymentItems] = useState([]);
   const [bulkStatus, setBulkStatus] = useState("");
   const [itemLoadingStates, setItemLoadingStates] = useState({});
-  // Removed showTransferModal state
+  const [showVoidModal, setShowVoidModal] = useState(false);
+  const [voidItemId, setVoidItemId] = useState(null);
+  const [managerId, setManagerId] = useState("");
+  const [managerPassword, setManagerPassword] = useState("");
   const { data } = useGet(`cashier/dine_in_table_order/${tableId}`);
   const { loading: apiLoading, error: apiError, postData } = usePost();
-  const navigate = useNavigate(); // Initialize useNavigate
+  const navigate = useNavigate();
 
   console.log("Received orderType:", orderType);
   console.log("Card component received tableId:", tableId);
@@ -130,32 +138,27 @@ export default function Card({
       [itemTempId]: isLoading,
     }));
   };
+
   const allCartIds = useMemo(() => {
-    return orderItems.map((item) => item.cart_id).filter(id => id != null);
+    return orderItems.map((item) => item.cart_id).filter((id) => id != null);
   }, [orderItems]);
 
-  // Function to handle table transfer
-const handleTransferOrder = async () => {
-  if (!tableId || allCartIds.length === 0) {
-    toast.error("Cannot transfer order: Table ID or Cart IDs missing.");
-    return;
-  }
-  
-  const firstCartId = allCartIds[0];
-  
-  // Save data to localStorage for the order-page to use
-  localStorage.setItem("transfer_cart_ids", JSON.stringify(allCartIds));
-  localStorage.setItem("transfer_first_cart_id", firstCartId.toString());
-  localStorage.setItem("transfer_source_table_id", tableId.toString());
-  localStorage.setItem("transfer_pending", "true"); // Flag to indicate transfer is pending
-  
-  toast.info("Please select a new table to transfer the order.");
-  
-  // Navigate to the order page to select the new table
-  navigate("/order-page");
-};
+  const handleTransferOrder = async () => {
+    if (!tableId || allCartIds.length === 0) {
+      toast.error("Cannot transfer order: Table ID or Cart IDs missing.");
+      return;
+    }
 
+    const firstCartId = allCartIds[0];
 
+    localStorage.setItem("transfer_cart_ids", JSON.stringify(allCartIds));
+    localStorage.setItem("transfer_first_cart_id", firstCartId.toString());
+    localStorage.setItem("transfer_source_table_id", tableId.toString());
+    localStorage.setItem("transfer_pending", "true");
+
+    toast.info("Please select a new table to transfer the order.");
+    navigate("/order-page");
+  };
 
   const handleUpdatePreparationStatus = async (itemTempId) => {
     setItemLoading(itemTempId, true);
@@ -203,15 +206,14 @@ const handleTransferOrder = async () => {
               })
               .catch((err) => {
                 console.error("Failed to update single item status:", err);
-                
                 if (err.response) {
                   console.error("Error response:", err.response.data);
                   console.error("Error status:", err.response.status);
                 }
-                
-                const errorMessage = err.response?.data?.message || 
-                                     err.response?.data?.exception ||
-                                     "Failed to update status. Please try again.";
+                const errorMessage =
+                  err.response?.data?.message ||
+                  err.response?.data?.exception ||
+                  "Failed to update status. Please try again.";
                 toast.error(errorMessage);
                 return;
               })
@@ -250,6 +252,73 @@ const handleTransferOrder = async () => {
     }
   };
 
+  const handleVoidItem = (itemTempId) => {
+    setVoidItemId(itemTempId);
+    setShowVoidModal(true);
+  };
+
+  const confirmVoidItem = async () => {
+    // if (!managerId || !managerPassword || !voidItemId) {
+    //   toast.error("Please provide manager ID and password");
+    //   return;
+    // }
+
+    const itemToVoid = orderItems.find((item) => item.temp_id === voidItemId);
+    if (!itemToVoid || !itemToVoid.cart_id) {
+      toast.error("Invalid item or missing cart ID");
+      setShowVoidModal(false);
+      return;
+    }
+
+    setItemLoading(voidItemId, true);
+
+    const formData = new FormData();
+// Add each cart_id from the array to the form data
+let cartIds = [];
+
+if (Array.isArray(itemToVoid.cart_id)) {
+  cartIds = itemToVoid.cart_id;
+} else if (typeof itemToVoid.cart_id === "string") {
+  cartIds = itemToVoid.cart_id.split(',').map(id => id.trim());
+} else {
+  cartIds = [itemToVoid.cart_id];
+}
+
+cartIds.forEach((id) => {
+  formData.append("cart_ids[]", id.toString());
+});
+
+
+    formData.append("manager_id", managerId);
+    formData.append("manager_password", managerPassword);
+    formData.append("table_id", tableId.toString());
+
+    try {
+      const responseData = await postData("cashier/order_void", formData);
+      console.log("Void order successful:", responseData);
+      toast.success("Item voided successfully!");
+
+      const updatedItems = orderItems.filter(
+        (item) => item.temp_id !== voidItemId
+      );
+      updateOrderItems(updatedItems);
+      localStorage.setItem("cart", JSON.stringify(updatedItems));
+    } catch (err) {
+      console.error("Failed to void item:", err);
+      const errorMessage =
+        err.response?.data?.message ||
+        err.response?.data?.exception ||
+        "Failed to void item. Please try again.";
+      toast.error(errorMessage);
+    } finally {
+      setItemLoading(voidItemId, false);
+      setShowVoidModal(false);
+      setManagerId("");
+      setManagerPassword("");
+      setVoidItemId(null);
+    }
+  };
+
   const { subTotal, totalTax, totalOtherCharge, totalAmountDisplay } =
     useMemo(() => {
       const itemsToCalculate = Array.isArray(orderItems) ? orderItems : [];
@@ -272,20 +341,17 @@ const handleTransferOrder = async () => {
       };
     }, [orderItems]);
 
-  // Get all done items for selection
   const doneItems = useMemo(() => {
     const safeOrderItems = Array.isArray(orderItems) ? orderItems : [];
     return safeOrderItems.filter((item) => item.preparation_status === "done");
   }, [orderItems]);
 
-  // Calculate totals for selected payment items
   const { checkoutItems, amountToPay } = useMemo(() => {
     const safeOrderItems = Array.isArray(orderItems) ? orderItems : [];
 
     if (orderType === "dine_in") {
-      // Use selected payment items instead of all done items
-      const itemsToPayFor = safeOrderItems.filter(
-        (item) => selectedPaymentItems.includes(item.temp_id)
+      const itemsToPayFor = safeOrderItems.filter((item) =>
+        selectedPaymentItems.includes(item.temp_id)
       );
       const selectedSubTotal = itemsToPayFor.reduce(
         (acc, item) => acc + item.price * item.count,
@@ -333,9 +399,7 @@ const handleTransferOrder = async () => {
 
   const handleCheckOut = () => {
     if (orderType === "dine_in" && selectedPaymentItems.length === 0) {
-      toast.warning(
-        "Please select items to pay for from the done items list."
-      );
+      toast.warning("Please select items to pay for from the done items list.");
       return;
     }
     setShowModal(true);
@@ -343,17 +407,16 @@ const handleTransferOrder = async () => {
 
   const toggleSelectItem = (tempId) => {
     setSelectedItems((prev) =>
-      prev.includes(tempId) 
-        ? prev.filter((itemTempId) => itemTempId !== tempId) 
+      prev.includes(tempId)
+        ? prev.filter((itemTempId) => itemTempId !== tempId)
         : [...prev, tempId]
     );
   };
 
-  // New function for payment item selection
   const toggleSelectPaymentItem = (tempId) => {
     setSelectedPaymentItems((prev) =>
-      prev.includes(tempId) 
-        ? prev.filter((itemTempId) => itemTempId !== tempId) 
+      prev.includes(tempId)
+        ? prev.filter((itemTempId) => itemTempId !== tempId)
         : [...prev, tempId]
     );
   };
@@ -364,7 +427,6 @@ const handleTransferOrder = async () => {
     setSelectedItems(isAllSelected ? [] : allTempIds);
   };
 
-  // New function for selecting all payment items
   const handleSelectAllPaymentItems = () => {
     const allDoneTempIds = doneItems.map((item) => item.temp_id);
     const isAllSelected = selectedPaymentItems.length === allDoneTempIds.length;
@@ -445,25 +507,24 @@ const handleTransferOrder = async () => {
         const responseData = await postData("cashier/preparing", formData);
         console.log("Bulk backend update successful:", responseData);
         toast.success(
-          `Successfully updated ${itemsToUpdateOnBackend.length} items to ${PREPARATION_STATUSES[bulkStatus]?.label}`
+          `Successfully updated ${itemsToUpdateOnBackend.length} items to ${
+            PREPARATION_STATUSES[bulkStatus]?.label
+          }`
         );
       } catch (err) {
         console.error("Failed to apply bulk status:", err);
-        
         if (err.response) {
           console.error("Bulk update error response:", err.response.data);
         }
-        
-        const errorMessage = err.response?.data?.message || 
-                             err.response?.data?.exception ||
-                             "Failed to update status. Please try again.";
+        const errorMessage =
+          err.response?.data?.message ||
+          err.response?.data?.exception ||
+          "Failed to update status. Please try again.";
         toast.error(errorMessage);
         return;
       }
     } else if (bulkStatus === "pending" || bulkStatus === "watting") {
-      toast.info(
-        `Status changed to ${PREPARATION_STATUSES[bulkStatus]?.label}`
-      );
+      toast.info(`Status changed to ${PREPARATION_STATUSES[bulkStatus]?.label}`);
     } else {
       toast.warning("No valid items to update");
       return;
@@ -499,7 +560,7 @@ const handleTransferOrder = async () => {
   );
 
   return (
-    <div className="overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden mb-10 pb-10 ">
+    <div className="overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden mb-10 pb-10 max-h-[70vh] sm:max-h-[80vh]">
       {isLoading && (
         <div className="flex justify-center items-center h-40">
           <Loading />
@@ -507,10 +568,9 @@ const handleTransferOrder = async () => {
       )}
       <h2 className="text-bg-primary text-3xl font-bold mb-6">Order Details</h2>
 
-      <div className="min-w-full bg-white shadow-md rounded-lg overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+      <div className="min-w-full bg-white shadow-md rounded-lg overflow-y-auto ">
         {orderType === "dine_in" && (
           <div className="flex items-center justify-start mb-4 gap-4 flex-wrap p-4">
-            {/* Bulk Status Controls */}
             <Select value={bulkStatus} onValueChange={setBulkStatus}>
               <SelectTrigger className="w-[200px] border border-gray-300 rounded-md shadow-sm px-4 py-2 text-gray-700 bg-white hover:border-bg-primary focus:outline-none focus:ring-2 focus:ring-bg-primary focus:border-transparent transition ease-in-out duration-150">
                 <SelectValue placeholder="-- Choose Status --" />
@@ -521,7 +581,6 @@ const handleTransferOrder = async () => {
                     const isStatusBeforeLowestSelected =
                       statusOrder.indexOf(key) <
                       statusOrder.indexOf(currentLowestSelectedStatus);
-
                     return !isStatusBeforeLowestSelected;
                   })
                   .map(([key, value]) => (
@@ -548,19 +607,14 @@ const handleTransferOrder = async () => {
             >
               Apply Status ({selectedItems.length} selected)
             </Button>
-            
-            {/* New "Change Table" button to initiate transfer */}
             <Button
               onClick={handleTransferOrder}
               className="bg-blue-500 text-white hover:bg-blue-600 text-sm flex items-center gap-1"
               disabled={isLoading || allCartIds.length === 0}
             >
-                Change Table
+              Change Table
             </Button>
-
-          <hr className="my-6 w-full border-t-2 border-gray-200" />
-          
-          {/* Removed TransferOrder Modal rendering */}
+            <hr className="my-6 w-full border-t-2 border-gray-200" />
           </div>
         )}
 
@@ -578,7 +632,6 @@ const handleTransferOrder = async () => {
                   className="w-4 h-4 accent-bg-primary"
                 />
               </th>
-
               <th className="py-3 px-4 text-left text-gray-600 font-semibold">
                 Item
               </th>
@@ -601,14 +654,16 @@ const handleTransferOrder = async () => {
               <th className="py-3 px-4 text-right text-gray-600 font-semibold">
                 Total
               </th>
+              <th className="py-3 px-4 text-right text-gray-600 font-semibold">
+                Void
+              </th>
             </tr>
           </thead>
-
           <tbody>
             {!Array.isArray(orderItems) || orderItems.length === 0 ? (
               <tr>
                 <td
-                  colSpan={orderType === "dine_in" ? 7 : 5}
+                  colSpan={orderType === "dine_in" ? 8 : 6}
                   className="text-center py-4 text-gray-500"
                 >
                   No items found for this order.
@@ -620,7 +675,6 @@ const handleTransferOrder = async () => {
                   PREPARATION_STATUSES[item.preparation_status] ||
                   PREPARATION_STATUSES.pending;
                 const StatusIcon = statusInfo.icon;
-
                 const hasDiscount =
                   item.originalPrice && item.price < item.originalPrice;
                 const isItemLoading = itemLoadingStates[item.temp_id] || false;
@@ -631,7 +685,11 @@ const handleTransferOrder = async () => {
                     key={item.temp_id || `${item.id}-${index}`}
                     className={`border-b last:border-b-0 hover:bg-gray-50 ${
                       item.type === "addon" ? "bg-blue-50" : ""
-                    } ${selectedPaymentItems.includes(item.temp_id) ? "bg-green-50" : ""}`}
+                    } ${
+                      selectedPaymentItems.includes(item.temp_id)
+                        ? "bg-green-50"
+                        : ""
+                    }`}
                   >
                     <td className="py-1 px-2">
                       <input
@@ -641,18 +699,16 @@ const handleTransferOrder = async () => {
                         className="w-4 h-4 accent-bg-primary"
                       />
                     </td>
-
                     <td className="font-small py-1 px-2">
                       <div>
-                        <span className=" text-gray-800">{item.name}</span>
-                        {item.selectedAddons &&
-                          item.selectedAddons.length > 0 && (
-                            <div className="pl-4 text-sm text-gray-500">
-                              {item.selectedAddons.map((addon) => (
-                                <div key={addon.addon_id}>+ {addon.name}</div>
-                              ))}
-                            </div>
-                          )}
+                        <span className="text-gray-800">{item.name}</span>
+                        {item.selectedAddons && item.selectedAddons.length > 0 && (
+                          <div className="pl-4 text-sm text-gray-500">
+                            {item.selectedAddons.map((addon) => (
+                              <div key={addon.addon_id}>+ {addon.name}</div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </td>
                     <td className="py-1 px-2">
@@ -707,15 +763,13 @@ const handleTransferOrder = async () => {
                               handleUpdatePreparationStatus(item.temp_id)
                             }
                             title={`Change status to ${
-                              PREPARATION_STATUSES[statusInfo.nextStatus]
-                                ?.label || "Pending"
+                              PREPARATION_STATUSES[statusInfo.nextStatus]?.label ||
+                              "Pending"
                             }`}
                             className={`p-2 rounded-full ${
                               statusInfo.color
                             } hover:bg-gray-200 text-center m-auto transition-colors duration-200 ${
-                              isItemLoading
-                                ? "opacity-50 cursor-not-allowed"
-                                : ""
+                              isItemLoading ? "opacity-50 cursor-not-allowed" : ""
                             }`}
                             disabled={isItemLoading}
                           >
@@ -751,6 +805,18 @@ const handleTransferOrder = async () => {
                         </div>
                       )}
                     </td>
+                    <td className="py-1 px-2 text-right">
+                      <button
+                        onClick={() => handleVoidItem(item.temp_id)}
+                        className={`p-2 rounded-full text-red-500 hover:bg-red-100 transition-colors duration-200 ${
+                          isItemLoading ? "opacity-50 cursor-not-allowed" : ""
+                        }`}
+                        disabled={isItemLoading}
+                        title="Void Item"
+                      >
+                        <Trash2 size={20} />
+                      </button>
+                    </td>
                   </tr>
                 );
               })
@@ -759,50 +825,103 @@ const handleTransferOrder = async () => {
         </table>
       </div>
 
-      {/* Done Items Payment Selection Section for Dine-in */}
-      {orderType === "dine_in" && doneItems.length > 0 && (
-        <>
-          <div className="mt-6 bg-green-50 p-4 rounded-lg">
-            <div className="flex justify-between items-center mb-3">
-              <h3 className="text-lg font-semibold text-green-800">
-                Ready for Payment ({doneItems.length} items)
-              </h3>
-              <Button
-                onClick={handleSelectAllPaymentItems}
-                variant="outline"
-                size="sm"
-                className="text-green-600 border-green-300 hover:bg-green-100"
-              >
-                {selectedPaymentItems.length === doneItems.length ? "Deselect All" : "Select All"}
-              </Button>
+      {/* Void Item Modal */}
+      <Dialog open={showVoidModal} onOpenChange={setShowVoidModal}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Void Item - Manager Authentication</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <label htmlFor="managerId" className="text-right">
+                Manager ID
+              </label>
+              <Input
+              type="number"
+                id="managerId"
+                value={managerId}
+                onChange={(e) => setManagerId(e.target.value)}
+                className="col-span-3"
+              />
             </div>
-            <p className="text-sm text-green-700 mb-3">
-              Select items you want to process payment for ({selectedPaymentItems.length} selected)
-            </p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-              {doneItems.map((item) => (
-                <div
-                  key={item.temp_id}
-                  className={`flex items-center gap-3 p-2 rounded ${
-                    selectedPaymentItems.includes(item.temp_id) ? "bg-green-100" : "bg-white"
-                  }`}
-                >
-                  <input
-                    type="checkbox"
-                    checked={selectedPaymentItems.includes(item.temp_id)}
-                    onChange={() => toggleSelectPaymentItem(item.temp_id)}
-                    className="w-4 h-4 accent-green-500"
-                    title="Select for payment"
-                  />
-                  <span className="flex-1">{item.name}</span>
-                  <span className="text-sm font-medium">
-                    {item.count} × {item.price.toFixed(2)} = {(item.count * item.price).toFixed(2)} EGP
-                  </span>
-                </div>
-              ))}
+            <div className="grid grid-cols-4 items-center gap-4">
+              <label htmlFor="password" className="text-right">
+                Password
+              </label>
+              <Input
+                id="password"
+                type="password"
+                value={managerPassword}
+                onChange={(e) => setManagerPassword(e.target.value)}
+                className="col-span-3"
+              />
             </div>
           </div>
-        </>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowVoidModal(false)}
+              className="mr-2"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={confirmVoidItem}
+              disabled={!managerId || !managerPassword || isLoading}
+              className="bg-red-600 text-white hover:bg-red-700"
+            >
+              Confirm Void
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {orderType === "dine_in" && doneItems.length > 0 && (
+        <div className="mt-6 bg-green-50 p-4 rounded-lg sm:overflow-y-hidden  max-h-40">
+          <div className="flex justify-between items-center mb-3">
+            <h3 className="text-lg font-semibold text-green-800">
+              Ready for Payment ({doneItems.length} items)
+            </h3>
+            <Button
+              onClick={handleSelectAllPaymentItems}
+              variant="outline"
+              size="sm"
+              className="text-green-600 border-green-300 hover:bg-green-100"
+            >
+              {selectedPaymentItems.length === doneItems.length
+                ? "Deselect All"
+                : "Select All"}
+            </Button>
+          </div>
+          <p className="text-sm text-green-700 mb-3">
+            Select items you want to process payment for ({selectedPaymentItems.length} selected)
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+            {doneItems.map((item) => (
+              <div
+                key={item.temp_id}
+                className={`flex items-center gap-3 p-2 rounded ${
+                  selectedPaymentItems.includes(item.temp_id)
+                    ? "bg-green-100"
+                    : "bg-white"
+                }`}
+              >
+                <input
+                  type="checkbox"
+                  checked={selectedPaymentItems.includes(item.temp_id)}
+                  onChange={() => toggleSelectPaymentItem(item.temp_id)}
+                  className="w-4 h-4 accent-green-500"
+                  title="Select for payment"
+                />
+                <span className="flex-1">{item.name}</span>
+                <span className="text-sm font-medium">
+                  {item.count} × {item.price.toFixed(2)} ={" "}
+                  {(item.count * item.price).toFixed(2)} EGP
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
       )}
 
       <hr className="my-6 border-t-2 border-gray-200" />
@@ -852,7 +971,7 @@ const handleTransferOrder = async () => {
           Check Out{" "}
           {orderType === "dine_in" && selectedPaymentItems.length === 0
             ? "(Select Items to Pay)"
-            : orderType === "dine_in" 
+            : orderType === "dine_in"
             ? `(${selectedPaymentItems.length} items)`
             : ""}
         </Button>

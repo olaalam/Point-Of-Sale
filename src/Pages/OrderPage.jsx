@@ -209,15 +209,14 @@ export default function OrderPage({
     localStorage.removeItem("table_id");
     localStorage.removeItem("delivery_user_id");
 
-    // العودة إلى المسار الرئيسي (Home)
     navigate("/");
   };
 
   return (
-    <div className="flex flex-col-reverse lg:flex-row gap-6 h-full w-full px-4">
-      <div className="min-w-[31rem] lg:w-[31rem] flex-shrink-0">
+    <div className="flex flex-col-reverse lg:flex-row gap-4 p-4 h-full w-full">
+      <div className="w-full lg:w-1/2 sm:overflow-auto">
         <Card
-          key={refreshTrigger} // هذا هيسبب re-render للـ Card بعد refresh
+          key={refreshTrigger}
           orderItems={currentOrderItems}
           updateOrderItems={updateOrderItems}
           allowQuantityEdit={allowQuantityEdit}
@@ -228,7 +227,7 @@ export default function OrderPage({
         />
       </div>
 
-      <div className="w-full lg:w-3/5 overflow-auto">
+      <div className="w-full lg:w-1/2 mt-4 lg:mt-0">
         <Item 
           onAddToOrder={handleAddItem} 
           fetchEndpoint={fetchEndpoint} 
