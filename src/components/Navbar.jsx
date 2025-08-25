@@ -94,7 +94,7 @@ export default function Navbar() {
             {/* Close shift button */}
             <button
               onClick={handleCloseShift}
-              className="bg-red-600 text-white px-4 py-2 rounded-md font-semibold hover:bg-red-700 transition duration-300"
+              className="bg-bg-primary text-white px-4 py-2 rounded-md font-semibold hover:bg-red-700 transition duration-300"
             >
               Close Shift
             </button>

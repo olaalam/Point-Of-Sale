@@ -1,10 +1,12 @@
-// Updated Card.jsx with Split Payment Selection for Dine-in
+// Updated Card.jsx with Split Payment Selection and Table Transfer Logic
 import React, { useEffect, useMemo, useState } from "react";
+// Import useNavigate for navigation (Requires react-router-dom)
+import { useNavigate } from "react-router-dom"; 
 
 import Loading from "@/components/Loading";
 import { Button } from "@/components/ui/button";
 import CheckOut from "./CheckOut";
-import { Circle, Hourglass, CheckCircle, ChefHat } from "lucide-react";
+import { Circle, Hourglass, CheckCircle, ChefHat } from "lucide-react"; // Import SwapHorizontal for the icon
 import {
   Select,
   SelectContent,
@@ -69,12 +71,13 @@ export default function Card({
 }) {
   const [showModal, setShowModal] = useState(false);
   const [selectedItems, setSelectedItems] = useState([]);
-  const [selectedPaymentItems, setSelectedPaymentItems] = useState([]); // New state for payment selection
+  const [selectedPaymentItems, setSelectedPaymentItems] = useState([]); 
   const [bulkStatus, setBulkStatus] = useState("");
   const [itemLoadingStates, setItemLoadingStates] = useState({});
-
+  // Removed showTransferModal state
   const { data } = useGet(`cashier/dine_in_table_order/${tableId}`);
   const { loading: apiLoading, error: apiError, postData } = usePost();
+  const navigate = useNavigate(); // Initialize useNavigate
 
   console.log("Received orderType:", orderType);
   console.log("Card component received tableId:", tableId);
@@ -127,6 +130,32 @@ export default function Card({
       [itemTempId]: isLoading,
     }));
   };
+  const allCartIds = useMemo(() => {
+    return orderItems.map((item) => item.cart_id).filter(id => id != null);
+  }, [orderItems]);
+
+  // Function to handle table transfer
+const handleTransferOrder = async () => {
+  if (!tableId || allCartIds.length === 0) {
+    toast.error("Cannot transfer order: Table ID or Cart IDs missing.");
+    return;
+  }
+  
+  const firstCartId = allCartIds[0];
+  
+  // Save data to localStorage for the order-page to use
+  localStorage.setItem("transfer_cart_ids", JSON.stringify(allCartIds));
+  localStorage.setItem("transfer_first_cart_id", firstCartId.toString());
+  localStorage.setItem("transfer_source_table_id", tableId.toString());
+  localStorage.setItem("transfer_pending", "true"); // Flag to indicate transfer is pending
+  
+  toast.info("Please select a new table to transfer the order.");
+  
+  // Navigate to the order page to select the new table
+  navigate("/order-page");
+};
+
+
 
   const handleUpdatePreparationStatus = async (itemTempId) => {
     setItemLoading(itemTempId, true);
@@ -181,8 +210,8 @@ export default function Card({
                 }
                 
                 const errorMessage = err.response?.data?.message || 
-                                   err.response?.data?.exception ||
-                                   "Failed to update status. Please try again.";
+                                     err.response?.data?.exception ||
+                                     "Failed to update status. Please try again.";
                 toast.error(errorMessage);
                 return;
               })
@@ -426,8 +455,8 @@ export default function Card({
         }
         
         const errorMessage = err.response?.data?.message || 
-                           err.response?.data?.exception ||
-                           "Failed to update status. Please try again.";
+                             err.response?.data?.exception ||
+                             "Failed to update status. Please try again.";
         toast.error(errorMessage);
         return;
       }
@@ -481,6 +510,7 @@ export default function Card({
       <div className="min-w-full bg-white shadow-md rounded-lg overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
         {orderType === "dine_in" && (
           <div className="flex items-center justify-start mb-4 gap-4 flex-wrap p-4">
+            {/* Bulk Status Controls */}
             <Select value={bulkStatus} onValueChange={setBulkStatus}>
               <SelectTrigger className="w-[200px] border border-gray-300 rounded-md shadow-sm px-4 py-2 text-gray-700 bg-white hover:border-bg-primary focus:outline-none focus:ring-2 focus:ring-bg-primary focus:border-transparent transition ease-in-out duration-150">
                 <SelectValue placeholder="-- Choose Status --" />
@@ -518,13 +548,26 @@ export default function Card({
             >
               Apply Status ({selectedItems.length} selected)
             </Button>
+            
+            {/* New "Change Table" button to initiate transfer */}
+            <Button
+              onClick={handleTransferOrder}
+              className="bg-blue-500 text-white hover:bg-blue-600 text-sm flex items-center gap-1"
+              disabled={isLoading || allCartIds.length === 0}
+            >
+                Change Table
+            </Button>
+
+          <hr className="my-6 w-full border-t-2 border-gray-200" />
+          
+          {/* Removed TransferOrder Modal rendering */}
           </div>
         )}
 
         <table className="w-full">
           <thead className="bg-gray-100 text-xs sm:text-sm">
             <tr>
-              <th className="p-2  text-left text-gray-600 font-semibold">
+              <th className="p-2 text-left text-gray-600 font-semibold">
                 <input
                   type="checkbox"
                   checked={
@@ -749,6 +792,7 @@ export default function Card({
                     checked={selectedPaymentItems.includes(item.temp_id)}
                     onChange={() => toggleSelectPaymentItem(item.temp_id)}
                     className="w-4 h-4 accent-green-500"
+                    title="Select for payment"
                   />
                   <span className="flex-1">{item.name}</span>
                   <span className="text-sm font-medium">
@@ -816,7 +860,7 @@ export default function Card({
 
       {showModal && (
         <CheckOut
-         totalDineInItems={orderItems.length}
+          totalDineInItems={orderItems.length}
           onClose={() => setShowModal(false)}
           amountToPay={amountToPay}
           orderItems={checkoutItems}

@@ -5,8 +5,8 @@ import { useShift } from "@/context/ShiftContext";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import Loading from "@/components/Loading";
-import { CheckCircle, XCircle, Loader2 } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion"; // Import motion and AnimatePresence
+import { CheckCircle, XCircle, Loader2, User, ArrowRight } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 
 export default function Shift() {
   const [shiftStatus, setShiftStatus] = useState(null);
@@ -15,7 +15,9 @@ export default function Shift() {
   const { openShift, closeShift, isShiftOpen } = useShift();
   const navigate = useNavigate();
   const location = useLocation();
-
+  const name = localStorage.getItem("user");
+  const user = JSON.parse(name);
+  const userName = user.user_name;
   const handleOpenShift = async () => {
     const endpoint = "cashier/shift/open";
 
@@ -96,123 +98,147 @@ export default function Shift() {
   return (
     <div className="flex items-center justify-center min-h-screen bg-gray-100">
       <ToastContainer />
-      <motion.div
-        className="text-center p-8 bg-white shadow-2xl rounded-xl max-w-md w-full transition-all duration-300"
-        variants={cardVariants}
-        initial="hidden"
-        animate="visible"
-      >
-        <h1 className="text-3xl font-bold text-[#910000] mb-6">Shift Status</h1>
 
-        <AnimatePresence mode="wait">
-          {/* عرض رسالة أو زر فتح الشفت */}
-          {!isShiftOpen && !shiftStatus && (
-            <motion.div
-              key="open-initial"
-              className="mt-6"
-              variants={buttonVariants}
-              initial="initial"
-              animate="animate"
-              exit={{ opacity: 0, y: -20 }}
-            >
-              <p className="text-gray-600 mb-4 flex items-center justify-center gap-2">
-                <XCircle className="w-5 h-5 text-red-500" />
-                No active shift found.
-              </p>
-              <motion.button
-                onClick={handleOpenShift}
-                className="bg-green-600 text-white px-6 py-3 rounded-lg font-bold transition duration-300 w-full hover:scale-105"
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
+      {/* Main Container */}
+      <div className="max-w-md w-full m-auto pb-20">
+        {/* Welcome Header */}
+        <div className="text-center mb-6">
+          <h1 className="text-2xl text-gray-800">
+            Welcome Back, <span className="text-bg-primary font-semibold">{userName}</span>
+          </h1>
+        </div>
+
+        {/* Shift Status Card */}
+        <motion.div
+          className="bg-white rounded-xl shadow-lg overflow-hidden"
+          variants={cardVariants}
+          initial="hidden"
+          animate="visible"
+        >
+          {/* Card Header */}
+          <div className="p-6 text-center">
+            <h2 className="text-xl font-semibold text-gray-800 mb-2">Shift Status</h2>
+            <p className="text-gray-500 text-sm">
+              {isShiftOpen ? "You're currently on shift" : "You're up for your shift"}
+            </p>
+          </div>
+
+          {/* Profile Avatar */}
+          <div className="flex justify-center mb-6">
+            <div className="w-24 h-24 bg-black rounded-full flex items-center justify-center">
+              <User className="w-12 h-12 text-white" />
+            </div>
+          </div>
+
+          <AnimatePresence mode="wait">
+            {/* Display shift status or action buttons */}
+            {!isShiftOpen && !shiftStatus && (
+              <motion.div
+                key="open-initial"
+                className="px-6 pb-6"
+                variants={buttonVariants}
+                initial="initial"
+                animate="animate"
+                exit={{ opacity: 0, y: -20 }}
               >
-                Open Shift
-              </motion.button>
-            </motion.div>
-          )}
+                <motion.button
+                  onClick={handleOpenShift}
+                  className="w-full bg-bg-primary hover:bg-red-800 text-white font-medium py-4 px-6 rounded-lg transition-all duration-300 flex items-center justify-center gap-3 group"
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                >
+                  <span>Take your shift</span>
+                  <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform duration-200" />
+                </motion.button>
+              </motion.div>
+            )}
 
-          {/* عرض حالة الشفت */}
-          {shiftStatus && (
-            <motion.div
-              key="status-display"
-              className="mt-4 flex flex-col items-center justify-center gap-2 text-lg font-medium"
-              variants={buttonVariants}
-              initial="initial"
-              animate="animate"
-              exit={{ opacity: 0, y: -20 }}
-            >
-              <div
-                className={`flex items-center justify-center gap-2 ${
-                  shiftStatus.includes("open") ? "text-green-600" : "text-red-600"
-                }`}
+            {/* Display shift status */}
+            {shiftStatus && (
+              <motion.div
+                key="status-display"
+                className="px-6 pb-4 text-center"
+                variants={buttonVariants}
+                initial="initial"
+                animate="animate"
+                exit={{ opacity: 0, y: -20 }}
               >
-                {shiftStatus.includes("open") ? (
-                  <CheckCircle className="w-6 h-6" />
-                ) : (
-                  <XCircle className="w-6 h-6" />
-                )}
-                {shiftStatus}
-              </div>
-            </motion.div>
-          )}
+                <div
+                  className={`flex items-center justify-center gap-2 text-lg font-medium ${shiftStatus.includes("open") ? "text-green-600" : "text-bg-primary"
+                    }`}
+                >
+                  {shiftStatus.includes("open") ? (
+                    <CheckCircle className="w-6 h-6" />
+                  ) : (
+                    <XCircle className="w-6 h-6" />
+                  )}
+                  {shiftStatus}
+                </div>
+              </motion.div>
+            )}
 
-          {/* زر فتح شفت جديد بعد الإغلاق */}
-          {!isShiftOpen && shiftStatus === "Shift is closed." && (
-            <motion.div
-              key="open-new"
-              className="mt-6"
-              variants={buttonVariants}
-              initial="initial"
-              animate="animate"
-              exit={{ opacity: 0, y: -20 }}
-            >
-              <motion.button
-                onClick={handleOpenShift}
-                className="bg-green-600 text-white px-6 py-3 rounded-lg font-bold transition duration-300 w-full hover:scale-105"
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
+            {/* Open new shift after closing */}
+            {!isShiftOpen && shiftStatus === "Shift is closed." && (
+              <motion.div
+                key="open-new"
+                className="px-6 pb-6"
+                variants={buttonVariants}
+                initial="initial"
+                animate="animate"
+                exit={{ opacity: 0, y: -20 }}
               >
-                Open New Shift
-              </motion.button>
-            </motion.div>
-          )}
+                <motion.button
+                  onClick={handleOpenShift}
+                  className="w-full bg-bg-primary hover:bg-red-800 text-white font-medium py-4 px-6 rounded-lg transition-all duration-300 flex items-center justify-center gap-3 group"
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                >
+                  <span>Open New Shift</span>
+                  <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform duration-200" />
+                </motion.button>
+              </motion.div>
+            )}
 
-          {/* العد التنازلي لإعادة التوجيه */}
-          {countdown !== null && countdown > 0 && shiftStatus?.includes("open") && (
+            {/* Countdown for redirection */}
+            {countdown !== null && countdown > 0 && shiftStatus?.includes("open") && (
+              <motion.div
+                key="countdown"
+                className="px-6 pb-6 text-center"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+              >
+                <p className="text-gray-500 mb-2">Redirecting to home in:</p>
+                <motion.div
+                  className="text-4xl font-bold text-bg-primary"
+                  key={countdown}
+                  initial={{ scale: 0.8, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  {countdown}
+                </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Error message */}
+          {error && (
             <motion.div
-              key="countdown"
-              className="mt-8"
+              key="error-message"
+              className="px-6 pb-6 text-center"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
             >
-              <p className="text-gray-500 mb-2">Redirecting to home in:</p>
-              <motion.div
-                className="text-5xl font-extrabold text-blue-600"
-                key={countdown}
-                initial={{ scale: 0.8, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                transition={{ duration: 0.3 }}
-              >
-                {countdown}
-              </motion.div>
+              <div className="text-bg-primary flex items-center justify-center gap-2">
+                <XCircle className="w-5 h-5" />
+                Error: {error.message}
+              </div>
             </motion.div>
           )}
-        </AnimatePresence>
-
-        {/* رسالة الخطأ */}
-        {error && (
-          <motion.div
-            key="error-message"
-            className="mt-4 text-lg text-red-600 flex items-center justify-center gap-2"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-          >
-            <XCircle className="w-5 h-5" />
-            Error: {error.message}
-          </motion.div>
-        )}
-      </motion.div>
+        </motion.div>
+      </div>
     </div>
   );
 }

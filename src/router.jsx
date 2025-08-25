@@ -37,6 +37,7 @@ const router = createBrowserRouter([
       </SidebarProvider>
     ),
     children: [
+      // for take away
       {
         path: "/",
         element: (
@@ -45,6 +46,7 @@ const router = createBrowserRouter([
           </ProtectedRoute>
         ),
       },
+      // for delivery
       {
         path: "/deliveryusers",
         element: (
@@ -53,7 +55,7 @@ const router = createBrowserRouter([
           </ProtectedRoute>
         ),
       },
-      // ✅ Route جديد للـ order page
+      // for dine in 
       {
         path: "/order-page",
         element: (

@@ -51,7 +51,7 @@ export default function LoginPage() {
         <div className="w-full max-w-md space-y-6">
           <h1 className="text-3xl font-bold text-[#910000]">Food2go</h1>
           <div className="space-y-1">
-            <h2 className="text-xl font-semibold">Log in to Wegostores</h2>
+            <h2 className="text-xl font-semibold">Log in to Food2go </h2>
             <p className="text-sm text-gray-500">Welcome back</p>
           </div>
           <form className="space-y-4" onSubmit={(e) => e.preventDefault()}>
