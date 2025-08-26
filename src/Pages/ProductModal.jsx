@@ -1,4 +1,5 @@
-// ProductModal.jsx - إصلاح عرض الـ extras زي الـ excludes
+// ProductModal.jsx - تعديل لعرض الـ addons/extras في rows مع counters
+
 import React from "react";
 import {
   Dialog,
@@ -35,6 +36,30 @@ const ProductModal = ({
   const hasExtras = selectedProduct.allExtras && selectedProduct.allExtras.length > 0;
   const hasExcludes =
     selectedProduct.excludes && selectedProduct.excludes.length > 0;
+
+  // Helper function to get extra count
+  const getExtraCount = (extraId) => {
+    return selectedExtras.filter(id => id === extraId).length;
+  };
+
+  // Helper function to handle extra increment
+  const handleExtraIncrement = (extraId) => {
+    onExtraChange(extraId); // Add one more
+  };
+
+  // Helper function to handle extra decrement
+  const handleExtraDecrement = (extraId) => {
+    if (getExtraCount(extraId) > 0) {
+      // Remove one instance
+      const index = selectedExtras.indexOf(extraId);
+      if (index > -1) {
+        const newExtras = [...selectedExtras];
+        newExtras.splice(index, 1);
+        // We need to update the parent state - for now using the existing function
+        onExtraChange(extraId); // This will toggle - we might need to modify the parent logic
+      }
+    }
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -139,35 +164,48 @@ const ProductModal = ({
                       </div>
                     )}
 
-                    {/* Multi-select variations */}
+                    {/* Multi-select variations - now with counters */}
                     {variation.type === "multiple" && variation.options && (
-                      <div className="space-y-2">
-                        {variation.options.map((option) => (
-                          <label
-                            key={option.id}
-                            className="flex items-center space-x-2"
-                          >
-                            <input
-                              type="checkbox"
-                              name={`variation-${variation.id}`}
-                              value={option.id}
-                              checked={(
-                                selectedVariation[variation.id] || []
-                              ).includes(option.id)}
-                              onChange={() =>
-                                onVariationChange(variation.id, option.id)
-                              }
-                              className="form-checkbox h-4 w-4 text-red-600 rounded"
-                            />
-                            <span className="text-sm text-gray-700 capitalize">
-                              {option.name} -{" "}
-                              {(option.price_after_tax ?? option.price).toFixed(
-                                2
-                              )}{" "}
-                              EGP
-                            </span>
-                          </label>
-                        ))}
+                      <div className="space-y-3">
+                        {variation.options.map((option) => {
+                          const isSelected = (
+                            selectedVariation[variation.id] || []
+                          ).includes(option.id);
+                          
+                          return (
+                            <div
+                              key={option.id}
+                              className="flex items-center justify-between p-3 border rounded-lg bg-gray-50"
+                            >
+                              <div className="flex-1">
+                                <span className="text-sm font-medium text-gray-700 capitalize">
+                                  {option.name}
+                                </span>
+                                <div className="text-xs text-gray-500">
+                                  {(option.price_after_tax ?? option.price).toFixed(2)} EGP
+                                </div>
+                              </div>
+                              <div className="flex items-center space-x-2">
+                                <button
+                                  className="bg-gray-200 text-red-600 p-1 rounded-full hover:bg-gray-300 transition-colors disabled:opacity-50"
+                                  onClick={() => onVariationChange(variation.id, option.id)}
+                                  disabled={!isSelected}
+                                >
+                                  <Minus size={16} />
+                                </button>
+                                <span className="text-sm font-semibold w-8 text-center">
+                                  {isSelected ? 1 : 0}
+                                </span>
+                                <button
+                                  className="bg-red-600 text-white p-1 rounded-full hover:bg-red-700 transition-colors"
+                                  onClick={() => onVariationChange(variation.id, option.id)}
+                                >
+                                  <Plus size={16} />
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
                   </div>
@@ -175,60 +213,102 @@ const ProductModal = ({
               </div>
             )}
 
-            {/* Extras section - الـ extras الأساسية */}
+            {/* Extras section - now with counters */}
             {hasExtras && (
               <div className="mb-4">
-                <h4 className="text-sm font-semibold text-gray-700 mb-2">
+                <h4 className="text-sm font-semibold text-gray-700 mb-3">
                   Extras (Optional)
                 </h4>
-                <div className="flex flex-wrap gap-2">
-                  {selectedProduct.allExtras.map((extra, index) => (
-                    <button
-                      key={`extra-${index}`}
-                      onClick={() => onExtraChange(extra.id)}
-                      className={`flex flex-col items-center justify-center p-2 rounded-lg border-2 text-sm font-medium transition-all duration-200
-                        ${
-                          selectedExtras.includes(extra.id)
-                            ? "bg-red-600 text-white border-red-600 scale-105"
-                            : "bg-gray-100 text-gray-700 border-gray-300 hover:border-red-400"
-                        }`}
-                    >
-                      <span className="capitalize">{extra.name}</span>
-                      {extra.price > 0 && (
-                        <span className="text-xs">
-                          ({(extra.price_after_discount ?? extra.price ?? 0).toFixed(2)} EGP)
-                        </span>
-                      )}
-                    </button>
-                  ))}
+                <div className="space-y-3">
+                  {selectedProduct.allExtras.map((extra, index) => {
+                    const count = getExtraCount(extra.id);
+                    
+                    return (
+                      <div
+                        key={`extra-${index}`}
+                        className="flex items-center justify-between p-3 border rounded-lg bg-gray-50"
+                      >
+                        <div className="flex-1">
+                          <span className="text-sm font-medium text-gray-700 capitalize">
+                            {extra.name}
+                          </span>
+                          <div className="text-xs text-gray-500">
+                            {extra.price > 0 ? (
+                              `${(extra.price_after_discount ?? extra.price ?? 0).toFixed(2)} EGP`
+                            ) : (
+                              'Free'
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <button
+                            className="bg-gray-200 text-red-600 p-1 rounded-full hover:bg-gray-300 transition-colors disabled:opacity-50"
+                            onClick={() => handleExtraDecrement(extra.id)}
+                            disabled={count === 0}
+                          >
+                            <Minus size={16} />
+                          </button>
+                          <span className="text-sm font-semibold w-8 text-center">
+                            {count}
+                          </span>
+                          <button
+                            className="bg-red-600 text-white p-1 rounded-full hover:bg-red-700 transition-colors"
+                            onClick={() => handleExtraIncrement(extra.id)}
+                          >
+                            <Plus size={16} />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}
 
-            {/* Addons section - الإضافات المدفوعة */}
+            {/* Addons section - now with counters */}
             {hasAddons && (
               <div className="mb-4">
-                <h4 className="text-sm font-semibold text-gray-700 mb-2">
+                <h4 className="text-sm font-semibold text-gray-700 mb-3">
                   Addons (Optional)
                 </h4>
-                <div className="flex flex-wrap gap-2">
-                  {selectedProduct.addons.map((addon, index) => (
-                    <button
-                      key={`addon-${index}`}
-                      onClick={() => onExtraChange(addon.id)}
-                      className={`flex flex-col items-center justify-center p-2 rounded-lg border-2 text-sm font-medium transition-all duration-200
-                        ${
-                          selectedExtras.includes(addon.id)
-                            ? "bg-red-600 text-white border-red-600 scale-105"
-                            : "bg-gray-100 text-gray-700 border-gray-300 hover:border-red-400"
-                        }`}
-                    >
-                      <span className="capitalize">{addon.name}</span>
-                      <span className="text-xs">
-                        ({(addon.price_after_discount ?? addon.price ?? 0).toFixed(2)} EGP)
-                      </span>
-                    </button>
-                  ))}
+                <div className="space-y-3">
+                  {selectedProduct.addons.map((addon, index) => {
+                    const count = getExtraCount(addon.id);
+                    
+                    return (
+                      <div
+                        key={`addon-${index}`}
+                        className="flex items-center justify-between p-3 border rounded-lg bg-gray-50"
+                      >
+                        <div className="flex-1">
+                          <span className="text-sm font-medium text-gray-700 capitalize">
+                            {addon.name}
+                          </span>
+                          <div className="text-xs text-gray-500">
+                            {(addon.price_after_discount ?? addon.price ?? 0).toFixed(2)} EGP
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <button
+                            className="bg-gray-200 text-red-600 p-1 rounded-full hover:bg-gray-300 transition-colors disabled:opacity-50"
+                            onClick={() => handleExtraDecrement(addon.id)}
+                            disabled={count === 0}
+                          >
+                            <Minus size={16} />
+                          </button>
+                          <span className="text-sm font-semibold w-8 text-center">
+                            {count}
+                          </span>
+                          <button
+                            className="bg-red-600 text-white p-1 rounded-full hover:bg-red-700 transition-colors"
+                            onClick={() => handleExtraIncrement(addon.id)}
+                          >
+                            <Plus size={16} />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}

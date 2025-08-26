@@ -1,11 +1,12 @@
-// useProductModal.js - إصلاح دعم الـ extras
+// useProductModal.js - تحديث لدعم الـ counters للـ extras/addons
+
 import { useState, useEffect } from "react";
 
 export const useProductModal = () => {
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
   const [selectedVariation, setSelectedVariation] = useState({});
-  const [selectedExtras, setSelectedExtras] = useState([]);
+  const [selectedExtras, setSelectedExtras] = useState([]); // Now supports multiple instances
   const [selectedExcludes, setSelectedExcludes] = useState([]);
   const [quantity, setQuantity] = useState(1);
   const [totalPrice, setTotalPrice] = useState(0);
@@ -74,16 +75,32 @@ export const useProductModal = () => {
     });
   };
 
+  // Updated to support multiple instances of the same extra/addon
   const handleExtraChange = (extraId) => {
     console.log("handleExtraChange called with:", extraId);
     console.log("Current selectedExtras:", selectedExtras);
     
     setSelectedExtras((prev) => {
-      const newExtras = prev.includes(extraId)
-        ? prev.filter((id) => id !== extraId)
-        : [...prev, extraId];
+      // Always add (for increment), removal is handled by decrement function
+      const newExtras = [...prev, extraId];
       console.log("New selectedExtras:", newExtras);
       return newExtras;
+    });
+  };
+
+  // New function to handle decrementing extras
+  const handleExtraDecrement = (extraId) => {
+    console.log("handleExtraDecrement called with:", extraId);
+    
+    setSelectedExtras((prev) => {
+      const index = prev.indexOf(extraId);
+      if (index > -1) {
+        const newExtras = [...prev];
+        newExtras.splice(index, 1);
+        console.log("Decremented selectedExtras:", newExtras);
+        return newExtras;
+      }
+      return prev;
     });
   };
 
@@ -166,29 +183,37 @@ export const useProductModal = () => {
       });
     }
 
-    // FIXED: Add prices from selected extras - فصل بين addons و allExtras
+    // UPDATED: Calculate prices for extras with multiple instances support
     let addonsPrice = 0;
     if (selectedExtras.length > 0) {
+        // Count occurrences of each extra
+        const extraCounts = {};
+        selectedExtras.forEach(extraId => {
+            extraCounts[extraId] = (extraCounts[extraId] || 0) + 1;
+        });
+
         // حساب سعر الـ addons (المدفوعة)
         if (selectedProduct.addons && selectedProduct.addons.length > 0) {
-            selectedExtras.forEach((extraId) => {
-                const addon = selectedProduct.addons.find((addon) => addon.id === extraId);
+            Object.keys(extraCounts).forEach((extraId) => {
+                const addon = selectedProduct.addons.find((addon) => addon.id === parseInt(extraId));
                 if (addon) {
                     const addonPrice = addon.price_after_discount ?? addon.price ?? 0;
-                    console.log("Adding addon price:", addonPrice, "for:", addon.name);
-                    addonsPrice += addonPrice;
+                    const count = extraCounts[extraId];
+                    console.log(`Adding addon price: ${addonPrice} x ${count} for: ${addon.name}`);
+                    addonsPrice += addonPrice * count;
                 }
             });
         }
         
         // حساب سعر الـ allExtras (قد تكون مجانية أو مدفوعة)
         if (selectedProduct.allExtras && selectedProduct.allExtras.length > 0) {
-            selectedExtras.forEach((extraId) => {
-                const extra = selectedProduct.allExtras.find((extra) => extra.id === extraId);
+            Object.keys(extraCounts).forEach((extraId) => {
+                const extra = selectedProduct.allExtras.find((extra) => extra.id === parseInt(extraId));
                 if (extra) {
                     const extraPrice = extra.price_after_discount ?? extra.price ?? 0;
-                    console.log("Adding extra price:", extraPrice, "for:", extra.name);
-                    addonsPrice += extraPrice;
+                    const count = extraCounts[extraId];
+                    console.log(`Adding extra price: ${extraPrice} x ${count} for: ${extra.name}`);
+                    addonsPrice += extraPrice * count;
                 }
             });
         }
@@ -205,7 +230,8 @@ export const useProductModal = () => {
         addonsPrice,
         pricePerUnit,
         calculatedTotalPrice,
-        quantity
+        quantity,
+        selectedExtras
     });
 
     setTotalPrice(calculatedTotalPrice);
@@ -234,6 +260,7 @@ export const useProductModal = () => {
     closeProductModal,
     handleVariationChange,
     handleExtraChange,
+    handleExtraDecrement, // New function for decrementing
     handleExclusionChange,
     setQuantity,
   };
