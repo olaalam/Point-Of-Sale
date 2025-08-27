@@ -97,7 +97,9 @@ export default function Card({
     if (data && Array.isArray(data.success)) {
       const mappedItems = data.success.map((item) => {
         const createTempId = () => {
-          return `${item.id}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+          return `${item.id}_${Date.now()}_${Math.random()
+            .toString(36)
+            .substr(2, 9)}`;
         };
 
         const baseItem = {
@@ -108,12 +110,16 @@ export default function Card({
           price: parseFloat(item.price_after_tax ?? item.price ?? 0),
           originalPrice: parseFloat(item.price ?? 0),
           count: parseInt(item.count ?? 1),
-          preparation_status: item.prepration || item.preparation_status || "pending",
+          preparation_status:
+            item.prepration || item.preparation_status || "pending",
           type: "main_item",
           addons: [],
         };
 
-        if (Array.isArray(item.addons_selected) && item.addons_selected.length > 0) {
+        if (
+          Array.isArray(item.addons_selected) &&
+          item.addons_selected.length > 0
+        ) {
           baseItem.addons = item.addons_selected.map((addon) => ({
             id: `${baseItem.temp_id}_addon_${addon.id}`,
             name: addon.name,
@@ -201,7 +207,10 @@ export default function Card({
 
             postData("cashier/preparing", formData)
               .then((responseData) => {
-                console.log("Single item backend update successful:", responseData);
+                console.log(
+                  "Single item backend update successful:",
+                  responseData
+                );
                 toast.success("Status updated successfully!");
               })
               .catch((err) => {
@@ -258,11 +267,6 @@ export default function Card({
   };
 
   const confirmVoidItem = async () => {
-    // if (!managerId || !managerPassword || !voidItemId) {
-    //   toast.error("Please provide manager ID and password");
-    //   return;
-    // }
-
     const itemToVoid = orderItems.find((item) => item.temp_id === voidItemId);
     if (!itemToVoid || !itemToVoid.cart_id) {
       toast.error("Invalid item or missing cart ID");
@@ -273,21 +277,20 @@ export default function Card({
     setItemLoading(voidItemId, true);
 
     const formData = new FormData();
-// Add each cart_id from the array to the form data
-let cartIds = [];
+    // Add each cart_id from the array to the form data
+    let cartIds = [];
 
-if (Array.isArray(itemToVoid.cart_id)) {
-  cartIds = itemToVoid.cart_id;
-} else if (typeof itemToVoid.cart_id === "string") {
-  cartIds = itemToVoid.cart_id.split(',').map(id => id.trim());
-} else {
-  cartIds = [itemToVoid.cart_id];
-}
+    if (Array.isArray(itemToVoid.cart_id)) {
+      cartIds = itemToVoid.cart_id;
+    } else if (typeof itemToVoid.cart_id === "string") {
+      cartIds = itemToVoid.cart_id.split(",").map((id) => id.trim());
+    } else {
+      cartIds = [itemToVoid.cart_id];
+    }
 
-cartIds.forEach((id) => {
-  formData.append("cart_ids[]", id.toString());
-});
-
+    cartIds.forEach((id) => {
+      formData.append("cart_ids[]", id.toString());
+    });
 
     formData.append("manager_id", managerId);
     formData.append("manager_password", managerPassword);
@@ -507,9 +510,7 @@ cartIds.forEach((id) => {
         const responseData = await postData("cashier/preparing", formData);
         console.log("Bulk backend update successful:", responseData);
         toast.success(
-          `Successfully updated ${itemsToUpdateOnBackend.length} items to ${
-            PREPARATION_STATUSES[bulkStatus]?.label
-          }`
+          `Successfully updated ${itemsToUpdateOnBackend.length} items to ${PREPARATION_STATUSES[bulkStatus]?.label}`
         );
       } catch (err) {
         console.error("Failed to apply bulk status:", err);
@@ -524,7 +525,9 @@ cartIds.forEach((id) => {
         return;
       }
     } else if (bulkStatus === "pending" || bulkStatus === "watting") {
-      toast.info(`Status changed to ${PREPARATION_STATUSES[bulkStatus]?.label}`);
+      toast.info(
+        `Status changed to ${PREPARATION_STATUSES[bulkStatus]?.label}`
+      );
     } else {
       toast.warning("No valid items to update");
       return;
@@ -621,7 +624,7 @@ cartIds.forEach((id) => {
         <table className="w-full">
           <thead className="bg-gray-100 text-xs sm:text-sm">
             <tr>
-              <th className="p-2 text-left text-gray-600 font-semibold">
+              <th className="p-2 text-center text-gray-600 font-semibold">
                 <input
                   type="checkbox"
                   checked={
@@ -632,31 +635,33 @@ cartIds.forEach((id) => {
                   className="w-4 h-4 accent-bg-primary"
                 />
               </th>
-              <th className="py-3 px-4 text-left text-gray-600 font-semibold">
+              <th className="py-3 px-4 text-center text-gray-600 font-semibold">
                 Item
               </th>
-              <th className="py-3 px-4 text-left text-gray-600 font-semibold">
+              <th className="py-3 px-4 text-center text-gray-600 font-semibold">
                 Price
               </th>
-              <th className="py-3 px-4 text-left text-gray-600 font-semibold">
+              <th className="py-3 px-4 text-center text-gray-600 font-semibold">
                 Quantity
               </th>
               {orderType === "dine_in" && (
-                <th className="py-3 px-4 text-left text-gray-600 font-semibold">
+                <th className="py-3 px-4 text-center text-gray-600 font-semibold">
                   Preparation
                 </th>
               )}
               {orderType === "dine_in" && (
-                <th className="py-3 px-4 text-left text-gray-600 font-semibold">
+                <th className="py-3 px-4 text-center text-gray-600 font-semibold">
                   Pay
                 </th>
               )}
               <th className="py-3 px-4 text-right text-gray-600 font-semibold">
                 Total
               </th>
-              <th className="py-3 px-4 text-right text-gray-600 font-semibold">
-                Void
-              </th>
+              {orderType === "dine_in" ? (
+                <th className="py-3 px-4 text-right text-gray-600 font-semibold">
+                  Void
+                </th>
+              ) : null}
             </tr>
           </thead>
           <tbody>
@@ -691,7 +696,7 @@ cartIds.forEach((id) => {
                         : ""
                     }`}
                   >
-                    <td className="py-1 px-2">
+                    <td className="py-1 px-2 m-auto text-center">
                       <input
                         type="checkbox"
                         checked={selectedItems.includes(item.temp_id)}
@@ -699,19 +704,20 @@ cartIds.forEach((id) => {
                         className="w-4 h-4 accent-bg-primary"
                       />
                     </td>
-                    <td className="font-small py-1 px-2">
+                    <td className="font-small py-1 px-2 m-auto text-center">
                       <div>
                         <span className="text-gray-800">{item.name}</span>
-                        {item.selectedAddons && item.selectedAddons.length > 0 && (
-                          <div className="pl-4 text-sm text-gray-500">
-                            {item.selectedAddons.map((addon) => (
-                              <div key={addon.addon_id}>+ {addon.name}</div>
-                            ))}
-                          </div>
-                        )}
+                        {item.selectedAddons &&
+                          item.selectedAddons.length > 0 && (
+                            <div className="pl-4 text-sm text-gray-500">
+                              {item.selectedAddons.map((addon) => (
+                                <div key={addon.addon_id}>+ {addon.name}</div>
+                              ))}
+                            </div>
+                          )}
                       </div>
                     </td>
-                    <td className="py-1 px-2">
+                    <td className="py-1 px-2 m-auto text-center">
                       <div>
                         <span
                           className={
@@ -729,8 +735,8 @@ cartIds.forEach((id) => {
                         )}
                       </div>
                     </td>
-                    <td className="py-1 px-2">
-                      <div className="flex items-center gap-1">
+                    <td className="py-1 px-2  m-auto text-center flex justify-center">
+                      <div className="flex items-center m-auto gap-1">
                         <button
                           onClick={() =>
                             allowQuantityEdit && handleDecrease(item.temp_id)
@@ -755,7 +761,7 @@ cartIds.forEach((id) => {
                         </button>
                       </div>
                     </td>
-                    {orderType === "dine_in" ? (
+                    
                       <td className="py-1 px-2">
                         <div className="flex items-center gap-2">
                           <button
@@ -763,13 +769,15 @@ cartIds.forEach((id) => {
                               handleUpdatePreparationStatus(item.temp_id)
                             }
                             title={`Change status to ${
-                              PREPARATION_STATUSES[statusInfo.nextStatus]?.label ||
-                              "Pending"
+                              PREPARATION_STATUSES[statusInfo.nextStatus]
+                                ?.label || "Pending"
                             }`}
                             className={`p-2 rounded-full ${
                               statusInfo.color
                             } hover:bg-gray-200 text-center m-auto transition-colors duration-200 ${
-                              isItemLoading ? "opacity-50 cursor-not-allowed" : ""
+                              isItemLoading
+                                ? "opacity-50 cursor-not-allowed"
+                                : ""
                             }`}
                             disabled={isItemLoading}
                           >
@@ -781,14 +789,18 @@ cartIds.forEach((id) => {
                           </button>
                         </div>
                       </td>
-                    ) : null}
+                   
                     {orderType === "dine_in" && (
                       <td className="py-1 px-2 text-center">
                         {isDoneItem && (
                           <input
                             type="checkbox"
-                            checked={selectedPaymentItems.includes(item.temp_id)}
-                            onChange={() => toggleSelectPaymentItem(item.temp_id)}
+                            checked={selectedPaymentItems.includes(
+                              item.temp_id
+                            )}
+                            onChange={() =>
+                              toggleSelectPaymentItem(item.temp_id)
+                            }
                             className="w-4 h-4 accent-green-500"
                             title="Select for payment"
                           />
@@ -805,18 +817,20 @@ cartIds.forEach((id) => {
                         </div>
                       )}
                     </td>
-                    <td className="py-1 px-2 text-right">
-                      <button
-                        onClick={() => handleVoidItem(item.temp_id)}
-                        className={`p-2 rounded-full text-red-500 hover:bg-red-100 transition-colors duration-200 ${
-                          isItemLoading ? "opacity-50 cursor-not-allowed" : ""
-                        }`}
-                        disabled={isItemLoading}
-                        title="Void Item"
-                      >
-                        <Trash2 size={20} />
-                      </button>
-                    </td>
+                    
+                      <td className="py-1 px-2 text-right">
+                        <button
+                          onClick={() => handleVoidItem(item.temp_id)}
+                          className={`p-2 rounded-full text-red-500 hover:bg-red-100 transition-colors duration-200 ${
+                            isItemLoading ? "opacity-50 cursor-not-allowed" : ""
+                          }`}
+                          disabled={isItemLoading}
+                          title="Void Item"
+                        >
+                          <Trash2 size={20} />
+                        </button>
+                      </td>
+                   
                   </tr>
                 );
               })
@@ -837,7 +851,7 @@ cartIds.forEach((id) => {
                 Manager ID
               </label>
               <Input
-              type="number"
+                type="number"
                 id="managerId"
                 value={managerId}
                 onChange={(e) => setManagerId(e.target.value)}
@@ -894,7 +908,8 @@ cartIds.forEach((id) => {
             </Button>
           </div>
           <p className="text-sm text-green-700 mb-3">
-            Select items you want to process payment for ({selectedPaymentItems.length} selected)
+            Select items you want to process payment for (
+            {selectedPaymentItems.length} selected)
           </p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
             {doneItems.map((item) => (
@@ -966,7 +981,9 @@ cartIds.forEach((id) => {
           variant="outline"
           className="bg-bg-primary px-8 py-4 text-white hover:bg-red-700 hover:text-white transition-all text-lg font-semibold rounded-md"
           onClick={handleCheckOut}
-          disabled={orderType === "dine_in" && selectedPaymentItems.length === 0}
+          disabled={
+            orderType === "dine_in" && selectedPaymentItems.length === 0
+          }
         >
           Check Out{" "}
           {orderType === "dine_in" && selectedPaymentItems.length === 0

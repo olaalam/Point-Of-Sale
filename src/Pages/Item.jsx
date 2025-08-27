@@ -49,6 +49,8 @@ export default function Item({ fetchEndpoint, onAddToOrder, onClose, refreshCart
     handleExtraChange,
     handleExclusionChange,
     setQuantity,
+    handleExtraDecrement,
+     getGroupedExtras,
   } = useProductModal();
 
   // Branch ID management
@@ -103,125 +105,173 @@ export default function Item({ fetchEndpoint, onAddToOrder, onClose, refreshCart
   };
 
   // Fixed handleAddToOrder with temp_id and refresh
-  const handleAddToOrder = async (product, customQuantity = 1) => {
-    console.log("Adding product to order:", product);
-    
-    let productBasePrice = product.price_after_discount ?? product.price ?? 0;
-    const allSelectedVariationsData = [];
-    
-    const selectedVariations = product.selectedVariation || selectedVariation || {};
-    const productSelectedExtras = product.selectedExtras || selectedExtras || [];
-    const productSelectedExcludes = product.selectedExcludes || selectedExcludes || [];
-    
-    // Handle variations
-    if (product.variations && Object.keys(selectedVariations).length > 0) {
-        product.variations.forEach(variation => {
-            if (variation.type === 'single' && selectedVariations[variation.id]) {
-                const selectedOption = variation.options.find(opt => opt.id === selectedVariations[variation.id]);
-                if (selectedOption) {
-                    productBasePrice = selectedOption.price_after_tax ?? selectedOption.price;
-                    allSelectedVariationsData.push({
-                        variation_id: variation.id,
-                        option_id: selectedOption.id,
-                        variation_name: variation.name,
-                        option_name: selectedOption.name,
-                        price: selectedOption.price_after_tax ?? selectedOption.price
-                    });
-                }
-            } else if (variation.type === 'multiple' && selectedVariations[variation.id] && Array.isArray(selectedVariations[variation.id])) {
-                selectedVariations[variation.id].forEach(optionId => {
-                    const selectedOption = variation.options.find(opt => opt.id === optionId);
-                    if (selectedOption) {
-                        productBasePrice += selectedOption.price_after_tax ?? selectedOption.price;
-                        allSelectedVariationsData.push({
-                            variation_id: variation.id,
-                            option_id: selectedOption.id,
-                            variation_name: variation.name,
-                            option_name: selectedOption.name,
-                            price: selectedOption.price_after_tax ?? selectedOption.price
-                        });
-                    }
-                });
-            }
-        });
+// Fixed handleAddToOrder function with grouped extras
+const handleAddToOrder = async (product, customQuantity = 1) => {
+  console.log("Adding product to order:", product);
+  
+  let productBasePrice = product.price_after_discount ?? product.price ?? 0;
+  const allSelectedVariationsData = [];
+  
+  const selectedVariations = product.selectedVariation || selectedVariation || {};
+  const productSelectedExtras = product.selectedExtras || selectedExtras || [];
+  const productSelectedExcludes = product.selectedExcludes || selectedExcludes || [];
+  
+  // Handle variations (unchanged)
+  if (product.variations && Object.keys(selectedVariations).length > 0) {
+      product.variations.forEach(variation => {
+          if (variation.type === 'single' && selectedVariations[variation.id]) {
+              const selectedOption = variation.options.find(opt => opt.id === selectedVariations[variation.id]);
+              if (selectedOption) {
+                  productBasePrice = selectedOption.price_after_tax ?? selectedOption.price;
+                  allSelectedVariationsData.push({
+                      variation_id: variation.id,
+                      option_id: selectedOption.id,
+                      variation_name: variation.name,
+                      option_name: selectedOption.name,
+                      price: selectedOption.price_after_tax ?? selectedOption.price
+                  });
+              }
+          } else if (variation.type === 'multiple' && selectedVariations[variation.id] && Array.isArray(selectedVariations[variation.id])) {
+              selectedVariations[variation.id].forEach(optionId => {
+                  const selectedOption = variation.options.find(opt => opt.id === optionId);
+                  if (selectedOption) {
+                      productBasePrice += selectedOption.price_after_tax ?? selectedOption.price;
+                      allSelectedVariationsData.push({
+                          variation_id: variation.id,
+                          option_id: selectedOption.id,
+                          variation_name: variation.name,
+                          option_name: selectedOption.name,
+                          price: selectedOption.price_after_tax ?? selectedOption.price
+                      });
+                  }
+              });
+          }
+      });
+  }
+
+  // FIXED: Create grouped extras format for backend
+  const groupedExtras = () => {
+    if (!productSelectedExtras || productSelectedExtras.length === 0) {
+      return [];
     }
 
-    // Calculate addons and create proper addon data
-    let addonsTotalPrice = 0;
-    const selectedAddonsData = [];
-    
-    if (productSelectedExtras.length > 0 && product.addons) {
-        productSelectedExtras.forEach(extraId => {
-            const addon = product.addons.find(a => a.id === extraId);
-            if (addon) {
-                const addonPrice = addon.price_after_discount ?? addon.price ?? 0;
-                addonsTotalPrice += addonPrice;
-                selectedAddonsData.push({
-                    addon_id: addon.id,
-                    name: addon.name,
-                    price: addonPrice,
-                    count: customQuantity
-                });
-            }
-        });
-    }
+    // Count occurrences of each extra/addon ID
+    const extraCounts = {};
+    productSelectedExtras.forEach(extraId => {
+      const id = extraId.toString();
+      extraCounts[id] = (extraCounts[id] || 0) + 1;
+    });
 
-    const pricePerUnit = productBasePrice + addonsTotalPrice;
-    const finalTotalPrice = pricePerUnit * customQuantity;
-
-    // Create order item with temp_id
-    const orderItem = {
-        ...product,
-        id: product.id, // Keep original ID for backend
-        temp_id: createTempId(product.id), // Add temp_id for frontend operations
-        count: customQuantity,
-        price: pricePerUnit,
-        originalPrice: product.price,
-        discountedPrice: product.price_after_discount,
-        totalPrice: finalTotalPrice,
-        
-        // Store variation data properly
-        allSelectedVariations: allSelectedVariationsData,
-        selectedVariation: selectedVariations,
-        
-        // Store addons data properly for backend
-        selectedAddons: selectedAddonsData,
-        selectedExtras: productSelectedExtras,
-        
-        // Store exclusions properly
-        selectedExcludes: productSelectedExcludes,
-        
-        ...(orderType === "dine_in" && { preparation_status: "pending" }),
-    };
-
-    console.log("Final order item with temp_id:", orderItem);
-    console.log("Temp ID:", orderItem.temp_id);
-
-    // Add to order
-    onAddToOrder(orderItem);
-
-    // Submit to backend for dine_in orders
-    if (orderType === "dine_in") {
-        try {
-            await submitItemToBackend(postData, orderItem, customQuantity, orderType);
-            console.log("Item submitted to backend successfully");
-            
-            // Refresh cart data after successful backend submission
-            if (refreshCartData && typeof refreshCartData === 'function') {
-                console.log("Refreshing cart data...");
-                await refreshCartData();
-            }
-            
-            toast.success(`"${product.name}" added successfully!`);
-        } catch (error) {
-            console.error("Error submitting item to backend:", error);
-            toast.error(`Failed to submit "${product.name}" to backend`);
-        }
-    } else {
-        // For non-dine_in orders, still show success message
-        toast.success(`"${product.name}" added to cart!`);
-    }
+    // Transform to the desired format
+    return Object.keys(extraCounts).map(addonId => ({
+      addon_id: addonId,
+      count: extraCounts[addonId].toString()
+    }));
   };
+
+  // Calculate addons price for display
+  let addonsTotalPrice = 0;
+  const selectedAddonsData = [];
+  
+  if (productSelectedExtras.length > 0) {
+      // Count each addon occurrence for price calculation
+      const addonCounts = {};
+      productSelectedExtras.forEach(extraId => {
+          addonCounts[extraId] = (addonCounts[extraId] || 0) + 1;
+      });
+
+      // Calculate total price based on counts
+      Object.keys(addonCounts).forEach(extraId => {
+          // Check in addons array
+          if (product.addons) {
+              const addon = product.addons.find(a => a.id === parseInt(extraId));
+              if (addon) {
+                  const addonPrice = addon.price_after_discount ?? addon.price ?? 0;
+                  const count = addonCounts[extraId];
+                  addonsTotalPrice += addonPrice * count;
+                  selectedAddonsData.push({
+                      addon_id: addon.id,
+                      name: addon.name,
+                      price: addonPrice,
+                      count: count
+                  });
+              }
+          }
+          
+          // Check in allExtras array
+          if (product.allExtras) {
+              const extra = product.allExtras.find(e => e.id === parseInt(extraId));
+              if (extra) {
+                  const extraPrice = extra.price_after_discount ?? extra.price ?? 0;
+                  const count = addonCounts[extraId];
+                  addonsTotalPrice += extraPrice * count;
+                  selectedAddonsData.push({
+                      addon_id: extra.id,
+                      name: extra.name,
+                      price: extraPrice,
+                      count: count
+                  });
+              }
+          }
+      });
+  }
+
+  const pricePerUnit = productBasePrice + addonsTotalPrice;
+  const finalTotalPrice = pricePerUnit * customQuantity;
+
+  // Create order item with grouped extras format
+  const orderItem = {
+      ...product,
+      id: product.id,
+      temp_id: createTempId(product.id),
+      count: customQuantity,
+      price: pricePerUnit,
+      originalPrice: product.price,
+      discountedPrice: product.price_after_discount,
+      totalPrice: finalTotalPrice,
+      
+      // Store variation data properly
+      allSelectedVariations: allSelectedVariationsData,
+      selectedVariation: selectedVariations,
+      
+      // FIXED: Store grouped addons for backend submission
+      selectedAddons: groupedExtras(), // Use grouped format instead of selectedAddonsData
+      selectedExtras: groupedExtras(), // Use grouped format instead of raw array
+      
+      // Store exclusions properly
+      selectedExcludes: productSelectedExcludes,
+      
+      ...(orderType === "dine_in" && { preparation_status: "pending" }),
+  };
+
+  console.log("Final order item with grouped extras:", orderItem);
+  console.log("Grouped extras format:", groupedExtras());
+
+  // Add to order
+  onAddToOrder(orderItem);
+
+  // Submit to backend for dine_in orders
+  if (orderType === "dine_in") {
+      try {
+          await submitItemToBackend(postData, orderItem, customQuantity, orderType);
+          console.log("Item submitted to backend successfully");
+          
+          // Refresh cart data after successful backend submission
+          if (refreshCartData && typeof refreshCartData === 'function') {
+              console.log("Refreshing cart data...");
+              await refreshCartData();
+          }
+          
+          toast.success(`"${product.name}" added successfully!`);
+      } catch (error) {
+          console.error("Error submitting item to backend:", error);
+          toast.error(`Failed to submit "${product.name}" to backend`);
+      }
+  } else {
+      // For non-dine_in orders, still show success message
+      toast.success(`"${product.name}" added to cart!`);
+  }
+};
 
   // Handle adding to cart from modal
   const handleAddFromModal = (enhancedProduct) => {
@@ -345,6 +395,7 @@ export default function Item({ fetchEndpoint, onAddToOrder, onClose, refreshCart
         onVariationChange={handleVariationChange}
         onExtraChange={handleExtraChange}
         onExclusionChange={handleExclusionChange}
+         onExtraDecrement={handleExtraDecrement}
         onQuantityChange={setQuantity}
         onAddFromModal={handleAddFromModal}
         orderLoading={orderLoading}
