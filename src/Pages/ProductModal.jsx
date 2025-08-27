@@ -96,8 +96,8 @@ const ProductModal = ({
                       )}
                       {variation.type === "multiple" && (
                         <span className="text-xs text-gray-500 ml-2">
-                          (Min: {variation.min_options || 0}, Max:{" "}
-                          {variation.max_options || "∞"})
+                          (Min: {variation.min || 0}, Max:
+                          {variation.max || "∞"})
                         </span>
                       )}
                     </h4>

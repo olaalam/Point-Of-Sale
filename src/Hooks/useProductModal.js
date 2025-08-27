@@ -137,20 +137,20 @@ export const useProductModal = () => {
           selectedOptions.length > 0
         ) {
           if (
-            variation.min_options &&
-            selectedOptions.length < variation.min_options
+            variation.min &&
+            selectedOptions.length < variation.min
           ) {
             newErrors[
               variation.id
-            ] = `Please select at least ${variation.min_options} options for ${variation.name}.`;
+            ] = `Please select at least ${variation.min} options for ${variation.name}.`;
           }
           if (
-            variation.max_options &&
-            selectedOptions.length > variation.max_options
+            variation.max &&
+            selectedOptions.length > variation.max
           ) {
             newErrors[
               variation.id
-            ] = `You can select a maximum of ${variation.max_options} options for ${variation.name}.`;
+            ] = `You can select a maximum of ${variation.max} options for ${variation.name}.`;
           }
 
           selectedOptions.forEach((optionId) => {

@@ -877,7 +877,7 @@ cartIds.forEach((id) => {
       </Dialog>
 
       {orderType === "dine_in" && doneItems.length > 0 && (
-        <div className="mt-6 bg-green-50 p-4 rounded-lg sm:overflow-y-hidden  max-h-40">
+        <div className="mt-6 bg-green-50 p-4 rounded-lg sm:overflow-y-auto md:overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden  max-h-40">
           <div className="flex justify-between items-center mb-3">
             <h3 className="text-lg font-semibold text-green-800">
               Ready for Payment ({doneItems.length} items)
