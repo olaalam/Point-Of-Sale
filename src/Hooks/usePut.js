@@ -7,7 +7,7 @@ export function usePut() {
   const [error, setError] = useState(null);
   const [data, setData] = useState(null);
 
-  const putData = async (endpoint, body) => {
+  const putData = async (endpoint, body, options = {}) => {
     setLoading(true);
     setError(null);
 
@@ -25,6 +25,13 @@ export function usePut() {
       setData(response.data);
 
       setLoading(false);
+
+      // إعادة تحميل الصفحة إذا كان الـ endpoint خاص بحالة الطاولة
+      if (endpoint.includes('tables_status') && options.reloadPage !== false) {
+        setTimeout(() => {
+          window.location.reload();
+        }, 1000); // انتظار ثانية واحدة لإظهار رسالة النجاح
+      }
 
       return response.data;
     } catch (err) {

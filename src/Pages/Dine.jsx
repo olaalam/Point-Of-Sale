@@ -1,6 +1,15 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Users } from "lucide-react";
+import { 
+  Users, 
+  ChevronDown, 
+  Check, 
+  CheckCircle, 
+  Clock, 
+  ShoppingCart, 
+  CreditCard,
+  UserCheck 
+} from "lucide-react";
 import {
   Pagination,
   PaginationContent,
@@ -10,10 +19,78 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination";
 import { useGet } from "@/Hooks/useGet";
-import { usePost } from "@/Hooks/usePost"; // Add this import
+import { usePost } from "@/Hooks/usePost";
+import { usePut } from "@/Hooks/usePut";
 import Loading from "@/components/Loading";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ToastContainer, toast } from "react-toastify"; // Add this import
+import { ToastContainer, toast } from "react-toastify";
+
+const CustomStatusSelect = ({ table, statusOptions, onStatusChange }) => {
+  const [isOpen, setIsOpen] = useState(false);
+
+  const currentStatus = statusOptions.find(
+    (option) => option.value === table.current_status
+  );
+
+  const handleStatusSelect = (statusValue) => {
+    onStatusChange(statusValue);
+    setIsOpen(false);
+  };
+
+  return (
+    <div className="relative w-full" onClick={(e) => e.stopPropagation()}>
+      {/* Custom Select Button */}
+      <button
+        className="flex items-center justify-between w-full px-3 py-2 text-sm font-medium border-2 border-gray-200 rounded-lg bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all duration-200 shadow-sm"
+        onClick={() => setIsOpen(!isOpen)}
+        aria-expanded={isOpen}
+        aria-haspopup="true"
+      >
+        <div className="flex items-center gap-2">
+          {/* Status Icon */}
+          {currentStatus?.icon && (
+            <currentStatus.icon size={16} className={currentStatus.iconColor} />
+          )}
+          <span className="text-gray-700">
+            {currentStatus?.label || "Select Status"}
+          </span>
+        </div>
+        <ChevronDown
+          size={16}
+          className={`text-gray-500 transition-transform duration-200 ${
+            isOpen ? "rotate-180" : ""
+          }`}
+        />
+      </button>
+
+      {/* Custom Dropdown Menu */}
+      {isOpen && (
+        <div className="absolute top-full left-0 right-0 mt-1 z-50">
+          <div className="bg-white border-2 border-gray-200 rounded-lg shadow-lg overflow-hidden">
+            {statusOptions.map((option) => (
+              <button
+                key={option.value}
+                className="w-full px-3 py-3 text-left flex items-center justify-between hover:bg-gray-50 transition-colors duration-150 border-b border-gray-100 last:border-b-0 text-sm font-medium"
+                onClick={() => handleStatusSelect(option.value)}
+              >
+                <div className="flex items-center gap-3">
+                  {/* Status Icon */}
+                  <option.icon size={16} className={option.iconColor} />
+                  <span className="text-gray-700">{option.label}</span>
+                </div>
+                
+                {/* Check Mark for Selected Item */}
+                {table.current_status === option.value && (
+                  <Check size={16} className="text-blue-500" />
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 const Dine = () => {
   const navigate = useNavigate();
@@ -28,10 +105,48 @@ const Dine = () => {
     `captain/selection_lists?branch_id=${branch_id}`
   );
   
-  // Add usePost hook for transfer API
   const { loading: transferLoading, postData } = usePost();
 
   const locations = data?.cafe_location || [];
+
+  // Updated status options with icons
+  const statusOptions = [
+    { 
+      label: "Available", 
+      value: "available", 
+      color: "bg-gray-100 text-gray-600",
+      icon: CheckCircle,
+      iconColor: "text-gray-500"
+    },
+    { 
+      label: "Pre-order", 
+      value: "not_available_pre_order", 
+      color: "bg-orange-500 text-white",
+      icon: Clock,
+      iconColor: "text-orange-500"
+    },
+    { 
+      label: "With order", 
+      value: "not_available_with_order", 
+      color: "bg-red-500 text-white",
+      icon: ShoppingCart,
+      iconColor: "text-red-500"
+    },
+    { 
+      label: "Reserved", 
+      value: "reserved", 
+      color: "bg-blue-500 text-white",
+      icon: UserCheck,
+      iconColor: "text-blue-500"
+    },
+    { 
+      label: "Checkout", 
+      value: "not_available_but_checkout", 
+      color: "bg-green-500 text-white",
+      icon: CreditCard,
+      iconColor: "text-green-500"
+    },
+  ];
 
   useEffect(() => {
     const storedTableId = localStorage.getItem("table_id");
@@ -48,7 +163,6 @@ const Dine = () => {
     setCurrentPage(1);
   }, [selectedLocationId]);
 
-  // Check if there's a pending transfer on component mount
   useEffect(() => {
     const transferPending = localStorage.getItem("transfer_pending");
     if (transferPending === "true") {
@@ -87,19 +201,16 @@ const Dine = () => {
     }
   };
 
-  // Modified handleSelectTable to handle both normal selection and transfers
   const handleSelectTable = async (table) => {
     console.log("Table selected:", table.id);
     
     const transferPending = localStorage.getItem("transfer_pending");
     
     if (transferPending === "true") {
-      // Handle transfer logic
       const cartIds = JSON.parse(localStorage.getItem("transfer_cart_ids") || "[]");
       const sourceTableId = localStorage.getItem("transfer_source_table_id");
       
       if (cartIds.length > 0 && sourceTableId) {
-        // Prevent selecting the same table
         if (sourceTableId === table.id.toString()) {
           toast.error("Cannot transfer to the same table. Please select a different table.");
           return;
@@ -108,7 +219,6 @@ const Dine = () => {
         const formData = new FormData();
         formData.append("table_id", table.id.toString());
         
-        // Append all cart IDs
         cartIds.forEach((cart_id, index) => {
           formData.append(`cart_ids[${index}]`, cart_id.toString());
         });
@@ -123,35 +233,31 @@ const Dine = () => {
           await postData("cashier/transfer_order", formData);
           toast.success("Order transferred successfully!");
           
-          // Clear transfer data
           localStorage.removeItem("transfer_cart_ids");
           localStorage.removeItem("transfer_first_cart_id");
           localStorage.removeItem("transfer_source_table_id");
           localStorage.removeItem("transfer_pending");
           
-          // Update selected table and navigate to new table
           setSelectedTable(table.id);
           localStorage.setItem("table_id", table.id);
           
-          // Navigate to the new table's order page or wherever appropriate
           navigate("/order-page", {
             state: {
               order_type: "dine_in",
               table_id: table.id,
-              transferred: true, // Flag to indicate this was a transfer
+              transferred: true,
             },
           });
           
         } catch (err) {
           console.error("Failed to transfer order:", err);
           const errorMessage = err.response?.data?.message || 
-                             err.response?.data?.exception ||
-                             "Failed to transfer table. Please try again.";
+                              err.response?.data?.exception ||
+                              "Failed to transfer table. Please try again.";
           toast.error(errorMessage);
         }
       }
     } else {
-      // Normal table selection logic
       setSelectedTable(table.id);
       localStorage.setItem("table_id", table.id);
       localStorage.setItem("order_type", "dine_in");
@@ -165,13 +271,25 @@ const Dine = () => {
     }
   };
 
-  // Get transfer status for UI feedback
-  const transferPending = localStorage.getItem("transfer_pending") === "true";
-  const sourceTableId = localStorage.getItem("transfer_source_table_id");
-
   const TableCard = ({ table }) => {
+    const transferPending = localStorage.getItem("transfer_pending") === "true";
+    const sourceTableId = localStorage.getItem("transfer_source_table_id");
     const isSourceTable = transferPending && sourceTableId === table.id.toString();
-    
+    const { putData: putStatusChange } = usePut();
+
+    const handleStatusChange = async (newStatus) => {
+      try {
+        await putStatusChange(`cashier/tables_status/${table.id}?current_status=${newStatus}`, {});
+        toast.success(`Status updated to "${statusOptions.find(o => o.value === newStatus)?.label}"`);
+      } catch (err) {
+        const errorMessage =
+          err.response?.data?.message ||
+          err.response?.data?.exception ||
+          "Failed to update status.";
+        toast.error(errorMessage);
+      }
+    };
+
     return (
       <div
         className={`
@@ -188,12 +306,18 @@ const Dine = () => {
       >
         <div className="text-center">
           <div className="text-3xl font-extrabold mb-2">{table.table_number}</div>
-          <div className="flex items-center justify-center gap-2 text-base font-medium">
+          <div className="flex items-center justify-center gap-2 text-base font-medium mb-4">
             <Users size={20} />
             <span>Capacity: {table.capacity}</span>
           </div>
-          
-          {/* Transfer indicators */}
+
+          {/* Custom Status Select */}
+          <CustomStatusSelect
+            table={table}
+            statusOptions={statusOptions}
+            onStatusChange={handleStatusChange}
+          />
+
           {isSourceTable && (
             <div className="absolute top-2 right-2 bg-yellow-500 text-white text-xs px-2 py-1 rounded">
               Source
@@ -230,6 +354,9 @@ const Dine = () => {
       </div>
     );
   }
+
+  const transferPending = localStorage.getItem("transfer_pending") === "true";
+  const sourceTableId = localStorage.getItem("transfer_source_table_id");
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
@@ -335,7 +462,6 @@ const Dine = () => {
         )}
       </div>
       
-      {/* Add ToastContainer for notifications */}
       <ToastContainer />
     </div>
   );

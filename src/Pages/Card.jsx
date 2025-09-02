@@ -761,7 +761,7 @@ export default function Card({
                         </button>
                       </div>
                     </td>
-                    
+                    {orderType === "dine_in" && (
                       <td className="py-1 px-2">
                         <div className="flex items-center gap-2">
                           <button
@@ -789,7 +789,7 @@ export default function Card({
                           </button>
                         </div>
                       </td>
-                   
+              )}
                     {orderType === "dine_in" && (
                       <td className="py-1 px-2 text-center">
                         {isDoneItem && (
@@ -817,7 +817,7 @@ export default function Card({
                         </div>
                       )}
                     </td>
-                    
+                    {orderType === "dine_in" && (
                       <td className="py-1 px-2 text-right">
                         <button
                           onClick={() => handleVoidItem(item.temp_id)}
@@ -830,7 +830,7 @@ export default function Card({
                           <Trash2 size={20} />
                         </button>
                       </td>
-                   
+                    )}
                   </tr>
                 );
               })
@@ -977,21 +977,19 @@ export default function Card({
       </div>
 
       <div className="text-center mt-8">
-        <Button
-          variant="outline"
-          className="bg-bg-primary px-8 py-4 text-white hover:bg-red-700 hover:text-white transition-all text-lg font-semibold rounded-md"
-          onClick={handleCheckOut}
-          disabled={
-            orderType === "dine_in" && selectedPaymentItems.length === 0
-          }
-        >
-          Check Out{" "}
-          {orderType === "dine_in" && selectedPaymentItems.length === 0
-            ? "(Select Items to Pay)"
-            : orderType === "dine_in"
-            ? `(${selectedPaymentItems.length} items)`
-            : ""}
-        </Button>
+<Button
+  onClick={handleCheckOut}
+  className="bg-bg-primary text-white hover:bg-red-700 text-lg  mt-4"
+  disabled={
+    isLoading ||
+    !orderItems ||
+    orderItems.length === 0 || 
+    (orderType === "dine_in" && selectedPaymentItems.length === 0) 
+  }
+>
+  Checkout
+</Button>
+
       </div>
 
       {showModal && (
