@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import Card from "./Card";
+import Card from "./Card/Card";
 import Item from "./Item";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useGet } from "@/Hooks/useGet";

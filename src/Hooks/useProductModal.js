@@ -1,4 +1,4 @@
-// useProductModal.js - تحديث لدعم الـ counters للـ extras/addons
+// useProductModal.js - تحديث لدعم الـ min/max constraints للـ multi-select variations
 
 import { useState, useEffect } from "react";
 
@@ -19,17 +19,30 @@ export const useProductModal = () => {
 
     setSelectedProduct(product);
     const initialSelectedVariations = {};
+    
     if (product.variations && product.variations.length > 0) {
       product.variations.forEach((variation) => {
         if (variation.type === "single" && variation.options.length > 0) {
-          initialSelectedVariations[variation.id] = variation.options[0].id;
+          // For single select, choose first option
+          initialSelectedVariations[variation.id] = [variation.options[0].id];
         } else if (variation.type === "multiple") {
-          initialSelectedVariations[variation.id] = [];
+          // For multiple select, start with minimum required selections
+          const minRequired = variation.min || 0;
+          const selectedOptions = [];
+          
+          // Auto-select minimum required options if min > 0
+          if (minRequired > 0 && variation.options.length >= minRequired) {
+            for (let i = 0; i < minRequired && i < variation.options.length; i++) {
+              selectedOptions.push(variation.options[i].id);
+            }
+          }
+          
+          initialSelectedVariations[variation.id] = selectedOptions;
         }
       });
     }
+    
     setSelectedVariation(initialSelectedVariations);
-
     setSelectedExtras([]);
     setSelectedExcludes([]);
     setQuantity(1);
@@ -48,6 +61,7 @@ export const useProductModal = () => {
     setTotalPrice(0);
     setValidationErrors({});
   };
+
   const groupExtrasForBackend = (selectedExtras) => {
     if (!selectedExtras || selectedExtras.length === 0) {
       return [];
@@ -66,7 +80,8 @@ export const useProductModal = () => {
       count: extraCounts[addonId].toString(), // Convert to string if backend expects string
     }));
   };
-  const handleVariationChange = (variationId, optionId) => {
+
+  const handleVariationChange = (variationId, optionId, action = 'toggle') => {
     setSelectedVariation((prev) => {
       const variation = selectedProduct.variations.find(
         (v) => v.id === variationId
@@ -78,21 +93,43 @@ export const useProductModal = () => {
         return { ...prev, [variationId]: [optionId] }; // Store as an array
       }
 
-      // If the variation is of type 'multiple', allow multiple selections
+      // If the variation is of type 'multiple', handle add/remove with constraints
       else if (variation.type === "multiple") {
         const currentOptions = prev[variationId] || [];
-        const isSelected = currentOptions.includes(optionId);
-        let newOptions;
+        let newOptions = [...currentOptions];
 
-        if (isSelected) {
-          // Remove the option if it's already selected
-          newOptions = currentOptions.filter((id) => id !== optionId);
+        if (action === 'add') {
+          // Check if we can add more options
+          const maxAllowed = variation.max || Infinity;
+          if (currentOptions.length < maxAllowed) {
+            newOptions.push(optionId);
+          }
+        } else if (action === 'remove') {
+          // Check if we can remove options (respect minimum)
+          const minRequired = variation.min || 0;
+          if (currentOptions.length > minRequired) {
+            const index = newOptions.indexOf(optionId);
+            if (index > -1) {
+              newOptions.splice(index, 1);
+            }
+          }
         } else {
-          // Add the option if it's not selected
-          newOptions = [...currentOptions, optionId];
+          // Legacy toggle behavior for backward compatibility
+          const isSelected = currentOptions.includes(optionId);
+          if (isSelected) {
+            const minRequired = variation.min || 0;
+            if (currentOptions.length > minRequired) {
+              newOptions = currentOptions.filter((id) => id !== optionId);
+            }
+          } else {
+            const maxAllowed = variation.max || Infinity;
+            if (currentOptions.length < maxAllowed) {
+              newOptions = [...currentOptions, optionId];
+            }
+          }
         }
 
-        return { ...prev, [variationId]: newOptions }; // Store multiple options in an array
+        return { ...prev, [variationId]: newOptions };
       }
 
       return prev;
@@ -102,6 +139,7 @@ export const useProductModal = () => {
   const getGroupedExtras = () => {
     return groupExtrasForBackend(selectedExtras);
   };
+
   // Updated to support multiple instances of the same extra/addon
   const handleExtraChange = (extraId) => {
     console.log("handleExtraChange called with:", extraId);
@@ -153,21 +191,30 @@ export const useProductModal = () => {
     // Calculate variation pricing and validate constraints
     if (selectedProduct.variations) {
       selectedProduct.variations.forEach((variation) => {
-        const selectedOptions = selectedVariation[variation.id];
+        const selectedOptions = selectedVariation[variation.id] || [];
 
-        if (
-          variation.required &&
-          (!selectedOptions ||
-            (Array.isArray(selectedOptions) && selectedOptions.length === 0))
-        ) {
-          newErrors[
-            variation.id
-          ] = `Please select an option for ${variation.name}.`;
+        // Validation for required variations
+        if (variation.required && selectedOptions.length === 0) {
+          newErrors[variation.id] = `Please select an option for ${variation.name}.`;
         }
 
-        if (variation.type === "single" && selectedOptions) {
+        // Validation for multiple type variations
+        if (variation.type === "multiple") {
+          const minRequired = variation.min || 0;
+          const maxAllowed = variation.max;
+
+          if (minRequired > 0 && selectedOptions.length < minRequired) {
+            newErrors[variation.id] = `Please select at least ${minRequired} options for ${variation.name}.`;
+          }
+          if (maxAllowed && selectedOptions.length > maxAllowed) {
+            newErrors[variation.id] = `You can select a maximum of ${maxAllowed} options for ${variation.name}.`;
+          }
+        }
+
+        // Calculate prices for single-select variations
+        if (variation.type === "single" && selectedOptions.length > 0) {
           const selectedOption = variation.options.find(
-            (opt) => opt.id === selectedOptions
+            (opt) => opt.id === selectedOptions[0]
           );
           if (selectedOption) {
             basePrice =
@@ -175,22 +222,9 @@ export const useProductModal = () => {
               selectedOption.price ??
               basePrice;
           }
-        } else if (
-          variation.type === "multiple" &&
-          selectedOptions &&
-          selectedOptions.length > 0
-        ) {
-          if (variation.min && selectedOptions.length < variation.min) {
-            newErrors[
-              variation.id
-            ] = `Please select at least ${variation.min} options for ${variation.name}.`;
-          }
-          if (variation.max && selectedOptions.length > variation.max) {
-            newErrors[
-              variation.id
-            ] = `You can select a maximum of ${variation.max} options for ${variation.name}.`;
-          }
-
+        } 
+        // Calculate prices for multi-select variations
+        else if (variation.type === "multiple" && selectedOptions.length > 0) {
           selectedOptions.forEach((optionId) => {
             const selectedOption = variation.options.find(
               (opt) => opt.id === optionId
@@ -204,7 +238,7 @@ export const useProductModal = () => {
       });
     }
 
-    // UPDATED: Calculate prices for extras with multiple instances support
+    // Calculate prices for extras with multiple instances support
     let addonsPrice = 0;
     if (selectedExtras.length > 0) {
       // Count occurrences of each extra

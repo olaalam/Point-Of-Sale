@@ -34,13 +34,14 @@ const ProductModal = ({
   const hasVariations =
     selectedProduct.variations && selectedProduct.variations.length > 0;
   const hasAddons = selectedProduct.addons && selectedProduct.addons.length > 0;
-  const hasExtras = selectedProduct.allExtras && selectedProduct.allExtras.length > 0;
+  const hasExtras =
+    selectedProduct.allExtras && selectedProduct.allExtras.length > 0;
   const hasExcludes =
     selectedProduct.excludes && selectedProduct.excludes.length > 0;
 
   // Helper function to get extra count
   const getExtraCount = (extraId) => {
-    return selectedExtras.filter(id => id === extraId).length;
+    return selectedExtras.filter((id) => id === extraId).length;
   };
 
   // Helper function to handle extra increment
@@ -162,10 +163,19 @@ const ProductModal = ({
                     {variation.type === "multiple" && variation.options && (
                       <div className="space-y-3">
                         {variation.options.map((option) => {
-                          const isSelected = (
-                            selectedVariation[variation.id] || []
-                          ).includes(option.id);
-                          
+                          const selectedOptions =
+                            selectedVariation[variation.id] || [];
+                          const optionCount = selectedOptions.filter(
+                            (id) => id === option.id
+                          ).length;
+                          const totalSelected = selectedOptions.length;
+
+                          // Check min/max constraints
+                          const canDecrease =
+                            totalSelected > (variation.min || 0);
+                          const canIncrease =
+                            !variation.max || totalSelected < variation.max;
+
                           return (
                             <div
                               key={option.id}
@@ -176,23 +186,39 @@ const ProductModal = ({
                                   {option.name}
                                 </span>
                                 <div className="text-xs text-gray-500">
-                                  {(option.price_after_tax ?? option.price).toFixed(2)} EGP
+                                  {(
+                                    option.price_after_tax ?? option.price
+                                  ).toFixed(2)}{" "}
+                                  EGP
                                 </div>
                               </div>
                               <div className="flex items-center space-x-2">
                                 <button
                                   className="bg-gray-200 text-red-600 p-1 rounded-full hover:bg-gray-300 transition-colors disabled:opacity-50"
-                                  onClick={() => onVariationChange(variation.id, option.id)}
-                                  disabled={!isSelected}
+                                  onClick={() =>
+                                    onVariationChange(
+                                      variation.id,
+                                      option.id,
+                                      "remove"
+                                    )
+                                  }
+                                  disabled={optionCount === 0 || !canDecrease}
                                 >
                                   <Minus size={16} />
                                 </button>
                                 <span className="text-sm font-semibold w-8 text-center">
-                                  {isSelected ? 1 : 0}
+                                  {optionCount}
                                 </span>
                                 <button
-                                  className="bg-red-600 text-white p-1 rounded-full hover:bg-red-700 transition-colors"
-                                  onClick={() => onVariationChange(variation.id, option.id)}
+                                  className="bg-red-600 text-white p-1 rounded-full hover:bg-red-700 transition-colors disabled:opacity-50"
+                                  onClick={() =>
+                                    onVariationChange(
+                                      variation.id,
+                                      option.id,
+                                      "add"
+                                    )
+                                  }
+                                  disabled={!canIncrease}
                                 >
                                   <Plus size={16} />
                                 </button>
@@ -216,7 +242,7 @@ const ProductModal = ({
                 <div className="space-y-3">
                   {selectedProduct.allExtras.map((extra, index) => {
                     const count = getExtraCount(extra.id);
-                    
+
                     return (
                       <div
                         key={`extra-${index}`}
@@ -227,11 +253,13 @@ const ProductModal = ({
                             {extra.name}
                           </span>
                           <div className="text-xs text-gray-500">
-                            {extra.price > 0 ? (
-                              `${(extra.price_after_discount ?? extra.price ?? 0).toFixed(2)} EGP`
-                            ) : (
-                              'Free'
-                            )}
+                            {extra.price > 0
+                              ? `${(
+                                  extra.price_after_discount ??
+                                  extra.price ??
+                                  0
+                                ).toFixed(2)} EGP`
+                              : "Free"}
                           </div>
                         </div>
                         <div className="flex items-center space-x-2">
@@ -268,7 +296,7 @@ const ProductModal = ({
                 <div className="space-y-3">
                   {selectedProduct.addons.map((addon, index) => {
                     const count = getExtraCount(addon.id);
-                    
+
                     return (
                       <div
                         key={`addon-${index}`}
@@ -279,7 +307,12 @@ const ProductModal = ({
                             {addon.name}
                           </span>
                           <div className="text-xs text-gray-500">
-                            {(addon.price_after_discount ?? addon.price ?? 0).toFixed(2)} EGP
+                            {(
+                              addon.price_after_discount ??
+                              addon.price ??
+                              0
+                            ).toFixed(2)}{" "}
+                            EGP
                           </div>
                         </div>
                         <div className="flex items-center space-x-2">

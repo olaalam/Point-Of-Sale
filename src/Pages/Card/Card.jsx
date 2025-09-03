@@ -2,8 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Loading from "@/components/Loading";
 import { Button } from "@/components/ui/button";
-import CheckOut from "./CheckOut";
-import { Circle, Hourglass, CheckCircle, ChefHat, Trash2 } from "lucide-react";
+import CheckOut from "../CheckOut";
 import {
   Select,
   SelectContent,
@@ -14,58 +13,12 @@ import {
 import { usePost } from "@/Hooks/usePost";
 import { useGet } from "@/Hooks/useGet";
 import { ToastContainer, toast } from "react-toastify";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-
-const TAX_RATE = 0;
-const OTHER_CHARGE = 0;
-
-const PREPARATION_STATUSES = {
-  pending: {
-    label: "Pending",
-    icon: Circle,
-    color: "text-gray-400",
-    nextStatus: "preparing",
-    canSendToAPI: false,
-  },
-  watting: {
-    label: "Waiting",
-    icon: Circle,
-    color: "text-yellow-400",
-    nextStatus: "preparing",
-    canSendToAPI: false,
-  },
-  preparing: {
-    label: "Preparing",
-    icon: Hourglass,
-    color: "text-orange-500",
-    nextStatus: "pick_up",
-    apiValue: "preparing",
-    canSendToAPI: true,
-  },
-  pick_up: {
-    label: "Pick Up",
-    icon: ChefHat,
-    color: "text-blue-500",
-    nextStatus: "done",
-    apiValue: "pick_up",
-    canSendToAPI: true,
-  },
-  done: {
-    label: "Done",
-    icon: CheckCircle,
-    color: "text-green-500",
-    nextStatus: "done",
-    apiValue: "done",
-    canSendToAPI: true,
-  },
-};
+import SummaryRow from "./SummaryRow";
+import ItemRow from "./ItemRow";
+import VoidItemModal from "./VoidItemModal";
+import DoneItemsSection from "./DoneItemsSection";
+import { TAX_RATE, OTHER_CHARGE, PREPARATION_STATUSES, statusOrder } from "./constants";
+import { createTempId, renderItemVariations } from "@/lib/utils";
 
 export default function Card({
   orderItems,
@@ -96,12 +49,6 @@ export default function Card({
   useEffect(() => {
     if (data && Array.isArray(data.success)) {
       const mappedItems = data.success.map((item) => {
-        const createTempId = () => {
-          return `${item.id}_${Date.now()}_${Math.random()
-            .toString(36)
-            .substr(2, 9)}`;
-        };
-
         const baseItem = {
           id: item.id,
           temp_id: createTempId(),
@@ -114,6 +61,9 @@ export default function Card({
             item.prepration || item.preparation_status || "pending",
           type: "main_item",
           addons: [],
+          selectedVariations: item.selected_variations || [],
+          selectedExtras: item.selected_extras || [],
+          selectedExcludes: item.selected_excludes || [],
         };
 
         if (
@@ -156,7 +106,6 @@ export default function Card({
     }
 
     const firstCartId = allCartIds[0];
-
     localStorage.setItem("transfer_cart_ids", JSON.stringify(allCartIds));
     localStorage.setItem("transfer_first_cart_id", firstCartId.toString());
     localStorage.setItem("transfer_source_table_id", tableId.toString());
@@ -277,7 +226,6 @@ export default function Card({
     setItemLoading(voidItemId, true);
 
     const formData = new FormData();
-    // Add each cart_id from the array to the form data
     let cartIds = [];
 
     if (Array.isArray(itemToVoid.cart_id)) {
@@ -436,8 +384,6 @@ export default function Card({
     setSelectedPaymentItems(isAllSelected ? [] : allDoneTempIds);
   };
 
-  const statusOrder = ["pending", "watting", "preparing", "pick_up", "done"];
-
   const applyBulkStatus = async () => {
     if (!bulkStatus || selectedItems.length === 0) {
       toast.warning("Please select items and choose a status");
@@ -555,13 +501,6 @@ export default function Card({
     }
   }, [apiError]);
 
-  const SummaryRow = ({ label, value }) => (
-    <div className="grid grid-cols-2 gap-10 py-2">
-      <p>{label}:</p>
-      <p>{value.toFixed(2)} EGP</p>
-    </div>
-  );
-
   return (
     <div className="overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden mb-10 pb-10 max-h-[70vh] sm:max-h-[80vh]">
       {isLoading && (
@@ -571,7 +510,7 @@ export default function Card({
       )}
       <h2 className="text-bg-primary text-3xl font-bold mb-6">Order Details</h2>
 
-      <div className="min-w-full bg-white shadow-md rounded-lg overflow-y-auto ">
+      <div className="min-w-full bg-white shadow-md rounded-lg overflow-y-auto">
         {orderType === "dine_in" && (
           <div className="flex items-center justify-start mb-4 gap-4 flex-wrap p-4">
             <Select value={bulkStatus} onValueChange={setBulkStatus}>
@@ -624,7 +563,7 @@ export default function Card({
         <table className="w-full">
           <thead className="bg-gray-100 text-xs sm:text-sm">
             <tr>
-              <th className="p-2 text-center text-gray-600 font-semibold">
+              <th className="py-3 px-4 text-center text-gray-600 font-semibold">
                 <input
                   type="checkbox"
                   checked={
@@ -657,11 +596,11 @@ export default function Card({
               <th className="py-3 px-4 text-right text-gray-600 font-semibold">
                 Total
               </th>
-              {orderType === "dine_in" ? (
+              {orderType === "dine_in" && (
                 <th className="py-3 px-4 text-right text-gray-600 font-semibold">
                   Void
                 </th>
-              ) : null}
+              )}
             </tr>
           </thead>
           <tbody>
@@ -675,268 +614,47 @@ export default function Card({
                 </td>
               </tr>
             ) : (
-              orderItems.map((item, index) => {
-                const statusInfo =
-                  PREPARATION_STATUSES[item.preparation_status] ||
-                  PREPARATION_STATUSES.pending;
-                const StatusIcon = statusInfo.icon;
-                const hasDiscount =
-                  item.originalPrice && item.price < item.originalPrice;
-                const isItemLoading = itemLoadingStates[item.temp_id] || false;
-                const isDoneItem = item.preparation_status === "done";
-
-                return (
-                  <tr
-                    key={item.temp_id || `${item.id}-${index}`}
-                    className={`border-b last:border-b-0 hover:bg-gray-50 ${
-                      item.type === "addon" ? "bg-blue-50" : ""
-                    } ${
-                      selectedPaymentItems.includes(item.temp_id)
-                        ? "bg-green-50"
-                        : ""
-                    }`}
-                  >
-                    <td className="py-1 px-2 m-auto text-center">
-                      <input
-                        type="checkbox"
-                        checked={selectedItems.includes(item.temp_id)}
-                        onChange={() => toggleSelectItem(item.temp_id)}
-                        className="w-4 h-4 accent-bg-primary"
-                      />
-                    </td>
-                    <td className="font-small py-1 px-2 m-auto text-center">
-                      <div>
-                        <span className="text-gray-800">{item.name}</span>
-                        {item.selectedAddons &&
-                          item.selectedAddons.length > 0 && (
-                            <div className="pl-4 text-sm text-gray-500">
-                              {item.selectedAddons.map((addon) => (
-                                <div key={addon.addon_id}>+ {addon.name}</div>
-                              ))}
-                            </div>
-                          )}
-                      </div>
-                    </td>
-                    <td className="py-1 px-2 m-auto text-center">
-                      <div>
-                        <span
-                          className={
-                            hasDiscount ? "text-green-600 font-semibold" : ""
-                          }
-                        >
-                          {item.price.toFixed(2)}
-                        </span>
-                        {hasDiscount && (
-                          <div>
-                            <span className="text-xs text-gray-500 line-through">
-                              {item.originalPrice.toFixed(2)}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-                    </td>
-                    <td className="py-1 px-2  m-auto text-center flex justify-center">
-                      <div className="flex items-center m-auto gap-1">
-                        <button
-                          onClick={() =>
-                            allowQuantityEdit && handleDecrease(item.temp_id)
-                          }
-                          disabled={!allowQuantityEdit}
-                          className={`px-2 py-1 rounded ${
-                            allowQuantityEdit
-                              ? "bg-gray-200 hover:bg-gray-300"
-                              : "bg-gray-100 cursor-not-allowed"
-                          }`}
-                        >
-                          −
-                        </button>
-                        <span className="min-w-[24px] text-center">
-                          {item.count}
-                        </span>
-                        <button
-                          onClick={() => handleIncrease(item.temp_id)}
-                          className="px-2 py-1 bg-gray-200 rounded hover:bg-gray-300"
-                        >
-                          +
-                        </button>
-                      </div>
-                    </td>
-                    {orderType === "dine_in" && (
-                      <td className="py-1 px-2">
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() =>
-                              handleUpdatePreparationStatus(item.temp_id)
-                            }
-                            title={`Change status to ${
-                              PREPARATION_STATUSES[statusInfo.nextStatus]
-                                ?.label || "Pending"
-                            }`}
-                            className={`p-2 rounded-full ${
-                              statusInfo.color
-                            } hover:bg-gray-200 text-center m-auto transition-colors duration-200 ${
-                              isItemLoading
-                                ? "opacity-50 cursor-not-allowed"
-                                : ""
-                            }`}
-                            disabled={isItemLoading}
-                          >
-                            {isItemLoading ? (
-                              <div className="w-5 h-5 border-2 border-gray-300 border-t-current rounded-full animate-spin"></div>
-                            ) : (
-                              <StatusIcon size={20} />
-                            )}
-                          </button>
-                        </div>
-                      </td>
-              )}
-                    {orderType === "dine_in" && (
-                      <td className="py-1 px-2 text-center">
-                        {isDoneItem && (
-                          <input
-                            type="checkbox"
-                            checked={selectedPaymentItems.includes(
-                              item.temp_id
-                            )}
-                            onChange={() =>
-                              toggleSelectPaymentItem(item.temp_id)
-                            }
-                            className="w-4 h-4 accent-green-500"
-                            title="Select for payment"
-                          />
-                        )}
-                      </td>
-                    )}
-                    <td className="text-right py-3 px-4">
-                      <span className="font-semibold">
-                        {(item.price * item.count).toFixed(2)}
-                      </span>
-                      {hasDiscount && (
-                        <div className="text-xs text-gray-500 line-through">
-                          {(item.originalPrice * item.count).toFixed(2)}
-                        </div>
-                      )}
-                    </td>
-                    {orderType === "dine_in" && (
-                      <td className="py-1 px-2 text-right">
-                        <button
-                          onClick={() => handleVoidItem(item.temp_id)}
-                          className={`p-2 rounded-full text-red-500 hover:bg-red-100 transition-colors duration-200 ${
-                            isItemLoading ? "opacity-50 cursor-not-allowed" : ""
-                          }`}
-                          disabled={isItemLoading}
-                          title="Void Item"
-                        >
-                          <Trash2 size={20} />
-                        </button>
-                      </td>
-                    )}
-                  </tr>
-                );
-              })
+              orderItems.map((item, index) => (
+                <ItemRow
+                  key={item.temp_id || `${item.id}-${index}`}
+                  item={item}
+                  orderType={orderType}
+                  selectedItems={selectedItems}
+                  toggleSelectItem={toggleSelectItem}
+                  selectedPaymentItems={selectedPaymentItems}
+                  toggleSelectPaymentItem={toggleSelectPaymentItem}
+                  handleIncrease={handleIncrease}
+                  handleDecrease={handleDecrease}
+                  allowQuantityEdit={allowQuantityEdit}
+                  itemLoadingStates={itemLoadingStates}
+                  handleUpdatePreparationStatus={handleUpdatePreparationStatus}
+                  handleVoidItem={handleVoidItem}
+                  renderItemVariations={renderItemVariations}
+                />
+              ))
             )}
           </tbody>
         </table>
       </div>
 
-      {/* Void Item Modal */}
-      <Dialog open={showVoidModal} onOpenChange={setShowVoidModal}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Void Item - Manager Authentication</DialogTitle>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <label htmlFor="managerId" className="text-right">
-                Manager ID
-              </label>
-              <Input
-                type="number"
-                id="managerId"
-                value={managerId}
-                onChange={(e) => setManagerId(e.target.value)}
-                className="col-span-3"
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <label htmlFor="password" className="text-right">
-                Password
-              </label>
-              <Input
-                id="password"
-                type="password"
-                value={managerPassword}
-                onChange={(e) => setManagerPassword(e.target.value)}
-                className="col-span-3"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setShowVoidModal(false)}
-              className="mr-2"
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={confirmVoidItem}
-              disabled={!managerId || !managerPassword || isLoading}
-              className="bg-red-600 text-white hover:bg-red-700"
-            >
-              Confirm Void
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <VoidItemModal
+        open={showVoidModal}
+        onOpenChange={setShowVoidModal}
+        managerId={managerId}
+        setManagerId={setManagerId}
+        managerPassword={managerPassword}
+        setManagerPassword={setManagerPassword}
+        confirmVoidItem={confirmVoidItem}
+        isLoading={isLoading}
+      />
 
       {orderType === "dine_in" && doneItems.length > 0 && (
-        <div className="mt-6 bg-green-50 p-4 rounded-lg sm:overflow-y-auto md:overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden  max-h-40">
-          <div className="flex justify-between items-center mb-3">
-            <h3 className="text-lg font-semibold text-green-800">
-              Ready for Payment ({doneItems.length} items)
-            </h3>
-            <Button
-              onClick={handleSelectAllPaymentItems}
-              variant="outline"
-              size="sm"
-              className="text-green-600 border-green-300 hover:bg-green-100"
-            >
-              {selectedPaymentItems.length === doneItems.length
-                ? "Deselect All"
-                : "Select All"}
-            </Button>
-          </div>
-          <p className="text-sm text-green-700 mb-3">
-            Select items you want to process payment for (
-            {selectedPaymentItems.length} selected)
-          </p>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-            {doneItems.map((item) => (
-              <div
-                key={item.temp_id}
-                className={`flex items-center gap-3 p-2 rounded ${
-                  selectedPaymentItems.includes(item.temp_id)
-                    ? "bg-green-100"
-                    : "bg-white"
-                }`}
-              >
-                <input
-                  type="checkbox"
-                  checked={selectedPaymentItems.includes(item.temp_id)}
-                  onChange={() => toggleSelectPaymentItem(item.temp_id)}
-                  className="w-4 h-4 accent-green-500"
-                  title="Select for payment"
-                />
-                <span className="flex-1">{item.name}</span>
-                <span className="text-sm font-medium">
-                  {item.count} × {item.price.toFixed(2)} ={" "}
-                  {(item.count * item.price).toFixed(2)} EGP
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
+        <DoneItemsSection
+          doneItems={doneItems}
+          selectedPaymentItems={selectedPaymentItems}
+          toggleSelectPaymentItem={toggleSelectPaymentItem}
+          handleSelectAllPaymentItems={handleSelectAllPaymentItems}
+        />
       )}
 
       <hr className="my-6 border-t-2 border-gray-200" />
@@ -977,19 +695,18 @@ export default function Card({
       </div>
 
       <div className="text-center mt-8">
-<Button
-  onClick={handleCheckOut}
-  className="bg-bg-primary text-white hover:bg-red-700 text-lg  mt-4"
-  disabled={
-    isLoading ||
-    !orderItems ||
-    orderItems.length === 0 || 
-    (orderType === "dine_in" && selectedPaymentItems.length === 0) 
-  }
->
-  Checkout
-</Button>
-
+        <Button
+          onClick={handleCheckOut}
+          className="bg-bg-primary text-white hover:bg-red-700 text-lg mt-4"
+          disabled={
+            isLoading ||
+            !orderItems ||
+            orderItems.length === 0 ||
+            (orderType === "dine_in" && selectedPaymentItems.length === 0)
+          }
+        >
+          Checkout
+        </Button>
       </div>
 
       {showModal && (
