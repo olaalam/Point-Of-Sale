@@ -1,4 +1,3 @@
-//each fields which related to address form is defined in this component
 import {
   FormControl,
   FormField,
@@ -49,42 +48,40 @@ const AddressFormFields = ({
       />
 
       {/* Grid for number fields */}
-<div className="grid grid-cols-2 gap-4">
-    {["street", "building_num", "floor_num", "apartment"].map((name) => (
-        <FormField
+      <div className="grid grid-cols-2 gap-4">
+        {["street", "building_num", "floor_num", "apartment"].map((name) => (
+          <FormField
             key={name}
             control={form.control}
             name={name}
             render={({ field }) => (
-                <FormItem>
-                    <FormLabel>
-                        {name
-                            .replace("_", " ")
-                            .replace(/\b\w/g, (l) => l.toUpperCase())}
-                    </FormLabel>
-                    <FormControl>
-                       
-<Input
-  type={name === "street" ? "text" : "number"}
-  {...field}
-  onChange={(e) => {
-    const value = e.target.value;
-    if (name === "street") {
-      field.onChange(value === "" ? null : value);
-    } else {
-      // 💡 لباقي الحقول، استمر في تحويل القيمة إلى رقم.
-      field.onChange(value === "" ? null : Number(value));
-    }
-  }}
-  value={field.value === null ? "" : field.value}
-/>
-                    </FormControl>
-                    <FormMessage />
-                </FormItem>
+              <FormItem>
+                <FormLabel>
+                  {name
+                    .replace("_", " ")
+                    .replace(/\b\w/g, (l) => l.toUpperCase())}
+                </FormLabel>
+                <FormControl>
+                  <Input
+                    type={name === "street" ? "text" : "number"}
+                    {...field}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      if (name === "street") {
+                        field.onChange(value === "" ? null : value);
+                      } else {
+                        field.onChange(value === "" ? null : Number(value));
+                      }
+                    }}
+                    value={field.value === null ? "" : field.value}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
             )}
-        />
-    ))}
-</div>
+          />
+        ))}
+      </div>
 
       <div className="grid grid-cols-2 gap-4">
         {/* City Selection */}
@@ -94,7 +91,14 @@ const AddressFormFields = ({
           render={({ field }) => (
             <FormItem>
               <FormLabel>City</FormLabel>
-              <Select onValueChange={handleCityChange} value={field.value}>
+              <Select 
+                onValueChange={(value) => {
+                  console.log("City select changed:", value);
+                  field.onChange(value);
+                  handleCityChange(value);
+                }} 
+                value={field.value || ""}
+              >
                 <FormControl>
                   <SelectTrigger className="!w-full">
                     <SelectValue placeholder="Select City" />
@@ -121,9 +125,8 @@ const AddressFormFields = ({
             <FormItem>
               <FormLabel>Zone</FormLabel>
               <Select
-                className="!w-full"
                 onValueChange={field.onChange}
-                value={field.value}
+                value={field.value || ""}
                 disabled={availableZones.length === 0}
               >
                 <FormControl>
@@ -151,7 +154,10 @@ const AddressFormFields = ({
         render={({ field }) => (
           <FormItem>
             <FormLabel>Type</FormLabel>
-            <Select onValueChange={field.onChange} value={field.value}>
+            <Select 
+              onValueChange={field.onChange} 
+              value={field.value || ""}
+            >
               <FormControl>
                 <SelectTrigger className="!w-full">
                   <SelectValue placeholder="Select Type" />

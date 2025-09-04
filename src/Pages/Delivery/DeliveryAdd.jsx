@@ -40,6 +40,7 @@ export default function DeliveryAdd() {
   const { loading, error, postData } = usePost();
 
   const onSubmit = async (values) => {
+    console.log("editAddressData:", editAddressData);
     console.log("onSubmit function called!");
     console.log("Form Values:", values);
     console.log("Selected Location:", selectedLocation);
@@ -78,14 +79,23 @@ export default function DeliveryAdd() {
     let finalPayload;
     let apiEndpoint;
 
-    if (isEditMode) {
-      // Edit Address Mode - Changed to send a single object
-      finalPayload = {
-        ...addressObject, // Spread the address object
-        user_id: editAddressData?.user_id,
-      };
-      apiEndpoint = `cashier/user/address/update/${editAddressData?.addresses[0]?.id}`;
-    } else if (isAddAnotherAddress) {
+if (isEditMode) {
+   console.log("editAddressData.addresses:", editAddressData?.addresses); // 👈 وده
+    console.log("editAddressData.address:", editAddressData?.address);
+  // تأكد إن البيانات موجودة قبل الوصول ليها
+  const addressId = editAddressData?.addresses?.[0]?.id || editAddressData?.address?.id;
+  
+  if (!addressId) {
+    toast.error("Address ID not found");
+    return;
+  }
+  
+  finalPayload = {
+    ...addressObject,
+    user_id: editAddressData?.user_id,
+  };
+  apiEndpoint = `cashier/user/address/update/${addressId}`;
+} else if (isAddAnotherAddress) {
       // Add Another Address Mode - Changed to send a single object
       finalPayload = {
         ...addressObject, // Spread the address object
