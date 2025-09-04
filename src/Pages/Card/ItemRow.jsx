@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { PREPARATION_STATUSES } from "./constants";
 import { Trash2 } from "lucide-react";
 const ItemRow = ({
@@ -15,6 +15,7 @@ const ItemRow = ({
   handleUpdatePreparationStatus,
   handleVoidItem,
   renderItemVariations,
+  handleRemoveFrontOnly
 }) => {
   const statusInfo =
     PREPARATION_STATUSES[item.preparation_status] ||
@@ -25,6 +26,7 @@ const ItemRow = ({
   const isItemLoading = itemLoadingStates[item.temp_id] || false;
   const isDoneItem = item.preparation_status === "done";
   const itemVariations = renderItemVariations(item);
+
 
   return (
     <tr
@@ -170,20 +172,31 @@ const ItemRow = ({
           </div>
         )}
       </td>
-      {orderType === "dine_in" && (
-        <td className="py-3 px-4 text-center align-top">
-          <button
-            onClick={() => handleVoidItem(item.temp_id)}
-            className={`p-2 rounded-full text-red-500 hover:bg-red-100 transition-colors duration-200 ${
-              isItemLoading ? "opacity-50 cursor-not-allowed" : ""
-            }`}
-            disabled={isItemLoading}
-            title="Void Item"
-          >
-            <Trash2 size={20} />
-          </button>
-        </td>
-      )}
+<td className="py-3 px-4 text-center align-top">
+  <button
+    onClick={() =>
+      orderType === "dine_in"
+        ? handleVoidItem(item.temp_id) // API
+        : handleRemoveFrontOnly(item.temp_id) // Front Only
+    }
+    className={`p-2 rounded-full text-red-500 hover:bg-red-100 transition-colors duration-200 ${
+      isItemLoading && orderType === "dine_in"
+        ? "opacity-50 cursor-not-allowed"
+        : ""
+    }`}
+    disabled={isItemLoading && orderType === "dine_in"}
+    title={
+      orderType === "dine_in"
+        ? "Void Item (API)"
+        : "Remove Item (Front Only)"
+    }
+  >
+    <Trash2 size={20} />
+  </button>
+</td>
+
+
+
     </tr>
   );
 };

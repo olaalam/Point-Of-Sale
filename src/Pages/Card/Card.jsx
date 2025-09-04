@@ -501,6 +501,12 @@ export default function Card({
     }
   }, [apiError]);
 
+const handleRemoveFrontOnly = (temp_id) => {
+  const updatedItems = orderItems.filter((it) => it.temp_id !== temp_id);
+  updateOrderItems(updatedItems); 
+  toast.success("Item removed successfully ");
+};
+
   return (
     <div className="overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden mb-10 pb-10 max-h-[70vh] sm:max-h-[80vh]">
       {isLoading && (
@@ -596,11 +602,10 @@ export default function Card({
               <th className="py-3 px-4 text-right text-gray-600 font-semibold">
                 Total
               </th>
-              {orderType === "dine_in" && (
+
                 <th className="py-3 px-4 text-right text-gray-600 font-semibold">
                   Void
                 </th>
-              )}
             </tr>
           </thead>
           <tbody>
@@ -630,6 +635,7 @@ export default function Card({
                   handleUpdatePreparationStatus={handleUpdatePreparationStatus}
                   handleVoidItem={handleVoidItem}
                   renderItemVariations={renderItemVariations}
+                   handleRemoveFrontOnly={handleRemoveFrontOnly}
                 />
               ))
             )}
