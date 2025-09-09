@@ -36,6 +36,7 @@ export default function Card({
   const [voidItemId, setVoidItemId] = useState(null);
   const [managerId, setManagerId] = useState("");
   const [managerPassword, setManagerPassword] = useState("");
+  const [showClearAllConfirm, setShowClearAllConfirm] = useState(false);
   const { data } = useGet(`cashier/dine_in_table_order/${tableId}`);
   const { loading: apiLoading, error: apiError, postData } = usePost();
   const navigate = useNavigate();
@@ -501,11 +502,33 @@ export default function Card({
     }
   }, [apiError]);
 
-const handleRemoveFrontOnly = (temp_id) => {
-  const updatedItems = orderItems.filter((it) => it.temp_id !== temp_id);
-  updateOrderItems(updatedItems); 
-  toast.success("Item removed successfully ");
-};
+  const handleRemoveFrontOnly = (temp_id) => {
+    const updatedItems = orderItems.filter((it) => it.temp_id !== temp_id);
+    updateOrderItems(updatedItems); 
+    toast.success("Item removed successfully");
+  };
+
+  // New function to handle clearing all items
+  const handleClearAllItems = () => {
+    if (!orderItems || orderItems.length === 0) {
+      toast.warning("No items to clear");
+      return;
+    }
+    setShowClearAllConfirm(true);
+  };
+
+  const confirmClearAllItems = () => {
+    updateOrderItems([]);
+    localStorage.setItem("cart", JSON.stringify([]));
+    setSelectedItems([]);
+    setSelectedPaymentItems([]);
+    toast.success(`All ${orderItems.length} items cleared successfully`);
+    setShowClearAllConfirm(false);
+  };
+
+  const cancelClearAllItems = () => {
+    setShowClearAllConfirm(false);
+  };
 
   return (
     <div className="overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden mb-10 pb-10 max-h-[70vh] sm:max-h-[80vh]">
@@ -517,6 +540,17 @@ const handleRemoveFrontOnly = (temp_id) => {
       <h2 className="text-bg-primary text-3xl font-bold mb-6">Order Details</h2>
 
       <div className="min-w-full bg-white shadow-md rounded-lg overflow-y-auto">
+        {/* Clear All Items Button - Always visible */}
+        <div className="flex items-center justify-start mb-4 gap-4 flex-wrap p-4 border-b border-gray-200">
+          <Button
+            onClick={handleClearAllItems}
+            className="bg-red-600 text-white hover:bg-red-700 text-sm flex items-center gap-1"
+            disabled={isLoading || !orderItems || orderItems.length === 0}
+          >
+            Clear All Items ({orderItems?.length || 0})
+          </Button>
+        </div>
+
         {orderType === "dine_in" && (
           <div className="flex items-center justify-start mb-4 gap-4 flex-wrap p-4">
             <Select value={bulkStatus} onValueChange={setBulkStatus}>
@@ -566,6 +600,36 @@ const handleRemoveFrontOnly = (temp_id) => {
           </div>
         )}
 
+        {/* Confirmation Dialog for Clear All Items */}
+        {showClearAllConfirm && (
+          <div className="fixed inset-0 bg-gray-500/50 flex items-center justify-center z-50">
+            <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full mx-4">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                Confirm Clear All Items
+              </h3>
+              <p className="text-gray-600 mb-6">
+                Are you sure you want to remove all {orderItems?.length || 0} items from this order? 
+                This action cannot be undone.
+              </p>
+              <div className="flex justify-end gap-3">
+                <Button
+                  onClick={cancelClearAllItems}
+                  variant="outline"
+                  className="px-4 py-2"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={confirmClearAllItems}
+                  className="bg-red-600 text-white hover:bg-red-700 px-4 py-2"
+                >
+                  Clear All Items
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
         <table className="w-full">
           <thead className="bg-gray-100 text-xs sm:text-sm">
             <tr>
@@ -602,10 +666,9 @@ const handleRemoveFrontOnly = (temp_id) => {
               <th className="py-3 px-4 text-right text-gray-600 font-semibold">
                 Total
               </th>
-
-                <th className="py-3 px-4 text-right text-gray-600 font-semibold">
-                  Void
-                </th>
+              <th className="py-3 px-4 text-right text-gray-600 font-semibold">
+                Void
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -635,7 +698,7 @@ const handleRemoveFrontOnly = (temp_id) => {
                   handleUpdatePreparationStatus={handleUpdatePreparationStatus}
                   handleVoidItem={handleVoidItem}
                   renderItemVariations={renderItemVariations}
-                   handleRemoveFrontOnly={handleRemoveFrontOnly}
+                  handleRemoveFrontOnly={handleRemoveFrontOnly}
                 />
               ))
             )}
