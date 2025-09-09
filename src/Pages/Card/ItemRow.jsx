@@ -1,4 +1,3 @@
-import React, { useState } from "react";
 import { PREPARATION_STATUSES } from "./constants";
 import { Trash2 } from "lucide-react";
 const ItemRow = ({
@@ -51,7 +50,7 @@ const ItemRow = ({
           <span className="text-gray-800 font-medium">
             {item.name}
           </span>
-          {itemVariations.length > 0 && (
+          {/* {itemVariations.length > 0 && (
             <div className="mt-1 text-xs text-gray-500 space-y-1">
               {itemVariations.map((variation, idx) => (
                 <div key={idx} className="italic">
@@ -69,7 +68,7 @@ const ItemRow = ({
                   </div>
                 ))}
               </div>
-            )}
+            )} */}
         </div>
       </td>
       <td className="py-3 px-4 text-center align-top">

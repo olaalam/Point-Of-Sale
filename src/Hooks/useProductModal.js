@@ -22,10 +22,9 @@ export const useProductModal = () => {
     
     if (product.variations && product.variations.length > 0) {
       product.variations.forEach((variation) => {
-        if (variation.type === "single" && variation.options.length > 0) {
-          // For single select, choose first option
-          initialSelectedVariations[variation.id] = [variation.options[0].id];
-        } else if (variation.type === "multiple") {
+if (variation.type === "single" && variation.options.length > 0) {
+  initialSelectedVariations[variation.id] = variation.options[0].id; // Correct, stores as a single ID
+} else if (variation.type === "multiple") {
           // For multiple select, start with minimum required selections
           const minRequired = variation.min || 0;
           const selectedOptions = [];
@@ -90,7 +89,7 @@ export const useProductModal = () => {
 
       // If the variation is of type 'single', select just one option
       if (variation.type === "single") {
-        return { ...prev, [variationId]: [optionId] }; // Store as an array
+        return { ...prev, [variationId]: optionId }; // Store as an array
       }
 
       // If the variation is of type 'multiple', handle add/remove with constraints

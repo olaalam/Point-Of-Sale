@@ -145,9 +145,15 @@ const ProductModal = ({
                               onChange={() =>
                                 onVariationChange(variation.id, option.id)
                               }
-                              className="form-radio h-4 w-4 text-red-600"
+                              className="form-radio h-4 w-4 !text-red-600"
                             />
-                            <span className="text-sm text-gray-700 capitalize">
+                            <span
+                              className={`text-sm capitalize ${
+                                selectedVariation[variation.id] === option.id
+                                  ? "!text-red-600 font-semibold"
+                                  : "!text-gray-700"
+                              }`}
+                            >
                               {option.name} -{" "}
                               {(option.price_after_tax ?? option.price).toFixed(
                                 2

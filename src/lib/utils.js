@@ -23,19 +23,19 @@ export const renderItemVariations = (item) => {
     });
   }
 
-  if (item.selectedExtras && item.selectedExtras.length > 0) {
-    const extrasText = item.selectedExtras
-      .map((extra) => extra.name)
-      .join(", ");
-    variations.push(`Extras: ${extrasText}`);
-  }
+  // if (item.selectedExtras && item.selectedExtras.length > 0) {
+  //   const extrasText = item.selectedExtras
+  //     .map((extra) => extra.name)
+  //     .join(", ");
+  //   variations.push(`Extras: ${extrasText}`);
+  // }
 
-  if (item.selectedExcludes && item.selectedExcludes.length > 0) {
-    const excludesText = item.selectedExcludes
-      .map((exclude) => exclude.name)
-      .join(", ");
-    variations.push(`Exclude: ${excludesText}`);
-  }
+  // if (item.selectedExcludes && item.selectedExcludes.length > 0) {
+  //   const excludesText = item.selectedExcludes
+  //     .map((exclude) => exclude.name)
+  //     .join(", ");
+  //   variations.push(`Exclude: ${excludesText}`);
+  // }
 
   return variations;
 };
