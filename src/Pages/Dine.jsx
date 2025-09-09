@@ -231,7 +231,9 @@ const Dine = () => {
 
         try {
           await postData("cashier/transfer_order", formData);
-          toast.success("Order transferred successfully!");
+         setTimeout(() => {
+            toast.success("Order transferred successfully!");
+          }, 200);
           
           localStorage.removeItem("transfer_cart_ids");
           localStorage.removeItem("transfer_first_cart_id");

@@ -19,28 +19,32 @@ export const useProductModal = () => {
 
     setSelectedProduct(product);
     const initialSelectedVariations = {};
-    
+
     if (product.variations && product.variations.length > 0) {
       product.variations.forEach((variation) => {
-if (variation.type === "single" && variation.options.length > 0) {
-  initialSelectedVariations[variation.id] = variation.options[0].id; // Correct, stores as a single ID
-} else if (variation.type === "multiple") {
+        if (variation.type === "single" && variation.options.length > 0) {
+          initialSelectedVariations[variation.id] = variation.options[0].id; // Correct, stores as a single ID
+        } else if (variation.type === "multiple") {
           // For multiple select, start with minimum required selections
           const minRequired = variation.min || 0;
           const selectedOptions = [];
-          
+
           // Auto-select minimum required options if min > 0
           if (minRequired > 0 && variation.options.length >= minRequired) {
-            for (let i = 0; i < minRequired && i < variation.options.length; i++) {
+            for (
+              let i = 0;
+              i < minRequired && i < variation.options.length;
+              i++
+            ) {
               selectedOptions.push(variation.options[i].id);
             }
           }
-          
+
           initialSelectedVariations[variation.id] = selectedOptions;
         }
       });
     }
-    
+
     setSelectedVariation(initialSelectedVariations);
     setSelectedExtras([]);
     setSelectedExcludes([]);
@@ -80,7 +84,7 @@ if (variation.type === "single" && variation.options.length > 0) {
     }));
   };
 
-  const handleVariationChange = (variationId, optionId, action = 'toggle') => {
+  const handleVariationChange = (variationId, optionId, action = "toggle") => {
     setSelectedVariation((prev) => {
       const variation = selectedProduct.variations.find(
         (v) => v.id === variationId
@@ -97,13 +101,13 @@ if (variation.type === "single" && variation.options.length > 0) {
         const currentOptions = prev[variationId] || [];
         let newOptions = [...currentOptions];
 
-        if (action === 'add') {
+        if (action === "add") {
           // Check if we can add more options
           const maxAllowed = variation.max || Infinity;
           if (currentOptions.length < maxAllowed) {
             newOptions.push(optionId);
           }
-        } else if (action === 'remove') {
+        } else if (action === "remove") {
           // Check if we can remove options (respect minimum)
           const minRequired = variation.min || 0;
           if (currentOptions.length > minRequired) {
@@ -194,7 +198,9 @@ if (variation.type === "single" && variation.options.length > 0) {
 
         // Validation for required variations
         if (variation.required && selectedOptions.length === 0) {
-          newErrors[variation.id] = `Please select an option for ${variation.name}.`;
+          newErrors[
+            variation.id
+          ] = `Please select an option for ${variation.name}.`;
         }
 
         // Validation for multiple type variations
@@ -203,10 +209,14 @@ if (variation.type === "single" && variation.options.length > 0) {
           const maxAllowed = variation.max;
 
           if (minRequired > 0 && selectedOptions.length < minRequired) {
-            newErrors[variation.id] = `Please select at least ${minRequired} options for ${variation.name}.`;
+            newErrors[
+              variation.id
+            ] = `Please select at least ${minRequired} options for ${variation.name}.`;
           }
           if (maxAllowed && selectedOptions.length > maxAllowed) {
-            newErrors[variation.id] = `You can select a maximum of ${maxAllowed} options for ${variation.name}.`;
+            newErrors[
+              variation.id
+            ] = `You can select a maximum of ${maxAllowed} options for ${variation.name}.`;
           }
         }
 
@@ -221,7 +231,7 @@ if (variation.type === "single" && variation.options.length > 0) {
               selectedOption.price ??
               basePrice;
           }
-        } 
+        }
         // Calculate prices for multi-select variations
         else if (variation.type === "multiple" && selectedOptions.length > 0) {
           selectedOptions.forEach((optionId) => {
