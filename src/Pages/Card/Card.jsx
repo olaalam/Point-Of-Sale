@@ -529,19 +529,17 @@ export default function Card({
   const cancelClearAllItems = () => {
     setShowClearAllConfirm(false);
   };
-
+const handleViewOrders = () => {
+  navigate("/orders");
+};
   return (
-    <div className="overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden mb-10 pb-10 max-h-[70vh] sm:max-h-[80vh]">
-      {isLoading && (
-        <div className="flex justify-center items-center h-40">
-          <Loading />
-        </div>
-      )}
-      <h2 className="text-bg-primary text-3xl font-bold mb-6">Order Details</h2>
-
-      <div className="min-w-full bg-white shadow-md rounded-lg overflow-y-auto">
+    <div className="flex flex-col h-full">
+      {/* Fixed Header */}
+      <div className="flex-shrink-0">
+        <h2 className="text-bg-primary text-3xl font-bold mb-6">Order Details</h2>
+        
         {/* Clear All Items Button - Always visible */}
-        <div className="flex items-center justify-start mb-4 gap-4 flex-wrap p-4 border-b border-gray-200">
+        <div className="flex items-center justify-start mb-4 gap-4 flex-wrap p-4 border-b border-gray-200 bg-white rounded-lg shadow-md">
           <Button
             onClick={handleClearAllItems}
             className="bg-red-600 text-white hover:bg-red-700 text-sm flex items-center gap-1"
@@ -551,8 +549,9 @@ export default function Card({
           </Button>
         </div>
 
+        {/* Bulk Actions for Dine In */}
         {orderType === "dine_in" && (
-          <div className="flex items-center justify-start mb-4 gap-4 flex-wrap p-4">
+          <div className="flex items-center justify-start mb-4 gap-4 flex-wrap p-4 bg-white rounded-lg shadow-md">
             <Select value={bulkStatus} onValueChange={setBulkStatus}>
               <SelectTrigger className="w-[200px] border border-gray-300 rounded-md shadow-sm px-4 py-2 text-gray-700 bg-white hover:border-bg-primary focus:outline-none focus:ring-2 focus:ring-bg-primary focus:border-transparent transition ease-in-out duration-150">
                 <SelectValue placeholder="-- Choose Status --" />
@@ -596,7 +595,15 @@ export default function Card({
             >
               Change Table
             </Button>
-            <hr className="my-6 w-full border-t-2 border-gray-200" />
+          </div>
+        )}
+      </div>
+
+      {/* Scrollable Content Area */}
+      <div className="flex-1 overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+        {isLoading && (
+          <div className="flex justify-center items-center h-40">
+            <Loading />
           </div>
         )}
 
@@ -630,82 +637,163 @@ export default function Card({
           </div>
         )}
 
-        <table className="w-full">
-          <thead className="bg-gray-100 text-xs sm:text-sm">
-            <tr>
-              <th className="py-3 px-4 text-center text-gray-600 font-semibold">
-                <input
-                  type="checkbox"
-                  checked={
-                    selectedItems.length > 0 &&
-                    selectedItems.length === orderItems.length
-                  }
-                  onChange={handleSelectAll}
-                  className="w-4 h-4 accent-bg-primary"
-                />
-              </th>
-              <th className="py-3 px-4 text-center text-gray-600 font-semibold">
-                Item
-              </th>
-              <th className="py-3 px-4 text-center text-gray-600 font-semibold">
-                Price
-              </th>
-              <th className="py-3 px-4 text-center text-gray-600 font-semibold">
-                Quantity
-              </th>
-              {orderType === "dine_in" && (
-                <th className="py-3 px-4 text-center text-gray-600 font-semibold">
-                  Preparation
-                </th>
-              )}
-              {orderType === "dine_in" && (
-                <th className="py-3 px-4 text-center text-gray-600 font-semibold">
-                  Pay
-                </th>
-              )}
-              <th className="py-3 px-4 text-right text-gray-600 font-semibold">
-                Total
-              </th>
-              <th className="py-3 px-4 text-right text-gray-600 font-semibold">
-                Void
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {!Array.isArray(orderItems) || orderItems.length === 0 ? (
+        <div className="bg-white shadow-md rounded-lg">
+          <table className="w-full">
+            <thead className="bg-gray-100 text-xs sm:text-sm sticky top-0 z-10">
               <tr>
-                <td
-                  colSpan={orderType === "dine_in" ? 8 : 6}
-                  className="text-center py-4 text-gray-500"
-                >
-                  No items found for this order.
-                </td>
+{
+                orderType === "dine_in" && (
+                  <th className="py-3 px-4 text-center text-gray-600 font-semibold">
+                    <input
+                      type="checkbox"
+                      checked={
+                        selectedItems.length === orderItems.length &&
+                        orderItems.length > 0
+                      }
+                      onChange={handleSelectAll}
+                    />
+                  </th>
+                )
+}
+                <th className="py-3 px-4 text-center text-gray-600 font-semibold">
+                  Item
+                </th>
+                <th className="py-3 px-4 text-center text-gray-600 font-semibold">
+                  Price
+                </th>
+                <th className="py-3 px-4 text-center text-gray-600 font-semibold">
+                  Quantity
+                </th>
+                {orderType === "dine_in" && (
+                  <th className="py-3 px-4 text-center text-gray-600 font-semibold">
+                    Preparation
+                  </th>
+                )}
+                {orderType === "dine_in" && (
+                  <th className="py-3 px-4 text-center text-gray-600 font-semibold">
+                    Pay
+                  </th>
+                )}
+                <th className="py-3 px-4 text-right text-gray-600 font-semibold">
+                  Total
+                </th>
+                <th className="py-3 px-4 text-right text-gray-600 font-semibold">
+                  Void
+                </th>
               </tr>
-            ) : (
-              orderItems.map((item, index) => (
-                <ItemRow
-                  key={item.temp_id || `${item.id}-${index}`}
-                  item={item}
-                  orderType={orderType}
-                  selectedItems={selectedItems}
-                  toggleSelectItem={toggleSelectItem}
-                  selectedPaymentItems={selectedPaymentItems}
-                  toggleSelectPaymentItem={toggleSelectPaymentItem}
-                  handleIncrease={handleIncrease}
-                  handleDecrease={handleDecrease}
-                  allowQuantityEdit={allowQuantityEdit}
-                  itemLoadingStates={itemLoadingStates}
-                  handleUpdatePreparationStatus={handleUpdatePreparationStatus}
-                  handleVoidItem={handleVoidItem}
-                  renderItemVariations={renderItemVariations}
-                  handleRemoveFrontOnly={handleRemoveFrontOnly}
-                />
-              ))
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {!Array.isArray(orderItems) || orderItems.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={orderType === "dine_in" ? 8 : 6}
+                    className="text-center py-4 text-gray-500"
+                  >
+                    No items found for this order.
+                  </td>
+                </tr>
+              ) : (
+                orderItems.map((item, index) => (
+                  <ItemRow
+                    key={item.temp_id || `${item.id}-${index}`}
+                    item={item}
+                    orderType={orderType}
+                    selectedItems={selectedItems}
+                    toggleSelectItem={toggleSelectItem}
+                    selectedPaymentItems={selectedPaymentItems}
+                    toggleSelectPaymentItem={toggleSelectPaymentItem}
+                    handleIncrease={handleIncrease}
+                    handleDecrease={handleDecrease}
+                    allowQuantityEdit={allowQuantityEdit}
+                    itemLoadingStates={itemLoadingStates}
+                    handleUpdatePreparationStatus={handleUpdatePreparationStatus}
+                    handleVoidItem={handleVoidItem}
+                    renderItemVariations={renderItemVariations}
+                    handleRemoveFrontOnly={handleRemoveFrontOnly}
+                  />
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Done Items Section */}
+        {orderType === "dine_in" && doneItems.length > 0 && (
+          <div className="mt-6">
+            <DoneItemsSection
+              doneItems={doneItems}
+              selectedPaymentItems={selectedPaymentItems}
+              toggleSelectPaymentItem={toggleSelectPaymentItem}
+              handleSelectAllPaymentItems={handleSelectAllPaymentItems}
+            />
+          </div>
+        )}
       </div>
 
+      {/* Fixed Footer */}
+      <div className="flex-shrink-0 bg-white border-t-2 border-gray-200 pt-6 mt-4">
+        {/* Summary Section */}
+        <div className="bg-gray-50 p-6 rounded-lg shadow-inner mb-6">
+          <SummaryRow label="Sub Total" value={subTotal} />
+          <SummaryRow label="Tax" value={totalTax} />
+          <SummaryRow label="Other Charge" value={totalOtherCharge} />
+        </div>
+
+        {/* Payment Details for Dine In */}
+        {orderType === "dine_in" && (
+          <>
+            <div className="grid grid-cols-2 gap-4 items-center mb-4">
+              <p className="text-gray-600">Total Order Amount:</p>
+              <p className="text-right text-lg font-semibold">
+                {totalAmountDisplay.toFixed(2)} EGP
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-4 items-center mb-4">
+              <p className="text-gray-600">
+                Selected Items ({selectedPaymentItems.length}):
+              </p>
+              <p className="text-right text-lg font-semibold text-green-600">
+                {amountToPay.toFixed(2)} EGP
+              </p>
+            </div>
+            <hr className="my-4 border-t border-gray-300" />
+          </>
+        )}
+
+        {/* Amount to Pay */}
+        <div className="grid grid-cols-2 gap-4 items-center mb-6">
+          <p className="text-bg-primary text-xl font-bold">Amount To Pay:</p>
+          <p className="text-right text-2xl font-bold text-green-700">
+            {amountToPay.toFixed(2)} EGP
+          </p>
+        </div>
+
+        {/* Checkout Button */}
+        <div className="flex justify-center gap-4">
+
+             <Button
+      onClick={handleViewOrders}
+      className="bg-gray-500 text-white hover:bg-gray-600 text-lg px-8 py-3"
+      disabled={isLoading}
+    >
+      View Orders
+    </Button>
+          <Button
+            onClick={handleCheckOut}
+            className="bg-bg-primary text-white hover:bg-red-700 text-lg px-8 py-3"
+            disabled={
+              isLoading ||
+              !orderItems ||
+              orderItems.length === 0 ||
+              (orderType === "dine_in" && selectedPaymentItems.length === 0)
+            }
+          >
+            Checkout
+          </Button>
+        </div>
+      </div>
+
+      {/* Modals */}
       <VoidItemModal
         open={showVoidModal}
         onOpenChange={setShowVoidModal}
@@ -716,67 +804,6 @@ export default function Card({
         confirmVoidItem={confirmVoidItem}
         isLoading={isLoading}
       />
-
-      {orderType === "dine_in" && doneItems.length > 0 && (
-        <DoneItemsSection
-          doneItems={doneItems}
-          selectedPaymentItems={selectedPaymentItems}
-          toggleSelectPaymentItem={toggleSelectPaymentItem}
-          handleSelectAllPaymentItems={handleSelectAllPaymentItems}
-        />
-      )}
-
-      <hr className="my-6 border-t-2 border-gray-200" />
-
-      <div className="my-8 bg-gray-50 p-6 rounded-lg shadow-inner">
-        <SummaryRow label="Sub Total" value={subTotal} />
-        <SummaryRow label="Tax" value={totalTax} />
-        <SummaryRow label="Other Charge" value={totalOtherCharge} />
-      </div>
-
-      <hr className="my-6 border-t-2 border-gray-200" />
-
-      {orderType === "dine_in" && (
-        <>
-          <div className="grid grid-cols-2 gap-4 items-center mb-4">
-            <p className="text-gray-600">Total Order Amount:</p>
-            <p className="text-right text-lg font-semibold">
-              {totalAmountDisplay.toFixed(2)} EGP
-            </p>
-          </div>
-          <div className="grid grid-cols-2 gap-4 items-center mb-4">
-            <p className="text-gray-600">
-              Selected Items ({selectedPaymentItems.length}):
-            </p>
-            <p className="text-right text-lg font-semibold text-green-600">
-              {amountToPay.toFixed(2)} EGP
-            </p>
-          </div>
-          <hr className="my-4 border-t border-gray-300" />
-        </>
-      )}
-
-      <div className="grid grid-cols-2 gap-4 items-center mb-8">
-        <p className="text-bg-primary text-xl font-bold">Amount To Pay:</p>
-        <p className="text-right text-2xl font-bold text-green-700">
-          {amountToPay.toFixed(2)} EGP
-        </p>
-      </div>
-
-      <div className="text-center mt-8">
-        <Button
-          onClick={handleCheckOut}
-          className="bg-bg-primary text-white hover:bg-red-700 text-lg mt-4"
-          disabled={
-            isLoading ||
-            !orderItems ||
-            orderItems.length === 0 ||
-            (orderType === "dine_in" && selectedPaymentItems.length === 0)
-          }
-        >
-          Checkout
-        </Button>
-      </div>
 
       {showModal && (
         <CheckOut

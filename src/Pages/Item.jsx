@@ -29,7 +29,7 @@ export default function Item({ fetchEndpoint, onAddToOrder, onClose, refreshCart
 
   // Get order type and table ID
   const orderType = localStorage.getItem("order_type") || "dine_in";
-  const tableId = localStorage.getItem("table_id");
+  // const tableId = localStorage.getItem("table_id");
 
   // Custom hooks
   const { deliveryUserData, userLoading, userError } = useDeliveryUser(orderType);
@@ -50,7 +50,6 @@ export default function Item({ fetchEndpoint, onAddToOrder, onClose, refreshCart
     handleExclusionChange,
     setQuantity,
     handleExtraDecrement,
-     getGroupedExtras,
   } = useProductModal();
 
   // Branch ID management

@@ -1,15 +1,16 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { usePost } from "@/Hooks/usePost";
-import { useGet } from "@/Hooks/useGet";
+// import { useGet } from "@/Hooks/useGet";
 import { useShift } from "@/context/ShiftContext";
 import { toast } from "react-toastify";
-
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 export default function Navbar() {
   const navigate = useNavigate();
   const location = useLocation();
   const { postData } = usePost();
-  const { isShiftOpen, shiftStartTime, closeShift } = useShift();
+  const { isShiftOpen, shiftStartTime } = useShift();
   const [currentTime, setCurrentTime] = useState(new Date());
 
   // Update current time every second for the timer
@@ -23,9 +24,45 @@ export default function Navbar() {
     }
   }, [isShiftOpen]);
 
+  // Helper function to check if shift is open with fallback
+  const checkShiftStatus = () => {
+    // First check context
+    if (isShiftOpen !== undefined) {
+      return isShiftOpen;
+    }
+    
+    // Fallback to localStorage
+    const storedShiftData = localStorage.getItem('shift_data');
+    if (storedShiftData) {
+      try {
+        const shiftData = JSON.parse(storedShiftData);
+        return shiftData.isOpen || false;
+      } catch (error) {
+        console.error('Error parsing shift data from localStorage:', error);
+        return false;
+      }
+    }
+    
+    // Another fallback - check for shift_start_time
+    const shiftStartTime = localStorage.getItem('shift_start_time');
+    return !!shiftStartTime;
+  };
+
   const handleLogout = async () => {
+    const shiftIsOpen = checkShiftStatus();
+    
+    console.log("Logout attempt:", {
+      contextIsShiftOpen: isShiftOpen,
+      calculatedShiftStatus: shiftIsOpen,
+      shiftStartTime,
+      localStorage: {
+        shift_data: localStorage.getItem('shift_data'),
+        shift_start_time: localStorage.getItem('shift_start_time')
+      }
+    });
+    
     // Check if a shift is currently open. If so, prevent logout.
-    if (isShiftOpen) {
+    if (shiftIsOpen) {
       toast.error("You must close the shift before logging out.");
       return; // Stop the function here
     }
@@ -36,9 +73,13 @@ export default function Navbar() {
       localStorage.removeItem("user");
       localStorage.removeItem("branch_id");
       localStorage.removeItem("cart");
+      // Clean up any shift-related data
+      localStorage.removeItem("shift_data");
+      localStorage.removeItem("shift_start_time");
       toast.success("Logged out successfully");
       navigate("/login");
     } catch (err) {
+      console.error("Logout error:", err);
       toast.error(err?.message || "Error while logging out");
     }
   };
@@ -49,7 +90,22 @@ export default function Navbar() {
   };
 
   const formatElapsedTime = () => {
-    if (!shiftStartTime) return "00:00:00";
+    if (!shiftStartTime) {
+      // Fallback to localStorage
+      const storedStartTime = localStorage.getItem('shift_start_time');
+      if (!storedStartTime) return "00:00:00";
+      
+      const elapsed = Math.floor((currentTime - new Date(storedStartTime)) / 1000);
+      const hours = Math.floor(elapsed / 3600);
+      const minutes = Math.floor((elapsed % 3600) / 60);
+      const seconds = elapsed % 60;
+
+      const safeHours = Math.max(0, hours);
+      const safeMinutes = Math.max(0, minutes);
+      const safeSeconds = Math.max(0, seconds);
+
+      return `${safeHours.toString().padStart(2, '0')}:${safeMinutes.toString().padStart(2, '0')}:${safeSeconds.toString().padStart(2, '0')}`;
+    }
 
     const elapsed = Math.floor((currentTime - new Date(shiftStartTime)) / 1000);
     const hours = Math.floor(elapsed / 3600);
@@ -66,8 +122,9 @@ export default function Navbar() {
 
   return (
     <div className="bg-white text-gray-800 p-4 shadow-md flex items-center justify-between">
-      {/* Back button, hidden on /cashier page and on /shift with action=close */}
-      {location.pathname !== "/cashier" && !(location.pathname === "/shift" && location.search === "?action=close") && (
+      <ToastContainer position="top-right" autoClose={3000} hideProgressBar={false} newestOnTop={false} closeOnClick rtl={false} pauseOnFocusLoss draggable pauseOnHover />
+      {/* Back button, hidden on /shift page */}
+      {location.pathname !== "/shift" && location.pathname !== "/cashier" && (
         <button
           onClick={() => navigate(-1)}
           className="font-bold px-3 py-1 rounded hover:bg-red-50 text-lg"
@@ -83,7 +140,7 @@ export default function Navbar() {
 
       {/* Shift controls and timer */}
       <div className="flex items-center space-x-4">
-        {isShiftOpen && (
+        {location.pathname !== "/shift" && (
           <>
             {/* Timer display */}
             <div className="flex items-center space-x-2 text-sm font-medium text-gray-600">
@@ -108,7 +165,7 @@ export default function Navbar() {
         >
           Logout
         </button>
-          </div>
+      </div>
     </div>
   );
 }

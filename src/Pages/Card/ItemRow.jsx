@@ -13,7 +13,7 @@ const ItemRow = ({
   itemLoadingStates,
   handleUpdatePreparationStatus,
   handleVoidItem,
-  renderItemVariations,
+  // renderItemVariations,
   handleRemoveFrontOnly
 }) => {
   const statusInfo =
@@ -24,7 +24,7 @@ const ItemRow = ({
     item.originalPrice && item.price < item.originalPrice;
   const isItemLoading = itemLoadingStates[item.temp_id] || false;
   const isDoneItem = item.preparation_status === "done";
-  const itemVariations = renderItemVariations(item);
+  // const itemVariations = renderItemVariations(item);
 
 
   return (
@@ -37,7 +37,8 @@ const ItemRow = ({
           : ""
       }`}
     >
-      <td className="py-3 px-4 text-center align-top">
+{
+      orderType === "dine_in" && (      <td className="py-3 px-4 text-center align-top">
         <input
           type="checkbox"
           checked={selectedItems.includes(item.temp_id)}
@@ -45,6 +46,7 @@ const ItemRow = ({
           className="w-4 h-4 accent-bg-primary"
         />
       </td>
+)}
       <td className="py-3 px-4 text-center align-top">
         <div>
           <span className="text-gray-800 font-medium">
