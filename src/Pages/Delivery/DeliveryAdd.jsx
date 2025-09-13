@@ -33,6 +33,7 @@ export default function DeliveryAdd() {
     handleMarkerDragEnd,
     isAutoAddress,
     setIsAutoAddress,
+    handleMapClick,
   } = useDeliveryForm();
 
   const navigate = useNavigate();
@@ -191,8 +192,10 @@ export default function DeliveryAdd() {
             selectedLocation={selectedLocation}
             setSelectedLocation={setSelectedLocation}
             handleMarkerDragEnd={handleMarkerDragEnd}
+            handleMapClick={handleMapClick} // إضافة النقر على الخريطة
             isMapClickEnabled={isAutoAddress} // تعطيل النقر في الوضع اليدوي
-            isMapInteractionEnabled={isAutoAddress} // تعطيل التفاعل مع الخريطة في الوضع اليدوي
+            isMapInteractionEnabled={isAutoAddress}
+            form={form} // تعطيل التفاعل مع الخريطة في الوضع اليدوي
           />
 
           {/* Right - Form */}

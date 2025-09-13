@@ -161,7 +161,7 @@ export const useDeliveryForm = () => {
       setLocationName(defaultAddress);
       form.setValue("address", defaultAddress, { shouldValidate: true });
     }
-  }, [isEditMode, isAddAnotherAddress, form, locationName, isAutoAddress]);
+  }, [isEditMode, isAddAnotherAddress, form]);
 
   // تعديل دالة handleMarkerDragEnd لتعمل فقط في الوضع التلقائي
   const handleMarkerDragEnd = (e) => {
@@ -174,7 +174,13 @@ export const useDeliveryForm = () => {
       tryGeocode(lat, lng, setLocationName, form);
     }
   };
-
+const handleMapClick = useCallback((e) => {
+  if (isAutoAddress) {
+    const { lat, lng } = e.latlng;
+    setSelectedLocation({ lat, lng });
+    tryGeocode(lat, lng, setLocationName, form);
+  }
+}, [form, isAutoAddress]);
   return {
     form,
     selectedLocation,
@@ -196,6 +202,7 @@ export const useDeliveryForm = () => {
     isLoadinguserData,
     handleCityChange,
     handleMarkerDragEnd,
+    handleMapClick,
     currentFormSchema,
     isAutoAddress,
     setIsAutoAddress,
