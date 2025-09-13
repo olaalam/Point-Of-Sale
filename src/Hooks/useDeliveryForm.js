@@ -15,6 +15,7 @@ export const useDeliveryForm = () => {
   const [selectedCityId, setSelectedCityId] = useState("");
   const [availableZones, setAvailableZones] = useState([]);
   const [formattedMapCoordinates, setFormattedMapCoordinates] = useState("");
+  const [isAutoAddress, setIsAutoAddress] = useState(true);
 
   const { id } = useParams();
   const isEditMode = Boolean(id);
@@ -45,9 +46,10 @@ export const useDeliveryForm = () => {
     },
   });
 
-  // تحميل بيانات الـ lists (cities)
+  // تحميل بيانات الـ lists (cities & zones)
   const { data: addressListsData, isLoading: isLoadingLists } = useGet("cashier/user/address/lists");
   const cities = addressListsData?.cities || [];
+  const allZones = addressListsData?.zones || [];
 
   // تحميل بيانات التعديل
   const { data: editAddressData, isLoading: isLoadingEditData } = useGet(
@@ -71,16 +73,14 @@ export const useDeliveryForm = () => {
     form.setValue("city_id", cityId);
     form.setValue("zone_id", "");
 
-    // استخدم zones من editAddressData إذا كان متوفر
-    const zonesSource = editAddressData?.zones || [];
+    const zonesSource = allZones.length > 0 ? allZones : (editAddressData?.zones || []);
     const filteredZones = filterZonesByCity(zonesSource, cityId);
     console.log("Filtered zones:", filteredZones);
     setAvailableZones(filteredZones);
-  }, [form, editAddressData, filterZonesByCity]);
+  }, [form, allZones, editAddressData, filterZonesByCity]);
 
   // تهيئة البيانات عند التحميل
   useEffect(() => {
-    // انتظر حتى تكتمل كل البيانات المطلوبة
     if (isEditMode) {
       if (isLoadingEditData || isLoadingLists) {
         console.log("Loading data...");
@@ -93,22 +93,17 @@ export const useDeliveryForm = () => {
       }
 
       const address = editAddressData.address;
-      const zones = editAddressData.zones || [];
+      const zones = editAddressData.zones || allZones;
 
       console.log("Setting up edit data:", { address, zones, cities });
 
-      // استخراج city_id
       const cityId = address.city_id?.toString() || address.zone?.city_id?.toString() || "";
-      
-      // فلترة zones حسب المدينة
       const cityZones = filterZonesByCity(zones, cityId);
       
-      // تحديث الـ states
       setSelectedCityId(cityId);
       setAvailableZones(cityZones);
       setLocationName(address.address || "");
 
-      // تحديث الـ form
       const formData = {
         city_id: cityId,
         zone_id: address.zone_id?.toString() || address.zone?.id?.toString() || "",
@@ -123,18 +118,16 @@ export const useDeliveryForm = () => {
 
       console.log("Form data:", formData);
       
-      // تحديث الـ form مرة واحدة
       setTimeout(() => {
         form.reset(formData);
       }, 0);
 
-      // تحديث الموقع على الخريطة
       const { latitude, longitude } = parseCoordinates(address.map);
       if (latitude && longitude && !isNaN(latitude) && !isNaN(longitude)) {
         setSelectedLocation({ lat: latitude, lng: longitude });
       }
     }
-  }, [editAddressData, cities, isEditMode, isLoadingEditData, isLoadingLists, form, filterZonesByCity]);
+  }, [editAddressData, cities, allZones, isEditMode, isLoadingEditData, isLoadingLists, form, filterZonesByCity]);
 
   // تهيئة الموقع للوضع العادي
   useEffect(() => {
@@ -146,29 +139,40 @@ export const useDeliveryForm = () => {
             lng: position.coords.longitude,
           };
           setSelectedLocation(loc);
-          tryGeocode(loc.lat, loc.lng, setLocationName, form);
+          // فقط في الوضع التلقائي
+          if (isAutoAddress) {
+            tryGeocode(loc.lat, loc.lng, setLocationName, form);
+          }
         },
         (error) => {
           console.error("Error fetching location", error);
           const fallback = { lat: 31.2001, lng: 29.9187 };
           setSelectedLocation(fallback);
-          const defaultAddress = "Alexandria, Egypt (Default Location)";
-          setLocationName(defaultAddress);
-          form.setValue("address", defaultAddress, { shouldValidate: true });
+          // فقط في الوضع التلقائي
+          if (isAutoAddress) {
+            const defaultAddress = "Alexandria, Egypt (Default Location)";
+            setLocationName(defaultAddress);
+            form.setValue("address", defaultAddress, { shouldValidate: true });
+          }
         }
       );
-    } else if (isAddAnotherAddress && !locationName) {
+    } else if (isAddAnotherAddress && !locationName && isAutoAddress) {
       const defaultAddress = "Click on map to select address";
       setLocationName(defaultAddress);
       form.setValue("address", defaultAddress, { shouldValidate: true });
     }
-  }, [isEditMode, isAddAnotherAddress, form, locationName]);
+  }, [isEditMode, isAddAnotherAddress, form, locationName, isAutoAddress]);
 
+  // تعديل دالة handleMarkerDragEnd لتعمل فقط في الوضع التلقائي
   const handleMarkerDragEnd = (e) => {
     const marker = e.target;
     const { lat, lng } = marker.getLatLng();
     setSelectedLocation({ lat, lng });
-    tryGeocode(lat, lng, setLocationName, form);
+    
+    // فقط في الوضع التلقائي نحدث العنوان
+    if (isAutoAddress) {
+      tryGeocode(lat, lng, setLocationName, form);
+    }
   };
 
   return {
@@ -181,7 +185,7 @@ export const useDeliveryForm = () => {
     availableZones,
     formattedMapCoordinates,
     cities,
-    zones: editAddressData?.zones || [],
+    zones: allZones,
     isEditMode,
     isAddAnotherAddress,
     userIdFromUrl,
@@ -193,5 +197,7 @@ export const useDeliveryForm = () => {
     handleCityChange,
     handleMarkerDragEnd,
     currentFormSchema,
+    isAutoAddress,
+    setIsAutoAddress,
   };
 };
