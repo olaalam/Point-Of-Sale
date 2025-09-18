@@ -530,6 +530,7 @@ export default function Card({
     setShowClearAllConfirm(false);
   };
 const handleViewOrders = () => {
+ 
   navigate("/orders");
 };
   return (

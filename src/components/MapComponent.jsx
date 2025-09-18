@@ -1,9 +1,10 @@
-//related to map , location selection & marker
 import { MapContainer, TileLayer, Marker } from "react-leaflet";
 import { Input } from "@/components/ui/input";
 import MapClickHandler from "./MapClickHandler";
 import "leaflet/dist/leaflet.css";
 import L from "leaflet";
+import { useEffect } from "react";
+import { useMap } from "react-leaflet";
 
 // Fix Leaflet icon issue
 delete L.Icon.Default.prototype._getIconUrl;
@@ -14,14 +15,33 @@ L.Icon.Default.mergeOptions({
   shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
 });
 
+const MapEvents = ({ handleMapClick, isMapClickEnabled }) => {
+  const map = useMap(); // Get the map instance
+
+  useEffect(() => {
+    if (handleMapClick && isMapClickEnabled) {
+      map.on('click', handleMapClick);
+      return () => {
+        map.off('click', handleMapClick);
+      };
+    }
+  }, [map, handleMapClick, isMapClickEnabled]);
+
+  return null;
+};
+
 const MapComponent = ({
   selectedLocation,
-  setSelectedLocation,
   locationName,
   setLocationName,
+  handleMapClick,
   form,
   onMarkerDragEnd,
+  isMapClickEnabled,
 }) => {
+  // Use form.watch to get the current value of the address field
+  const watchedAddress = form.watch("address");
+
   return (
     <div className="rounded-2xl overflow-hidden shadow-lg h-[600px]">
       {selectedLocation.lat && selectedLocation.lng ? (
@@ -43,10 +63,9 @@ const MapComponent = ({
               dragend: onMarkerDragEnd,
             }}
           />
-          <MapClickHandler
-            setSelectedLocation={setSelectedLocation}
-            setLocationName={setLocationName}
-            form={form}
+          <MapEvents 
+            handleMapClick={handleMapClick}
+            isMapClickEnabled={isMapClickEnabled} 
           />
         </MapContainer>
       ) : (
@@ -58,12 +77,12 @@ const MapComponent = ({
       {/* Manual Location Input */}
       <div className="my-5 p-4">
         <Input
-          value={locationName}
+          // Use watchedAddress from react-hook-form as the value
+          value={watchedAddress || locationName} 
+          // Update the form state and the locationName state on change
           onChange={(e) => {
             setLocationName(e.target.value);
-            form.setValue("address", e.target.value, {
-              shouldValidate: true,
-            });
+            form.setValue("address", e.target.value, { shouldValidate: true });
           }}
           placeholder="Enter your location manually or click on map"
           className="w-full"

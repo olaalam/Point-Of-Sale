@@ -12,9 +12,6 @@ import MapComponent from "@/components/MapComponent";
 import UserFormFields from "./UserFormFields";
 import AddressFormFields from "./AddressFormFields";
 
-// Import our custom components
-
-
 export default function DeliveryAdd() {
   const {
     form,
@@ -34,6 +31,9 @@ export default function DeliveryAdd() {
     isLoadinguserData,
     handleCityChange,
     handleMarkerDragEnd,
+    isAutoAddress,
+    setIsAutoAddress,
+    handleMapClick,
   } = useDeliveryForm();
 
   const navigate = useNavigate();
@@ -79,31 +79,28 @@ export default function DeliveryAdd() {
     let finalPayload;
     let apiEndpoint;
 
-if (isEditMode) {
-   console.log("editAddressData.addresses:", editAddressData?.addresses); // 👈 وده
-    console.log("editAddressData.address:", editAddressData?.address);
-  // تأكد إن البيانات موجودة قبل الوصول ليها
-  const addressId = editAddressData?.addresses?.[0]?.id || editAddressData?.address?.id;
-  
-  if (!addressId) {
-    toast.error("Address ID not found");
-    return;
-  }
-  
-  finalPayload = {
-    ...addressObject,
-    user_id: editAddressData?.user_id,
-  };
-  apiEndpoint = `cashier/user/address/update/${addressId}`;
-} else if (isAddAnotherAddress) {
-      // Add Another Address Mode - Changed to send a single object
+    if (isEditMode) {
+      console.log("editAddressData.addresses:", editAddressData?.addresses);
+      console.log("editAddressData.address:", editAddressData?.address);
+      const addressId = editAddressData?.addresses?.[0]?.id || editAddressData?.address?.id;
+
+      if (!addressId) {
+        toast.error("Address ID not found");
+        return;
+      }
+
       finalPayload = {
-        ...addressObject, // Spread the address object
+        ...addressObject,
+        user_id: editAddressData?.user_id,
+      };
+      apiEndpoint = `cashier/user/address/update/${addressId}`;
+    } else if (isAddAnotherAddress) {
+      finalPayload = {
+        ...addressObject,
         user_id: Number(userIdFromUrl),
       };
       apiEndpoint = `cashier/user/address/add/${userIdFromUrl}`;
     } else {
-      // Add User Mode - This case remains the same
       finalPayload = {
         f_name: values.f_name,
         l_name: values.l_name,
@@ -122,10 +119,9 @@ if (isEditMode) {
       const response = await postData(apiEndpoint, finalPayload);
       if (response && response.success) {
         toast.success(
-          `${
-            isEditMode
-              ? "Address updated"
-              : isAddAnotherAddress
+          `${isEditMode
+            ? "Address updated"
+            : isAddAnotherAddress
               ? "Address added"
               : "User added"
           } successfully!`
@@ -139,13 +135,12 @@ if (isEditMode) {
       } else {
         toast.error(
           response?.message ||
-            `Failed to ${
-              isEditMode
-                ? "update address"
-                : isAddAnotherAddress
-                ? "add address"
-                : "add user"
-            }.`
+          `Failed to ${isEditMode
+            ? "update address"
+            : isAddAnotherAddress
+              ? "add address"
+              : "add user"
+          }.`
         );
       }
     } catch (err) {
@@ -188,18 +183,19 @@ if (isEditMode) {
           {isEditMode
             ? "Edit Delivery Address"
             : isAddAnotherAddress
-            ? "Add Another Address for User"
-            : "Add New Delivery User"}
+              ? "Add Another Address for User"
+              : "Add New Delivery User"}
         </h2>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Left - Map */}
           <MapComponent
             selectedLocation={selectedLocation}
             setSelectedLocation={setSelectedLocation}
-            locationName={locationName}
-            setLocationName={setLocationName}
-            form={form}
-            onMarkerDragEnd={handleMarkerDragEnd}
+            handleMarkerDragEnd={handleMarkerDragEnd}
+            handleMapClick={handleMapClick} // إضافة النقر على الخريطة
+            isMapClickEnabled={isAutoAddress} // تعطيل النقر في الوضع اليدوي
+            isMapInteractionEnabled={isAutoAddress}
+            form={form} // تعطيل التفاعل مع الخريطة في الوضع اليدوي
           />
 
           {/* Right - Form */}
@@ -222,6 +218,8 @@ if (isEditMode) {
                   cities={cities}
                   availableZones={availableZones}
                   handleCityChange={handleCityChange}
+                  isAutoAddress={isAutoAddress}
+                  setIsAutoAddress={setIsAutoAddress}
                 />
 
                 <Button
@@ -233,13 +231,13 @@ if (isEditMode) {
                     ? isEditMode
                       ? "Updating..."
                       : isAddAnotherAddress
-                      ? "Adding..."
-                      : "Adding..."
+                        ? "Adding..."
+                        : "Adding..."
                     : isEditMode
-                    ? "Update Address"
-                    : isAddAnotherAddress
-                    ? "Add Address"
-                    : "Add User"}
+                      ? "Update Address"
+                      : isAddAnotherAddress
+                        ? "Add Address"
+                        : "Add User"}
                 </Button>
 
                 {error && <p className="text-red-500 text-sm mt-2">{error}</p>}

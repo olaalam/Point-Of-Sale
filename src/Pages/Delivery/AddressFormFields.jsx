@@ -21,26 +21,90 @@ const AddressFormFields = ({
   cities,
   availableZones,
   handleCityChange,
+  // إضافة props جديدة للتحكم في الـ switch من الأب
+  isAutoAddress = true,
+  setIsAutoAddress,
 }) => {
   return (
     <>
+      {/* Switch للاختيار بين التلقائي واليدوي */}
+      <div className="flex items-center justify-between p-4 border rounded-lg bg-gray-50">
+        <div className="flex flex-col">
+          <span className="font-medium text-sm">Address Selection Mode</span>
+          <span className="text-xs text-gray-600">
+            {isAutoAddress ? "Automatic from map location" : "Manual address entry"}
+          </span>
+        </div>
+        <div className="flex items-center space-x-2">
+          <span className={`text-sm ${!isAutoAddress ? 'text-blue-600 font-medium' : 'text-gray-500'}`}>
+            Manual
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              const newValue = !isAutoAddress;
+              if (setIsAutoAddress) {
+                setIsAutoAddress(newValue);
+              }
+              // مسح العنوان عند التبديل للوضع اليدوي
+              if (!newValue) {
+                form.setValue("address", "");
+              }
+            }}
+            className={`
+              relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2
+              ${isAutoAddress ? 'bg-blue-600' : 'bg-gray-300'}
+            `}
+          >
+            <span
+              className={`
+                inline-block h-4 w-4 transform rounded-full bg-white transition duration-200 ease-in-out
+                ${isAutoAddress ? 'translate-x-6' : 'translate-x-1'}
+              `}
+            />
+          </button>
+          <span className={`text-sm ${isAutoAddress ? 'text-blue-600 font-medium' : 'text-gray-500'}`}>
+            Auto
+          </span>
+        </div>
+      </div>
+
       {/* Address field */}
       <FormField
         control={form.control}
         name="address"
         render={({ field }) => (
           <FormItem>
-            <FormLabel>Address (from Map)</FormLabel>
+            <FormLabel>
+              Address {isAutoAddress ? "(from Map)" : "(Manual Entry)"}
+            </FormLabel>
             <FormControl>
-              <Input
-                placeholder="Address"
-                {...field}
-                value={locationName}
-                onChange={(e) => {
-                  setLocationName(e.target.value);
-                  field.onChange(e.target.value);
-                }}
-              />
+              {isAutoAddress ? (
+                // وضع تلقائي - قراءة فقط من الخريطة
+                <Input
+                  placeholder="Click on map to select address"
+                  {...field}
+                  value={locationName}
+                  onChange={(e) => {
+                    setLocationName(e.target.value);
+                    field.onChange(e.target.value);
+                  }}
+                  className="bg-blue-50 border-blue-200"
+                  readOnly={false}
+                />
+              ) : (
+                // وضع يدوي - المستخدم يكتب بنفسه - بدون تدخل من locationName
+                <Input
+                  placeholder="Enter your address manually"
+                  {...field}
+                  onChange={(e) => {
+                    // لا نحدث locationName في الوضع اليدوي
+                    field.onChange(e.target.value);
+                  }}
+                  value={field.value || ""} // القيمة من الـ form فقط
+                  className="bg-white border-gray-300"
+                />
+              )}
             </FormControl>
             <FormMessage />
           </FormItem>
