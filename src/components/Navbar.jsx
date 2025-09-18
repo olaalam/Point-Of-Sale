@@ -140,8 +140,7 @@ export default function Navbar() {
 
       {/* Shift controls and timer */}
       <div className="flex items-center space-x-4">
-        {location.pathname !== "/shift" && (
-          <>
+{location.pathname !== "/shift" && location.pathname !== "/cashier" && (          <>
             {/* Timer display */}
             <div className="flex items-center space-x-2 text-sm font-medium text-gray-600">
               <span className="text-gray-500">Shift Duration:</span>

@@ -41,8 +41,8 @@ export default function LoginPage() {
         navigate("/cashier");
       }
     } catch (err) {
-      toast.error(err?.message || "An error occurred");
-    }
+    const errorMessage = err?.response?.data?.faield || err?.response?.data?.message || "An error occurred";
+      toast.error(errorMessage);}
   };
 
   return (
