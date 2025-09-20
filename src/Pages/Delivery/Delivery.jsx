@@ -21,12 +21,13 @@ export default function Delivery({ orderType: propOrderType }) {
   const [openDialog, setOpenDialog] = useState(false);
   const [selectedAddressId, setSelectedAddressId] = useState(null);
   const [selectedUserId, setSelectedUserId] = useState(null);
+  
+  // إضافة state للـ submission في الـ dialog
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // جرب تغيير endpoint ليشمل العناوين
   const { data, error, isLoading, refetch } = useGet("cashier/user");
-  const { postData } = usePost();
+  const { postData, loading } = usePost(); // تأكد من أخذ loading من usePost
 
-  // إضافة console.log للتشخيص
   useEffect(() => {
     console.log("Raw data from API:", data);
     if (data?.users) {
@@ -78,27 +79,42 @@ export default function Delivery({ orderType: propOrderType }) {
     setOpenDialog(true);
   };
 
+  // تعديل دالة handleSaveEdit لإضافة الـ disabled state
   const handleSaveEdit = async () => {
     if (!selecteduser) return;
-    await postData(`cashier/user/update/${selecteduser.id}`, editData);
-    setOpenDialog(false);
-    refetch();
+    
+    // منع الـ submission إذا كان هناك عملية قيد التنفيذ
+    if (isSubmitting || loading) {
+      return;
+    }
+
+    // تفعيل حالة الـ submission
+    setIsSubmitting(true);
+
+    try {
+      await postData(`cashier/user/update/${selecteduser.id}`, editData);
+      setOpenDialog(false);
+      refetch();
+    } catch (error) {
+      console.error("Error updating user:", error);
+      // يمكنك إضافة toast error هنا
+    } finally {
+      // إلغاء تفعيل حالة الـ submission
+      setIsSubmitting(false);
+    }
   };
 
   const handleEditAddressClick = (address) => {
     navigate(`order-page/add/${address.id}`);
   };
 
-  // Modified handleConfirmDelivery function
   const handleConfirmDelivery = (user, addressId) => {
     const selectedAddress = user.address.find((addr) => addr.id === addressId);
 
-    // Store user data in localStorage
     localStorage.setItem("selected_user_id", user.id);
     localStorage.setItem("selected_address_id", addressId);
     localStorage.setItem("order_type", "delivery");
 
-    // Store complete user data for quick access
     const userData = {
       id: user.id,
       f_name: user.f_name,
@@ -114,7 +130,6 @@ export default function Delivery({ orderType: propOrderType }) {
       addressId: addressId,
     });
 
-    // Navigate to items page
     navigate("/delivery-order", {
       state: {
         orderType: "delivery",
@@ -124,11 +139,13 @@ export default function Delivery({ orderType: propOrderType }) {
     });
   };
 
-  console.log("Order Type:", orderType);
-  return (
-<div className={`bg-gray-100 min-h-screen ${!searchQuery && filteredusers.length === 0 ? "flex items-center justify-center" : ""}`}>
+  // حساب حالة الـ disabled للـ form في الـ dialog
+  const isFormDisabled = loading || isSubmitting;
 
-      {/* Content */}
+  console.log("Order Type:", orderType);
+  
+  return (
+    <div className={`bg-gray-100 min-h-screen ${!searchQuery && filteredusers.length === 0 ? "flex items-center justify-center" : ""}`}>
       <div className="max-w-6xl mx-auto px-6 py-3">
         {/* Search and Add User */}
         <div className="flex gap-2 items-center my-6">
@@ -254,61 +271,112 @@ export default function Delivery({ orderType: propOrderType }) {
             )}
           </div>
         ) : (
-<div className="flex justify-center items-center h-[60vh]">
-  <p className="text-center text-gray-500 text-lg">
-    🔍 Please search by name or phone to find users.
-  </p>
-</div>
-
-
+          <div className="flex justify-center items-center h-[60vh]">
+            <p className="text-center text-gray-500 text-lg">
+              🔍 Please search by name or phone to find users.
+            </p>
+          </div>
         )}
       </div>
 
+      {/* Dialog مع الـ disabled state */}
       <Dialog open={openDialog} onOpenChange={setOpenDialog}>
         <DialogContent className="space-y-4 bg-white">
           <h2 className="text-xl font-semibold text-center text-bg-primary">
             Edit user
           </h2>
+          
+          {/* Input Fields مع الـ disabled state */}
           <Input
             value={editData.f_name}
             onChange={(e) =>
               setEditData({ ...editData, f_name: e.target.value })
             }
             placeholder="First Name"
-            className="border-gray-300"
+            className={`border-gray-300 ${
+              isFormDisabled ? 'bg-gray-100 cursor-not-allowed opacity-60' : ''
+            }`}
+            disabled={isFormDisabled}
           />
+          
           <Input
             value={editData.l_name}
             onChange={(e) =>
               setEditData({ ...editData, l_name: e.target.value })
             }
             placeholder="Last Name"
-            className="border-gray-300"
+            className={`border-gray-300 ${
+              isFormDisabled ? 'bg-gray-100 cursor-not-allowed opacity-60' : ''
+            }`}
+            disabled={isFormDisabled}
           />
+          
           <Input
             value={editData.phone}
             onChange={(e) =>
               setEditData({ ...editData, phone: e.target.value })
             }
             placeholder="Phone"
-            className="border-gray-300"
+            className={`border-gray-300 ${
+              isFormDisabled ? 'bg-gray-100 cursor-not-allowed opacity-60' : ''
+            }`}
+            disabled={isFormDisabled}
           />
+          
           <Input
             value={editData.phone_2}
             onChange={(e) =>
               setEditData({ ...editData, phone_2: e.target.value })
             }
             placeholder="Another Phone"
-            className="border-gray-300"
+            className={`border-gray-300 ${
+              isFormDisabled ? 'bg-gray-100 cursor-not-allowed opacity-60' : ''
+            }`}
+            disabled={isFormDisabled}
           />
+          
+          {/* Button مع الـ disabled state والـ loading indicator */}
           <Button
             onClick={handleSaveEdit}
-            className="w-full bg-bg-primary hover:bg-red-700 text-white"
+            disabled={isFormDisabled}
+            className={`w-full transition-all ${
+              isFormDisabled
+                ? 'bg-gray-400 cursor-not-allowed opacity-60'
+                : 'bg-bg-primary hover:bg-red-700'
+            } text-white`}
           >
-            Save
+            {isFormDisabled ? (
+              <div className="flex items-center justify-center gap-2">
+                {/* Spinner Icon */}
+                <svg 
+                  className="animate-spin h-4 w-4 text-white" 
+                  xmlns="http://www.w3.org/2000/svg" 
+                  fill="none" 
+                  viewBox="0 0 24 24"
+                >
+                  <circle 
+                    className="opacity-25" 
+                    cx="12" 
+                    cy="12" 
+                    r="10" 
+                    stroke="currentColor" 
+                    strokeWidth="4"
+                  />
+                  <path 
+                    className="opacity-75" 
+                    fill="currentColor" 
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  />
+                </svg>
+                <span>Saving...</span>
+              </div>
+            ) : (
+              "Save"
+            )}
           </Button>
         </DialogContent>
       </Dialog>
+      
       <ToastContainer position="top-right" autoClose={5000} />
     </div>
   );

@@ -1,5 +1,6 @@
-//main component for adding or editing delivery addresses which calling the custom hooks and components
-import React from "react";
+// التعديل المطلوب على كودك الحالي
+
+import React, { useState } from "react";
 import { Form } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
 import { usePost } from "@/Hooks/usePost";
@@ -13,6 +14,9 @@ import UserFormFields from "./UserFormFields";
 import AddressFormFields from "./AddressFormFields";
 
 export default function DeliveryAdd() {
+  // إضافة state للتحكم في حالة الـ submission
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
   const {
     form,
     selectedLocation,
@@ -40,83 +44,92 @@ export default function DeliveryAdd() {
   const { loading, error, postData } = usePost();
 
   const onSubmit = async (values) => {
-    console.log("editAddressData:", editAddressData);
-    console.log("onSubmit function called!");
-    console.log("Form Values:", values);
-    console.log("Selected Location:", selectedLocation);
-
-    // Validate required fields before submission
-    if (!values.city_id) {
-      toast.error("Please select a city");
+    // منع الـ submission إذا كان هناك عملية قيد التنفيذ
+    if (isSubmitting || loading) {
       return;
     }
 
-    if (!values.zone_id) {
-      toast.error("Please select a zone");
-      return;
-    }
+    // تفعيل حالة الـ submission
+    setIsSubmitting(true);
 
-    if (!values.address || values.address.length < 5) {
-      toast.error("Please provide a valid address");
-      return;
-    }
+    try {
+      console.log("editAddressData:", editAddressData);
+      console.log("onSubmit function called!");
+      console.log("Form Values:", values);
+      console.log("Selected Location:", selectedLocation);
 
-    const addressObject = {
-      latitude: selectedLocation.lat,
-      longitude: selectedLocation.lng,
-      map: formattedMapCoordinates,
-      street: values.street || "",
-      building_num: values.building_num || "",
-      floor_num: values.floor_num || "",
-      apartment: values.apartment || "",
-      city_id: Number(values.city_id),
-      zone_id: Number(values.zone_id),
-      address: values.address,
-      additional_data: values.additional_data,
-      type: values.type,
-    };
-
-    let finalPayload;
-    let apiEndpoint;
-
-    if (isEditMode) {
-      console.log("editAddressData.addresses:", editAddressData?.addresses);
-      console.log("editAddressData.address:", editAddressData?.address);
-      const addressId = editAddressData?.addresses?.[0]?.id || editAddressData?.address?.id;
-
-      if (!addressId) {
-        toast.error("Address ID not found");
+      // Validate required fields before submission
+      if (!values.city_id) {
+        toast.error("Please select a city");
         return;
       }
 
-      finalPayload = {
-        ...addressObject,
-        user_id: editAddressData?.user_id,
-      };
-      apiEndpoint = `cashier/user/address/update/${addressId}`;
-    } else if (isAddAnotherAddress) {
-      finalPayload = {
-        ...addressObject,
-        user_id: Number(userIdFromUrl),
-      };
-      apiEndpoint = `cashier/user/address/add/${userIdFromUrl}`;
-    } else {
-      finalPayload = {
-        f_name: values.f_name,
-        l_name: values.l_name,
-        phone: values.phone,
-        addresses: [addressObject],
-      };
-      if (values.phone_2?.trim()) {
-        finalPayload.phone_2 = values.phone_2;
+      if (!values.zone_id) {
+        toast.error("Please select a zone");
+        return;
       }
-      apiEndpoint = "cashier/user/add";
-    }
 
-    console.log("Final Payload:", finalPayload);
+      if (!values.address || values.address.length < 5) {
+        toast.error("Please provide a valid address");
+        return;
+      }
 
-    try {
+      const addressObject = {
+        latitude: selectedLocation.lat,
+        longitude: selectedLocation.lng,
+        map: formattedMapCoordinates,
+        street: values.street || "",
+        building_num: values.building_num || "",
+        floor_num: values.floor_num || "",
+        apartment: values.apartment || "",
+        city_id: Number(values.city_id),
+        zone_id: Number(values.zone_id),
+        address: values.address,
+        additional_data: values.additional_data,
+        type: values.type,
+      };
+
+      let finalPayload;
+      let apiEndpoint;
+
+      if (isEditMode) {
+        console.log("editAddressData.addresses:", editAddressData?.addresses);
+        console.log("editAddressData.address:", editAddressData?.address);
+        const addressId = editAddressData?.addresses?.[0]?.id || editAddressData?.address?.id;
+
+        if (!addressId) {
+          toast.error("Address ID not found");
+          return;
+        }
+
+        finalPayload = {
+          ...addressObject,
+          user_id: editAddressData?.user_id,
+        };
+        apiEndpoint = `cashier/user/address/update/${addressId}`;
+      } else if (isAddAnotherAddress) {
+        finalPayload = {
+          ...addressObject,
+          user_id: Number(userIdFromUrl),
+        };
+        apiEndpoint = `cashier/user/address/add/${userIdFromUrl}`;
+      } else {
+        finalPayload = {
+          f_name: values.f_name,
+          l_name: values.l_name,
+          phone: values.phone,
+          addresses: [addressObject],
+        };
+        if (values.phone_2?.trim()) {
+          finalPayload.phone_2 = values.phone_2;
+        }
+        apiEndpoint = "cashier/user/add";
+      }
+
+      console.log("Final Payload:", finalPayload);
+
       const response = await postData(apiEndpoint, finalPayload);
+      
       if (response && response.success) {
         toast.success(
           `${isEditMode
@@ -126,9 +139,11 @@ export default function DeliveryAdd() {
               : "User added"
           } successfully!`
         );
+        
         if (!isEditMode && !isAddAnotherAddress) {
           form.reset();
         }
+        
         setTimeout(() => {
           navigate("/");
         }, 1500);
@@ -146,6 +161,9 @@ export default function DeliveryAdd() {
     } catch (err) {
       console.error("Submit Error:", err);
       toast.error("Submission error: " + (err.message || "Unknown error."));
+    } finally {
+      // إلغاء تفعيل حالة الـ submission في جميع الحالات
+      setIsSubmitting(false);
     }
   };
 
@@ -176,6 +194,9 @@ export default function DeliveryAdd() {
     );
   }
 
+  // حساب حالة الـ button (disabled إذا كان هناك loading أو submission)
+  const isButtonDisabled = loading || isSubmitting;
+
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-7xl mx-auto">
@@ -192,10 +213,10 @@ export default function DeliveryAdd() {
             selectedLocation={selectedLocation}
             setSelectedLocation={setSelectedLocation}
             handleMarkerDragEnd={handleMarkerDragEnd}
-            handleMapClick={handleMapClick} // إضافة النقر على الخريطة
-            isMapClickEnabled={isAutoAddress} // تعطيل النقر في الوضع اليدوي
+            handleMapClick={handleMapClick}
+            isMapClickEnabled={isAutoAddress}
             isMapInteractionEnabled={isAutoAddress}
-            form={form} // تعطيل التفاعل مع الخريطة في الوضع اليدوي
+            form={form}
           />
 
           {/* Right - Form */}
@@ -222,22 +243,57 @@ export default function DeliveryAdd() {
                   setIsAutoAddress={setIsAutoAddress}
                 />
 
+                {/* الزرار المحدث مع الـ disabled state */}
                 <Button
                   type="submit"
-                  className="w-full mt-4 bg-bg-primary hover:bg-red-700 cursor-pointer transition-all"
-                  disabled={loading}
+                  className={`w-full mt-4 transition-all ${
+                    isButtonDisabled 
+                      ? 'bg-gray-400 cursor-not-allowed opacity-60' 
+                      : 'bg-bg-primary hover:bg-red-700 cursor-pointer'
+                  }`}
+                  disabled={isButtonDisabled}
                 >
-                  {loading
-                    ? isEditMode
-                      ? "Updating..."
-                      : isAddAnotherAddress
-                        ? "Adding..."
-                        : "Adding..."
-                    : isEditMode
-                      ? "Update Address"
-                      : isAddAnotherAddress
-                        ? "Add Address"
-                        : "Add User"}
+                  {/* عرض نص مختلف حسب الحالة */}
+                  {isButtonDisabled ? (
+                    <div className="flex items-center justify-center gap-2">
+                      {/* أيقونة التحميل */}
+                      <svg 
+                        className="animate-spin h-4 w-4 text-white" 
+                        xmlns="http://www.w3.org/2000/svg" 
+                        fill="none" 
+                        viewBox="0 0 24 24"
+                      >
+                        <circle 
+                          className="opacity-25" 
+                          cx="12" 
+                          cy="12" 
+                          r="10" 
+                          stroke="currentColor" 
+                          strokeWidth="4"
+                        ></circle>
+                        <path 
+                          className="opacity-75" 
+                          fill="currentColor" 
+                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                        ></path>
+                      </svg>
+                      <span>
+                        {isEditMode
+                          ? "Updating..."
+                          : isAddAnotherAddress
+                            ? "Adding..."
+                            : "Adding..."}
+                      </span>
+                    </div>
+                  ) : (
+                    <span>
+                      {isEditMode
+                        ? "Update Address"
+                        : isAddAnotherAddress
+                          ? "Add Address"
+                          : "Add User"}
+                    </span>
+                  )}
                 </Button>
 
                 {error && <p className="text-red-500 text-sm mt-2">{error}</p>}
