@@ -10,6 +10,75 @@ import {
 import { Button } from "@/components/ui/button";
 import { Minus, Plus } from "lucide-react";
 
+// Helper function to calculate total price including variations, extras, and addons
+const calculateProductTotalPrice = (
+  baseProduct,
+  selectedVariation = {},
+  selectedExtras = [],
+  quantity = 1
+) => {
+  let totalPrice = parseFloat(baseProduct.price || 0);
+
+  // Add variation prices
+  if (baseProduct.variations && Object.keys(selectedVariation).length > 0) {
+    baseProduct.variations.forEach(variation => {
+      const selectedOptions = selectedVariation[variation.id];
+      
+      if (selectedOptions !== undefined) {
+        if (variation.type === 'single') {
+          // For single select, selectedOptions is a single option ID
+          const selectedOption = variation.options?.find(opt => opt.id === selectedOptions);
+          if (selectedOption) {
+            totalPrice += parseFloat(selectedOption.price_after_tax || selectedOption.price || 0);
+          }
+        } else if (variation.type === 'multiple') {
+          // For multiple select, selectedOptions is an array of option IDs
+          const optionsArray = Array.isArray(selectedOptions) ? selectedOptions : [selectedOptions];
+          optionsArray.forEach(optionId => {
+            const option = variation.options?.find(opt => opt.id === optionId);
+            if (option) {
+              totalPrice += parseFloat(option.price_after_tax || option.price || 0);
+            }
+          });
+        }
+      }
+    });
+  }
+
+  // Add extras and addons prices
+  if (selectedExtras && selectedExtras.length > 0) {
+    // Count occurrences of each extra
+    const extraCounts = {};
+    selectedExtras.forEach(extraId => {
+      extraCounts[extraId] = (extraCounts[extraId] || 0) + 1;
+    });
+
+    // Calculate price for each extra
+    Object.entries(extraCounts).forEach(([extraId, count]) => {
+      // Check in allExtras first
+      let extraItem = baseProduct.allExtras?.find(extra => extra.id === parseInt(extraId));
+      
+      // If not found, check in addons
+      if (!extraItem) {
+        extraItem = baseProduct.addons?.find(addon => addon.id === parseInt(extraId));
+      }
+
+      if (extraItem) {
+        const extraPrice = parseFloat(
+          extraItem.price_after_discount || 
+          extraItem.price_after_tax || 
+          extraItem.price || 
+          0
+        );
+        totalPrice += extraPrice * count;
+      }
+    });
+  }
+
+  return totalPrice * quantity;
+};
+
+// Updated ProductModal component with proper price calculation
 const ProductModal = ({
   isOpen,
   onClose,
@@ -18,18 +87,25 @@ const ProductModal = ({
   selectedExtras = [],
   selectedExcludes = [],
   quantity,
-  totalPrice,
   validationErrors = {},
   hasErrors = false,
   onVariationChange,
   onExtraChange,
-  onExtraDecrement, // Add this prop
+  onExtraDecrement,
   onExclusionChange,
   onQuantityChange,
   onAddFromModal,
   orderLoading,
 }) => {
   if (!selectedProduct) return null;
+
+  // ✅ Calculate total price dynamically
+  const totalPrice = calculateProductTotalPrice(
+    selectedProduct,
+    selectedVariation,
+    selectedExtras,
+    quantity
+  );
 
   const hasVariations =
     selectedProduct.variations && selectedProduct.variations.length > 0;
@@ -46,14 +122,23 @@ const ProductModal = ({
 
   // Helper function to handle extra increment
   const handleExtraIncrement = (extraId) => {
-    onExtraChange(extraId); // Add one more
+    onExtraChange(extraId);
   };
 
-  // FIXED: Helper function to handle extra decrement
+  // Helper function to handle extra decrement
   const handleExtraDecrement = (extraId) => {
     if (onExtraDecrement && getExtraCount(extraId) > 0) {
-      onExtraDecrement(extraId); // Use the proper decrement function from hook
+      onExtraDecrement(extraId);
     }
+  };
+
+  // ✅ Helper function to get variation option price display
+  const getVariationOptionDisplay = (option) => {
+    const price = parseFloat(option.price_after_tax || option.price || 0);
+    if (price === 0) {
+      return `${option.name}`;
+    }
+    return `${option.name} (+${price.toFixed(2)} EGP)`;
   };
 
   return (
@@ -116,8 +201,7 @@ const ProductModal = ({
                       )}
                       {variation.type === "multiple" && (
                         <span className="text-xs text-gray-500 ml-2">
-                          (Min: {variation.min || 0}, Max:
-                          {variation.max || "∞"})
+                          (Min: {variation.min || 0}, Max: {variation.max || "∞"})
                         </span>
                       )}
                     </h4>
@@ -133,7 +217,7 @@ const ProductModal = ({
                         {variation.options.map((option) => (
                           <label
                             key={option.id}
-                            className="flex items-center space-x-2"
+                            className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded"
                           >
                             <input
                               type="radio"
@@ -148,24 +232,20 @@ const ProductModal = ({
                               className="form-radio h-4 w-4 !text-red-600"
                             />
                             <span
-                              className={`text-sm capitalize ${
+                              className={`text-sm capitalize flex-1 ${
                                 selectedVariation[variation.id] === option.id
                                   ? "!text-red-600 font-semibold"
                                   : "!text-gray-700"
                               }`}
                             >
-                              {option.name} -{" "}
-                              {(option.price_after_tax ?? option.price).toFixed(
-                                2
-                              )}{" "}
-                              EGP
+                              {getVariationOptionDisplay(option)}
                             </span>
                           </label>
                         ))}
                       </div>
                     )}
 
-                    {/* Multi-select variations - now with counters */}
+                    {/* Multi-select variations - with counters */}
                     {variation.type === "multiple" && variation.options && (
                       <div className="space-y-3">
                         {variation.options.map((option) => {
@@ -192,10 +272,10 @@ const ProductModal = ({
                                   {option.name}
                                 </span>
                                 <div className="text-xs text-gray-500">
-                                  {(
-                                    option.price_after_tax ?? option.price
-                                  ).toFixed(2)}{" "}
-                                  EGP
+                                  {parseFloat(option.price_after_tax || option.price || 0) === 0 
+                                    ? "Free"
+                                    : `+${(option.price_after_tax || option.price).toFixed(2)} EGP`
+                                  }
                                 </div>
                               </div>
                               <div className="flex items-center space-x-2">
@@ -239,7 +319,7 @@ const ProductModal = ({
               </div>
             )}
 
-            {/* Extras section - now with counters */}
+            {/* Extras section - with counters */}
             {hasExtras && (
               <div className="mb-4">
                 <h4 className="text-sm font-semibold text-gray-700 mb-3">
@@ -260,7 +340,7 @@ const ProductModal = ({
                           </span>
                           <div className="text-xs text-gray-500">
                             {extra.price > 0
-                              ? `${(
+                              ? `+${(
                                   extra.price_after_discount ??
                                   extra.price ??
                                   0
@@ -293,7 +373,7 @@ const ProductModal = ({
               </div>
             )}
 
-            {/* Addons section - now with counters */}
+            {/* Addons section - with counters */}
             {hasAddons && (
               <div className="mb-4">
                 <h4 className="text-sm font-semibold text-gray-700 mb-3">
@@ -313,7 +393,7 @@ const ProductModal = ({
                             {addon.name}
                           </span>
                           <div className="text-xs text-gray-500">
-                            {(
+                            +{(
                               addon.price_after_discount ??
                               addon.price ??
                               0
@@ -378,7 +458,7 @@ const ProductModal = ({
               <div className="text-lg font-bold">
                 Total{" "}
                 <span className="text-red-600">
-                  {(totalPrice || 0).toFixed(2)} EGP
+                  {totalPrice.toFixed(2)} EGP
                 </span>
               </div>
               <div className="flex items-center space-x-3">
