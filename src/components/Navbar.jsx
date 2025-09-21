@@ -121,49 +121,71 @@ export default function Navbar() {
   };
 
   return (
-    <div className="bg-white text-gray-800 p-4 shadow-md flex items-center justify-between">
-      <ToastContainer position="top-right" autoClose={3000} hideProgressBar={false} newestOnTop={false} closeOnClick rtl={false} pauseOnFocusLoss draggable pauseOnHover />
-      {/* Back button, hidden on /shift page */}
-      {location.pathname !== "/shift" && location.pathname !== "/cashier" && (
-        <button
-          onClick={() => navigate(-1)}
-          className="font-bold px-3 py-1 rounded hover:bg-red-50 text-lg"
-        >
-          ←
-        </button>
-      )}
-
-      {/* Centered Title */}
-      <div className="flex-1 text-center">
-        <h1 className="text-xl font-bold text-[#910000]">Food2go</h1>
-      </div>
-
-      {/* Shift controls and timer */}
-      <div className="flex items-center space-x-4">
-{location.pathname !== "/shift" && location.pathname !== "/cashier" && (          <>
-            {/* Timer display */}
-            <div className="flex items-center space-x-2 text-sm font-medium text-gray-600">
-              <span className="text-gray-500">Shift Duration:</span>
-              <span className="text-gray-800 bg-gray-100 px-2 py-1 rounded-md">{formatElapsedTime()}</span>
-            </div>
-
-            {/* Close shift button */}
+<div className="bg-white text-gray-800 p-4 shadow-md">
+      <ToastContainer 
+        position="top-right" 
+        autoClose={3000} 
+        hideProgressBar={false} 
+        newestOnTop={false} 
+        closeOnClick 
+        rtl={false} 
+        pauseOnFocusLoss 
+        draggable 
+        pauseOnHover 
+      />
+      
+      {/* Main navbar content */}
+      <div className="relative flex items-center">
+        {/* Left Section - Back Button */}
+        <div className="absolute left-0 flex items-center">
+          {location.pathname !== "/shift" && location.pathname !== "/cashier" && (
             <button
-              onClick={handleCloseShift}
-              className="bg-bg-primary text-white px-4 py-2 rounded-md font-semibold hover:bg-red-700 transition duration-300"
+              onClick={() => navigate(-1)}
+              className="font-bold px-3 py-1 rounded hover:bg-red-50 text-2xl transition-colors duration-200"
+              title="Go back"
             >
-              Close Shift
+              ←
             </button>
-          </>
-        )}
+          )}
+        </div>
 
-        {/* Logout button */}
-        <button
-          onClick={handleLogout}
-          className="bg-gray-200 text-gray-800 px-4 py-2 rounded-md font-semibold hover:bg-gray-300 transition duration-300"
-        >
-          Logout
-        </button>
+        {/* Center Section - Title (Absolutely centered) */}
+        <div className="w-full flex justify-center">
+          <h1 className="text-xl font-bold text-[#910000]">Food2go</h1>
+        </div>
+
+        {/* Right Section - Shift controls and Logout */}
+        <div className="absolute right-0 flex items-center space-x-2 md:space-x-4">
+          {location.pathname !== "/shift" && location.pathname !== "/cashier" && (
+            <>
+              {/* Timer display */}
+              <div className="flex items-center space-x-1 md:space-x-2 text-xs md:text-sm font-medium text-gray-600">
+                <span className="text-gray-500 hidden lg:inline">Shift Duration:</span>
+                <span className="text-gray-800 bg-gray-100 px-1 md:px-2 py-1 rounded-md text-xs md:text-sm">
+                  {formatElapsedTime()}
+                </span>
+              </div>
+
+              {/* Close shift button - Desktop */}
+              <button
+                onClick={handleCloseShift}
+                className="bg-bg-primary text-white px-3 md:px-4 py-1 md:py-2 rounded-md text-sm md:text-base font-semibold hover:bg-red-700 transition duration-300 hidden sm:flex"
+              >
+                <span className="hidden md:inline">Close Shift</span>
+                <span className="md:hidden">Close</span>
+              </button>
+            </>
+          )}
+
+          {/* Logout button */}
+          <button
+            onClick={handleLogout}
+            className="bg-gray-200 text-gray-800 px-3 md:px-4 py-1 md:py-2 rounded-md text-sm md:text-base font-semibold hover:bg-gray-300 transition duration-300"
+          >
+            <span className="hidden sm:inline">Logout</span>
+            <span className="sm:hidden">Exit</span>
+          </button>
+        </div>
       </div>
     </div>
   );

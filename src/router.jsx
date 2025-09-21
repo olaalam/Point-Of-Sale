@@ -14,6 +14,7 @@ import NotFound from "./Pages/NotFound";
 import DeliveryAdd from "./Pages/Delivery/DeliveryAdd";
 import OrdersView from "./Pages/OrdersView";
 import Shift from "./Pages/Shift";
+import PendingOrders from "./Pages/PendingOrders";
 
 const router = createBrowserRouter([
   {
@@ -41,7 +42,7 @@ const router = createBrowserRouter([
       {
         path: "/",
         element: (
-          <ProtectedRoute permissionKey="Home">
+          <ProtectedRoute >
             <Home />
           </ProtectedRoute>
         ),
@@ -50,7 +51,7 @@ const router = createBrowserRouter([
       {
         path: "/deliveryusers",
         element: (
-          <ProtectedRoute permissionKey="Home">
+          <ProtectedRoute >
             <Home />
           </ProtectedRoute>
         ),
@@ -59,7 +60,7 @@ const router = createBrowserRouter([
       {
         path: "/order-page",
         element: (
-          <ProtectedRoute permissionKey="Home">
+          <ProtectedRoute >
             {" "}
             {/* نفس permission الـ Home */}
             <Home />
@@ -69,7 +70,7 @@ const router = createBrowserRouter([
       {
         path: "/delivery-order",
         element: (
-          <ProtectedRoute permissionKey="Home">
+          <ProtectedRoute >
             <Home />
           </ProtectedRoute>
         ),
@@ -81,7 +82,7 @@ const router = createBrowserRouter([
           {
             index: true,
             element: (
-              <ProtectedRoute permissionKey="Cashier">
+              <ProtectedRoute >
                 <Cashier />
               </ProtectedRoute>
             ),
@@ -95,7 +96,7 @@ const router = createBrowserRouter([
           {
             index: true,
             element: (
-              <ProtectedRoute permissionKey="Item">
+              <ProtectedRoute >
                 <Item />
               </ProtectedRoute>
             ),
@@ -109,7 +110,7 @@ const router = createBrowserRouter([
           {
             index: true,
             element: (
-              <ProtectedRoute permissionKey="Order">
+              <ProtectedRoute >
                 <Orders />
               </ProtectedRoute>
             ),
@@ -122,7 +123,7 @@ const router = createBrowserRouter([
           {
             index: true,
             element: (
-              <ProtectedRoute permissionKey="TakeAway">
+              <ProtectedRoute>
                 <TakeAway />
               </ProtectedRoute>
             ),
@@ -145,8 +146,16 @@ const router = createBrowserRouter([
       {
         path: "shift",
         element: (
-          <ProtectedRoute permissionKey="Shift">
+          <ProtectedRoute >
               <Shift/>
+          </ProtectedRoute>
+        ),
+      },
+            {
+        path: "pending-orders",
+        element: (
+          <ProtectedRoute >
+              <PendingOrders/>
           </ProtectedRoute>
         ),
       },

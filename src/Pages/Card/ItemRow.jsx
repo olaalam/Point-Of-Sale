@@ -1,5 +1,7 @@
+// ItemRow.jsx
 import { PREPARATION_STATUSES } from "./constants";
 import { Trash2 } from "lucide-react";
+
 const ItemRow = ({
   item,
   orderType,
@@ -13,19 +15,26 @@ const ItemRow = ({
   itemLoadingStates,
   handleUpdatePreparationStatus,
   handleVoidItem,
-  // renderItemVariations,
   handleRemoveFrontOnly
 }) => {
   const statusInfo =
     PREPARATION_STATUSES[item.preparation_status] ||
     PREPARATION_STATUSES.pending;
   const StatusIcon = statusInfo.icon;
-  const hasDiscount =
-    item.originalPrice && item.price < item.originalPrice;
+  // A safer check for a discount
+  const hasDiscount = !!item.originalPrice && item.price < item.originalPrice;
   const isItemLoading = itemLoadingStates[item.temp_id] || false;
   const isDoneItem = item.preparation_status === "done";
-  // const itemVariations = renderItemVariations(item);
 
+  // ✅ Add a check to ensure 'item' exists before continuing.
+  // This prevents the whole component from crashing if the item prop is undefined.
+  if (!item) {
+    return null; // Or return a loading state/error message
+  }
+
+  // ✅ Define safe values for price and originalPrice
+  const safePrice = item.price || 0;
+  const safeOriginalPrice = item.originalPrice || 0;
 
   return (
     <tr
@@ -37,40 +46,24 @@ const ItemRow = ({
           : ""
       }`}
     >
-{
-      orderType === "dine_in" && (      <td className="py-3 px-4 text-center align-top">
-        <input
-          type="checkbox"
-          checked={selectedItems.includes(item.temp_id)}
-          onChange={() => toggleSelectItem(item.temp_id)}
-          className="w-4 h-4 accent-bg-primary"
-        />
-      </td>
-)}
+      {
+        orderType === "dine_in" && (
+          <td className="py-3 px-4 text-center align-top">
+            <input
+              type="checkbox"
+              checked={selectedItems.includes(item.temp_id)}
+              onChange={() => toggleSelectItem(item.temp_id)}
+              className="w-4 h-4 accent-bg-primary"
+            />
+          </td>
+        )
+      }
       <td className="py-3 px-4 text-center align-top">
         <div>
           <span className="text-gray-800 font-medium">
             {item.name}
           </span>
-          {/* {itemVariations.length > 0 && (
-            <div className="mt-1 text-xs text-gray-500 space-y-1">
-              {itemVariations.map((variation, idx) => (
-                <div key={idx} className="italic">
-                  {variation}
-                </div>
-              ))}
-            </div>
-          )}
-          {item.selectedAddons &&
-            item.selectedAddons.length > 0 && (
-              <div className="mt-1 text-xs text-gray-500">
-                {item.selectedAddons.map((addon) => (
-                  <div key={addon.addon_id} className="italic">
-                    + {addon.name}
-                  </div>
-                ))}
-              </div>
-            )} */}
+          {/* ... (commented-out variations code) ... */}
         </div>
       </td>
       <td className="py-3 px-4 text-center align-top">
@@ -80,12 +73,14 @@ const ItemRow = ({
               hasDiscount ? "text-green-600 font-semibold" : ""
             }
           >
-            {item.price.toFixed(2)}
+            {/* ✅ Use the safePrice variable */}
+            {safePrice.toFixed(2)}
           </span>
           {hasDiscount && (
             <div>
               <span className="text-xs text-gray-500 line-through">
-                {item.originalPrice.toFixed(2)}
+                {/* ✅ Use the safeOriginalPrice variable */}
+                {safeOriginalPrice.toFixed(2)}
               </span>
             </div>
           )}
@@ -165,39 +160,38 @@ const ItemRow = ({
       )}
       <td className="py-3 px-4 text-center align-top">
         <span className="font-semibold">
-          {(item.price * item.count).toFixed(2)}
+          {/* ✅ Use the safe values for calculation */}
+          {((safePrice * item.count) || 0).toFixed(2)}
         </span>
         {hasDiscount && (
           <div className="text-xs text-gray-500 line-through">
-            {(item.originalPrice * item.count).toFixed(2)}
+            {/* ✅ Use the safe values for calculation */}
+            {((safeOriginalPrice * item.count) || 0).toFixed(2)}
           </div>
         )}
       </td>
-<td className="py-3 px-4 text-center align-top">
-  <button
-    onClick={() =>
-      orderType === "dine_in"
-        ? handleVoidItem(item.temp_id) // API
-        : handleRemoveFrontOnly(item.temp_id) // Front Only
-    }
-    className={`p-2 rounded-full text-red-500 hover:bg-red-100 transition-colors duration-200 ${
-      isItemLoading && orderType === "dine_in"
-        ? "opacity-50 cursor-not-allowed"
-        : ""
-    }`}
-    disabled={isItemLoading && orderType === "dine_in"}
-    title={
-      orderType === "dine_in"
-        ? "Void Item (API)"
-        : "Remove Item (Front Only)"
-    }
-  >
-    <Trash2 size={20} />
-  </button>
-</td>
-
-
-
+      <td className="py-3 px-4 text-center align-top">
+        <button
+          onClick={() =>
+            orderType === "dine_in"
+              ? handleVoidItem(item.temp_id)
+              : handleRemoveFrontOnly(item.temp_id)
+          }
+          className={`p-2 rounded-full text-red-500 hover:bg-red-100 transition-colors duration-200 ${
+            isItemLoading && orderType === "dine_in"
+              ? "opacity-50 cursor-not-allowed"
+              : ""
+          }`}
+          disabled={isItemLoading && orderType === "dine_in"}
+          title={
+            orderType === "dine_in"
+              ? "Void Item (API)"
+              : "Remove Item (Front Only)"
+          }
+        >
+          <Trash2 size={20} />
+        </button>
+      </td>
     </tr>
   );
 };

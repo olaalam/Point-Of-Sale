@@ -1,3 +1,4 @@
+// OrderPage.js
 import React, { useEffect, useState } from "react";
 import Card from "./Card/Card";
 import Item from "./Item";
@@ -17,10 +18,77 @@ export default function OrderPage({
   const [takeAwayItems, setTakeAwayItems] = useState(initialCart);
   const [isLoading, setIsLoading] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [pendingOrderLoaded, setPendingOrderLoaded] = useState(false); // ✅ New flag to prevent re-loading
+  
   const location = useLocation();
   const navigate = useNavigate();
 
-  // ✅ استخدم القيم التي تم تمريرها كـ props بشكل أساسي، وإذا لم تكن موجودة استخدم state أو localStorage
+  // ✅ Get the pending order data passed from the PendingOrders page
+  const pendingOrder = location.state?.pendingOrder;
+
+  // ✅ Use a function to set the initial state, checking for a pending order first
+  useEffect(() => {
+    if (pendingOrder && pendingOrder.orderDetails && !pendingOrderLoaded) {
+      console.log("Loading pending order from navigation state:", pendingOrder);
+
+      // ✅ Improved mapping with better data extraction
+      const mappedItems = pendingOrder.orderDetails.map((detail, index) => ({
+        id: detail.product_id || `pending_${index}`,
+        temp_id: `pending_${detail.product_id || index}_${Date.now()}`,
+        name: detail.product_name || "Unknown Product",
+        price: parseFloat(detail.price || 0),
+        originalPrice: parseFloat(detail.price || 0),
+        count: parseInt(detail.count || 1),
+        selectedVariation: detail.variation_name || null,
+        selectedExtras: Array.isArray(detail.addons) ? detail.addons : [],
+        selectedVariations: detail.variation_name ? [detail.variation_name] : [],
+        selectedExcludes: [],
+        preparation_status: "pending",
+        type: "main_item",
+        addons: Array.isArray(detail.addons) ? detail.addons.map((addon, addonIndex) => ({
+          id: `addon_${addonIndex}_${Date.now()}`,
+          name: addon.name || "Unknown Addon",
+          price: parseFloat(addon.price || 0),
+          originalPrice: parseFloat(addon.price || 0),
+          count: parseInt(addon.count || 1),
+          preparation_status: "pending"
+        })) : []
+      }));
+
+      setTakeAwayItems(mappedItems);
+      setPendingOrderLoaded(true); // ✅ Mark as loaded
+
+      // ✅ Store in localStorage as backup and to persist the data
+      localStorage.setItem("cart", JSON.stringify(mappedItems));
+      localStorage.setItem("order_type", "take_away");
+      
+      // ✅ Store pending order info for reference
+      localStorage.setItem("pending_order_info", JSON.stringify({
+        orderId: pendingOrder.orderId,
+        orderNumber: pendingOrder.orderNumber,
+        amount: pendingOrder.amount,
+        notes: pendingOrder.notes
+      }));
+
+      console.log("Pending order loaded successfully with", mappedItems.length, "items");
+
+    } else if (!pendingOrderLoaded && (propOrderType === "take_away" || (!propOrderType && localStorage.getItem("order_type") === "take_away"))) {
+      // If there's no pending order, load the take-away cart from localStorage as a fallback
+      const storedCartString = localStorage.getItem("cart");
+      if (storedCartString && storedCartString !== "undefined") {
+        try {
+          const storedCart = JSON.parse(storedCartString);
+          setTakeAwayItems(Array.isArray(storedCart) ? storedCart : []);
+          console.log("Loaded cart from localStorage:", storedCart);
+        } catch (error) {
+          console.error("Error parsing cart JSON from localStorage:", error);
+          setTakeAwayItems([]);
+        }
+      }
+    }
+  }, [pendingOrder, propOrderType, pendingOrderLoaded]);
+
+  // ✅ Use props as primary source, then state, then localStorage
   const currentOrderType = propOrderType || location.state?.orderType || localStorage.getItem("order_type") || "take_away";
   const currentTableId = propTableId || location.state?.tableId || localStorage.getItem("table_id") || null;
   const currentUserId = propUserId || location.state?.delivery_user_id || localStorage.getItem("delivery_user_id") || null;
@@ -28,6 +96,7 @@ export default function OrderPage({
   // ✅ Debugging logs
   console.log("OrderPage Component Props:", { propOrderType, propTableId, propUserId });
   console.log("OrderPage Component State/Props combined:", { currentOrderType, currentTableId, currentUserId });
+  console.log("Current takeaway items:", takeAwayItems);
 
   const isDineIn = currentOrderType === "dine_in" && !!currentTableId;
   const isDelivery = currentOrderType === "delivery" && !!currentUserId;
@@ -40,7 +109,7 @@ export default function OrderPage({
     isDelivery && currentUserId ? `cashier/delivery_order/${currentUserId}` : null
   );
 
-  // Function لـ refresh البيانات
+  // Function to refresh the data
   const refreshCartData = async () => {
     try {
       setIsLoading(true);
@@ -70,7 +139,6 @@ export default function OrderPage({
         }
       }
       
-      // Force re-render by updating refresh trigger
       setRefreshTrigger(prev => prev + 1);
       
       console.log("Cart data refreshed successfully");
@@ -102,24 +170,6 @@ export default function OrderPage({
       console.log("Fetched delivery order:", deliveryData.success);
     }
   }, [isDelivery, currentUserId, deliveryData]);
-
-  // ✅ Load take-away cart from localStorage
-  useEffect(() => {
-    if (currentOrderType === "take_away") {
-      const storedCartString = localStorage.getItem("cart");
-      if (storedCartString && storedCartString !== "undefined") {
-        try {
-          const storedCart = JSON.parse(storedCartString);
-          setTakeAwayItems(Array.isArray(storedCart) ? storedCart : []);
-        } catch (error) {
-          console.error("Error parsing cart JSON:", error);
-          setTakeAwayItems([]);
-        }
-      } else {
-        setTakeAwayItems([]);
-      }
-    }
-  }, [currentOrderType]);
 
   // ✅ Listen to localStorage changes
   useEffect(() => {
@@ -183,14 +233,12 @@ export default function OrderPage({
     let updatedItems = [...safeCurrentItems];
 
     if (existingItemIndex !== -1) {
-      // لو العنصر موجود، زوّد الكمية وأضف الـ addons
       updatedItems[existingItemIndex] = {
         ...updatedItems[existingItemIndex],
         count: updatedItems[existingItemIndex].count + product.count,
         addons: [...updatedItems[existingItemIndex].addons, ...product.addons],
       };
     } else {
-      // لو العنصر جديد، أضفه
       updatedItems.push({
         ...product,
         count: product.count || 1,
@@ -202,12 +250,17 @@ export default function OrderPage({
   };
 
   const handleClose = () => {
-    // حذف البيانات من localStorage لإلغاء اختيار العميل
+    // Delete data from localStorage to unselect the customer
     localStorage.removeItem("selected_user_id");
     localStorage.removeItem("selected_address_id");
     localStorage.removeItem("order_type");
     localStorage.removeItem("table_id");
     localStorage.removeItem("delivery_user_id");
+    localStorage.removeItem("cart"); // Clear the cart when closing the order page
+    localStorage.removeItem("pending_order_info"); // ✅ Clear pending order info
+    
+    // ✅ Reset the pending order loaded flag
+    setPendingOrderLoaded(false);
 
     navigate("/");
   };

@@ -37,7 +37,13 @@ export default function Card({
   const [managerId, setManagerId] = useState("");
   const [managerPassword, setManagerPassword] = useState("");
   const [showClearAllConfirm, setShowClearAllConfirm] = useState(false);
-  const { data } = useGet(`cashier/dine_in_table_order/${tableId}`);
+  
+  // ✅ Only fetch dine-in data if orderType is actually dine_in
+  const { data } = useGet(
+    orderType === "dine_in" && tableId 
+      ? `cashier/dine_in_table_order/${tableId}` 
+      : null
+  );
   const { loading: apiLoading, error: apiError, postData } = usePost();
   const navigate = useNavigate();
 
@@ -48,7 +54,8 @@ export default function Card({
   const isLoading = apiLoading;
 
   useEffect(() => {
-    if (data && Array.isArray(data.success)) {
+    // ✅ Only process backend data for dine_in orders
+    if (orderType === "dine_in" && data && Array.isArray(data.success)) {
       const mappedItems = data.success.map((item) => {
         const baseItem = {
           id: item.id,
@@ -87,7 +94,7 @@ export default function Card({
       console.log("Mapped items with temp_ids:", mappedItems);
       updateOrderItems(mappedItems);
     }
-  }, [data]);
+  }, [data, orderType, updateOrderItems]);
 
   const setItemLoading = (itemTempId, isLoading) => {
     setItemLoadingStates((prev) => ({
@@ -529,9 +536,13 @@ export default function Card({
   const cancelClearAllItems = () => {
     setShowClearAllConfirm(false);
   };
+
 const handleViewOrders = () => {
  
   navigate("/orders");
+};
+const handleViewPendingOrders = () => {
+  navigate("/pending-orders");
 };
   return (
     <div className="flex flex-col h-full">
@@ -548,6 +559,12 @@ const handleViewOrders = () => {
           >
             Clear All Items ({orderItems?.length || 0})
           </Button>
+                                          <Button
+                  onClick={handleViewPendingOrders}
+      className="bg-gray-500 !text-white hover:bg-gray-600 text-sm px-8 py-3"            
+                >
+                  Pending Orders  
+                </Button>
         </div>
 
         {/* Bulk Actions for Dine In */}
@@ -633,6 +650,7 @@ const handleViewOrders = () => {
                 >
                   Clear All Items
                 </Button>
+
               </div>
             </div>
           </div>
@@ -771,14 +789,13 @@ const handleViewOrders = () => {
 
         {/* Checkout Button */}
         <div className="flex justify-center gap-4">
-
-             <Button
-      onClick={handleViewOrders}
-      className="bg-gray-500 text-white hover:bg-gray-600 text-lg px-8 py-3"
-      disabled={isLoading}
-    >
-      View Orders
-    </Button>
+          <Button
+            onClick={handleViewOrders}
+            className="bg-gray-500 text-white hover:bg-gray-600 text-lg px-8 py-3"
+            disabled={isLoading}
+          >
+            View Orders
+          </Button>
           <Button
             onClick={handleCheckOut}
             className="bg-bg-primary text-white hover:bg-red-700 text-lg px-8 py-3"
