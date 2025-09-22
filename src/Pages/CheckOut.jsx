@@ -25,6 +25,7 @@ const CheckOut = ({
   source = "web",
   totalDineInItems,
   orderType,
+  onClearCart, // ✅ تم إضافة prop الجديد
 }) => {
   const branch_id = localStorage.getItem("branch_id");
   const cashierId = localStorage.getItem("cashier_id");
@@ -272,7 +273,6 @@ const CheckOut = ({
       financials: paymentSplits.map((s) => ({
         id: s.accountId.toString(),
         amount: s.amount.toString(),
-      
       })),
       order_pending: isPendingOrder ? 1 : 0, // ✅ Use the toggle state
       cashier_id: cashierId.toString(),
@@ -315,12 +315,17 @@ const CheckOut = ({
       });
 
       console.log("Order Submission Response:", response);
-      
+
       // ✅ Different success messages
       if (isPendingOrder) {
         toast.success("Order saved as pending!");
       } else {
         toast.success("Order placed successfully!");
+      }
+
+      // ✅ استدعاء دالة المسح فقط إذا كان نوع الطلب 'take_away'
+      if (orderType === "take_away") {
+        onClearCart();
       }
 
       localStorage.setItem("last_order_type", orderType);
@@ -462,46 +467,61 @@ const CheckOut = ({
           </h2>
 
           {/* ✅ Pending Order Toggle */}
-          <div className="mb-6 p-4 bg-gray-50 rounded-lg border">
-            <div className="flex items-center justify-between">
-              <div>
-                <h3 className="font-medium text-gray-900">Order Status</h3>
-                <p className="text-sm text-gray-600">
-                  {isPendingOrder 
-                    ? "Order will be saved as pending (no payment required)" 
-                    : "Order will be processed immediately with payment"}
-                </p>
-              </div>
-              <div className="flex items-center space-x-3">
-                <span className={`text-sm ${!isPendingOrder ? 'font-semibold text-green-600' : 'text-gray-500'}`}>
-                  Complete
-                </span>
-                <button
-                  onClick={() => setIsPendingOrder(!isPendingOrder)}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
-                    isPendingOrder ? 'bg-orange-500' : 'bg-green-500'
-                  }`}
-                >
+          {orderType == "take_away" && (
+            <div className="mb-6 p-4 bg-gray-50 rounded-lg border">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="font-medium text-gray-900">Order Status</h3>
+                  <p className="text-sm text-gray-600">
+                    {isPendingOrder
+                      ? "Order will be saved as pending (no payment required)"
+                      : "Order will be processed immediately with payment"}
+                  </p>
+                </div>
+                <div className="flex items-center space-x-3">
                   <span
-                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                      isPendingOrder ? 'translate-x-6' : 'translate-x-1'
+                    className={`text-sm ${
+                      !isPendingOrder
+                        ? "font-semibold text-green-600"
+                        : "text-gray-500"
                     }`}
-                  />
-                </button>
-                <span className={`text-sm ${isPendingOrder ? 'font-semibold text-orange-600' : 'text-gray-500'}`}>
-                  Pending
-                </span>
+                  >
+                    Complete
+                  </span>
+                  <button
+                    onClick={() => setIsPendingOrder(!isPendingOrder)}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 ${
+                      isPendingOrder ? "bg-orange-500" : "bg-green-500"
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        isPendingOrder ? "translate-x-6" : "translate-x-1"
+                      }`}
+                    />
+                  </button>
+                  <span
+                    className={`text-sm ${
+                      isPendingOrder
+                        ? "font-semibold text-orange-600"
+                        : "text-gray-500"
+                    }`}
+                  >
+                    Pending
+                  </span>
+                </div>
               </div>
+              {isPendingOrder && (
+                <div className="mt-3 p-3 bg-orange-50 border border-orange-200 rounded-md">
+                  <p className="text-sm text-orange-800">
+                    <strong>Note:</strong> This order will be saved as pending
+                    and can be processed later from the Pending Orders page. No
+                    payment is required at this time.
+                  </p>
+                </div>
+              )}
             </div>
-            {isPendingOrder && (
-              <div className="mt-3 p-3 bg-orange-50 border border-orange-200 rounded-md">
-                <p className="text-sm text-orange-800">
-                  <strong>Note:</strong> This order will be saved as pending and can be processed later 
-                  from the Pending Orders page. No payment is required at this time.
-                </p>
-              </div>
-            )}
-          </div>
+          )}
 
           {/* Payment Details - Only show if not pending */}
           {!isPendingOrder && (
@@ -559,7 +579,9 @@ const CheckOut = ({
                     <div className="w-40">
                       <Select
                         value={String(split.accountId)}
-                        onValueChange={(val) => handleAccountChange(split.id, val)}
+                        onValueChange={(val) =>
+                          handleAccountChange(split.id, val)
+                        }
                       >
                         <SelectTrigger>
                           <SelectValue>
@@ -617,7 +639,9 @@ const CheckOut = ({
                   >
                     {isTotalMet
                       ? "Total matches required amount."
-                      : `Sum Must Equal ${requiredTotal.toFixed(2)} EGP To Proceed`}
+                      : `Sum Must Equal ${requiredTotal.toFixed(
+                          2
+                        )} EGP To Proceed`}
                   </p>
                 </div>
               </div>
@@ -659,11 +683,18 @@ const CheckOut = ({
           {/* Order Summary for Pending */}
           {isPendingOrder && (
             <div className="mb-6 bg-orange-50 p-4 rounded-lg">
-              <h3 className="font-semibold text-orange-800 mb-2">Order Summary:</h3>
+              <h3 className="font-semibold text-orange-800 mb-2">
+                Order Summary:
+              </h3>
               <div className="space-y-1">
                 {orderItems.map((item) => (
-                  <div key={item.temp_id} className="flex justify-between text-sm">
-                    <span>{item.name} (x{item.count})</span>
+                  <div
+                    key={item.temp_id}
+                    className="flex justify-between text-sm"
+                  >
+                    <span>
+                      {item.name} (x{item.count})
+                    </span>
                     <span>{(item.price * item.count).toFixed(2)} EGP</span>
                   </div>
                 ))}
@@ -679,19 +710,18 @@ const CheckOut = ({
 
           <Button
             className={`w-full mt-6 text-white ${
-              isPendingOrder 
-                ? 'bg-orange-600 hover:bg-orange-700' 
-                : 'bg-red-600 hover:bg-red-700'
+              isPendingOrder
+                ? "bg-orange-600 hover:bg-orange-700"
+                : "bg-red-600 hover:bg-red-700"
             }`}
             disabled={(!isPendingOrder && !isTotalMet) || loading}
             onClick={handleSubmitOrder}
           >
-            {loading 
-              ? "Processing..." 
-              : isPendingOrder 
-                ? "Save as Pending Order" 
-                : "Confirm & Pay"
-            }
+            {loading
+              ? "Processing..."
+              : isPendingOrder
+              ? "Save as Pending Order"
+              : "Confirm & Pay"}
           </Button>
 
           <ToastContainer />

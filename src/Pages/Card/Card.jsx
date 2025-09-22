@@ -110,6 +110,15 @@ export default function Card({
     const lowestStatusIndex = Math.min(...selectedItemStatuses.map(status => statusOrder.indexOf(status)));
     return statusOrder[lowestStatusIndex];
   }, [selectedItems, orderItems]);
+  
+  // دالة جديدة لمسح العربة
+  const clearCart = () => {
+    updateOrderItems([]);
+    localStorage.removeItem("cart"); // مسح البيانات من localStorage
+    setSelectedItems([]);
+    setSelectedPaymentItems([]);
+    toast.success("تم مسح الطلبات بنجاح.");
+  };
 
   // Handler functions
   const handleTransferOrder = () => {
@@ -279,11 +288,7 @@ export default function Card({
   };
 
   const confirmClearAllItems = () => {
-    updateOrderItems([]);
-    localStorage.setItem("cart", JSON.stringify([]));
-    setSelectedItems([]);
-    setSelectedPaymentItems([]);
-    toast.success(`All ${orderItems.length} items cleared successfully.`);
+    clearCart();
     setShowClearAllConfirm(false);
   };
 
@@ -298,12 +303,11 @@ export default function Card({
           <Button onClick={handleClearAllItems} className="bg-red-600 text-white hover:bg-red-700 text-sm flex items-center gap-1" disabled={isLoading || orderItems.length === 0}>
             Clear All Items ({orderItems.length || 0})
           </Button>
-{
-          orderType === "take_away" && (
-            <Button onClick={handleViewPendingOrders} className="bg-gray-500 !text-white hover:bg-gray-600 text-sm px-8 py-3">
-              Pending Orders
-          </Button>)}
-
+          {
+            orderType === "take_away" && (
+              <Button onClick={handleViewPendingOrders} className="bg-gray-500 !text-white hover:bg-gray-600 text-sm px-8 py-3">
+                Pending Orders
+              </Button>)}
         </div>
         {orderType === "dine_in" && (
           <div className="flex items-center justify-start mb-4 gap-4 flex-wrap p-4 bg-white rounded-lg shadow-md">
@@ -451,6 +455,7 @@ export default function Card({
           source="web"
           orderType={orderType}
           tableId={tableId}
+          onClearCart={clearCart} // <-- تمرير الدالة هنا
         />
       )}
       <ToastContainer />
