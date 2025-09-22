@@ -1,4 +1,3 @@
-// OrderPage.js
 import React, { useEffect, useState } from "react";
 import Card from "./Card/Card";
 import Item from "./Item";
@@ -18,20 +17,32 @@ export default function OrderPage({
   const [takeAwayItems, setTakeAwayItems] = useState(initialCart);
   const [isLoading, setIsLoading] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
-  const [pendingOrderLoaded, setPendingOrderLoaded] = useState(false); // ✅ New flag to prevent re-loading
-  
+  const [pendingOrderLoaded, setPendingOrderLoaded] = useState(false);
+
   const location = useLocation();
   const navigate = useNavigate();
-
-  // ✅ Get the pending order data passed from the PendingOrders page
   const pendingOrder = location.state?.pendingOrder;
 
-  // ✅ Use a function to set the initial state, checking for a pending order first
+  // ✅ CORRECT: Define these variables at the top
+  const currentOrderType = propOrderType || location.state?.orderType || localStorage.getItem("order_type") || "take_away";
+  const currentTableId = propTableId || location.state?.tableId || localStorage.getItem("table_id") || null;
+  const currentUserId = propUserId || location.state?.delivery_user_id || localStorage.getItem("delivery_user_id") || null;
+
+  const isDineIn = currentOrderType === "dine_in" && !!currentTableId;
+  const isDelivery = currentOrderType === "delivery" && !!currentUserId;
+
+  const { data: dineInData, loading: dineInLoading, refetch: refetchDineIn } = useGet(
+    isDineIn && currentTableId ? `cashier/dine_in_table_order/${currentTableId}` : null
+  );
+
+  const { data: deliveryData, loading: deliveryLoading, refetch: refetchDelivery } = useGet(
+    isDelivery && currentUserId ? `cashier/delivery_order/${currentUserId}` : null
+  );
+
+  // ✅ IMPROVED: This useEffect handles the initial loading of data only once.
   useEffect(() => {
     if (pendingOrder && pendingOrder.orderDetails && !pendingOrderLoaded) {
       console.log("Loading pending order from navigation state:", pendingOrder);
-
-      // ✅ Improved mapping with better data extraction
       const mappedItems = pendingOrder.orderDetails.map((detail, index) => ({
         id: detail.product_id || `pending_${index}`,
         temp_id: `pending_${detail.product_id || index}_${Date.now()}`,
@@ -54,79 +65,88 @@ export default function OrderPage({
           preparation_status: "pending"
         })) : []
       }));
-
       setTakeAwayItems(mappedItems);
-      setPendingOrderLoaded(true); // ✅ Mark as loaded
-
-      // ✅ Store in localStorage as backup and to persist the data
+      setPendingOrderLoaded(true);
       localStorage.setItem("cart", JSON.stringify(mappedItems));
       localStorage.setItem("order_type", "take_away");
-      
-      // ✅ Store pending order info for reference
       localStorage.setItem("pending_order_info", JSON.stringify({
         orderId: pendingOrder.orderId,
         orderNumber: pendingOrder.orderNumber,
         amount: pendingOrder.amount,
         notes: pendingOrder.notes
       }));
-
-      console.log("Pending order loaded successfully with", mappedItems.length, "items");
-
-    } else if (!pendingOrderLoaded && (propOrderType === "take_away" || (!propOrderType && localStorage.getItem("order_type") === "take_away"))) {
-      // If there's no pending order, load the take-away cart from localStorage as a fallback
+    } else if (!pendingOrderLoaded && currentOrderType === "take_away") {
       const storedCartString = localStorage.getItem("cart");
       if (storedCartString && storedCartString !== "undefined") {
         try {
           const storedCart = JSON.parse(storedCartString);
           setTakeAwayItems(Array.isArray(storedCart) ? storedCart : []);
-          console.log("Loaded cart from localStorage:", storedCart);
         } catch (error) {
           console.error("Error parsing cart JSON from localStorage:", error);
           setTakeAwayItems([]);
         }
       }
     }
-  }, [pendingOrder, propOrderType, pendingOrderLoaded]);
+  }, [pendingOrder, pendingOrderLoaded, currentOrderType]);
+const clearOrderData = () => {
+  console.log("Clearing order data...");
+  
+  if (currentOrderType === "take_away") {
+    setTakeAwayItems([]);
+    localStorage.removeItem("cart");
+    localStorage.removeItem("pending_order_info");
+  } else if (currentOrderType === "dine_in" && currentTableId) {
+    // للـ dine_in، مسح البيانات المحلية
+    setOrdersByTable((prev) => ({
+      ...prev,
+      [currentTableId]: [],
+    }));
+    // يمكن إضافة refresh من الـ API إذا لزم الأمر
+  } else if (currentOrderType === "delivery" && currentUserId) {
+    setOrdersByUser((prev) => ({
+      ...prev,
+      [currentUserId]: [],
+    }));
+    localStorage.removeItem("selected_user_id");
+    localStorage.removeItem("selected_address_id");
+  }
+};
+  // ✅ Separate useEffect for handling dine-in API data.
+  useEffect(() => {
+    if (isDineIn && currentTableId && dineInData?.success) {
+      setOrdersByTable((prev) => ({
+        ...prev,
+        [currentTableId]: Array.isArray(dineInData.success) ? dineInData.success : [],
+      }));
+      console.log("Fetched dine-in order:", dineInData.success);
+    }
+  }, [isDineIn, currentTableId, dineInData]);
 
-  // ✅ Use props as primary source, then state, then localStorage
-  const currentOrderType = propOrderType || location.state?.orderType || localStorage.getItem("order_type") || "take_away";
-  const currentTableId = propTableId || location.state?.tableId || localStorage.getItem("table_id") || null;
-  const currentUserId = propUserId || location.state?.delivery_user_id || localStorage.getItem("delivery_user_id") || null;
+  // ✅ Separate useEffect for handling delivery API data.
+  useEffect(() => {
+    if (isDelivery && currentUserId && deliveryData?.success) {
+      setOrdersByUser((prev) => ({
+        ...prev,
+        [currentUserId]: Array.isArray(deliveryData.success) ? deliveryData.success : [],
+      }));
+      console.log("Fetched delivery order:", deliveryData.success);
+    }
+  }, [isDelivery, currentUserId, deliveryData]);
 
-  // ✅ Debugging logs
-  console.log("OrderPage Component Props:", { propOrderType, propTableId, propUserId });
-  console.log("OrderPage Component State/Props combined:", { currentOrderType, currentTableId, currentUserId });
-  console.log("Current takeaway items:", takeAwayItems);
-
-  const isDineIn = currentOrderType === "dine_in" && !!currentTableId;
-  const isDelivery = currentOrderType === "delivery" && !!currentUserId;
-
-  const { data: dineInData, loading: dineInLoading, refetch: refetchDineIn } = useGet(
-    isDineIn && currentTableId ? `cashier/dine_in_table_order/${currentTableId}` : null
-  );
-
-  const { data: deliveryData, loading: deliveryLoading, refetch: refetchDelivery } = useGet(
-    isDelivery && currentUserId ? `cashier/delivery_order/${currentUserId}` : null
-  );
-
-  // Function to refresh the data
   const refreshCartData = async () => {
     try {
       setIsLoading(true);
       console.log("Refreshing cart data...");
       
       if (isDineIn && currentTableId) {
-        console.log("Refetching dine-in data for table:", currentTableId);
         if (refetchDineIn) {
           await refetchDineIn();
         }
       } else if (isDelivery && currentUserId) {
-        console.log("Refetching delivery data for user:", currentUserId);
         if (refetchDelivery) {
           await refetchDelivery();
         }
       } else if (currentOrderType === "take_away") {
-        console.log("Refreshing take-away cart from localStorage");
         const storedCartString = localStorage.getItem("cart");
         if (storedCartString && storedCartString !== "undefined") {
           try {
@@ -148,51 +168,6 @@ export default function OrderPage({
       setIsLoading(false);
     }
   };
-
-  // ✅ Fetch dine-in order from API response
-  useEffect(() => {
-    if (isDineIn && currentTableId && dineInData?.success) {
-      setOrdersByTable((prev) => ({
-        ...prev,
-        [currentTableId]: Array.isArray(dineInData.success) ? dineInData.success : [],
-      }));
-      console.log("Fetched dine-in order:", dineInData.success);
-    }
-  }, [isDineIn, currentTableId, dineInData]);
-
-  // ✅ Fetch delivery order from API response
-  useEffect(() => {
-    if (isDelivery && currentUserId && deliveryData?.success) {
-      setOrdersByUser((prev) => ({
-        ...prev,
-        [currentUserId]: Array.isArray(deliveryData.success) ? deliveryData.success : [],
-      }));
-      console.log("Fetched delivery order:", deliveryData.success);
-    }
-  }, [isDelivery, currentUserId, deliveryData]);
-
-  // ✅ Listen to localStorage changes
-  useEffect(() => {
-    const handleStorageChange = () => {
-      if (currentOrderType === "take_away") {
-        const updatedCartString = localStorage.getItem("cart");
-        if (updatedCartString) {
-          try {
-            const updatedCart = JSON.parse(updatedCartString);
-            setTakeAwayItems(Array.isArray(updatedCart) ? updatedCart : []);
-          } catch (error) {
-            console.error("Error parsing updated cart JSON:", error);
-            setTakeAwayItems([]);
-          }
-        } else {
-          setTakeAwayItems([]);
-        }
-      }
-    };
-
-    window.addEventListener("storage", handleStorageChange);
-    return () => window.removeEventListener("storage", handleStorageChange);
-  }, [currentOrderType]);
 
   const currentOrderItems = isDineIn
     ? Array.isArray(ordersByTable[currentTableId]) ? ordersByTable[currentTableId] : []
@@ -245,23 +220,19 @@ export default function OrderPage({
         preparation_status: product.preparation_status || "pending",
       });
     }
-
     updateOrderItems(updatedItems);
   };
 
   const handleClose = () => {
-    // Delete data from localStorage to unselect the customer
     localStorage.removeItem("selected_user_id");
     localStorage.removeItem("selected_address_id");
     localStorage.removeItem("order_type");
     localStorage.removeItem("table_id");
     localStorage.removeItem("delivery_user_id");
-    localStorage.removeItem("cart"); // Clear the cart when closing the order page
-    localStorage.removeItem("pending_order_info"); // ✅ Clear pending order info
+    localStorage.removeItem("cart");
+    localStorage.removeItem("pending_order_info");
     
-    // ✅ Reset the pending order loaded flag
     setPendingOrderLoaded(false);
-
     navigate("/");
   };
 
@@ -274,12 +245,12 @@ export default function OrderPage({
           updateOrderItems={updateOrderItems}
           allowQuantityEdit={allowQuantityEdit}
           orderType={currentOrderType}
+           clearOrderData={clearOrderData}
           tableId={currentTableId}
           userId={currentUserId}
           isLoading={dineInLoading || deliveryLoading || isLoading}
         />
       </div>
-
       <div className="w-full lg:w-1/2 mt-4 lg:mt-0">
         <Item 
           onAddToOrder={handleAddItem} 
