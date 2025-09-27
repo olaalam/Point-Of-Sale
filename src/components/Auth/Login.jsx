@@ -1,10 +1,21 @@
-
 import axios from "axios";
+import { requestFCMPermission } from "@/firebase";
 
-export const loginAuth = async (emailOrUsername, password) => {
-  const response = await axios.post("https://bcknd.sea-go.org/api/admin/login", {
-    email: emailOrUsername,
-    password,
-  });
-  return response.data;
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
+export const loginAuth = async (user_name, password) => {
+  try {
+    const fcmToken = await requestFCMPermission();
+
+    const response = await axios.post(`${API_BASE_URL}api/cashier/auth/login`, {
+      user_name,
+      password,
+      fcm_token: fcmToken || null,
+    });
+
+    return { data: response.data, fcmToken };
+  } catch (error) {
+    console.error("Login error:", error);
+    throw error;
+  }
 };

@@ -3,47 +3,62 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import logo from "@/assets/Food2go Icon Vector Container.png";
 import Loading from "./Loading";
-import { usePost } from "@/Hooks/usePost";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { useNavigate } from "react-router-dom";
+import axios from "axios";
+import { loginAuth } from "./Auth/Login";
+import { requestFCMPermission } from "@/firebase";
 
 export default function LoginPage() {
   const [user_name, setUserName] = useState("");
   const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const { postData, loading } = usePost();
+const handleLogin = async () => {
+  console.log("Login clicked");
+  if (!user_name || !password) {
+    toast.error("Please fill in all fields");
+    return;
+  }
 
-  const handleLogin = async () => {
-    if (!user_name || !password) {
-      toast.error("Please fill in all fields");
+  try {
+    const fcmToken = await requestFCMPermission();
+    console.log("🔥 FCM Token before login:", fcmToken);
+
+    if (!fcmToken) {
+      toast.error("FCM Token not generated! Please allow notifications.");
       return;
     }
 
-    try {
-      const res = await postData("api/cashier/auth/login", { user_name, password });
+    const url = `${import.meta.env.VITE_API_BASE_URL}api/cashier/auth/login`;
+    const res = await axios.post(url, null, {
+      params: {
+        user_name,
+        password,
+        fcm_token: fcmToken,
+      },
+    });
 
-      toast.success("Logged in successfully");
-      console.log("Login Response:", res);
+    console.log("Login Response:", res.data);
+    toast.success("Logged in successfully");
 
-      localStorage.setItem("token", res.token);
-      localStorage.setItem("user", JSON.stringify(res.cashier));
-      localStorage.setItem("branch_id", res.cashier.branch_id);
+    localStorage.setItem("token", res.data.token);
+    localStorage.setItem("user", JSON.stringify(res.data.cashier));
+    localStorage.setItem("branch_id", res.data.cashier.branch_id);
 
-      // Check if cashier_id exists in localStorage
-      const cashierId = localStorage.getItem("cashier_id");
+    navigate("/cashier");
+  } catch (err) {
+    console.error("Error:", err);
+    const errorMessage =
+      err?.response?.data?.faield ||
+      err?.response?.data?.message ||
+      "An error occurred";
+    toast.error(errorMessage);
+  }
+};
 
-      // Navigate based on the check
-      if (cashierId) {
-       navigate("/shift?action=open");
-      } else {
-        navigate("/cashier");
-      }
-    } catch (err) {
-    const errorMessage = err?.response?.data?.faield || err?.response?.data?.message || "An error occurred";
-      toast.error(errorMessage);}
-  };
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 min-h-screen">
@@ -54,7 +69,13 @@ export default function LoginPage() {
             <h2 className="text-xl font-semibold">Log in to Food2go </h2>
             <p className="text-sm text-gray-500">Welcome back</p>
           </div>
-          <form className="space-y-4" onSubmit={(e) => e.preventDefault()}>
+          <form
+            className="space-y-4"
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleLogin();
+            }}
+          >
             <Input
               type="text"
               placeholder="Username"
@@ -71,7 +92,6 @@ export default function LoginPage() {
               disabled={loading}
               type="submit"
               className="w-full bg-[#910000] hover:bg-[#750000]"
-              onClick={handleLogin}
             >
               {loading ? <Loading /> : "Login"}
             </Button>
