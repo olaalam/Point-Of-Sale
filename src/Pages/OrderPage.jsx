@@ -17,17 +17,16 @@ export default function OrderPage({
   const [takeAwayItems, setTakeAwayItems] = useState(initialCart);
   const [isLoading, setIsLoading] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [pendingOrderLoaded, setPendingOrderLoaded] = useState(false);
+
   const location = useLocation();
   const navigate = useNavigate();
+  const pendingOrder = location.state?.pendingOrder;
 
-  // ✅ استخدم القيم التي تم تمريرها كـ props بشكل أساسي، وإذا لم تكن موجودة استخدم state أو localStorage
+  // ✅ CORRECT: Define these variables at the top
   const currentOrderType = propOrderType || location.state?.orderType || localStorage.getItem("order_type") || "take_away";
   const currentTableId = propTableId || location.state?.tableId || localStorage.getItem("table_id") || null;
   const currentUserId = propUserId || location.state?.delivery_user_id || localStorage.getItem("delivery_user_id") || null;
-
-  // ✅ Debugging logs
-  console.log("OrderPage Component Props:", { propOrderType, propTableId, propUserId });
-  console.log("OrderPage Component State/Props combined:", { currentOrderType, currentTableId, currentUserId });
 
   const isDineIn = currentOrderType === "dine_in" && !!currentTableId;
   const isDelivery = currentOrderType === "delivery" && !!currentUserId;
@@ -40,24 +39,114 @@ export default function OrderPage({
     isDelivery && currentUserId ? `cashier/delivery_order/${currentUserId}` : null
   );
 
-  // Function لـ refresh البيانات
+  // ✅ IMPROVED: This useEffect handles the initial loading of data only once.
+  useEffect(() => {
+    if (pendingOrder && pendingOrder.orderDetails && !pendingOrderLoaded) {
+      console.log("Loading pending order from navigation state:", pendingOrder);
+      const mappedItems = pendingOrder.orderDetails.map((detail, index) => ({
+        id: detail.product_id || `pending_${index}`,
+        temp_id: `pending_${detail.product_id || index}_${Date.now()}`,
+        name: detail.product_name || "Unknown Product",
+        price: parseFloat(detail.price || 0),
+        originalPrice: parseFloat(detail.price || 0),
+        count: parseInt(detail.count || 1),
+        selectedVariation: detail.variation_name || null,
+        selectedExtras: Array.isArray(detail.addons) ? detail.addons : [],
+        selectedVariations: detail.variation_name ? [detail.variation_name] : [],
+        selectedExcludes: [],
+        preparation_status: "pending",
+        type: "main_item",
+        addons: Array.isArray(detail.addons) ? detail.addons.map((addon, addonIndex) => ({
+          id: `addon_${addonIndex}_${Date.now()}`,
+          name: addon.name || "Unknown Addon",
+          price: parseFloat(addon.price || 0),
+          originalPrice: parseFloat(addon.price || 0),
+          count: parseInt(addon.count || 1),
+          preparation_status: "pending"
+        })) : []
+      }));
+      setTakeAwayItems(mappedItems);
+      setPendingOrderLoaded(true);
+      localStorage.setItem("cart", JSON.stringify(mappedItems));
+      localStorage.setItem("order_type", "take_away");
+      localStorage.setItem("pending_order_info", JSON.stringify({
+        orderId: pendingOrder.orderId,
+        orderNumber: pendingOrder.orderNumber,
+        amount: pendingOrder.amount,
+        notes: pendingOrder.notes
+      }));
+    } else if (!pendingOrderLoaded && currentOrderType === "take_away") {
+      const storedCartString = localStorage.getItem("cart");
+      if (storedCartString && storedCartString !== "undefined") {
+        try {
+          const storedCart = JSON.parse(storedCartString);
+          setTakeAwayItems(Array.isArray(storedCart) ? storedCart : []);
+        } catch (error) {
+          console.error("Error parsing cart JSON from localStorage:", error);
+          setTakeAwayItems([]);
+        }
+      }
+    }
+  }, [pendingOrder, pendingOrderLoaded, currentOrderType]);
+const clearOrderData = () => {
+  console.log("Clearing order data...");
+  
+  if (currentOrderType === "take_away") {
+    setTakeAwayItems([]);
+    localStorage.removeItem("cart");
+    localStorage.removeItem("pending_order_info");
+  } else if (currentOrderType === "dine_in" && currentTableId) {
+    // للـ dine_in، مسح البيانات المحلية
+    setOrdersByTable((prev) => ({
+      ...prev,
+      [currentTableId]: [],
+    }));
+    // يمكن إضافة refresh من الـ API إذا لزم الأمر
+  } else if (currentOrderType === "delivery" && currentUserId) {
+    setOrdersByUser((prev) => ({
+      ...prev,
+      [currentUserId]: [],
+    }));
+    localStorage.removeItem("selected_user_id");
+    localStorage.removeItem("selected_address_id");
+  }
+};
+  // ✅ Separate useEffect for handling dine-in API data.
+  useEffect(() => {
+    if (isDineIn && currentTableId && dineInData?.success) {
+      setOrdersByTable((prev) => ({
+        ...prev,
+        [currentTableId]: Array.isArray(dineInData.success) ? dineInData.success : [],
+      }));
+      console.log("Fetched dine-in order:", dineInData.success);
+    }
+  }, [isDineIn, currentTableId, dineInData]);
+
+  // ✅ Separate useEffect for handling delivery API data.
+  useEffect(() => {
+    if (isDelivery && currentUserId && deliveryData?.success) {
+      setOrdersByUser((prev) => ({
+        ...prev,
+        [currentUserId]: Array.isArray(deliveryData.success) ? deliveryData.success : [],
+      }));
+      console.log("Fetched delivery order:", deliveryData.success);
+    }
+  }, [isDelivery, currentUserId, deliveryData]);
+
   const refreshCartData = async () => {
     try {
       setIsLoading(true);
       console.log("Refreshing cart data...");
       
       if (isDineIn && currentTableId) {
-        console.log("Refetching dine-in data for table:", currentTableId);
         if (refetchDineIn) {
           await refetchDineIn();
         }
       } else if (isDelivery && currentUserId) {
-        console.log("Refetching delivery data for user:", currentUserId);
         if (refetchDelivery) {
           await refetchDelivery();
         }
       } else if (currentOrderType === "take_away") {
-        console.log("Refreshing take-away cart from localStorage");
         const storedCartString = localStorage.getItem("cart");
         if (storedCartString && storedCartString !== "undefined") {
           try {
@@ -70,7 +159,6 @@ export default function OrderPage({
         }
       }
       
-      // Force re-render by updating refresh trigger
       setRefreshTrigger(prev => prev + 1);
       
       console.log("Cart data refreshed successfully");
@@ -80,69 +168,6 @@ export default function OrderPage({
       setIsLoading(false);
     }
   };
-
-  // ✅ Fetch dine-in order from API response
-  useEffect(() => {
-    if (isDineIn && currentTableId && dineInData?.success) {
-      setOrdersByTable((prev) => ({
-        ...prev,
-        [currentTableId]: Array.isArray(dineInData.success) ? dineInData.success : [],
-      }));
-      console.log("Fetched dine-in order:", dineInData.success);
-    }
-  }, [isDineIn, currentTableId, dineInData]);
-
-  // ✅ Fetch delivery order from API response
-  useEffect(() => {
-    if (isDelivery && currentUserId && deliveryData?.success) {
-      setOrdersByUser((prev) => ({
-        ...prev,
-        [currentUserId]: Array.isArray(deliveryData.success) ? deliveryData.success : [],
-      }));
-      console.log("Fetched delivery order:", deliveryData.success);
-    }
-  }, [isDelivery, currentUserId, deliveryData]);
-
-  // ✅ Load take-away cart from localStorage
-  useEffect(() => {
-    if (currentOrderType === "take_away") {
-      const storedCartString = localStorage.getItem("cart");
-      if (storedCartString && storedCartString !== "undefined") {
-        try {
-          const storedCart = JSON.parse(storedCartString);
-          setTakeAwayItems(Array.isArray(storedCart) ? storedCart : []);
-        } catch (error) {
-          console.error("Error parsing cart JSON:", error);
-          setTakeAwayItems([]);
-        }
-      } else {
-        setTakeAwayItems([]);
-      }
-    }
-  }, [currentOrderType]);
-
-  // ✅ Listen to localStorage changes
-  useEffect(() => {
-    const handleStorageChange = () => {
-      if (currentOrderType === "take_away") {
-        const updatedCartString = localStorage.getItem("cart");
-        if (updatedCartString) {
-          try {
-            const updatedCart = JSON.parse(updatedCartString);
-            setTakeAwayItems(Array.isArray(updatedCart) ? updatedCart : []);
-          } catch (error) {
-            console.error("Error parsing updated cart JSON:", error);
-            setTakeAwayItems([]);
-          }
-        } else {
-          setTakeAwayItems([]);
-        }
-      }
-    };
-
-    window.addEventListener("storage", handleStorageChange);
-    return () => window.removeEventListener("storage", handleStorageChange);
-  }, [currentOrderType]);
 
   const currentOrderItems = isDineIn
     ? Array.isArray(ordersByTable[currentTableId]) ? ordersByTable[currentTableId] : []
@@ -183,32 +208,31 @@ export default function OrderPage({
     let updatedItems = [...safeCurrentItems];
 
     if (existingItemIndex !== -1) {
-      // لو العنصر موجود، زوّد الكمية وأضف الـ addons
       updatedItems[existingItemIndex] = {
         ...updatedItems[existingItemIndex],
         count: updatedItems[existingItemIndex].count + product.count,
         addons: [...updatedItems[existingItemIndex].addons, ...product.addons],
       };
     } else {
-      // لو العنصر جديد، أضفه
       updatedItems.push({
         ...product,
         count: product.count || 1,
         preparation_status: product.preparation_status || "pending",
       });
     }
-
     updateOrderItems(updatedItems);
   };
 
   const handleClose = () => {
-    // حذف البيانات من localStorage لإلغاء اختيار العميل
     localStorage.removeItem("selected_user_id");
     localStorage.removeItem("selected_address_id");
     localStorage.removeItem("order_type");
     localStorage.removeItem("table_id");
     localStorage.removeItem("delivery_user_id");
-
+    localStorage.removeItem("cart");
+    localStorage.removeItem("pending_order_info");
+    
+    setPendingOrderLoaded(false);
     navigate("/");
   };
 
@@ -221,12 +245,12 @@ export default function OrderPage({
           updateOrderItems={updateOrderItems}
           allowQuantityEdit={allowQuantityEdit}
           orderType={currentOrderType}
+           clearOrderData={clearOrderData}
           tableId={currentTableId}
           userId={currentUserId}
           isLoading={dineInLoading || deliveryLoading || isLoading}
         />
       </div>
-
       <div className="w-full lg:w-1/2 mt-4 lg:mt-0">
         <Item 
           onAddToOrder={handleAddItem} 
