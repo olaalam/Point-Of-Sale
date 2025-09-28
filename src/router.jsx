@@ -15,6 +15,7 @@ import DeliveryAdd from "./Pages/Delivery/DeliveryAdd";
 import OrdersView from "./Pages/OrdersView";
 import Shift from "./Pages/Shift";
 import PendingOrders from "./Pages/PendingOrders";
+import Notifications from "./components/Notifications";
 
 const router = createBrowserRouter([
   {
@@ -27,6 +28,10 @@ const router = createBrowserRouter([
             <Login />
           </ProtAuth>
         ),
+      },
+      {
+        path: 'notifications',
+        element: <Notifications />,
       },
     ],
   },

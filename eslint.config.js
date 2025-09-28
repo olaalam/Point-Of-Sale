@@ -1,8 +1,9 @@
-import js from '@eslint/js'
-import globals from 'globals'
-import reactHooks from 'eslint-plugin-react-hooks'
-import reactRefresh from 'eslint-plugin-react-refresh'
-import { defineConfig, globalIgnores } from 'eslint/config'
+// .eslintrc.js
+import js from '@eslint/js';
+import globals from 'globals';
+import reactHooks from 'eslint-plugin-react-hooks';
+import reactRefresh from 'eslint-plugin-react-refresh';
+import { defineConfig, globalIgnores } from 'eslint/config';
 
 export default defineConfig([
   globalIgnores(['dist']),
@@ -26,4 +27,14 @@ export default defineConfig([
       'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
     },
   },
-])
+  // Add this overrides section for the service worker
+  {
+    files: ['public/firebase-messaging-sw.js'],
+    languageOptions: {
+      globals: {
+        ...globals.serviceworker, // Includes importScripts, self, etc.
+        firebase: 'readonly' // Declare firebase as a global for compat library
+      }
+    }
+  }
+]);

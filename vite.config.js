@@ -15,4 +15,5 @@ const __dirname = path.dirname(__filename);export default defineConfig({
     },
   },
   base:'/point-of-sale',
+  envPrefix: 'VITE_' // Explicitly allow VITE_ variables
 })
