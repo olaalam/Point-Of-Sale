@@ -1,21 +1,21 @@
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import logo from "@/assets/Food2go Icon Vector Container.png";
-import { User, Circle } from "lucide-react"; // Assuming User is for cashier icon
+import { User } from "lucide-react";
 import { useGet } from "@/Hooks/useGet";
 import { usePut } from "@/Hooks/usePut";
 import Loading from "@/components/Loading";
-import { ToastContainer, toast } from "react-toastify"; // Import toast for notifications
-import "react-toastify/dist/ReactToastify.css"; // Import the CSS for toastify
+import { ToastContainer, toast } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 import { useNavigate } from "react-router-dom";
 
 export function CashierButton({
-  cashierId, // Renamed from cashierNumber to cashierId for clarity with API
-  cashierName, // New prop for cashier's actual name
+  cashierId,
+  cashierName,
   icon: Icon,
-  isActive, // New prop to determine if this cashier is currently active/selected
-  onSelect, // New callback prop when a cashier is clicked
-  loadingPost, // Prop to show loading state specifically for this button's POST
+  isActive,
+  onSelect,
+  loadingPost,
 }) {
   const bgColor = isActive ? "bg-green-600" : "bg-white";
   const textColor = isActive ? "text-white" : "text-gray-700";
@@ -32,13 +32,11 @@ export function CashierButton({
       className={`w-full flex items-center justify-between p-4 h-auto rounded-xl shadow-md
         ${bgColor} ${textColor} ${hoverBg} text-lg font-semibold transition-colors duration-200 ease-in-out`}
     >
-      <>
-        <div className="flex items-center gap-4">
-          {Icon && <Icon className={`w-6 h-6 ${iconColor}`} />}
-          <span>{cashierName}</span>
-        </div>
-        <div className={`w-4 h-4 rounded-full border-2 ${circleColor}`}></div>
-      </>
+      <div className="flex items-center gap-4">
+        {Icon && <Icon className={`w-6 h-6 ${iconColor}`} />}
+        <span>{cashierName}</span>
+      </div>
+      <div className={`w-4 h-4 rounded-full border-2 ${circleColor}`}></div>
     </Button>
   );
 }
@@ -46,8 +44,10 @@ export function CashierButton({
 export default function Cashier() {
   const { data, error, isLoading, refetch } = useGet(`cashier/home`);
   const [selectedCashierId, setSelectedCashierId] = useState(null);
+  const [showHidden, setShowHidden] = useState(false); // state للتحكم بالـ hidden cashiers
   const { putData, loading: postLoading, error: postError } = usePut();
   const navigate = useNavigate();
+
   useEffect(() => {
     if (postError) {
       toast.error(
@@ -85,7 +85,7 @@ export default function Cashier() {
     );
 
   const cashiers = data?.cashiers || [];
-  console.log(data);
+  const hiddenCashiers = data?.hidden_cashiers || [];
   const activeCashierIdFromApi = data?.active_cashier_id;
 
   return (
@@ -97,6 +97,7 @@ export default function Cashier() {
           </h1>
 
           <div className="space-y-4 grid grid-cols-1 gap-3">
+            {/* Regular cashiers */}
             {cashiers.length > 0 ? (
               cashiers.map((cashier) => (
                 <CashierButton
@@ -112,6 +113,30 @@ export default function Cashier() {
             ) : (
               <div>No cashiers available.</div>
             )}
+
+            {/* Show More Button */}
+            {hiddenCashiers.length > 0 && !showHidden && (
+              <Button
+                onClick={() => setShowHidden(true)}
+                className="w-full bg-gray-200 text-black hover:bg-gray-300 font-semibold rounded-xl p-4"
+              >
+                Show More
+              </Button>
+            )}
+
+            {/* Hidden cashiers */}
+            {showHidden &&
+              hiddenCashiers.map((cashier) => (
+                <CashierButton
+                  key={cashier.id}
+                  cashierId={cashier.id}
+                  cashierName={cashier.name || `Cashier ${cashier.id}`}
+                  icon={User}
+                  isActive={cashier.id === activeCashierIdFromApi}
+                  onSelect={handleCashierSelection}
+                  loadingPost={postLoading && selectedCashierId === cashier.id}
+                />
+              ))}
           </div>
         </div>
       </div>

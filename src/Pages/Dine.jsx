@@ -8,7 +8,8 @@ import {
   Clock, 
   ShoppingCart, 
   CreditCard,
-  UserCheck 
+  UserCheck,
+  Link // Added for merged tables icon
 } from "lucide-react";
 import {
   Pagination,
@@ -102,7 +103,7 @@ const Dine = () => {
   const [selectedLocationId, setSelectedLocationId] = useState(null);
 
   const { data, isLoading, error } = useGet(
-    `captain/selection_lists?branch_id=${branch_id}`
+    `captain/lists?branch_id=${branch_id}`
   );
   
   const { loading: transferLoading, postData } = usePost();
@@ -148,6 +149,35 @@ const Dine = () => {
     },
   ];
 
+  // Function to process tables and merge sub-tables
+  const processTablesWithMerge = (tables) => {
+    const processedTables = [];
+
+    tables.forEach(table => {
+      // Check if this table has sub_tables (is a merged table)
+      if (table.sub_table && table.sub_table.length > 0) {
+        // Create merged table object
+        const mergedTable = {
+          ...table,
+          isMerged: true,
+          subTables: table.sub_table,
+          totalCapacity: table.capacity,
+          mergedTableNumbers: [table.table_number, ...table.sub_table.map(sub => sub.table_number)].join(" + ")
+        };
+        
+        processedTables.push(mergedTable);
+      } else {
+        // Regular table (not merged)
+        processedTables.push({
+          ...table,
+          isMerged: false
+        });
+      }
+    });
+
+    return processedTables;
+  };
+
   useEffect(() => {
     const storedTableId = localStorage.getItem("table_id");
     if (storedTableId) {
@@ -173,7 +203,12 @@ const Dine = () => {
   const selectedLocation = locations.find(
     (loc) => loc.id === selectedLocationId
   );
-  const tablesToDisplay = selectedLocation?.tables || [];
+  
+  // Process tables to handle merging
+  const rawTables = selectedLocation?.tables || [];
+  const processedTables = processTablesWithMerge(rawTables);
+  const tablesToDisplay = processedTables;
+  
   const totalPages = Math.ceil(tablesToDisplay.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
@@ -273,6 +308,82 @@ const Dine = () => {
     }
   };
 
+const MergedTableCard = ({ table }) => {
+  const transferPending = localStorage.getItem("transfer_pending") === "true";
+  const sourceTableId = localStorage.getItem("transfer_source_table_id");
+  const isSourceTable = transferPending && sourceTableId === table.id.toString();
+  const { putData: putStatusChange } = usePut();
+
+  const handleStatusChange = async (newStatus) => {
+    try {
+      await putStatusChange(`cashier/tables_status/${table.id}?current_status=${newStatus}`, {});
+      toast.success(`Status updated to "${statusOptions.find(o => o.value === newStatus)?.label}"`);
+    } catch (err) {
+      toast.error("Failed to update status.");
+    }
+  };
+
+  return (
+    <div
+      className={`
+        relative rounded-xl p-5 shadow-lg transition-all duration-200
+        bg-gradient-to-b from-purple-50 to-purple-100
+        ${selectedTable === table.id ? "ring-4 ring-blue-500" : ""}
+        cursor-pointer hover:scale-105
+      `}
+      onClick={() => !transferLoading && handleSelectTable(table)}
+    >
+      {/* Merged Header */}
+      <div className="absolute -top-3 left-4 bg-purple-600 text-white px-3 py-1 rounded-full flex items-center gap-2 shadow-md">
+        <Link size={14} />
+        <span className="font-semibold text-xs uppercase tracking-wider">Merged Table</span>
+      </div>
+
+      {/* Main Table */}
+      <div className="text-center mb-3">
+        <div className="text-2xl font-bold text-purple-800">{table.table_number}</div>
+        <div className="text-sm text-purple-700 flex items-center justify-center gap-1">
+          <Users size={14} /> {table.capacity} Cap
+        </div>
+      </div>
+
+      {/* Sub Tables Grid */}
+      <div className="grid grid-cols-2 gap-2 mb-4">
+        {table.subTables.map(sub => (
+          <div
+            key={sub.id}
+            className={`p-3 rounded-lg border shadow-sm transition-all duration-150
+              ${getTableColor(sub.current_status || table.current_status)}
+              ${(sub.current_status || table.current_status) === tableStates.available ? "border-dashed" : ""}
+              hover:scale-105
+            `}
+          >
+            <div className="text-center">
+              <div className="text-lg font-bold">{sub.table_number}</div>
+              <div className="flex items-center justify-center gap-1 text-xs">
+                <Users size={12} />
+                <span>{sub.capacity} Cap</span>
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Status Control */}
+      <CustomStatusSelect
+        table={table}
+        statusOptions={statusOptions}
+        onStatusChange={handleStatusChange}
+      />
+
+      {/* Transfer Badges */}
+      {isSourceTable && <div className="absolute top-2 right-2 bg-yellow-500 text-white text-xs px-2 py-1 rounded">Source</div>}
+      {transferPending && !isSourceTable && <div className="absolute top-2 right-2 bg-green-500 text-white text-xs px-2 py-1 rounded">Select</div>}
+    </div>
+  );
+};
+
+
   const TableCard = ({ table }) => {
     const transferPending = localStorage.getItem("transfer_pending") === "true";
     const sourceTableId = localStorage.getItem("transfer_source_table_id");
@@ -291,6 +402,11 @@ const Dine = () => {
         toast.error(errorMessage);
       }
     };
+
+    // If it's a merged table, use the special merged table card
+    if (table.isMerged) {
+      return <MergedTableCard table={table} />;
+    }
 
     return (
       <div
@@ -370,7 +486,7 @@ const Dine = () => {
           <p className="text-gray-500 mt-2">
             {transferPending 
               ? `Select a table to transfer the order from Table ${sourceTableId}.`
-              : "Select a table to start an order."
+              : "Select a table to start an order. Merged tables are highlighted in purple."
             }
           </p>
         </div>
