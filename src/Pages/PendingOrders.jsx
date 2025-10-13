@@ -189,14 +189,7 @@ export default function PendingOrders() {
               <div className="col-span-full text-center py-12">
                 <Package className="mx-auto mb-4 text-gray-400" size={64} />
                 <p className="text-gray-500 text-lg">No pending orders found</p>
-                <Button 
-                  onClick={refetch} 
-                  variant="outline" 
-                  className="mt-4"
-                  disabled={loading}
-                >
-                  Refresh Orders
-                </Button>
+  
               </div>
             ) : (
               pendingOrders.all_orders.map((order) => (

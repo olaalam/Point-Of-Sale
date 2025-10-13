@@ -4,6 +4,7 @@ import Loading from "@/components/Loading";
 import { Button } from "@/components/ui/button";
 import CheckOut from "../CheckOut";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input"; // ✅ Import Input for modals
 import { usePost } from "@/Hooks/usePost";
 import { ToastContainer, toast } from "react-toastify";
 import SummaryRow from "./SummaryRow";
@@ -24,6 +25,9 @@ import { renderItemVariations } from "@/lib/utils";
  * @property {string | number | string[]} [cart_id] - Cart ID(s) from the backend.
  * @property {object[]} [addons] - Array of addon objects.
  * @property {string} [selectedVariation] - Selected variation name.
+ * @property {boolean} [is_reward=false] - Indicates if the item was obtained via a reward/points system.
+ * @property {boolean} [is_deal=false] - New: Indicates if the item was obtained via a deal.
+ * @property {number} [applied_discount=0] - The discount applied to this specific item.
  */
 
 /**
@@ -52,6 +56,16 @@ export default function Card({
   const [managerId, setManagerId] = useState("");
   const [managerPassword, setManagerPassword] = useState("");
   const [showClearAllConfirm, setShowClearAllConfirm] = useState(false);
+
+  // Offers States
+  const [showOfferModal, setShowOfferModal] = useState(false);
+  const [offerCode, setOfferCode] = useState("");
+  const [pendingOfferApproval, setPendingOfferApproval] = useState(null); // { offer_order_id, user_id, product }
+
+  // ⭐️ Deals States
+  const [showDealModal, setShowDealModal] = useState(false);
+  const [dealCode, setDealCode] = useState("");
+  const [pendingDealApproval, setPendingDealApproval] = useState(null); // { deal_id, user_id, deal_title, deal_price }
 
   const { loading: apiLoading, postData } = usePost();
   const navigate = useNavigate();
@@ -111,7 +125,7 @@ export default function Card({
     return statusOrder[lowestStatusIndex];
   }, [selectedItems, orderItems]);
   
-  // دالة جديدة لمسح العربة
+  // دالة لمسح العربة
   const clearCart = () => {
     updateOrderItems([]);
     localStorage.removeItem("cart"); // مسح البيانات من localStorage
@@ -119,8 +133,185 @@ export default function Card({
     setSelectedPaymentItems([]);
     toast.success("تم مسح الطلبات بنجاح.");
   };
+  
+  // =========================================================================
+  // ⭐️ Offers Functions (Points)
+  // =========================================================================
 
-  // Handler functions
+  // دالة تطبيق العرض بالـ Points (التحقق فقط)
+  const handleApplyOffer = async () => {
+    if (!offerCode.trim()) {
+      toast.warning("Please enter an offer code.");
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("code", offerCode.trim()); 
+
+    try {
+      // API للتحقق من الكود
+      const response = await postData("cashier/offer/check_order", formData);
+      
+      if (response?.success) {
+        toast.success(response.message || "Offer validated successfully! Please confirm.");
+        
+        const appliedOfferDetails = response.data?.offer; 
+        const offerData = appliedOfferDetails?.offer; 
+
+        if (appliedOfferDetails && offerData) {
+            setPendingOfferApproval({
+                offer_order_id: appliedOfferDetails.id, 
+                user_id: appliedOfferDetails.user_id,
+                product: offerData.product, 
+            });
+
+            setShowOfferModal(false); 
+        } else {
+             toast.error("Offer details are incomplete in the response.");
+        }
+      } else {
+        toast.error(response.message || "Offer not valid for this order.");
+      }
+    } catch (err) {
+      const errorMessage = err.response?.data?.message || err.response?.data?.exception || "Failed to apply offer.";
+      toast.error(errorMessage);
+    }
+  };
+
+  // دالة لتأكيد شراء العرض وإضافة المنتج للعربة (التأكيد)
+  const handleApproveOffer = async () => {
+    if (!pendingOfferApproval) return;
+    
+    const { offer_order_id, user_id, product } = pendingOfferApproval;
+
+    const formData = new FormData();
+    formData.append("offer_order_id", offer_order_id.toString());
+    formData.append("user_id", user_id.toString());
+
+    try {
+        // API الجديد للتأكيد
+        const response = await postData("cashier/offer/approve_offer", formData);
+
+        if (response?.success) {
+            toast.success(`Reward item "${product}" successfully added to the order!`);
+
+            // إضافة المنتج إلى سلة الطلبات بعد التأكيد الناجح
+            const freeItem = {
+                temp_id: `reward-${Date.now()}`,
+                id: offer_order_id, 
+                name: product + " (Reward Item)",
+                price: 0.00,
+                count: 1,
+                is_reward: true,
+                applied_discount: 0,
+            };
+            updateOrderItems([...orderItems, freeItem]);
+            
+            setPendingOfferApproval(null);
+            setOfferCode("");
+
+        } else {
+            toast.error(response.message || "Failed to approve offer.");
+        }
+    } catch (err) {
+        const errorMessage = err.response?.data?.message || err.response?.data?.exception || "Failed to approve offer.";
+        toast.error(errorMessage);
+    }
+  };
+
+  // =========================================================================
+  // ⭐️ Deals Functions (الصفقات)
+  // =========================================================================
+  
+  // دالة لتطبيق صفقة Deal بالـ Code (التحقق فقط)
+  const handleApplyDeal = async () => {
+    if (!dealCode.trim()) {
+        toast.warning("Please enter a deal code.");
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append("code", dealCode.trim()); 
+    // يمكنك إضافة أي بيانات أخرى هنا مثل user_id إذا كانت مطلوبة للتحقق
+
+    try {
+        // API للتحقق من الكود (cashier/deal/deal_order)
+        const response = await postData("cashier/deal/deal_order", formData);
+        
+        if (response?.success) {
+            toast.success(response.message || "Deal validated successfully! Please confirm.");
+            
+            const dealDetails = response.data?.deal; 
+            const userDetails = response.data?.user; 
+
+            if (dealDetails && userDetails) {
+                // تخزين البيانات اللازمة للتأكيد (Approve)
+                setPendingDealApproval({
+                    deal_id: dealDetails.id, 
+                    user_id: userDetails.id,
+                    deal_title: dealDetails.title, 
+                    deal_price: dealDetails.price,
+                });
+
+                setShowDealModal(false); // إغلاق نافذة إدخال الكود
+            } else {
+                 toast.error("Deal details are incomplete in the response.");
+            }
+        } else {
+            toast.error(response.message || "Deal not valid for this customer/order.");
+        }
+    } catch (err) {
+      const errorMessage = err.response?.data?.message || err.response?.data?.exception || "Failed to apply deal.";
+      toast.error(errorMessage);
+    }
+  };
+
+  // دالة لتأكيد حصول العميل على الصفقة (Approve Deal)
+  const handleApproveDeal = async () => {
+    if (!pendingDealApproval) return;
+    
+    const { deal_id, user_id, deal_title, deal_price } = pendingDealApproval;
+
+    const formData = new FormData();
+    // المفاتيح المطلوبة للتأكيد بناءً على الصورة المرفقة (cashier/deal/add)
+    formData.append("deal_id", deal_id.toString());
+    formData.append("user_id", user_id.toString());
+
+    try {
+        // API الجديد للتأكيد
+        const response = await postData("cashier/deal/add", formData);
+
+        if (response?.success) {
+            toast.success(`Deal "${deal_title}" successfully confirmed and added to the order!`);
+
+            // إضافة الصفقة كمنتج إلى سلة الطلبات
+            const dealItem = {
+                temp_id: `deal-${Date.now()}`,
+                id: deal_id, 
+                name: deal_title + " (Deal Item)",
+                price: deal_price || 0.00, // استخدام سعر الصفقة
+                count: 1,
+                is_deal: true,
+                applied_discount: 0,
+            };
+            updateOrderItems([...orderItems, dealItem]);
+            
+            setPendingDealApproval(null);
+            setDealCode("");
+
+        } else {
+            toast.error(response.message || "Failed to approve deal.");
+        }
+    } catch (err) {
+        const errorMessage = err.response?.data?.message || err.response?.data?.exception || "Failed to approve deal.";
+        toast.error(errorMessage);
+    }
+  };
+  // =========================================================================
+
+  // Handler functions (rest of the component)
+  // ... (handleTransferOrder, handleUpdatePreparationStatus, handleVoidItem, etc. remain unchanged)
+
   const handleTransferOrder = () => {
     if (!tableId || allCartIds.length === 0) {
       toast.error("Cannot transfer order: Table ID or Cart IDs are missing.");
@@ -300,7 +491,7 @@ export default function Card({
       <div className="flex-shrink-0">
         <h2 className="text-bg-primary text-3xl font-bold mb-6">Order Details</h2>
         <div className="flex items-center justify-start mb-4 gap-4 flex-wrap p-4 border-b border-gray-200 bg-white rounded-lg shadow-md">
-          <Button onClick={handleClearAllItems} className="bg-red-600 text-white hover:bg-red-700 text-sm flex items-center gap-1" disabled={isLoading || orderItems.length === 0}>
+          <Button onClick={handleClearAllItems} className="bg-bg-primary text-white hover:bg-red-700 text-sm flex items-center gap-1" disabled={isLoading || orderItems.length === 0}>
             Clear All Items ({orderItems.length || 0})
           </Button>
           {
@@ -308,6 +499,14 @@ export default function Card({
               <Button onClick={handleViewPendingOrders} className="bg-gray-500 !text-white hover:bg-gray-600 text-sm px-8 py-3">
                 Pending Orders
               </Button>)}
+          {/* الزر الخاص بالعروض/النقاط */}
+          <Button onClick={() => setShowOfferModal(true)} className="bg-green-600 !text-white hover:bg-green-700 text-sm px-8 py-3" disabled={isLoading}>
+            Apply Offer (Points)
+          </Button>
+          {/* ⭐️ الزر الخاص بالصفقات/Deals */}
+          <Button onClick={() => setShowDealModal(true)} className="bg-orange-600 !text-white hover:bg-orange-700 text-sm px-8 py-3" disabled={isLoading}>
+            Apply Deal
+          </Button>
         </div>
         {orderType === "dine_in" && (
           <div className="flex items-center justify-start mb-4 gap-4 flex-wrap p-4 bg-white rounded-lg shadow-md">
@@ -329,7 +528,7 @@ export default function Card({
             <Button onClick={applyBulkStatus} className="bg-bg-primary text-white hover:bg-red-700 text-sm" disabled={selectedItems.length === 0 || !bulkStatus || isLoading}>
               Apply Status ({selectedItems.length} selected)
             </Button>
-            <Button onClick={handleTransferOrder} className="bg-blue-500 text-white hover:bg-blue-600 text-sm flex items-center gap-1" disabled={isLoading || allCartIds.length === 0}>
+            <Button onClick={handleTransferOrder} className="bg-red-700 text-white hover:bg-bg-primary text-sm flex items-center gap-1" disabled={isLoading || allCartIds.length === 0}>
               Change Table
             </Button>
           </div>
@@ -455,9 +654,104 @@ export default function Card({
           source="web"
           orderType={orderType}
           tableId={tableId}
-          onClearCart={clearCart} // <-- تمرير الدالة هنا
+          onClearCart={clearCart}
         />
       )}
+      
+      {/* 1. Offer Modal: لإدخال الكود (التحقق) */}
+      {showOfferModal && (
+          <div className="fixed inset-0 bg-gray-500/50 flex items-center justify-center z-50">
+              <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full mx-4">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Apply Offer / Use Points</h3>
+                  <p className="text-gray-600 mb-6">Enter the customer's loyalty code or the reward item code.</p>
+                  <Input
+                      type="text"
+                      placeholder="Enter Offer Code"
+                      value={offerCode}
+                      onChange={(e) => setOfferCode(e.target.value)}
+                      className="w-full p-2 border border-gray-300 rounded-md mb-4 focus:ring-bg-primary focus:border-bg-primary"
+                      disabled={isLoading}
+                  />
+                  <div className="flex justify-end gap-3">
+                      <Button onClick={() => { setShowOfferModal(false); setOfferCode(""); }} variant="outline" disabled={isLoading}>
+                          Cancel
+                      </Button>
+                      <Button onClick={handleApplyOffer} className="bg-green-600 text-white hover:bg-green-700" disabled={isLoading || !offerCode.trim()}>
+                          {isLoading ? <Loading /> : "Check Code"}
+                      </Button>
+                  </div>
+              </div>
+          </div>
+      )}
+
+      {/* 2. Offer Approval Modal: لتأكيد الشراء بعد التحقق (الخطوة الثانية) */}
+      {pendingOfferApproval && (
+          <div className="fixed inset-0 bg-gray-500/50 flex items-center justify-center z-50">
+              <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full mx-4">
+                  <h3 className="text-lg font-semibold text-green-700 mb-4">Confirm Reward Purchase</h3>
+                  <p className="text-gray-700 mb-2 font-medium">Customer: User ID **{pendingOfferApproval.user_id}**</p>
+                  <p className="text-gray-700 mb-6">
+                      Confirm adding **{pendingOfferApproval.product}** to the order for **0.00 EGP**?
+                  </p>
+                  <div className="flex justify-end gap-3">
+                      <Button onClick={() => { setPendingOfferApproval(null); setOfferCode(""); }} variant="outline" disabled={isLoading}>
+                          Cancel
+                      </Button>
+                      <Button onClick={handleApproveOffer} className="bg-green-600 text-white hover:bg-green-700" disabled={isLoading}>
+                          {isLoading ? <Loading /> : "Approve and Add Item"}
+                      </Button>
+                  </div>
+              </div>
+          </div>
+      )}
+      
+      {/* ⭐️ 3. Deal Modal: لإدخال الكود (التحقق) */}
+      {showDealModal && (
+          <div className="fixed inset-0 bg-gray-500/50 flex items-center justify-center z-50">
+              <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full mx-4">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Apply Deal Code</h3>
+                  <p className="text-gray-600 mb-6">Enter the customer's deal code to check validity.</p>
+                  <Input
+                      type="text"
+                      placeholder="Enter Deal Code"
+                      value={dealCode}
+                      onChange={(e) => setDealCode(e.target.value)}
+                      className="w-full p-2 border border-gray-300 rounded-md mb-4 focus:ring-bg-primary focus:border-bg-primary"
+                      disabled={isLoading}
+                  />
+                  <div className="flex justify-end gap-3">
+                      <Button onClick={() => { setShowDealModal(false); setDealCode(""); }} variant="outline" disabled={isLoading}>
+                          Cancel
+                      </Button>
+                      <Button onClick={handleApplyDeal} className="bg-orange-600 text-white hover:bg-orange-700" disabled={isLoading || !dealCode.trim()}>
+                          {isLoading ? <Loading /> : "Check Deal"}
+                      </Button>
+                  </div>
+              </div>
+          </div>
+      )}
+
+      {/* ⭐️ 4. Deal Approval Modal: لتأكيد الاستلام بعد التحقق */}
+      {pendingDealApproval && (
+          <div className="fixed inset-0 bg-gray-500/50 flex items-center justify-center z-50">
+              <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full mx-4">
+                  <h3 className="text-lg font-semibold text-orange-700 mb-4">Confirm Deal Acceptance</h3>
+                  <p className="text-gray-700 mb-2 font-medium">Customer: User ID **{pendingDealApproval.user_id}**</p>
+                  <p className="text-gray-700 mb-6">
+                        Confirm adding **{pendingDealApproval.deal_title}** for **{pendingDealApproval.deal_price.toFixed(2)} EGP** to the order?
+                    </p>
+                  <div className="flex justify-end gap-3">
+                      <Button onClick={() => { setPendingDealApproval(null); setDealCode(""); }} variant="outline" disabled={isLoading}>
+                          Cancel
+                      </Button>
+                      <Button onClick={handleApproveDeal} className="bg-orange-600 text-white hover:bg-orange-700" disabled={isLoading}>
+                          {isLoading ? <Loading /> : "Approve and Add Deal"}
+                      </Button>
+                  </div>
+              </div>
+          </div>
+      )}
+
       <ToastContainer />
     </div>
   );
