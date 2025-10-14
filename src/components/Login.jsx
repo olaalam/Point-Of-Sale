@@ -1,4 +1,3 @@
-// src/components/LoginPage.jsx
 import { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -18,22 +17,25 @@ export default function LoginPage() {
   const [fcmToken, setFcmToken] = useState("");
   const navigate = useNavigate();
 
+  // ✅ جلب FCM Token عند تحميل الصفحة
   useEffect(() => {
     const fetchToken = async () => {
       try {
-        // Register service worker with correct path
-        const swRegistration = await navigator.serviceWorker.register('/point-of-sale/firebase-messaging-sw.js', {
-          scope: '/point-of-sale/' // Ensure scope matches base path
-        });
+        // Register the service worker properly for subpath
+        const swRegistration = await navigator.serviceWorker.register(
+          "/point-of-sale/firebase-messaging-sw.js",
+          { scope: "/point-of-sale/" }
+        );
+
         const permission = await Notification.requestPermission();
         if (permission === "granted") {
           const token = await getToken(messaging, {
             vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY,
-            serviceWorkerRegistration: swRegistration
+            serviceWorkerRegistration: swRegistration,
           });
           console.log("FCM Token:", token);
           setFcmToken(token);
-          localStorage.setItem("fcm_token", token);
+          // localStorage.setItem("fcm_token", token);
         } else {
           console.warn("Notification permission denied");
           toast.warn("Notifications disabled; some features may be limited");
@@ -43,9 +45,11 @@ export default function LoginPage() {
         toast.error("Failed to enable notifications: " + err.message);
       }
     };
+
     fetchToken();
   }, []);
 
+  // ✅ دالة تسجيل الدخول
   const handleLogin = async () => {
     console.log("Login clicked");
 
@@ -57,28 +61,40 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const url = `${import.meta.env.VITE_API_BASE_URL}api/cashier/auth/login`;
-      const res = await axios.post(url, null, {
-        params: {
-          user_name,
-          password,
-          fcm_token: fcmToken || localStorage.getItem("fcm_token") || ""
-        },
-      });
+      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+      const url = `${API_BASE_URL}api/cashier/auth/login`;
+
+      // 🧠 تجهيز بيانات الطلب
+      const storedCashierId = localStorage.getItem("cashier_id");
+      const fcm = fcmToken || localStorage.getItem("fcm_token") || "";
+
+      // إرسال البيانات — مع cashier_id فقط لو موجود
+      const params = {
+        user_name,
+        password,
+        fcm_token: fcm,
+        ...(storedCashierId ? { cashier_id: storedCashierId } : {}), // ✅ مضاف فقط لو موجود
+      };
+
+      const res = await axios.post(url, null, { params });
 
       console.log("Login Response:", res.data);
       toast.success("Logged in successfully");
 
+      // ✅ تخزين بيانات المستخدم
       localStorage.setItem("token", res.data.token);
       localStorage.setItem("user", JSON.stringify(res.data.cashier));
       localStorage.setItem("branch_id", res.data.cashier.branch_id);
-      localStorage.setItem("fcm_token", fcmToken);
+      // حفظ cashier_id لو رجع من السيرفر
+      if (res.data.cashier?.id) {
+        localStorage.setItem("cashier_id", res.data.cashier.id);
+      }
 
       navigate("/cashier");
     } catch (err) {
       console.error("Error:", err);
       const errorMessage =
-        err?.response?.data?.failed ||
+        err?.response?.data?.errors ||
         err?.response?.data?.message ||
         "An error occurred";
       toast.error(errorMessage);

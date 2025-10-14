@@ -2,7 +2,16 @@
 import { createSlice } from "@reduxjs/toolkit";
 
 // استرجاع اليوزر من localStorage
-const storedUser = JSON.parse(localStorage.getItem("user"));
+let storedUser = null;
+try {
+  const rawUser = localStorage.getItem("user");
+  if (rawUser && rawUser !== "undefined" && rawUser !== "null") {
+    storedUser = JSON.parse(rawUser);
+  }
+} catch (err) {
+  console.error("Failed to parse stored user:", err);
+  storedUser = null;
+}
 
 const initialState = {
   user: storedUser || null,
