@@ -321,50 +321,32 @@ export default function Card({
     }
   };
 
-  // دالة لتأكيد حصول العميل على الصفقة (Approve Deal)
-  const handleApproveDeal = async () => {
+// دالة لتأكيد حصول العميل على الصفقة (Frontend Only - No API Call)
+  const handleApproveDeal = () => {
     if (!pendingDealApproval) return;
 
     const { deal_id, user_id, deal_title, deal_price } = pendingDealApproval;
 
-    const formData = new FormData();
-    // المفاتيح المطلوبة للتأكيد بناءً على الصورة المرفقة (cashier/deal/add)
-    formData.append("deal_id", deal_id.toString());
-    formData.append("user_id", user_id.toString());
+    toast.success(
+      `Deal "${deal_title}" successfully added to the order!`
+    );
 
-    try {
-      // API الجديد للتأكيد
-      const response = await postData("cashier/deal/add", formData);
+    // إضافة الصفقة كمنتج إلى سلة الطلبات مع حفظ user_id و deal_id
+    const dealItem = {
+      temp_id: `deal-${Date.now()}`,
+      id: deal_id,
+      name: deal_title + " (Deal Item)",
+      price: deal_price || 0.0,
+      count: 1,
+      is_deal: true,
+      deal_id: deal_id, // ✅ حفظ deal_id للاستخدام في Checkout
+      deal_user_id: user_id, // ✅ حفظ user_id للاستخدام في Checkout
+      applied_discount: 0,
+    };
+    updateOrderItems([...orderItems, dealItem]);
 
-      if (response?.success) {
-        toast.success(
-          `Deal "${deal_title}" successfully confirmed and added to the order!`
-        );
-
-        // إضافة الصفقة كمنتج إلى سلة الطلبات
-        const dealItem = {
-          temp_id: `deal-${Date.now()}`,
-          id: deal_id,
-          name: deal_title + " (Deal Item)",
-          price: deal_price || 0.0, // استخدام سعر الصفقة
-          count: 1,
-          is_deal: true,
-          applied_discount: 0,
-        };
-        updateOrderItems([...orderItems, dealItem]);
-
-        setPendingDealApproval(null);
-        setDealCode("");
-      } else {
-        toast.error(response.message || "Failed to approve deal.");
-      }
-    } catch (err) {
-      const errorMessage =
-        err.response?.data?.message ||
-        err.response?.data?.exception ||
-        "Failed to approve deal.";
-      toast.error(errorMessage);
-    }
+    setPendingDealApproval(null);
+    setDealCode("");
   };
   // =========================================================================
 

@@ -184,85 +184,106 @@ const CheckOut = ({
     }
   };
 
-  const handleSubmitOrder = async () => {
-    // ✅ For pending orders, skip payment validation
-    if (!isPendingOrder && (!isTotalMet || totalScheduled === 0)) {
-      return toast.error(`Total must equal ${requiredTotal.toFixed(2)} EGP.`);
+const handleSubmitOrder = async () => {
+  // ✅ For pending orders, skip payment validation
+  if (!isPendingOrder && (!isTotalMet || totalScheduled === 0)) {
+    return toast.error(`Total must equal ${requiredTotal.toFixed(2)} EGP.`);
+  }
+
+  const hasDealItems = orderItems.some((item) => item.is_deal);
+
+  const processProductItem = (item) => {
+    const groupedVariations =
+      item.allSelectedVariations?.reduce((acc, variation) => {
+        const existing = acc.find(
+          (v) => v.variation_id === variation.variation_id
+        );
+        if (existing) {
+          existing.option_id = Array.isArray(existing.option_id)
+            ? [...existing.option_id, variation.option_id]
+            : [existing.option_id, variation.option_id];
+        } else {
+          acc.push({
+            variation_id: variation.variation_id.toString(),
+            option_id: [variation.option_id.toString()],
+          });
+        }
+        return acc;
+      }, []) || [];
+
+    const realExtrasIds = [];
+    const addonItems = [];
+
+    if (item.selectedExtras && item.selectedExtras.length > 0) {
+      item.selectedExtras.forEach((extraId) => {
+        const isRealExtra = item.allExtras?.some((extra) => extra.id === extraId);
+        if (isRealExtra) {
+          realExtrasIds.push(extraId.toString());
+        } else {
+          const addon = item.addons?.find((addon) => addon.id === extraId);
+          if (addon) {
+            addonItems.push({
+              addon_id: extraId.toString(),
+              count: "1",
+            });
+          }
+        }
+      });
     }
 
-    const processProductItem = (item) => {
-      const groupedVariations =
-        item.allSelectedVariations?.reduce((acc, variation) => {
-          const existing = acc.find(
-            (v) => v.variation_id === variation.variation_id
-          );
-          if (existing) {
-            existing.option_id = Array.isArray(existing.option_id)
-              ? [...existing.option_id, variation.option_id]
-              : [existing.option_id, variation.option_id];
-          } else {
-            acc.push({
-              variation_id: variation.variation_id.toString(),
-              option_id: [variation.option_id.toString()],
-            });
-          }
-          return acc;
-        }, []) || [];
+    if (item.selectedAddons && item.selectedAddons.length > 0) {
+      item.selectedAddons.forEach((addonData) => {
+        const alreadyExists = addonItems.some(
+          (existing) => existing.addon_id === addonData.addon_id.toString()
+        );
+        if (!alreadyExists) {
+          addonItems.push({
+            addon_id: addonData.addon_id.toString(),
+            count: (addonData.count || 1).toString(),
+          });
+        }
+      });
+    }
 
-      const realExtrasIds = [];
-      const addonItems = [];
-
-      if (item.selectedExtras && item.selectedExtras.length > 0) {
-        item.selectedExtras.forEach((extraId) => {
-          const isRealExtra = item.allExtras?.some(
-            (extra) => extra.id === extraId
-          );
-
-          if (isRealExtra) {
-            realExtrasIds.push(extraId.toString());
-          } else {
-            const addon = item.addons?.find((addon) => addon.id === extraId);
-            if (addon) {
-              addonItems.push({
-                addon_id: extraId.toString(),
-                count: "1",
-              });
-            }
-          }
-        });
-      }
-
-      if (item.selectedAddons && item.selectedAddons.length > 0) {
-        item.selectedAddons.forEach((addonData) => {
-          const alreadyExists = addonItems.some(
-            (existing) => existing.addon_id === addonData.addon_id.toString()
-          );
-          if (!alreadyExists) {
-            addonItems.push({
-              addon_id: addonData.addon_id.toString(),
-              count: (addonData.count || 1).toString(),
-            });
-          }
-        });
-      }
-
-      return {
-        product_id: item.id.toString(),
-        count: item.count.toString(),
-        note: item.note || "Product Note",
-        addons: addonItems,
-        variation: groupedVariations,
-        exclude_id: (item.selectedExcludes || []).map((id) => id.toString()),
-        extra_id: realExtrasIds,
-      };
+    return {
+      product_id: item.id.toString(),
+      count: item.count.toString(),
+      note: item.note || "Product Note",
+      addons: addonItems,
+      variation: groupedVariations,
+      exclude_id: (item.selectedExcludes || []).map((id) => id.toString()),
+      extra_id: realExtrasIds,
     };
+  };
 
-    const endpoint = getEndpoint();
-    console.log("Using endpoint:", endpoint);
+  const endpoint = hasDealItems
+    ? "cashier/deal/add"
+    : getEndpoint(); // Use regular endpoint if no deal items
 
-    let productsToSend = orderItems.map(processProductItem);
-    let newAmountToPay = amountToPay;
+  console.log("Using endpoint:", endpoint);
 
+  let productsToSend = orderItems.map(processProductItem);
+  let newAmountToPay = amountToPay;
+
+  // Extract deal_id and user_id from the first deal item
+  const dealItem = orderItems.find((item) => item.is_deal);
+  const deal_id = dealItem ? dealItem.deal_id.toString() : null;
+  const user_id = dealItem ? dealItem.deal_user_id.toString() : null;
+
+  let payload;
+
+  if (hasDealItems) {
+    // Minimal payload for cashier/deal/add endpoint
+    payload = {
+      deal_id: deal_id,
+      user_id: user_id,
+      financials: paymentSplits.map((s) => ({
+        id: s.accountId.toString(),
+        amount: s.amount.toString(),
+      })),
+    };
+  } else {
+    // Regular payload for other endpoints
     const basePayload = {
       amount: newAmountToPay.toString(),
       total_tax: totalTax.toString(),
@@ -278,11 +299,8 @@ const CheckOut = ({
       cashier_id: cashierId.toString(),
     };
 
-    let payload;
-
     if (orderType === "dine_in") {
       const cartIdsToSend = orderItems.map((item) => item.cart_id.toString());
-
       payload = {
         ...basePayload,
         table_id: tableId.toString(),
@@ -303,60 +321,65 @@ const CheckOut = ({
         products: productsToSend,
       };
     }
+  }
 
-    console.log("Payload to send:", JSON.stringify(payload, null, 2));
-    console.log("Endpoint:", endpoint);
+  console.log("Payload to send:", JSON.stringify(payload, null, 2));
+  console.log("Endpoint:", endpoint);
 
-    try {
-      const response = await postData(endpoint, payload, {
-        headers: {
-          "Content-Type": "application/json",
-        },
-      });
+  try {
+    const response = await postData(endpoint, payload, {
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
 
-      console.log("Order Submission Response:", response);
+    console.log("Order Submission Response:", response);
 
-      // ✅ Different success messages
-      if (isPendingOrder) {
-        toast.success("Order saved as pending!");
-      } else {
-        toast.success("Order placed successfully!");
-      }
-
-      // ✅ استدعاء دالة المسح فقط إذا كان نوع الطلب 'take_away'
-      if (orderType === "take_away") {
-        onClearCart();
-      }
-
-      localStorage.setItem("last_order_type", orderType);
-
-      if (orderType === "delivery" && !isPendingOrder) {
-        const newOrderId = response?.success?.id;
-        if (newOrderId) {
-          setOrderId(newOrderId);
-          console.log("New Order ID:", newOrderId);
-          setDeliveryModelOpen(true);
-        } else {
-          toast.error(
-            "Order ID not returned from server. Cannot assign delivery."
-          );
-          onClose();
-          navigate("/orders");
-        }
-      } else {
-        onClose();
-        // ✅ Navigate to different pages based on order status
-        if (isPendingOrder) {
-          navigate("/pending-orders");
-        } else {
-          navigate("/orders");
-        }
-      }
-    } catch (e) {
-      console.error("Submit error:", e);
-      toast.error(e.message || "Submission failed");
+    // ✅ Different success messages
+    if (isPendingOrder) {
+      toast.success("Order saved as pending!");
+    } else {
+      toast.success(
+        hasDealItems
+          ? "Deal order processed successfully!"
+          : "Order placed successfully!"
+      );
     }
-  };
+
+    // ✅ استدعاء دالة المسح فقط إذا كان نوع الطلب 'take_away'
+    if (orderType === "take_away") {
+      onClearCart();
+    }
+
+    localStorage.setItem("last_order_type", orderType);
+
+    if (orderType === "delivery" && !isPendingOrder) {
+      const newOrderId = response?.success?.id;
+      if (newOrderId) {
+        setOrderId(newOrderId);
+        console.log("New Order ID:", newOrderId);
+        setDeliveryModelOpen(true);
+      } else {
+        toast.error(
+          "Order ID not returned from server. Cannot assign delivery."
+        );
+        onClose();
+        navigate("/orders");
+      }
+    } else {
+      onClose();
+      // ✅ Navigate to different pages based on order status
+      if (isPendingOrder) {
+        navigate("/pending-orders");
+      } else {
+        navigate("/orders");
+      }
+    }
+  } catch (e) {
+    console.error("Submit error:", e);
+    toast.error(e.message || "Submission failed");
+  }
+};
 
   const handleAssignDelivery = async () => {
     if (!orderId) {
