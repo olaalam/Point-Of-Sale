@@ -25,7 +25,7 @@ const CheckOut = ({
   source = "web",
   totalDineInItems,
   orderType,
-  onClearCart, // ✅ تم إضافة prop الجديد
+  onClearCart,
 }) => {
   const branch_id = localStorage.getItem("branch_id");
   const cashierId = localStorage.getItem("cashier_id");
@@ -40,7 +40,7 @@ const CheckOut = ({
   const { postData, loading } = usePost();
   const [paymentSplits, setPaymentSplits] = useState([]);
   const [customerPaid, setCustomerPaid] = useState("");
-  const [isPendingOrder, setIsPendingOrder] = useState(false); // ✅ New state for pending toggle
+  const [isPendingOrder, setIsPendingOrder] = useState(false);
   const tableId = localStorage.getItem("table_id") || null;
   const [deliveryModelOpen, setDeliveryModelOpen] = useState(false);
   const [selectedDeliveryId, setSelectedDeliveryId] = useState(null);
@@ -54,7 +54,6 @@ const CheckOut = ({
 
   const requiredTotal = useMemo(() => {
     if (orderType === "dine_in") {
-      // For dine-in, use selected items (already filtered in Card.jsx)
       return orderItems.reduce((acc, item) => acc + item.price * item.count, 0);
     } else {
       return amountToPay;
@@ -89,6 +88,7 @@ const CheckOut = ({
           id: "split-1",
           accountId: defaultAccountId,
           amount: amountToPay || 0,
+          description: "", // Initialize description
         },
       ]);
     }
@@ -137,7 +137,17 @@ const CheckOut = ({
   const handleAccountChange = (id, accountId) => {
     setPaymentSplits((prev) =>
       prev.map((split) =>
-        split.id === id ? { ...split, accountId: parseInt(accountId) } : split
+        split.id === id
+          ? { ...split, accountId: parseInt(accountId), description: "" }
+          : split
+      )
+    );
+  };
+
+  const handleDescriptionChange = (id, value) => {
+    setPaymentSplits((prev) =>
+      prev.map((split) =>
+        split.id === id ? { ...split, description: value } : split
       )
     );
   };
@@ -152,6 +162,7 @@ const CheckOut = ({
         id: newId,
         accountId: defaultAccountId,
         amount: remainingAmount > 0 ? remainingAmount : 0,
+        description: "",
       },
     ]);
   };
@@ -167,9 +178,30 @@ const CheckOut = ({
     return acc ? acc.name : "Select Account";
   };
 
+  const getDescriptionStatus = (accountId) => {
+    const acc = data?.financial_account?.find(
+      (a) => a.id === parseInt(accountId)
+    );
+    return acc?.description_status === 1;
+  };
+
+  const validateSplits = () => {
+    for (const split of paymentSplits) {
+      if (
+        getDescriptionStatus(split.accountId) &&
+        (!split.description || !/^\d{4}$/.test(split.description))
+      ) {
+        toast.error(
+          `Please enter exactly 4 digits for the Visa card ending in split ${split.id}.`
+        );
+        return false;
+      }
+    }
+    return true;
+  };
+
   const isTotalMet = totalScheduled >= requiredTotal;
 
-  // Updated endpoint selection logic
   const getEndpoint = () => {
     if (orderType === "dine_in") {
       if (orderItems.length < totalDineInItems) {
@@ -184,202 +216,192 @@ const CheckOut = ({
     }
   };
 
-const handleSubmitOrder = async () => {
-  // ✅ For pending orders, skip payment validation
-  if (!isPendingOrder && (!isTotalMet || totalScheduled === 0)) {
-    return toast.error(`Total must equal ${requiredTotal.toFixed(2)} EGP.`);
-  }
+  const handleSubmitOrder = async () => {
+    if (!isPendingOrder && (!isTotalMet || totalScheduled === 0)) {
+      return toast.error(`Total must equal ${requiredTotal.toFixed(2)} EGP.`);
+    }
 
-  const hasDealItems = orderItems.some((item) => item.is_deal);
+    if (!isPendingOrder && !validateSplits()) {
+      return;
+    }
 
-  const processProductItem = (item) => {
-    const groupedVariations =
-      item.allSelectedVariations?.reduce((acc, variation) => {
-        const existing = acc.find(
-          (v) => v.variation_id === variation.variation_id
-        );
-        if (existing) {
-          existing.option_id = Array.isArray(existing.option_id)
-            ? [...existing.option_id, variation.option_id]
-            : [existing.option_id, variation.option_id];
-        } else {
-          acc.push({
-            variation_id: variation.variation_id.toString(),
-            option_id: [variation.option_id.toString()],
-          });
-        }
-        return acc;
-      }, []) || [];
+    const hasDealItems = orderItems.some((item) => item.is_deal);
 
-    const realExtrasIds = [];
-    const addonItems = [];
-
-    if (item.selectedExtras && item.selectedExtras.length > 0) {
-      item.selectedExtras.forEach((extraId) => {
-        const isRealExtra = item.allExtras?.some((extra) => extra.id === extraId);
-        if (isRealExtra) {
-          realExtrasIds.push(extraId.toString());
-        } else {
-          const addon = item.addons?.find((addon) => addon.id === extraId);
-          if (addon) {
-            addonItems.push({
-              addon_id: extraId.toString(),
-              count: "1",
+    const processProductItem = (item) => {
+      const groupedVariations =
+        item.allSelectedVariations?.reduce((acc, variation) => {
+          const existing = acc.find(
+            (v) => v.variation_id === variation.variation_id
+          );
+          if (existing) {
+            existing.option_id = Array.isArray(existing.option_id)
+              ? [...existing.option_id, variation.option_id]
+              : [existing.option_id, variation.option_id];
+          } else {
+            acc.push({
+              variation_id: variation.variation_id.toString(),
+              option_id: [variation.option_id.toString()],
             });
           }
-        }
-      });
-    }
+          return acc;
+        }, []) || [];
 
-    if (item.selectedAddons && item.selectedAddons.length > 0) {
-      item.selectedAddons.forEach((addonData) => {
-        const alreadyExists = addonItems.some(
-          (existing) => existing.addon_id === addonData.addon_id.toString()
-        );
-        if (!alreadyExists) {
-          addonItems.push({
-            addon_id: addonData.addon_id.toString(),
-            count: (addonData.count || 1).toString(),
-          });
-        }
-      });
-    }
+      const realExtrasIds = [];
+      const addonItems = [];
 
-    return {
-      product_id: item.id.toString(),
-      count: item.count.toString(),
-      note: item.note || "Product Note",
-      addons: addonItems,
-      variation: groupedVariations,
-      exclude_id: (item.selectedExcludes || []).map((id) => id.toString()),
-      extra_id: realExtrasIds,
-    };
-  };
-
-  const endpoint = hasDealItems
-    ? "cashier/deal/add"
-    : getEndpoint(); // Use regular endpoint if no deal items
-
-  console.log("Using endpoint:", endpoint);
-
-  let productsToSend = orderItems.map(processProductItem);
-  let newAmountToPay = amountToPay;
-
-  // Extract deal_id and user_id from the first deal item
-  const dealItem = orderItems.find((item) => item.is_deal);
-  const deal_id = dealItem ? dealItem.deal_id.toString() : null;
-  const user_id = dealItem ? dealItem.deal_user_id.toString() : null;
-
-  let payload;
-
-  if (hasDealItems) {
-    // Minimal payload for cashier/deal/add endpoint
-    payload = {
-      deal_id: deal_id,
-      user_id: user_id,
-      financials: paymentSplits.map((s) => ({
-        id: s.accountId.toString(),
-        amount: s.amount.toString(),
-      })),
-    };
-  } else {
-    // Regular payload for other endpoints
-    const basePayload = {
-      amount: newAmountToPay.toString(),
-      total_tax: totalTax.toString(),
-      total_discount: totalDiscount.toString(),
-      notes: notes || "note",
-      source: source,
-      // ✅ For pending orders, send empty financials or minimal data
-      financials: paymentSplits.map((s) => ({
-        id: s.accountId.toString(),
-        amount: s.amount.toString(),
-      })),
-      order_pending: isPendingOrder ? 1 : 0, // ✅ Use the toggle state
-      cashier_id: cashierId.toString(),
-    };
-
-    if (orderType === "dine_in") {
-      const cartIdsToSend = orderItems.map((item) => item.cart_id.toString());
-      payload = {
-        ...basePayload,
-        table_id: tableId.toString(),
-        products: productsToSend,
-        cart_id: cartIdsToSend,
-      };
-    } else if (orderType === "delivery") {
-      payload = {
-        ...basePayload,
-        products: productsToSend,
-        address_id: localStorage.getItem("selected_address_id") || "",
-        user_id: localStorage.getItem("selected_user_id") || "",
-        cash_with_delivery: (parseFloat(customerPaid) || 0).toString(),
-      };
-    } else {
-      payload = {
-        ...basePayload,
-        products: productsToSend,
-      };
-    }
-  }
-
-  console.log("Payload to send:", JSON.stringify(payload, null, 2));
-  console.log("Endpoint:", endpoint);
-
-  try {
-    const response = await postData(endpoint, payload, {
-      headers: {
-        "Content-Type": "application/json",
-      },
-    });
-
-    console.log("Order Submission Response:", response);
-
-    // ✅ Different success messages
-    if (isPendingOrder) {
-      toast.success("Order saved as pending!");
-    } else {
-      toast.success(
-        hasDealItems
-          ? "Deal order processed successfully!"
-          : "Order placed successfully!"
-      );
-    }
-
-    // ✅ استدعاء دالة المسح فقط إذا كان نوع الطلب 'take_away'
-    if (orderType === "take_away") {
-      onClearCart();
-    }
-
-    localStorage.setItem("last_order_type", orderType);
-
-    if (orderType === "delivery" && !isPendingOrder) {
-      const newOrderId = response?.success?.id;
-      if (newOrderId) {
-        setOrderId(newOrderId);
-        console.log("New Order ID:", newOrderId);
-        setDeliveryModelOpen(true);
-      } else {
-        toast.error(
-          "Order ID not returned from server. Cannot assign delivery."
-        );
-        onClose();
-        navigate("/orders");
+      if (item.selectedExtras && item.selectedExtras.length > 0) {
+        item.selectedExtras.forEach((extraId) => {
+          const isRealExtra = item.allExtras?.some(
+            (extra) => extra.id === extraId
+          );
+          if (isRealExtra) {
+            realExtrasIds.push(extraId.toString());
+          } else {
+            const addon = item.addons?.find((addon) => addon.id === extraId);
+            if (addon) {
+              addonItems.push({
+                addon_id: extraId.toString(),
+                count: "1",
+              });
+            }
+          }
+        });
       }
+
+      if (item.selectedAddons && item.selectedAddons.length > 0) {
+        item.selectedAddons.forEach((addonData) => {
+          const alreadyExists = addonItems.some(
+            (existing) => existing.addon_id === addonData.addon_id.toString()
+          );
+          if (!alreadyExists) {
+            addonItems.push({
+              addon_id: addonData.addon_id.toString(),
+              count: (addonData.count || 1).toString(),
+            });
+          }
+        });
+      }
+
+      return {
+        product_id: item.id.toString(),
+        count: item.count.toString(),
+        note: item.note || "Product Note",
+        addons: addonItems,
+        variation: groupedVariations,
+        exclude_id: (item.selectedExcludes || []).map((id) => id.toString()),
+        extra_id: realExtrasIds,
+      };
+    };
+
+    const endpoint = hasDealItems ? "cashier/deal/add" : getEndpoint();
+
+    let productsToSend = orderItems.map(processProductItem);
+    let newAmountToPay = amountToPay;
+
+    const dealItem = orderItems.find((item) => item.is_deal);
+    const deal_id = dealItem ? dealItem.deal_id.toString() : null;
+    const user_id = dealItem ? dealItem.deal_user_id.toString() : null;
+
+    let payload;
+
+    if (hasDealItems) {
+      payload = {
+        deal_id: deal_id,
+        user_id: user_id,
+        financials: paymentSplits.map((s) => ({
+          id: s.accountId.toString(),
+          amount: s.amount.toString(),
+          description: s.description || undefined, // Include description if provided
+        })),
+      };
     } else {
-      onClose();
-      // ✅ Navigate to different pages based on order status
+      const basePayload = {
+        amount: newAmountToPay.toString(),
+        total_tax: totalTax.toString(),
+        total_discount: totalDiscount.toString(),
+        notes: notes || "note",
+        source: source,
+        financials: paymentSplits.map((s) => ({
+          id: s.accountId.toString(),
+          amount: s.amount.toString(),
+          description: s.description || undefined, // Include description if provided
+        })),
+        order_pending: isPendingOrder ? 1 : 0,
+        cashier_id: cashierId.toString(),
+      };
+
+      if (orderType === "dine_in") {
+        const cartIdsToSend = orderItems.map((item) => item.cart_id.toString());
+        payload = {
+          ...basePayload,
+          table_id: tableId.toString(),
+          products: productsToSend,
+          cart_id: cartIdsToSend,
+        };
+      } else if (orderType === "delivery") {
+        payload = {
+          ...basePayload,
+          products: productsToSend,
+          address_id: localStorage.getItem("selected_address_id") || "",
+          user_id: localStorage.getItem("selected_user_id") || "",
+          cash_with_delivery: (parseFloat(customerPaid) || 0).toString(),
+        };
+      } else {
+        payload = {
+          ...basePayload,
+          products: productsToSend,
+        };
+      }
+    }
+
+    try {
+      const response = await postData(endpoint, payload, {
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+
       if (isPendingOrder) {
-        navigate("/pending-orders");
+        toast.success("Order saved as pending!");
       } else {
-        navigate("/orders");
+        toast.success(
+          hasDealItems
+            ? "Deal order processed successfully!"
+            : "Order placed successfully!"
+        );
       }
+
+      if (orderType === "take_away") {
+        onClearCart();
+      }
+
+      localStorage.setItem("last_order_type", orderType);
+
+      if (orderType === "delivery" && !isPendingOrder) {
+        const newOrderId = response?.success?.id;
+        if (newOrderId) {
+          setOrderId(newOrderId);
+          setDeliveryModelOpen(true);
+        } else {
+          toast.error(
+            "Order ID not returned from server. Cannot assign delivery."
+          );
+          onClose();
+          navigate("/orders");
+        }
+      } else {
+        onClose();
+        if (isPendingOrder) {
+          navigate("/pending-orders");
+        } else {
+          navigate("/orders");
+        }
+      }
+    } catch (e) {
+      console.error("Submit error:", e);
+      toast.error(e.message || "Submission failed");
     }
-  } catch (e) {
-    console.error("Submit error:", e);
-    toast.error(e.message || "Submission failed");
-  }
-};
+  };
 
   const handleAssignDelivery = async () => {
     if (!orderId) {
@@ -489,8 +511,7 @@ const handleSubmitOrder = async () => {
             )}
           </h2>
 
-          {/* ✅ Pending Order Toggle */}
-          {orderType == "take_away" && (
+          {orderType === "take_away" && (
             <div className="mb-6 p-4 bg-gray-50 rounded-lg border">
               <div className="flex items-center justify-between">
                 <div>
@@ -546,7 +567,6 @@ const handleSubmitOrder = async () => {
             </div>
           )}
 
-          {/* Payment Details - Only show if not pending */}
           {!isPendingOrder && (
             <>
               <div className="mb-6 border-b pb-4">
@@ -574,7 +594,6 @@ const handleSubmitOrder = async () => {
                 )}
               </div>
 
-              {/* Show selected items summary for split payment */}
               {orderType === "dine_in" && (
                 <div className="mb-6 bg-green-50 p-4 rounded-lg">
                   <h3 className="font-semibold text-green-800 mb-2">
@@ -634,6 +653,20 @@ const handleSubmitOrder = async () => {
                         EGP
                       </span>
                     </div>
+                    {getDescriptionStatus(split.accountId) && (
+                      <div className="relative w-32">
+                        <Input
+                          type="text"
+                          placeholder="Last 4 digits"
+                          value={split.description}
+                          onChange={(e) =>
+                            handleDescriptionChange(split.id, e.target.value)
+                          }
+                          maxLength={4}
+                          className="pl-3"
+                        />
+                      </div>
+                    )}
                     {paymentSplits.length > 1 && (
                       <Button
                         variant="ghost"
@@ -681,7 +714,6 @@ const handleSubmitOrder = async () => {
                     value={customerPaid}
                     onChange={(e) => {
                       const value = e.target.value;
-
                       if (parseFloat(value) < 0) {
                         toast.error("Amount cannot be negative.");
                         return;
@@ -703,7 +735,6 @@ const handleSubmitOrder = async () => {
             </>
           )}
 
-          {/* Order Summary for Pending */}
           {isPendingOrder && (
             <div className="mb-6 bg-orange-50 p-4 rounded-lg">
               <h3 className="font-semibold text-orange-800 mb-2">
