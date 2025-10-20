@@ -1,12 +1,9 @@
-// Item.jsx - Complete Component with temp_id solution and data refresh
 import React, { useState, useMemo, useEffect } from "react";
 import { useGet } from "@/Hooks/useGet";
 import { usePost } from "@/Hooks/usePost";
 import { Button } from "@/components/ui/button";
 import Loading from "@/components/Loading";
 import { toast } from "react-toastify";
-
-// Import custom hooks and components
 import { useDeliveryUser } from "@/Hooks/useDeliveryUser";
 import { useProductModal } from "@/Hooks/useProductModal";
 import { submitItemToBackend } from "@/services/orderService";
@@ -15,7 +12,6 @@ import CategorySelector from "./CategorySelector";
 import ProductCard from "./ProductCard";
 import ProductModal from "./ProductModal";
 
-// Define constants
 const INITIAL_PRODUCT_ROWS = 2;
 const PRODUCTS_PER_ROW = 4;
 const PRODUCTS_TO_SHOW_INITIALLY = INITIAL_PRODUCT_ROWS * PRODUCTS_PER_ROW;
@@ -27,14 +23,12 @@ export default function Item({ fetchEndpoint, onAddToOrder, onClose, refreshCart
   const [visibleProductCount, setVisibleProductCount] = useState(PRODUCTS_TO_SHOW_INITIALLY);
   const [branchIdState, setBranchIdState] = useState(localStorage.getItem("branch_id"));
 
-  // Get order type and table ID
+  // Get order type
   const orderType = localStorage.getItem("order_type") || "dine_in";
-  // const tableId = localStorage.getItem("table_id");
 
   // Custom hooks
   const { deliveryUserData, userLoading, userError } = useDeliveryUser(orderType);
   const { postData, loading: orderLoading } = usePost();
-  
   const {
     selectedProduct,
     isProductModalOpen,
@@ -60,28 +54,32 @@ export default function Item({ fetchEndpoint, onAddToOrder, onClose, refreshCart
     }
   }, [branchIdState]);
 
-  // API endpoint
-  const requestEndpoint =
-    fetchEndpoint ||
-    (branchIdState ? `captain/lists?branch_id=${branchIdState}` : null);
+  // API endpoint for products
+  const productEndpoint = useMemo(() => {
+    if (!branchIdState) return null;
+    if (selectedCategory === "all") {
+      return fetchEndpoint || `captain/lists?branch_id=${branchIdState}`;
+    }
+    return `captain/product_category_lists/${selectedCategory}?branch_id=${branchIdState}`;
+  }, [branchIdState, selectedCategory, fetchEndpoint]);
 
-  const { data, isLoading, error } = useGet(requestEndpoint);
+  // Fetch categories separately (assuming they come from the same or a different endpoint)
+  const categoryEndpoint = fetchEndpoint || (branchIdState ? `captain/lists?branch_id=${branchIdState}` : null);
+  const { data: categoryData, isLoading: isCategoryLoading, error: categoryError } = useGet(categoryEndpoint);
+
+  // Fetch products
+  const { data: productData, isLoading, error } = useGet(productEndpoint);
 
   // Data processing
-  const allProducts = data?.products || [];
-  const categories = data?.categories || [];
+  const allProducts = productData?.products || [];
+  const categories = categoryData?.categories || [];
 
-  // Filter products
+  // Filter products by search query (client-side, assuming backend doesn't support search)
   const filteredProducts = useMemo(() => {
-    return allProducts.filter((product) => {
-      const matchCategory =
-        selectedCategory === "all" || product.category_id === selectedCategory;
-      const matchSearch = product.name
-        ?.toLowerCase()
-        .includes(searchQuery.toLowerCase());
-      return matchCategory && matchSearch;
-    });
-  }, [selectedCategory, searchQuery, allProducts]);
+    return allProducts.filter((product) =>
+      product.name?.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [allProducts, searchQuery]);
 
   // Products to display
   const productsToDisplay = filteredProducts.slice(0, visibleProductCount);
@@ -103,123 +101,121 @@ export default function Item({ fetchEndpoint, onAddToOrder, onClose, refreshCart
     return `${productId}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   };
 
-  // Fixed handleAddToOrder with temp_id and refresh
-// Fixed handleAddToOrder function with grouped extras
-const handleAddToOrder = async (product, customQuantity = 1) => {
-  console.log("Adding product to order:", product);
-  
-  let productBasePrice = product.price_after_discount ?? product.price ?? 0;
-  const allSelectedVariationsData = [];
-  
-  const selectedVariations = product.selectedVariation || selectedVariation || {};
-  const productSelectedExtras = product.selectedExtras || selectedExtras || [];
-  const productSelectedExcludes = product.selectedExcludes || selectedExcludes || [];
-  
-  // Handle variations (unchanged)
-  if (product.variations && Object.keys(selectedVariations).length > 0) {
-      product.variations.forEach(variation => {
-          if (variation.type === 'single' && selectedVariations[variation.id]) {
-              const selectedOption = variation.options.find(opt => opt.id === selectedVariations[variation.id]);
-              if (selectedOption) {
-                  productBasePrice = selectedOption.price_after_tax ?? selectedOption.price;
-                  allSelectedVariationsData.push({
-                      variation_id: variation.id,
-                      option_id: selectedOption.id,
-                      variation_name: variation.name,
-                      option_name: selectedOption.name,
-                      price: selectedOption.price_after_tax ?? selectedOption.price
-                  });
-              }
-          } else if (variation.type === 'multiple' && selectedVariations[variation.id] && Array.isArray(selectedVariations[variation.id])) {
-              selectedVariations[variation.id].forEach(optionId => {
-                  const selectedOption = variation.options.find(opt => opt.id === optionId);
-                  if (selectedOption) {
-                      productBasePrice += selectedOption.price_after_tax ?? selectedOption.price;
-                      allSelectedVariationsData.push({
-                          variation_id: variation.id,
-                          option_id: selectedOption.id,
-                          variation_name: variation.name,
-                          option_name: selectedOption.name,
-                          price: selectedOption.price_after_tax ?? selectedOption.price
-                      });
-                  }
-              });
-          }
-      });
-  }
+  // Handle add to order
+  const handleAddToOrder = async (product, customQuantity = 1) => {
+    console.log("Adding product to order:", product);
 
-  // FIXED: Create grouped extras format for backend
-  const groupedExtras = () => {
-    if (!productSelectedExtras || productSelectedExtras.length === 0) {
-      return [];
+    let productBasePrice = product.price_after_discount ?? product.price ?? 0;
+    const allSelectedVariationsData = [];
+
+    const selectedVariations = product.selectedVariation || selectedVariation || {};
+    const productSelectedExtras = product.selectedExtras || selectedExtras || [];
+    const productSelectedExcludes = product.selectedExcludes || selectedExcludes || [];
+
+    // Handle variations
+    if (product.variations && Object.keys(selectedVariations).length > 0) {
+      product.variations.forEach((variation) => {
+        if (variation.type === "single" && selectedVariations[variation.id]) {
+          const selectedOption = variation.options.find(
+            (opt) => opt.id === selectedVariations[variation.id]
+          );
+          if (selectedOption) {
+            productBasePrice = selectedOption.price_after_tax ?? selectedOption.price;
+            allSelectedVariationsData.push({
+              variation_id: variation.id,
+              option_id: selectedOption.id,
+              variation_name: variation.name,
+              option_name: selectedOption.name,
+              price: selectedOption.price_after_tax ?? selectedOption.price,
+            });
+          }
+        } else if (
+          variation.type === "multiple" &&
+          selectedVariations[variation.id] &&
+          Array.isArray(selectedVariations[variation.id])
+        ) {
+          selectedVariations[variation.id].forEach((optionId) => {
+            const selectedOption = variation.options.find((opt) => opt.id === optionId);
+            if (selectedOption) {
+              productBasePrice += selectedOption.price_after_tax ?? selectedOption.price;
+              allSelectedVariationsData.push({
+                variation_id: variation.id,
+                option_id: selectedOption.id,
+                variation_name: variation.name,
+                option_name: selectedOption.name,
+                price: selectedOption.price_after_tax ?? selectedOption.price,
+              });
+            }
+          });
+        }
+      });
     }
 
-    // Count occurrences of each extra/addon ID
-    const extraCounts = {};
-    productSelectedExtras.forEach(extraId => {
-      const id = extraId.toString();
-      extraCounts[id] = (extraCounts[id] || 0) + 1;
-    });
+    // Grouped extras format for backend
+    const groupedExtras = () => {
+      if (!productSelectedExtras || productSelectedExtras.length === 0) {
+        return [];
+      }
 
-    // Transform to the desired format
-    return Object.keys(extraCounts).map(addonId => ({
-      addon_id: addonId,
-      count: extraCounts[addonId].toString()
-    }));
-  };
+      const extraCounts = {};
+      productSelectedExtras.forEach((extraId) => {
+        const id = extraId.toString();
+        extraCounts[id] = (extraCounts[id] || 0) + 1;
+      });
 
-  // Calculate addons price for display
-  let addonsTotalPrice = 0;
-  const selectedAddonsData = [];
-  
-  if (productSelectedExtras.length > 0) {
-      // Count each addon occurrence for price calculation
+      return Object.keys(extraCounts).map((addonId) => ({
+        addon_id: addonId,
+        count: extraCounts[addonId].toString(),
+      }));
+    };
+
+    // Calculate addons price for display
+    let addonsTotalPrice = 0;
+    const selectedAddonsData = [];
+
+    if (productSelectedExtras.length > 0) {
       const addonCounts = {};
-      productSelectedExtras.forEach(extraId => {
-          addonCounts[extraId] = (addonCounts[extraId] || 0) + 1;
+      productSelectedExtras.forEach((extraId) => {
+        addonCounts[extraId] = (addonCounts[extraId] || 0) + 1;
       });
 
-      // Calculate total price based on counts
-      Object.keys(addonCounts).forEach(extraId => {
-          // Check in addons array
-          if (product.addons) {
-              const addon = product.addons.find(a => a.id === parseInt(extraId));
-              if (addon) {
-                  const addonPrice = addon.price_after_discount ?? addon.price ?? 0;
-                  const count = addonCounts[extraId];
-                  addonsTotalPrice += addonPrice * count;
-                  selectedAddonsData.push({
-                      addon_id: addon.id,
-                      name: addon.name,
-                      price: addonPrice,
-                      count: count
-                  });
-              }
+      Object.keys(addonCounts).forEach((extraId) => {
+        if (product.addons) {
+          const addon = product.addons.find((a) => a.id === parseInt(extraId));
+          if (addon) {
+            const addonPrice = addon.price_after_discount ?? addon.price ?? 0;
+            const count = addonCounts[extraId];
+            addonsTotalPrice += addonPrice * count;
+            selectedAddonsData.push({
+              addon_id: addon.id,
+              name: addon.name,
+              price: addonPrice,
+              count: count,
+            });
           }
-          
-          // Check in allExtras array
-          if (product.allExtras) {
-              const extra = product.allExtras.find(e => e.id === parseInt(extraId));
-              if (extra) {
-                  const extraPrice = extra.price_after_discount ?? extra.price ?? 0;
-                  const count = addonCounts[extraId];
-                  addonsTotalPrice += extraPrice * count;
-                  selectedAddonsData.push({
-                      addon_id: extra.id,
-                      name: extra.name,
-                      price: extraPrice,
-                      count: count
-                  });
-              }
+        }
+
+        if (product.allExtras) {
+          const extra = product.allExtras.find((e) => e.id === parseInt(extraId));
+          if (extra) {
+            const extraPrice = extra.price_after_discount ?? extra.price ?? 0;
+            const count = addonCounts[extraId];
+            addonsTotalPrice += extraPrice * count;
+            selectedAddonsData.push({
+              addon_id: extra.id,
+              name: extra.name,
+              price: extraPrice,
+              count: count,
+            });
           }
+        }
       });
-  }
+    }
 
-  const pricePerUnit = productBasePrice + addonsTotalPrice;
-  const finalTotalPrice = pricePerUnit * customQuantity;
+    const pricePerUnit = productBasePrice + addonsTotalPrice;
+    const finalTotalPrice = pricePerUnit * customQuantity;
 
-  // Create order item with grouped extras format
-  const orderItem = {
+    const orderItem = {
       ...product,
       id: product.id,
       temp_id: createTempId(product.id),
@@ -228,58 +224,43 @@ const handleAddToOrder = async (product, customQuantity = 1) => {
       originalPrice: product.price,
       discountedPrice: product.price_after_discount,
       totalPrice: finalTotalPrice,
-      
-      // Store variation data properly
       allSelectedVariations: allSelectedVariationsData,
       selectedVariation: selectedVariations,
-      
-      // FIXED: Store grouped addons for backend submission
-      selectedAddons: groupedExtras(), // Use grouped format instead of selectedAddonsData
-      selectedExtras: groupedExtras(), // Use grouped format instead of raw array
-      
-      // Store exclusions properly
+      selectedAddons: groupedExtras(),
+      selectedExtras: groupedExtras(),
       selectedExcludes: productSelectedExcludes,
-      
       ...(orderType === "dine_in" && { preparation_status: "pending" }),
+    };
+
+    console.log("Final order item with grouped extras:", orderItem);
+    console.log("Grouped extras format:", groupedExtras());
+
+    onAddToOrder(orderItem);
+
+    if (orderType === "dine_in") {
+      try {
+        await submitItemToBackend(postData, orderItem, customQuantity, orderType);
+        console.log("Item submitted to backend successfully");
+        if (refreshCartData && typeof refreshCartData === "function") {
+          console.log("Refreshing cart data...");
+          await refreshCartData();
+        }
+        toast.success(`"${product.name}" added successfully!`);
+      } catch (error) {
+        console.error("Error submitting item to backend:", error);
+        toast.error(`Failed to submit "${product.name}" to backend`);
+      }
+    } else {
+      toast.success(`"${product.name}" added to cart!`);
+    }
   };
 
-  console.log("Final order item with grouped extras:", orderItem);
-  console.log("Grouped extras format:", groupedExtras());
-
-  // Add to order
-  onAddToOrder(orderItem);
-
-  // Submit to backend for dine_in orders
-  if (orderType === "dine_in") {
-      try {
-          await submitItemToBackend(postData, orderItem, customQuantity, orderType);
-          console.log("Item submitted to backend successfully");
-          
-          // Refresh cart data after successful backend submission
-          if (refreshCartData && typeof refreshCartData === 'function') {
-              console.log("Refreshing cart data...");
-              await refreshCartData();
-          }
-          
-          toast.success(`"${product.name}" added successfully!`);
-      } catch (error) {
-          console.error("Error submitting item to backend:", error);
-          toast.error(`Failed to submit "${product.name}" to backend`);
-      }
-  } else {
-      // For non-dine_in orders, still show success message
-      toast.success(`"${product.name}" added to cart!`);
-  }
-};
-
-  // Handle adding to cart from modal
   const handleAddFromModal = (enhancedProduct) => {
     console.log("Adding from modal:", enhancedProduct);
     handleAddToOrder(enhancedProduct, enhancedProduct.quantity);
   };
 
-  // Loading and error states
-  if (isLoading) {
+  if (isCategoryLoading || isLoading) {
     return (
       <div className="flex justify-center items-center h-40">
         <Loading />
@@ -287,15 +268,15 @@ const handleAddToOrder = async (product, customQuantity = 1) => {
     );
   }
 
-  if (error) {
+  if (categoryError || error) {
     return (
       <div className="text-center text-red-500 p-4">
-        <p>Error loading categories. Please try again later.</p>
+        <p>Error loading data. Please try again later.</p>
       </div>
     );
   }
 
-  if (!data && !isLoading && !error && requestEndpoint === null) {
+  if (!categoryData && !isCategoryLoading && !categoryError && categoryEndpoint === null) {
     return (
       <div className="text-center text-gray-500 py-8">
         Please select a branch to view items.
@@ -303,15 +284,12 @@ const handleAddToOrder = async (product, customQuantity = 1) => {
     );
   }
 
-  // Main render
   return (
     <div className="">
-      {/* Select Category Section */}
       <h2 className="text-bg-primary text-2xl font-bold mb-4">
         Select Category
       </h2>
 
-      {/* User Info Section for Delivery Orders */}
       <DeliveryInfo
         orderType={orderType}
         deliveryUserData={deliveryUserData}
@@ -320,14 +298,12 @@ const handleAddToOrder = async (product, customQuantity = 1) => {
         onClose={onClose}
       />
 
-      {/* Category Selector */}
       <CategorySelector
         categories={categories}
         selectedCategory={selectedCategory}
         onCategorySelect={handleCategorySelect}
       />
 
-      {/* Select Product Section */}
       <div className="my-8">
         <div className="flex items-center justify-between mb-4 me-3">
           <h2 className="text-bg-primary text-2xl font-bold">Select Product</h2>
@@ -352,7 +328,6 @@ const handleAddToOrder = async (product, customQuantity = 1) => {
             </div>
           ) : (
             <>
-              {/* Products Grid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-4 pb-4 py-3">
                 {productsToDisplay.map((product) => (
                   <ProductCard
@@ -365,7 +340,6 @@ const handleAddToOrder = async (product, customQuantity = 1) => {
                 ))}
               </div>
 
-              {/* Show More Button */}
               {visibleProductCount < filteredProducts.length && (
                 <div className="flex justify-center my-3">
                   <Button
@@ -381,7 +355,6 @@ const handleAddToOrder = async (product, customQuantity = 1) => {
         </div>
       </div>
 
-      {/* Product Modal */}
       <ProductModal
         isOpen={isProductModalOpen}
         onClose={closeProductModal}
@@ -394,13 +367,12 @@ const handleAddToOrder = async (product, customQuantity = 1) => {
         onVariationChange={handleVariationChange}
         onExtraChange={handleExtraChange}
         onExclusionChange={handleExclusionChange}
-         onExtraDecrement={handleExtraDecrement}
+        onExtraDecrement={handleExtraDecrement}
         onQuantityChange={setQuantity}
         onAddFromModal={handleAddFromModal}
         orderLoading={orderLoading}
       />
 
-      {/* Show loading indicator if order is being processed */}
       {orderLoading && (
         <div className="bg-white p-6 rounded-lg shadow-lg">
           <Loading />

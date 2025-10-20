@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { usePost } from "@/Hooks/usePost";
-// import { useGet } from "@/Hooks/useGet";
 import { useShift } from "@/context/ShiftContext";
-import { toast } from "react-toastify";
-import { ToastContainer } from "react-toastify";
+import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import { FaUserCircle } from "react-icons/fa";
+
 export default function Navbar() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -13,163 +13,119 @@ export default function Navbar() {
   const { isShiftOpen, shiftStartTime } = useShift();
   const [currentTime, setCurrentTime] = useState(new Date());
 
-  // Update current time every second for the timer
   useEffect(() => {
     if (isShiftOpen) {
-      const timer = setInterval(() => {
-        setCurrentTime(new Date());
-      }, 1000);
-
+      const timer = setInterval(() => setCurrentTime(new Date()), 1000);
       return () => clearInterval(timer);
     }
   }, [isShiftOpen]);
 
-  // Helper function to check if shift is open with fallback
   const checkShiftStatus = () => {
-    // First check context
-    if (isShiftOpen !== undefined) {
-      return isShiftOpen;
-    }
-    
-    // Fallback to localStorage
-    const storedShiftData = localStorage.getItem('shift_data');
+    if (isShiftOpen !== undefined) return isShiftOpen;
+    const storedShiftData = localStorage.getItem("shift_data");
     if (storedShiftData) {
       try {
         const shiftData = JSON.parse(storedShiftData);
         return shiftData.isOpen || false;
-      } catch (error) {
-        console.error('Error parsing shift data from localStorage:', error);
+      } catch {
         return false;
       }
     }
-    
-    // Another fallback - check for shift_start_time
-    const shiftStartTime = localStorage.getItem('shift_start_time');
+    const shiftStartTime = localStorage.getItem("shift_start_time");
     return !!shiftStartTime;
   };
 
   const handleLogout = async () => {
     const shiftIsOpen = checkShiftStatus();
-    
-    console.log("Logout attempt:", {
-      contextIsShiftOpen: isShiftOpen,
-      calculatedShiftStatus: shiftIsOpen,
-      shiftStartTime,
-      localStorage: {
-        shift_data: localStorage.getItem('shift_data'),
-        shift_start_time: localStorage.getItem('shift_start_time')
-      }
-    });
-    
-    // Check if a shift is currently open. If so, prevent logout.
+
     if (shiftIsOpen) {
       toast.error("You must close the shift before logging out.");
-      return; // Stop the function here
+      return;
     }
 
     try {
       await postData("api/logout", {});
-      localStorage.removeItem("token");
-      localStorage.removeItem("user");
-      localStorage.removeItem("branch_id");
-      localStorage.removeItem("cart");
-      // Clean up any shift-related data
-      localStorage.removeItem("shift_data");
-      localStorage.removeItem("shift_start_time");
+      localStorage.clear();
       toast.success("Logged out successfully");
       navigate("/login");
     } catch (err) {
-      console.error("Logout error:", err);
       toast.error(err?.message || "Error while logging out");
     }
   };
 
   const handleCloseShift = () => {
-    // Navigate to shift page with close action
     navigate("/shift?action=close");
   };
 
   const formatElapsedTime = () => {
-    if (!shiftStartTime) {
-      // Fallback to localStorage
-      const storedStartTime = localStorage.getItem('shift_start_time');
-      if (!storedStartTime) return "00:00:00";
-      
-      const elapsed = Math.floor((currentTime - new Date(storedStartTime)) / 1000);
-      const hours = Math.floor(elapsed / 3600);
-      const minutes = Math.floor((elapsed % 3600) / 60);
-      const seconds = elapsed % 60;
+    const start = shiftStartTime || localStorage.getItem("shift_start_time");
+    if (!start) return "00:00:00";
 
-      const safeHours = Math.max(0, hours);
-      const safeMinutes = Math.max(0, minutes);
-      const safeSeconds = Math.max(0, seconds);
-
-      return `${safeHours.toString().padStart(2, '0')}:${safeMinutes.toString().padStart(2, '0')}:${safeSeconds.toString().padStart(2, '0')}`;
-    }
-
-    const elapsed = Math.floor((currentTime - new Date(shiftStartTime)) / 1000);
+    const elapsed = Math.floor((currentTime - new Date(start)) / 1000);
     const hours = Math.floor(elapsed / 3600);
     const minutes = Math.floor((elapsed % 3600) / 60);
     const seconds = elapsed % 60;
-
-    // Make sure all values are positive
-    const safeHours = Math.max(0, hours);
-    const safeMinutes = Math.max(0, minutes);
-    const safeSeconds = Math.max(0, seconds);
-
-    return `${safeHours.toString().padStart(2, '0')}:${safeMinutes.toString().padStart(2, '0')}:${safeSeconds.toString().padStart(2, '0')}`;
+    return `${hours.toString().padStart(2, "0")}:${minutes
+      .toString()
+      .padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
   };
 
   return (
-<div className="bg-white text-gray-800 p-4 shadow-md">
-      <ToastContainer 
-        position="top-right" 
-        autoClose={3000} 
-        hideProgressBar={false} 
-        newestOnTop={false} 
-        closeOnClick 
-        rtl={false} 
-        pauseOnFocusLoss 
-        draggable 
-        pauseOnHover 
+    <div className="text-gray-800 px-4 py-2 md:px-6 mb-6 w-full z-50 bg-white shadow-md">
+      <ToastContainer
+        position="top-right"
+        autoClose={3000}
+        hideProgressBar={false}
+        closeOnClick
+        pauseOnHover
       />
-      
-      {/* Main navbar content */}
-      <div className="relative flex items-center">
-        {/* Left Section - Back Button */}
-        <div className="absolute left-0 flex items-center">
+
+      <div className="relative flex items-center justify-between">
+        {/* Left section (Back + Profile) */}
+        <div className="flex items-center space-x-2">
           {location.pathname !== "/shift" && location.pathname !== "/cashier" && (
             <button
               onClick={() => navigate(-1)}
-              className="font-bold px-3 py-1 rounded hover:bg-red-50 text-2xl transition-colors duration-200"
+              className="font-bold px-2 py-1 rounded hover:bg-red-50 text-2xl transition-colors duration-200"
               title="Go back"
             >
               ←
             </button>
           )}
+
+          {/* Profile icon */}
+          <button
+            onClick={() => navigate("/profile")}
+            className="text-gray-600 hover:text-[#910000] transition-colors duration-200"
+            title="Profile"
+          >
+            <FaUserCircle className="text-2xl md:text-3xl" />
+          </button>
         </div>
 
-        {/* Center Section - Title (Absolutely centered) */}
-        <div className="w-full flex justify-center">
-          <h1 className="text-xl font-bold text-[#910000]">Food2go</h1>
-        </div>
+        {/* Center title */}
+        <h1 className="text-lg md:text-xl font-bold text-[#910000] text-center absolute left-1/2 transform -translate-x-1/2 whitespace-nowrap">
+          Food2go
+        </h1>
 
-        {/* Right Section - Shift controls and Logout */}
-        <div className="absolute right-0 flex items-center space-x-2 md:space-x-4">
+        {/* Right section */}
+        <div className="flex items-center space-x-2">
           {location.pathname !== "/shift" && location.pathname !== "/cashier" && (
             <>
-              {/* Timer display */}
-              <div className="flex items-center space-x-1 md:space-x-2 text-xs md:text-sm font-medium text-gray-600">
-                <span className="text-gray-500 hidden lg:inline">Shift Duration:</span>
-                <span className="text-gray-800 bg-gray-100 px-1 md:px-2 py-1 rounded-md text-xs md:text-sm">
+              {/* Timer always visible */}
+              <div className="flex items-center text-xs md:text-sm font-medium text-gray-600">
+                <span className="text-gray-500 mr-1 hidden sm:inline">
+                  Shift:
+                </span>
+                <span className="bg-gray-100 px-2 py-1 rounded-md text-gray-800 text-xs md:text-sm">
                   {formatElapsedTime()}
                 </span>
               </div>
 
-              {/* Close shift button - Desktop */}
+              {/* ✅ Close shift now visible on all screens */}
               <button
                 onClick={handleCloseShift}
-                className="bg-bg-primary text-white px-3 md:px-4 py-1 md:py-2 rounded-md text-sm md:text-base font-semibold hover:bg-red-700 transition duration-300 hidden sm:flex"
+                className="bg-[#910000] text-white px-3 py-1 md:px-4 md:py-2 rounded-md text-xs md:text-sm font-semibold hover:bg-red-700 transition duration-300"
               >
                 <span className="hidden md:inline">Close Shift</span>
                 <span className="md:hidden">Close</span>
@@ -180,7 +136,7 @@ export default function Navbar() {
           {/* Logout button */}
           <button
             onClick={handleLogout}
-            className="bg-gray-200 text-gray-800 px-3 md:px-4 py-1 md:py-2 rounded-md text-sm md:text-base font-semibold hover:bg-gray-300 transition duration-300"
+            className="bg-gray-200 text-gray-800 px-3 py-1 md:px-4 md:py-2 rounded-md text-xs md:text-sm font-semibold hover:bg-gray-300 transition duration-300"
           >
             <span className="hidden sm:inline">Logout</span>
             <span className="sm:hidden">Exit</span>

@@ -16,6 +16,7 @@ import OrdersView from "./Pages/OrdersView";
 import Shift from "./Pages/Shift";
 import PendingOrders from "./Pages/PendingOrders";
 import Notifications from "./components/Notifications";
+import Profile from "./Pages/Profile";
 
 const router = createBrowserRouter([
   {
@@ -52,6 +53,7 @@ const router = createBrowserRouter([
           </ProtectedRoute>
         ),
       },
+
       // for delivery
       {
         path: "/deliveryusers",
@@ -69,6 +71,14 @@ const router = createBrowserRouter([
             {" "}
             {/* نفس permission الـ Home */}
             <Home />
+          </ProtectedRoute>
+        ),
+      },
+       {
+        path: "/profile",
+        element: (
+          <ProtectedRoute >
+            <Profile />
           </ProtectedRoute>
         ),
       },
