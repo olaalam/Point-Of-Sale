@@ -10,7 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Input } from "@/components/ui/input"; // ✅ Import Input for modals
+import { Input } from "@/components/ui/input";
 import { usePost } from "@/Hooks/usePost";
 import { ToastContainer, toast } from "react-toastify";
 import SummaryRow from "./SummaryRow";
@@ -37,7 +37,7 @@ import { renderItemVariations } from "@/lib/utils";
  * @property {object[]} [addons] - Array of addon objects.
  * @property {string} [selectedVariation] - Selected variation name.
  * @property {boolean} [is_reward=false] - Indicates if the item was obtained via a reward/points system.
- * @property {boolean} [is_deal=false] - New: Indicates if the item was obtained via a deal.
+ * @property {boolean} [is_deal=false] - Indicates if the item was obtained via a deal.
  * @property {number} [applied_discount=0] - The discount applied to this specific item.
  */
 
@@ -71,12 +71,12 @@ export default function Card({
   // Offers States
   const [showOfferModal, setShowOfferModal] = useState(false);
   const [offerCode, setOfferCode] = useState("");
-  const [pendingOfferApproval, setPendingOfferApproval] = useState(null); // { offer_order_id, user_id, product }
+  const [pendingOfferApproval, setPendingOfferApproval] = useState(null);
 
-  // ⭐️ Deals States
+  // Deals States
   const [showDealModal, setShowDealModal] = useState(false);
   const [dealCode, setDealCode] = useState("");
-  const [pendingDealApproval, setPendingDealApproval] = useState(null); // { deal_id, user_id, deal_title, deal_price }
+  const [pendingDealApproval, setPendingDealApproval] = useState(null);
 
   const { loading: apiLoading, postData } = usePost();
   const navigate = useNavigate();
@@ -156,20 +156,134 @@ export default function Card({
     return statusOrder[lowestStatusIndex];
   }, [selectedItems, orderItems]);
 
-  // دالة لمسح العربة
+  // Clear cart function
   const clearCart = () => {
     updateOrderItems([]);
-    localStorage.removeItem("cart"); // مسح البيانات من localStorage
+    localStorage.removeItem("cart");
     setSelectedItems([]);
     setSelectedPaymentItems([]);
     toast.success("All items cleared from the order.");
   };
 
-  // =========================================================================
-  // ⭐️ Offers Functions (Points)
-  // =========================================================================
+  // Handle save as pending order
+const handleSaveAsPending = async () => {
+  // Check if there are items to save
+  if (orderItems.length === 0) {
+    toast.warning("No items to save as pending.");
+    return;
+  }
 
-  // دالة تطبيق العرض بالـ Points (التحقق فقط)
+  const cashierId = localStorage.getItem("cashier_id");
+  // 1. جلب التوكن من localStorage
+  const token = localStorage.getItem("access_token"); 
+
+  // --- Product Processing Helper (Kept for creating 'products' array) ---
+  const processProductItem = (item) => {
+    // ... (Your existing processProductItem logic remains unchanged) ...
+    const groupedVariations =
+      item.allSelectedVariations?.reduce((acc, variation) => {
+        const existing = acc.find(
+          (v) => v.variation_id === variation.variation_id
+        );
+        if (existing) {
+          existing.option_id = Array.isArray(existing.option_id)
+            ? [...existing.option_id, variation.option_id.toString()]
+            : [existing.option_id.toString(), variation.option_id.toString()];
+        } else {
+          acc.push({
+            variation_id: variation.variation_id.toString(),
+            option_id: [variation.option_id.toString()],
+          });
+        }
+        return acc;
+      }, []) || [];
+
+    const realExtrasIds = [];
+    const addonItems = [];
+
+    if (item.selectedExtras && item.selectedExtras.length > 0) {
+      item.selectedExtras.forEach((extraId) => {
+        const isRealExtra = item.allExtras?.some((extra) => extra.id === extraId);
+        if (isRealExtra) {
+          realExtrasIds.push(extraId.toString());
+        } else {
+          const addon = item.addons?.find((addon) => addon.id === extraId);
+          if (addon) {
+            addonItems.push({
+              addon_id: extraId.toString(),
+              count: "1",
+            });
+          }
+        }
+      });
+    }
+
+    if (item.selectedAddons && item.selectedAddons.length > 0) {
+      item.selectedAddons.forEach((addonData) => {
+        const alreadyExists = addonItems.some(
+          (existing) => existing.addon_id === addonData.addon_id.toString()
+        );
+        if (!alreadyExists) {
+          addonItems.push({
+            addon_id: addonData.addon_id.toString(),
+            count: (addonData.count || 1).toString(),
+          });
+        }
+      });
+    }
+
+    return {
+      product_id: item.id.toString(),
+      count: item.count.toString(),
+      note: item.note || "Product Note",
+      addons: addonItems,
+      variation: groupedVariations,
+      exclude_id: (item.selectedExcludes || []).map((id) => id.toString()),
+      extra_id: realExtrasIds,
+    };
+  };
+  // ----------------------------------------------------------------------
+
+  // Map order items to the required product structure
+  const productsToSend = orderItems.map(processProductItem);
+
+  const endpoint = "cashier/take_away_order"; 
+
+  // Construct the payload to strictly match the example keys
+  const payload = {
+    amount: amountToPay.toString(),
+    total_tax: totalTax.toString(),
+    total_discount: totalOtherCharge.toString(),
+    notes: "Customer requested no plastic bag.",
+    source: "web",
+    financials: [],
+    order_pending: 1,
+    cashier_id: cashierId.toString(),
+    products: productsToSend,
+  };
+
+  try {
+    // 2. إعداد Headers بما في ذلك Authorization Token
+    const headers = {
+      "Content-Type": "application/json",
+    };
+    
+    if (token) {
+        // إضافة التوكن بصيغة Bearer
+        headers.Authorization = `Bearer ${token}`;
+    }
+
+    const response = await postData(endpoint, payload, { headers }); // تمرير الـ headers الجديدة
+
+    toast.success("Order saved as pending!");
+    clearCart(); // إفراغ السلة
+    navigate("/pending-orders");
+  } catch (e) {
+    console.error("Pending order error:", e);
+    toast.error(e.response?.data?.message || "Failed to save as pending.");
+  }
+};
+  // Offers Functions
   const handleApplyOffer = async () => {
     if (!offerCode.trim()) {
       toast.warning("Please enter an offer code.");
@@ -180,13 +294,8 @@ export default function Card({
     formData.append("code", offerCode.trim());
 
     try {
-      // API للتحقق من الكود
       const response = await postData("cashier/offer/check_order", formData);
-
-      // التحقق من وجود البيانات مباشرة (response.offer مباشرة بدون data wrapper)
       let offerData = response?.offer || response?.data?.offer;
-
-      // إذا كان offerData object (مش array)، حوّله لـ array
       if (offerData && !Array.isArray(offerData)) {
         offerData = [offerData];
       }
@@ -196,35 +305,27 @@ export default function Card({
 
       if (appliedOfferDetails) {
         const offerInfo = appliedOfferDetails.offer;
-
-        // التحقق من وجود المنتج في offer أو مباشرة في appliedOfferDetails
         const productName = offerInfo?.product || appliedOfferDetails.product;
         const pointsRequired =
           offerInfo?.points || appliedOfferDetails.points || 0;
 
         if (productName) {
           toast.success("Offer validated successfully! Please confirm.");
-
           setPendingOfferApproval({
             offer_order_id: appliedOfferDetails.id,
             user_id: appliedOfferDetails.user_id,
             product: productName,
-            points: pointsRequired, // ✅ إضافة النقاط
+            points: pointsRequired,
           });
-
           setShowOfferModal(false);
         } else {
           toast.error("Offer details are incomplete in the response.");
         }
       } else {
-        console.error(
-          "❌ Failed check - appliedOfferDetails:",
-          appliedOfferDetails
-        );
+        console.error("❌ Failed check - appliedOfferDetails:", appliedOfferDetails);
         toast.error("Offer details are incomplete in the response.");
       }
     } catch (err) {
-      // التحقق من وجود رسالة خطأ واضحة فقط
       if (err.response?.status === 404 || err.response?.status === 400) {
         toast.error(
           err.response?.data?.message || "Invalid or expired offer code."
@@ -234,7 +335,7 @@ export default function Card({
       }
     }
   };
-  // دالة لتأكيد شراء العرض وإضافة المنتج للعربة (التأكيد)
+
   const handleApproveOffer = async () => {
     if (!pendingOfferApproval) return;
 
@@ -245,15 +346,9 @@ export default function Card({
     formData.append("user_id", user_id.toString());
 
     try {
-      // API الجديد للتأكيد
       const response = await postData("cashier/offer/approve_offer", formData);
-
       if (response?.success) {
-        toast.success(
-          `Reward item "${product}" successfully added to the order!`
-        );
-
-        // إضافة المنتج إلى سلة الطلبات بعد التأكيد الناجح
+        toast.success(`Reward item "${product}" successfully added to the order!`);
         const freeItem = {
           temp_id: `reward-${Date.now()}`,
           id: offer_order_id,
@@ -264,7 +359,6 @@ export default function Card({
           applied_discount: 0,
         };
         updateOrderItems([...orderItems, freeItem]);
-
         setPendingOfferApproval(null);
         setOfferCode("");
       } else {
@@ -279,10 +373,7 @@ export default function Card({
     }
   };
 
-  // =========================================================================
-  // ⭐️ Deals Functions (الصفقات)
-  // =========================================================================
-
+  // Deals Functions
   const handleApplyDeal = async () => {
     if (!dealCode.trim()) {
       toast.warning("Please enter a deal code.");
@@ -294,8 +385,6 @@ export default function Card({
 
     try {
       const response = await postData("cashier/deal/deal_order", formData);
-      console.log("API Response:", response);
-
       const dealDetails = response?.deal || response?.data?.deal;
       const userDetails = response?.user || response?.data?.user;
 
@@ -321,17 +410,12 @@ export default function Card({
     }
   };
 
-// دالة لتأكيد حصول العميل على الصفقة (Frontend Only - No API Call)
   const handleApproveDeal = () => {
     if (!pendingDealApproval) return;
 
     const { deal_id, user_id, deal_title, deal_price } = pendingDealApproval;
 
-    toast.success(
-      `Deal "${deal_title}" successfully added to the order!`
-    );
-
-    // إضافة الصفقة كمنتج إلى سلة الطلبات مع حفظ user_id و deal_id
+    toast.success(`Deal "${deal_title}" successfully added to the order!`);
     const dealItem = {
       temp_id: `deal-${Date.now()}`,
       id: deal_id,
@@ -339,19 +423,14 @@ export default function Card({
       price: deal_price || 0.0,
       count: 1,
       is_deal: true,
-      deal_id: deal_id, // ✅ حفظ deal_id للاستخدام في Checkout
-      deal_user_id: user_id, // ✅ حفظ user_id للاستخدام في Checkout
+      deal_id: deal_id,
+      deal_user_id: user_id,
       applied_discount: 0,
     };
     updateOrderItems([...orderItems, dealItem]);
-
     setPendingDealApproval(null);
     setDealCode("");
   };
-  // =========================================================================
-
-  // Handler functions (rest of the component)
-  // ... (handleTransferOrder, handleUpdatePreparationStatus, handleVoidItem, etc. remain unchanged)
 
   const handleTransferOrder = () => {
     if (!tableId || allCartIds.length === 0) {
@@ -594,39 +673,49 @@ export default function Card({
         <h2 className="text-bg-primary text-3xl font-bold mb-6">
           Order Details
         </h2>
-        <div className="flex items-center justify-start mb-4 gap-4 flex-wrap p-4 border-b border-gray-200 bg-white rounded-lg shadow-md">
-          <Button
-            onClick={handleClearAllItems}
-            className="bg-bg-primary text-white hover:bg-red-700 text-sm flex items-center gap-1"
-            disabled={isLoading || orderItems.length === 0}
-          >
-            Clear All Items ({orderItems.length || 0})
-          </Button>
-          {orderType === "take_away" && (
+        <div className="!p-4 flex md:flex-row flex-col gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-grow">
             <Button
-              onClick={handleViewPendingOrders}
-              className="bg-gray-500 !text-white hover:bg-gray-600 text-sm px-8 py-3"
+              onClick={handleClearAllItems}
+              className="bg-bg-primary text-white hover:bg-red-700 text-sm flex items-center justify-center gap-2 py-4"
+              disabled={isLoading || orderItems.length === 0}
             >
-              Pending Orders
+              Clear All Items ({orderItems.length || 0})
             </Button>
+            <Button
+              onClick={() => setShowOfferModal(true)}
+              className="bg-green-600 text-white hover:bg-green-700 text-sm py-4"
+              disabled={isLoading}
+            >
+              Apply Offer (Points)
+            </Button>
+            <Button
+              onClick={() => setShowDealModal(true)}
+              className="bg-orange-600 text-white hover:bg-orange-700 text-sm py-4"
+              disabled={isLoading}
+            >
+              Apply Deal
+            </Button>
+            <Button
+              onClick={handleViewOrders}
+              className="bg-gray-500 text-white hover:bg-gray-600 text-sm py-4"
+              disabled={isLoading}
+            >
+              View Orders
+            </Button>
+          </div>
+          {orderType === "take_away" && (
+            <div className="flex md:flex-col flex-row items-stretch justify-center">
+              <Button
+                onClick={handleViewPendingOrders}
+                className="bg-gray-500 text-white hover:bg-gray-600 text-sm px-6 py-4 md:h-full w-full md:w-36"
+              >
+                Pending Orders
+              </Button>
+            </div>
           )}
-          {/* الزر الخاص بالعروض/النقاط */}
-          <Button
-            onClick={() => setShowOfferModal(true)}
-            className="bg-green-600 !text-white hover:bg-green-700 text-sm px-8 py-3"
-            disabled={isLoading}
-          >
-            Apply Offer (Points)
-          </Button>
-          {/* ⭐️ الزر الخاص بالصفقات/Deals */}
-          <Button
-            onClick={() => setShowDealModal(true)}
-            className="bg-orange-600 !text-white hover:bg-orange-700 text-sm px-8 py-3"
-            disabled={isLoading}
-          >
-            Apply Deal
-          </Button>
         </div>
+
         {orderType === "dine_in" && (
           <div className="flex items-center justify-start mb-4 gap-4 flex-wrap p-4 bg-white rounded-lg shadow-md">
             <Select value={bulkStatus} onValueChange={setBulkStatus}>
@@ -829,13 +918,6 @@ export default function Card({
         </div>
         <div className="flex justify-center gap-4">
           <Button
-            onClick={handleViewOrders}
-            className="bg-gray-500 text-white hover:bg-gray-600 text-lg px-8 py-3"
-            disabled={isLoading}
-          >
-            View Orders
-          </Button>
-          <Button
             onClick={handleCheckOut}
             className="bg-bg-primary text-white hover:bg-red-700 text-lg px-8 py-3"
             disabled={
@@ -846,6 +928,15 @@ export default function Card({
           >
             Checkout
           </Button>
+          {orderType === "take_away" && (
+            <Button
+              onClick={handleSaveAsPending}
+              className="bg-orange-600 text-white hover:bg-orange-700 text-lg px-8 py-3"
+              disabled={isLoading || orderItems.length === 0}
+            >
+              Save as Pending
+            </Button>
+          )}
         </div>
       </div>
       <VoidItemModal
@@ -874,8 +965,6 @@ export default function Card({
           onClearCart={clearCart}
         />
       )}
-
-      {/* 1. Offer Modal: لإدخال الكود (التحقق) */}
       {showOfferModal && (
         <div className="fixed inset-0 bg-gray-500/50 flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full mx-4">
@@ -915,8 +1004,6 @@ export default function Card({
           </div>
         </div>
       )}
-
-      {/* 2. Offer Approval Modal: لتأكيد الشراء بعد التحقق (الخطوة الثانية) */}
       {pendingOfferApproval && (
         <div className="fixed inset-0 bg-gray-500/50 flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full mx-4">
@@ -952,8 +1039,6 @@ export default function Card({
           </div>
         </div>
       )}
-
-      {/* ⭐️ 3. Deal Modal: لإدخال الكود (التحقق) */}
       {showDealModal && (
         <div className="fixed inset-0 bg-gray-500/50 flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full mx-4">
@@ -993,8 +1078,6 @@ export default function Card({
           </div>
         </div>
       )}
-
-      {/* ⭐️ 4. Deal Approval Modal: لتأكيد الاستلام بعد التحقق */}
       {pendingDealApproval && (
         <div className="fixed inset-0 bg-gray-500/50 flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full mx-4">
@@ -1011,7 +1094,6 @@ export default function Card({
             <p className="text-gray-700 mb-6">
               {pendingDealApproval.description || "No description available."}
             </p>
-
             <div className="flex justify-end gap-3">
               <Button
                 onClick={() => {
@@ -1034,7 +1116,6 @@ export default function Card({
           </div>
         </div>
       )}
-
       <ToastContainer />
     </div>
   );

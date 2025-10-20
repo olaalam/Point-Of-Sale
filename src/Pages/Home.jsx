@@ -218,7 +218,7 @@ export default function Home() {
                         className="flex-1 max-w-[200px] text-lg font-semibold h-12 rounded-full
                             bg-white text-bg-primary border-2 border-bg-primary
                             data-[state=active]:bg-bg-primary data-[state=active]:text-white
-                            data-[state=active]:shadow-lg transition-colors duration-200 cursor_pointer"
+                            data-[state=active]:shadow-lg transition-colors duration-200 cursor_pointer p-8"
                     >
                         TakeAway
                     </TabsTrigger>
@@ -227,7 +227,7 @@ export default function Home() {
                         className="flex-1 max-w-[200px] text-lg font-semibold h-12 rounded-full
                             bg-white text-bg-primary border-2 border-bg-primary
                             data-[state=active]:bg-bg-primary data-[state=active]:text-white
-                            data-[state=active]:shadow-lg transition-colors duration-200 cursor_pointer"
+                            data-[state=active]:shadow-lg transition-colors duration-200 cursor_pointer p-8"
                     >
                         Delivery
                     </TabsTrigger>
@@ -236,7 +236,7 @@ export default function Home() {
                         className="flex-1 max-w-[200px] text-lg font-semibold h-12 rounded-full
                             bg-white text-bg-primary border-2 border-bg-primary
                             data-[state=active]:bg-bg-primary data-[state=active]:text-white
-                            data-[state=active]:shadow-lg transition-colors duration-200 cursor_pointer"
+                            data-[state=active]:shadow-lg transition-colors duration-200 cursor_pointer p-8"
                         disabled={transferLoading} // تعطيل الزر أثناء النقل
                     >
                         Dine In
