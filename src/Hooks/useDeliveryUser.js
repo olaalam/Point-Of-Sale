@@ -5,7 +5,7 @@ import { useGet } from "@/Hooks/useGet";
 export const useDeliveryUser = (orderType) => {
   const [deliveryUserData, setDeliveryUserData] = useState(null);
   
-  const selectedUserId = localStorage.getItem("selected_user_id");
+  const selectedUserId = sessionStorage.getItem("selected_user_id");
   
   const {
     data: userData,
@@ -19,8 +19,8 @@ export const useDeliveryUser = (orderType) => {
 
   useEffect(() => {
     if (orderType === "delivery") {
-      // First try to get from localStorage for quick display
-      const storedUserData = localStorage.getItem("selected_user_data");
+      // First try to get from sessionStorage for quick display
+      const storedUserData = sessionStorage.getItem("selected_user_data");
       if (storedUserData) {
         try {
           setDeliveryUserData(JSON.parse(storedUserData));
@@ -34,7 +34,7 @@ export const useDeliveryUser = (orderType) => {
         const user = userData.user[0];
         console.log("User data loaded:", user);
 
-        const selectedAddressId = localStorage.getItem("selected_address_id");
+        const selectedAddressId = sessionStorage.getItem("selected_address_id");
         const selectedAddress =
           user.address?.find(
             (addr) => addr.id === parseInt(selectedAddressId)
@@ -50,7 +50,7 @@ export const useDeliveryUser = (orderType) => {
         };
 
         setDeliveryUserData(freshUserData);
-        localStorage.setItem(
+        sessionStorage.setItem(
           "selected_user_data",
           JSON.stringify(freshUserData)
         );

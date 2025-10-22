@@ -95,7 +95,7 @@ const CustomStatusSelect = ({ table, statusOptions, onStatusChange }) => {
 
 const Dine = () => {
   const navigate = useNavigate();
-  const branch_id = localStorage.getItem("branch_id");
+  const branch_id = sessionStorage.getItem("branch_id");
 
   const [selectedTable, setSelectedTable] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -179,7 +179,7 @@ const Dine = () => {
   };
 
   useEffect(() => {
-    const storedTableId = localStorage.getItem("table_id");
+    const storedTableId = sessionStorage.getItem("table_id");
     if (storedTableId) {
       setSelectedTable(parseInt(storedTableId));
     }
@@ -194,7 +194,7 @@ const Dine = () => {
   }, [selectedLocationId]);
 
   useEffect(() => {
-    const transferPending = localStorage.getItem("transfer_pending");
+    const transferPending = sessionStorage.getItem("transfer_pending");
     if (transferPending === "true") {
       toast.info("Please select a new table to transfer the order.");
     }
@@ -239,11 +239,11 @@ const Dine = () => {
   const handleSelectTable = async (table) => {
     console.log("Table selected:", table.id);
     
-    const transferPending = localStorage.getItem("transfer_pending");
+    const transferPending = sessionStorage.getItem("transfer_pending");
     
     if (transferPending === "true") {
-      const cartIds = JSON.parse(localStorage.getItem("transfer_cart_ids") || "[]");
-      const sourceTableId = localStorage.getItem("transfer_source_table_id");
+      const cartIds = JSON.parse(sessionStorage.getItem("transfer_cart_ids") || "[]");
+      const sourceTableId = sessionStorage.getItem("transfer_source_table_id");
       
       if (cartIds.length > 0 && sourceTableId) {
         if (sourceTableId === table.id.toString()) {
@@ -270,13 +270,13 @@ const Dine = () => {
             toast.success("Order transferred successfully!");
           }, 200);
           
-          localStorage.removeItem("transfer_cart_ids");
-          localStorage.removeItem("transfer_first_cart_id");
-          localStorage.removeItem("transfer_source_table_id");
-          localStorage.removeItem("transfer_pending");
+          sessionStorage.removeItem("transfer_cart_ids");
+          sessionStorage.removeItem("transfer_first_cart_id");
+          sessionStorage.removeItem("transfer_source_table_id");
+          sessionStorage.removeItem("transfer_pending");
           
           setSelectedTable(table.id);
-          localStorage.setItem("table_id", table.id);
+          sessionStorage.setItem("table_id", table.id);
           
           navigate("/order-page", {
             state: {
@@ -296,8 +296,8 @@ const Dine = () => {
       }
     } else {
       setSelectedTable(table.id);
-      localStorage.setItem("table_id", table.id);
-      localStorage.setItem("order_type", "dine_in");
+      sessionStorage.setItem("table_id", table.id);
+      sessionStorage.setItem("order_type", "dine_in");
 
       navigate("/order-page", {
         state: {
@@ -309,8 +309,8 @@ const Dine = () => {
   };
 
 const MergedTableCard = ({ table }) => {
-  const transferPending = localStorage.getItem("transfer_pending") === "true";
-  const sourceTableId = localStorage.getItem("transfer_source_table_id");
+  const transferPending = sessionStorage.getItem("transfer_pending") === "true";
+  const sourceTableId = sessionStorage.getItem("transfer_source_table_id");
   const isSourceTable = transferPending && sourceTableId === table.id.toString();
   const { putData: putStatusChange } = usePut();
 
@@ -385,8 +385,8 @@ const MergedTableCard = ({ table }) => {
 
 
   const TableCard = ({ table }) => {
-    const transferPending = localStorage.getItem("transfer_pending") === "true";
-    const sourceTableId = localStorage.getItem("transfer_source_table_id");
+    const transferPending = sessionStorage.getItem("transfer_pending") === "true";
+    const sourceTableId = sessionStorage.getItem("transfer_source_table_id");
     const isSourceTable = transferPending && sourceTableId === table.id.toString();
     const { putData: putStatusChange } = usePut();
 
@@ -473,8 +473,8 @@ const MergedTableCard = ({ table }) => {
     );
   }
 
-  const transferPending = localStorage.getItem("transfer_pending") === "true";
-  const sourceTableId = localStorage.getItem("transfer_source_table_id");
+  const transferPending = sessionStorage.getItem("transfer_pending") === "true";
+  const sourceTableId = sessionStorage.getItem("transfer_source_table_id");
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">

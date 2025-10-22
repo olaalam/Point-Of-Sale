@@ -21,7 +21,6 @@ export default function LoginPage() {
   useEffect(() => {
     const fetchToken = async () => {
       try {
-        // Register the service worker properly for subpath
         const swRegistration = await navigator.serviceWorker.register(
           "/point-of-sale/firebase-messaging-sw.js",
           { scope: "/point-of-sale/" }
@@ -35,7 +34,6 @@ export default function LoginPage() {
           });
           console.log("FCM Token:", token);
           setFcmToken(token);
-          // localStorage.setItem("fcm_token", token);
         } else {
           console.warn("Notification permission denied");
           toast.warn("Notifications disabled; some features may be limited");
@@ -51,8 +49,6 @@ export default function LoginPage() {
 
   // ✅ دالة تسجيل الدخول
   const handleLogin = async () => {
-    console.log("Login clicked");
-
     if (!user_name || !password) {
       toast.error("Please fill in all fields");
       return;
@@ -65,15 +61,15 @@ export default function LoginPage() {
       const url = `${API_BASE_URL}api/cashier/auth/login`;
 
       // 🧠 تجهيز بيانات الطلب
-      const storedCashierId = localStorage.getItem("cashier_id");
-      const fcm = fcmToken || localStorage.getItem("fcm_token") || "";
+      const storedCashierId =
+        sessionStorage.getItem("cashier_id") || sessionStorage.getItem("cashier_id");
+      const fcm = fcmToken || sessionStorage.getItem("fcm_token") || "";
 
-      // إرسال البيانات — مع cashier_id فقط لو موجود
       const params = {
         user_name,
         password,
         fcm_token: fcm,
-        ...(storedCashierId ? { cashier_id: storedCashierId } : {}), // ✅ مضاف فقط لو موجود
+        ...(storedCashierId ? { cashier_id: storedCashierId } : {}),
       };
 
       const res = await axios.post(url, null, { params });
@@ -81,16 +77,20 @@ export default function LoginPage() {
       console.log("Login Response:", res.data);
       toast.success("Logged in successfully");
 
-      // ✅ تخزين بيانات المستخدم
-      localStorage.setItem("token", res.data.token);
-      localStorage.setItem("user", JSON.stringify(res.data.cashier));
-      localStorage.setItem("branch_id", res.data.cashier.branch_id);
-      // حفظ cashier_id لو رجع من السيرفر
-      if (res.data.cashier?.id) {
-        localStorage.setItem("cashier_id", res.data.cashier.id);
-      }
+      // ✅ تخزين البيانات في sessionStorage بدل sessionStorage
+sessionStorage.setItem("token", res.data.token);
+sessionStorage.setItem("user", JSON.stringify(res.data.cashier));
+sessionStorage.setItem("branch_id", res.data.cashier.branch_id);
 
-      navigate("/cashier");
+if (res.data.cashier?.id) {
+  sessionStorage.setItem("cashier_id", res.data.cashier.id);
+}
+
+// ✅ تأجيل التنقل خطوة صغيرة
+setTimeout(() => {
+  navigate("/cashier", { replace: true });
+}, 100);
+
     } catch (err) {
       console.error("Error:", err);
       const errorMessage =

@@ -111,9 +111,9 @@ export default function Delivery({ orderType: propOrderType }) {
   const handleConfirmDelivery = (user, addressId) => {
     const selectedAddress = user.address.find((addr) => addr.id === addressId);
 
-    localStorage.setItem("selected_user_id", user.id);
-    localStorage.setItem("selected_address_id", addressId);
-    localStorage.setItem("order_type", "delivery");
+    sessionStorage.setItem("selected_user_id", user.id);
+    sessionStorage.setItem("selected_address_id", addressId);
+    sessionStorage.setItem("order_type", "delivery");
 
     const userData = {
       id: user.id,
@@ -123,7 +123,7 @@ export default function Delivery({ orderType: propOrderType }) {
       phone_2: user.phone_2,
       selectedAddress: selectedAddress,
     };
-    localStorage.setItem("selected_user_data", JSON.stringify(userData));
+    sessionStorage.setItem("selected_user_data", JSON.stringify(userData));
     console.log("Attempting to navigate to /order-page with state:", {
       orderType: "delivery",
       userId: user.id,

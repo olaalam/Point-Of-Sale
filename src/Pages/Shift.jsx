@@ -17,10 +17,10 @@ export default function Shift() {
   const location = useLocation();
 
   // 🧠 استرجاع بيانات المستخدم
-  const userData = localStorage.getItem("user");
+  const userData = sessionStorage.getItem("user");
   const user = userData && userData !== "undefined" ? JSON.parse(userData) : null;
   const userName = user?.user_name || "Cashier";
-  const cashierId = localStorage.getItem("cashier_id");
+  const cashierId = sessionStorage.getItem("cashier_id");
 
   // ✅ فتح الشيفت (POST)
   const handleOpenShift = async () => {
@@ -33,7 +33,7 @@ export default function Shift() {
       const payload = {};
       if (cashierId) payload.cashier_id = cashierId;
 
-      const token = localStorage.getItem("token");
+      const token = sessionStorage.getItem("token");
       const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
       // ✅ هنا POST لفتح الشيفت
@@ -74,7 +74,7 @@ export default function Shift() {
 
     try {
       setLoading(true);
-      const token = localStorage.getItem("token");
+      const token = sessionStorage.getItem("token");
       const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
       // ✅ هنا GET لغلق الشيفت

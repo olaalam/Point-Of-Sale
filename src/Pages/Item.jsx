@@ -21,10 +21,10 @@ export default function Item({ fetchEndpoint, onAddToOrder, onClose, refreshCart
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [visibleProductCount, setVisibleProductCount] = useState(PRODUCTS_TO_SHOW_INITIALLY);
-  const [branchIdState, setBranchIdState] = useState(localStorage.getItem("branch_id"));
+  const [branchIdState, setBranchIdState] = useState(sessionStorage.getItem("branch_id"));
 
   // Get order type
-  const orderType = localStorage.getItem("order_type") || "dine_in";
+  const orderType = sessionStorage.getItem("order_type") || "dine_in";
 
   // Custom hooks
   const { deliveryUserData, userLoading, userError } = useDeliveryUser(orderType);
@@ -48,7 +48,7 @@ export default function Item({ fetchEndpoint, onAddToOrder, onClose, refreshCart
 
   // Branch ID management
   useEffect(() => {
-    const storedBranchId = localStorage.getItem("branch_id");
+    const storedBranchId = sessionStorage.getItem("branch_id");
     if (storedBranchId !== branchIdState) {
       setBranchIdState(storedBranchId);
     }

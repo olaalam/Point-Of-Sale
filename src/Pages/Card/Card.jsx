@@ -159,7 +159,7 @@ export default function Card({
   // Clear cart function
   const clearCart = () => {
     updateOrderItems([]);
-    localStorage.removeItem("cart");
+    sessionStorage.removeItem("cart");
     setSelectedItems([]);
     setSelectedPaymentItems([]);
     toast.success("All items cleared from the order.");
@@ -173,9 +173,9 @@ const handleSaveAsPending = async () => {
     return;
   }
 
-  const cashierId = localStorage.getItem("cashier_id");
-  // 1. جلب التوكن من localStorage
-  const token = localStorage.getItem("access_token"); 
+  const cashierId = sessionStorage.getItem("cashier_id");
+  // 1. جلب التوكن من sessionStorage
+  const token = sessionStorage.getItem("access_token"); 
 
   // --- Product Processing Helper (Kept for creating 'products' array) ---
   const processProductItem = (item) => {
@@ -437,9 +437,9 @@ const handleSaveAsPending = async () => {
       toast.error("Cannot transfer order: Table ID or Cart IDs are missing.");
       return;
     }
-    localStorage.setItem("transfer_cart_ids", JSON.stringify(allCartIds));
-    localStorage.setItem("transfer_source_table_id", tableId.toString());
-    localStorage.setItem("transfer_pending", "true");
+    sessionStorage.setItem("transfer_cart_ids", JSON.stringify(allCartIds));
+    sessionStorage.setItem("transfer_source_table_id", tableId.toString());
+    sessionStorage.setItem("transfer_pending", "true");
     toast.info("Please select a new table to transfer the order.");
     navigate("/order-page");
   };

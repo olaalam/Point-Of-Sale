@@ -24,9 +24,9 @@ export default function OrderPage({
   const pendingOrder = location.state?.pendingOrder;
 
   // ✅ CORRECT: Define these variables at the top
-  const currentOrderType = propOrderType || location.state?.orderType || localStorage.getItem("order_type") || "take_away";
-  const currentTableId = propTableId || location.state?.tableId || localStorage.getItem("table_id") || null;
-  const currentUserId = propUserId || location.state?.delivery_user_id || localStorage.getItem("delivery_user_id") || null;
+  const currentOrderType = propOrderType || location.state?.orderType || sessionStorage.getItem("order_type") || "take_away";
+  const currentTableId = propTableId || location.state?.tableId || sessionStorage.getItem("table_id") || null;
+  const currentUserId = propUserId || location.state?.delivery_user_id || sessionStorage.getItem("delivery_user_id") || null;
 
   const isDineIn = currentOrderType === "dine_in" && !!currentTableId;
   const isDelivery = currentOrderType === "delivery" && !!currentUserId;
@@ -67,22 +67,22 @@ export default function OrderPage({
       }));
       setTakeAwayItems(mappedItems);
       setPendingOrderLoaded(true);
-      localStorage.setItem("cart", JSON.stringify(mappedItems));
-      localStorage.setItem("order_type", "take_away");
-      localStorage.setItem("pending_order_info", JSON.stringify({
+      sessionStorage.setItem("cart", JSON.stringify(mappedItems));
+      sessionStorage.setItem("order_type", "take_away");
+      sessionStorage.setItem("pending_order_info", JSON.stringify({
         orderId: pendingOrder.orderId,
         orderNumber: pendingOrder.orderNumber,
         amount: pendingOrder.amount,
         notes: pendingOrder.notes
       }));
     } else if (!pendingOrderLoaded && currentOrderType === "take_away") {
-      const storedCartString = localStorage.getItem("cart");
+      const storedCartString = sessionStorage.getItem("cart");
       if (storedCartString && storedCartString !== "undefined") {
         try {
           const storedCart = JSON.parse(storedCartString);
           setTakeAwayItems(Array.isArray(storedCart) ? storedCart : []);
         } catch (error) {
-          console.error("Error parsing cart JSON from localStorage:", error);
+          console.error("Error parsing cart JSON from sessionStorage:", error);
           setTakeAwayItems([]);
         }
       }
@@ -93,8 +93,8 @@ const clearOrderData = () => {
   
   if (currentOrderType === "take_away") {
     setTakeAwayItems([]);
-    localStorage.removeItem("cart");
-    localStorage.removeItem("pending_order_info");
+    sessionStorage.removeItem("cart");
+    sessionStorage.removeItem("pending_order_info");
   } else if (currentOrderType === "dine_in" && currentTableId) {
     // للـ dine_in، مسح البيانات المحلية
     setOrdersByTable((prev) => ({
@@ -107,8 +107,8 @@ const clearOrderData = () => {
       ...prev,
       [currentUserId]: [],
     }));
-    localStorage.removeItem("selected_user_id");
-    localStorage.removeItem("selected_address_id");
+    sessionStorage.removeItem("selected_user_id");
+    sessionStorage.removeItem("selected_address_id");
   }
 };
   // ✅ Separate useEffect for handling dine-in API data.
@@ -138,16 +138,21 @@ const clearOrderData = () => {
       setIsLoading(true);
       console.log("Refreshing cart data...");
       
-      if (isDineIn && currentTableId) {
-        if (refetchDineIn) {
-          await refetchDineIn();
-        }
-      } else if (isDelivery && currentUserId) {
+if (isDineIn && currentTableId) {
+  if (refetchDineIn) {
+    const dineData = await refetchDineIn();
+    if (!dineData || typeof dineData !== "object") {
+      console.warn("Invalid dine-in response:", dineData);
+      return;
+    }
+  }
+}
+ else if (isDelivery && currentUserId) {
         if (refetchDelivery) {
           await refetchDelivery();
         }
       } else if (currentOrderType === "take_away") {
-        const storedCartString = localStorage.getItem("cart");
+        const storedCartString = sessionStorage.getItem("cart");
         if (storedCartString && storedCartString !== "undefined") {
           try {
             const storedCart = JSON.parse(storedCartString);
@@ -190,7 +195,7 @@ const clearOrderData = () => {
       }));
     } else {
       setTakeAwayItems(safeNewItems);
-      localStorage.setItem("cart", JSON.stringify(safeNewItems));
+      sessionStorage.setItem("cart", JSON.stringify(safeNewItems));
     }
   };
 
@@ -224,13 +229,13 @@ const clearOrderData = () => {
   };
 
   const handleClose = () => {
-    localStorage.removeItem("selected_user_id");
-    localStorage.removeItem("selected_address_id");
-    localStorage.removeItem("order_type");
-    localStorage.removeItem("table_id");
-    localStorage.removeItem("delivery_user_id");
-    localStorage.removeItem("cart");
-    localStorage.removeItem("pending_order_info");
+    sessionStorage.removeItem("selected_user_id");
+    sessionStorage.removeItem("selected_address_id");
+    sessionStorage.removeItem("order_type");
+    sessionStorage.removeItem("table_id");
+    sessionStorage.removeItem("delivery_user_id");
+    sessionStorage.removeItem("cart");
+    sessionStorage.removeItem("pending_order_info");
     
     setPendingOrderLoaded(false);
     navigate("/");

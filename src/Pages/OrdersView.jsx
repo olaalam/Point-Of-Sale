@@ -61,7 +61,7 @@ export default function OrdersView() {
  const { data, error, isLoading: isInitialLoading } = useGet("cashier/home/cashier_data");
  const { putData } = usePut();
  const [search, setSearch] = useState("");
- const orderType = localStorage.getItem("last_order_type") || "take_away";
+ const orderType = sessionStorage.getItem("last_order_type") || "take_away";
 
  let orders = [];
  if (orderType === "take_away" && Array.isArray(data?.take_away)) {

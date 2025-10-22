@@ -11,8 +11,8 @@ export const submitItemToBackend = async (postData, product, quantity = 1, order
     return;
   }
 
-  const cashierId = localStorage.getItem("cashier_id");
-  const tableId = localStorage.getItem("table_id");
+  const cashierId = sessionStorage.getItem("cashier_id");
+  const tableId = sessionStorage.getItem("table_id");
 
   if (!cashierId || !tableId) {
     console.error("Missing required data:", { cashierId, tableId });

@@ -27,8 +27,8 @@ const CheckOut = ({
   orderType,
   onClearCart,
 }) => {
-  const branch_id = localStorage.getItem("branch_id");
-  const cashierId = localStorage.getItem("cashier_id");
+  const branch_id = sessionStorage.getItem("branch_id");
+  const cashierId = sessionStorage.getItem("cashier_id");
   const navigate = useNavigate();
 
   const {
@@ -41,7 +41,7 @@ const CheckOut = ({
   const [paymentSplits, setPaymentSplits] = useState([]);
   const [customerPaid, setCustomerPaid] = useState("");
   const [isPendingOrder, setIsPendingOrder] = useState(false);
-  const tableId = localStorage.getItem("table_id") || null;
+  const tableId = sessionStorage.getItem("table_id") || null;
   const [deliveryModelOpen, setDeliveryModelOpen] = useState(false);
   const [selectedDeliveryId, setSelectedDeliveryId] = useState(null);
   const [orderId, setOrderId] = useState(null);
@@ -342,8 +342,8 @@ const CheckOut = ({
         payload = {
           ...basePayload,
           products: productsToSend,
-          address_id: localStorage.getItem("selected_address_id") || "",
-          user_id: localStorage.getItem("selected_user_id") || "",
+          address_id: sessionStorage.getItem("selected_address_id") || "",
+          user_id: sessionStorage.getItem("selected_user_id") || "",
           cash_with_delivery: (parseFloat(customerPaid) || 0).toString(),
         };
       } else {
@@ -375,7 +375,7 @@ const CheckOut = ({
         onClearCart();
       }
 
-      localStorage.setItem("last_order_type", orderType);
+      sessionStorage.setItem("last_order_type", orderType);
 
       if (orderType === "delivery" && !isPendingOrder) {
         const newOrderId = response?.success?.id;

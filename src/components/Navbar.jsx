@@ -22,7 +22,7 @@ export default function Navbar() {
 
   const checkShiftStatus = () => {
     if (isShiftOpen !== undefined) return isShiftOpen;
-    const storedShiftData = localStorage.getItem("shift_data");
+    const storedShiftData = sessionStorage.getItem("shift_data");
     if (storedShiftData) {
       try {
         const shiftData = JSON.parse(storedShiftData);
@@ -31,7 +31,7 @@ export default function Navbar() {
         return false;
       }
     }
-    const shiftStartTime = localStorage.getItem("shift_start_time");
+    const shiftStartTime = sessionStorage.getItem("shift_start_time");
     return !!shiftStartTime;
   };
 
@@ -45,7 +45,7 @@ export default function Navbar() {
 
     try {
       await postData("api/logout", {});
-      localStorage.clear();
+      sessionStorage.clear();
       toast.success("Logged out successfully");
       navigate("/login");
     } catch (err) {
@@ -58,7 +58,7 @@ export default function Navbar() {
   };
 
   const formatElapsedTime = () => {
-    const start = shiftStartTime || localStorage.getItem("shift_start_time");
+    const start = shiftStartTime || sessionStorage.getItem("shift_start_time");
     if (!start) return "00:00:00";
 
     const elapsed = Math.floor((currentTime - new Date(start)) / 1000);
@@ -86,7 +86,7 @@ export default function Navbar() {
           {location.pathname !== "/shift" && location.pathname !== "/cashier" && (
             <button
               onClick={() => navigate(-1)}
-              className="font-bold px-2 py-1 rounded hover:bg-red-50 text-2xl transition-colors duration-200"
+              className="font-bold  text-center px-1 pb-1 hover:bg-red-200 cursor-pointer hover:text-gray-800 rounded bg-bg-primary text-4xl text-white transition-colors duration-200"
               title="Go back"
             >
               ←

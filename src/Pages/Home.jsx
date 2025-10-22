@@ -9,16 +9,16 @@ import OrderPage from "./OrderPage";
 import { usePost } from "@/Hooks/usePost"; // ✅ Import usePost hook
 import { toast, ToastContainer } from "react-toastify"; // ✅ Import for notifications
 
-// ✅ دالة تجلب الحالة الأولية من localStorage
+// ✅ دالة تجلب الحالة الأولية من sessionStorage
 const getInitialState = () => {
-    const storedOrderType = localStorage.getItem("order_type") || "take_away";
-    const storedTab = localStorage.getItem("tab") || storedOrderType;
-    const storedTableId = localStorage.getItem("table_id") || null;
-    const storedDeliveryUserId = localStorage.getItem("selected_user_id") || null;
+    const storedOrderType = sessionStorage.getItem("order_type") || "take_away";
+    const storedTab = sessionStorage.getItem("tab") || storedOrderType;
+    const storedTableId = sessionStorage.getItem("table_id") || null;
+    const storedDeliveryUserId = sessionStorage.getItem("selected_user_id") || null;
     
-    // ✅ قراءة بيانات النقل من localStorage
-    const transferSourceTableId = localStorage.getItem("transfer_source_table_id") || null;
-    const transferCartIds = JSON.parse(localStorage.getItem("transfer_cart_ids")) || null;
+    // ✅ قراءة بيانات النقل من sessionStorage
+    const transferSourceTableId = sessionStorage.getItem("transfer_source_table_id") || null;
+    const transferCartIds = JSON.parse(sessionStorage.getItem("transfer_cart_ids")) || null;
     
     // تحديد ما إذا كان المكون في وضع النقل
     const isTransferring = !!(transferSourceTableId && transferCartIds && transferCartIds.length > 0);
@@ -34,11 +34,11 @@ const getInitialState = () => {
     };
 };
 
-// ✅ دالة لمسح بيانات النقل من localStorage
+// ✅ دالة لمسح بيانات النقل من sessionStorage
 const clearTransferData = () => {
-    localStorage.removeItem("transfer_source_table_id");
-    localStorage.removeItem("transfer_first_cart_id");
-    localStorage.removeItem("transfer_cart_ids");
+    sessionStorage.removeItem("transfer_source_table_id");
+    sessionStorage.removeItem("transfer_first_cart_id");
+    sessionStorage.removeItem("transfer_cart_ids");
 };
 
 export default function Home() {
@@ -119,25 +119,25 @@ export default function Home() {
         };
 
         if (value === "take_away") {
-            localStorage.removeItem("table_id");
-            localStorage.removeItem("delivery_user_id");
+            sessionStorage.removeItem("table_id");
+            sessionStorage.removeItem("delivery_user_id");
             clearTransferData(); // ✅ مسح بيانات النقل عند التحويل إلى TakeAway
         } else if (value === "dine_in") {
-            newState.tableId = localStorage.getItem("table_id");
-            localStorage.removeItem("delivery_user_id");
+            newState.tableId = sessionStorage.getItem("table_id");
+            sessionStorage.removeItem("delivery_user_id");
             // إذا كانت هناك بيانات نقل موجودة، يجب عرض شاشة اختيار الطاولات (Dine)
             if (state.isTransferring) {
                 newState.tableId = null; 
             }
         } else if (value === "delivery") {
-            newState.deliveryUserId = localStorage.getItem("delivery_user_id");
-            localStorage.removeItem("table_id");
+            newState.deliveryUserId = sessionStorage.getItem("delivery_user_id");
+            sessionStorage.removeItem("table_id");
             clearTransferData(); // ✅ مسح بيانات النقل عند التحويل إلى Delivery
         }
 
         setState(newState);
-        localStorage.setItem("tab", value);
-        localStorage.setItem("order_type", value);
+        sessionStorage.setItem("tab", value);
+        sessionStorage.setItem("order_type", value);
     };
 
     const handleTableSelect = (newTableId) => {
@@ -157,9 +157,9 @@ export default function Home() {
                 tabValue: "dine_in",
                 isTransferring: false,
             }));
-            localStorage.setItem("table_id", newTableId);
-            localStorage.setItem("order_type", "dine_in");
-            localStorage.setItem("tab", "dine_in");
+            sessionStorage.setItem("table_id", newTableId);
+            sessionStorage.setItem("order_type", "dine_in");
+            sessionStorage.setItem("tab", "dine_in");
         }
     };
     
@@ -172,15 +172,15 @@ export default function Home() {
             orderType: "delivery",
             tabValue: "delivery",
         }));
-        localStorage.setItem("delivery_user_id", id);
-        localStorage.setItem("order_type", "delivery");
-        localStorage.setItem("tab", "delivery");
+        sessionStorage.setItem("delivery_user_id", id);
+        sessionStorage.setItem("order_type", "delivery");
+        sessionStorage.setItem("tab", "delivery");
     };
 
     const handleClose = () => {
-        localStorage.removeItem("selected_user_id");
-        localStorage.removeItem("selected_address_id");
-        localStorage.removeItem("order_type");
+        sessionStorage.removeItem("selected_user_id");
+        sessionStorage.removeItem("selected_address_id");
+        sessionStorage.removeItem("order_type");
         setState({ ...state, deliveryUserId: null, orderType: "delivery", tabValue: "delivery" });
     };
 

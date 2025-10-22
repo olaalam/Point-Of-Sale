@@ -1,10 +1,10 @@
 // src/redux/slices/authSlice.js
 import { createSlice } from "@reduxjs/toolkit";
 
-// استرجاع اليوزر من localStorage
+// استرجاع اليوزر من sessionStorage
 let storedUser = null;
 try {
-  const rawUser = localStorage.getItem("user");
+  const rawUser = sessionStorage.getItem("user");
   if (rawUser && rawUser !== "undefined" && rawUser !== "null") {
     storedUser = JSON.parse(rawUser);
   }
@@ -29,7 +29,7 @@ const authSlice = createSlice({
     logout: (state) => {
       state.user = null;
       state.roles = {};
-      localStorage.removeItem("user"); // 🧹 حذف بيانات اليوزر من التخزين
+      sessionStorage.removeItem("user"); // 🧹 حذف بيانات اليوزر من التخزين
     },
   },
 });

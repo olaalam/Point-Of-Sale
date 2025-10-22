@@ -85,8 +85,8 @@ export default function PendingOrders() {
       toast.success(`Order #${order.order_number} loaded successfully!`);
       
       // ✅ Clear any existing cart data first
-      localStorage.removeItem("cart");
-      localStorage.removeItem("pending_order_info");
+      sessionStorage.removeItem("cart");
+      sessionStorage.removeItem("pending_order_info");
       
       // ✅ Navigate with the pending order data - DON'T clear state immediately
       navigate("/", { 

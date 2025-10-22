@@ -17,7 +17,7 @@ export function useGet(initialEndpoint) {
     setError(null);
     
     try {
-      const token = localStorage.getItem('token');
+      const token = sessionStorage.getItem('token');
       const headers = token ? { Authorization: `Bearer ${token}` } : {};
       const response = await axios.get(`${baseUrl}${endpoint}`, { headers });
       setData(response.data);

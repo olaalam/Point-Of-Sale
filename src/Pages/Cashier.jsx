@@ -62,7 +62,7 @@ export default function Cashier() {
 
   const handleCashierSelection = async (id) => {
     setSelectedCashierId(id);
-    localStorage.setItem("cashier_id", id);
+    sessionStorage.setItem("cashier_id", id);
 
     try {
       await putData(`cashier/home/active_cashier/${id}`, {});

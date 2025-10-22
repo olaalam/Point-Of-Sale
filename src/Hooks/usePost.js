@@ -6,7 +6,7 @@ export function usePost() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [data, setData] = useState(null);
-  const token = localStorage.getItem("token");
+  const token = sessionStorage.getItem("token");
   const postData = async (endpoint, body) => {
     // <-- endpoint هنا
     setLoading(true);

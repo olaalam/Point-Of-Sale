@@ -2,9 +2,9 @@ import React, { useEffect } from "react";
 import OrderPage from "./OrderPage";
 
 export default function TakeAway({ orderType }) {
-  // Set order type in localStorage for consistency
+  // Set order type in sessionStorage for consistency
   useEffect(() => {
-    localStorage.setItem("order_type", "take_away");
+    sessionStorage.setItem("order_type", "take_away");
   }, []);
 
   return (
