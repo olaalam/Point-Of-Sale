@@ -1,4 +1,5 @@
 // ItemRow.jsx
+import { toast } from "react-toastify";
 import { PREPARATION_STATUSES } from "./constants";
 import { Trash2 } from "lucide-react";
 
@@ -116,29 +117,30 @@ const ItemRow = ({
       {orderType === "dine_in" && (
         <td className="py-3 px-4 text-center align-top">
           <div className="flex items-center gap-2">
-            <button
-              onClick={() =>
-                handleUpdatePreparationStatus(item.temp_id)
-              }
-              title={`Change status to ${
-                PREPARATION_STATUSES[statusInfo.nextStatus]
-                  ?.label || "Pending"
-              }`}
-              className={`p-2 rounded-full ${
-                statusInfo.color
-              } hover:bg-gray-200 text-center m-auto transition-colors duration-200 ${
-                isItemLoading
-                  ? "opacity-50 cursor-not-allowed"
-                  : ""
-              }`}
-              disabled={isItemLoading}
-            >
-              {isItemLoading ? (
-                <div className="w-5 h-5 border-2 border-gray-300 border-t-current rounded-full animate-spin"></div>
-              ) : (
-                <StatusIcon size={20} />
-              )}
-            </button>
+<button
+  onClick={() => {
+    console.log("Triggering update for item:", item.temp_id, "Full item:", item);
+    if (!item?.temp_id) {
+      console.error("item.temp_id is undefined:", item);
+      toast.error("Item ID is missing, cannot update status.");
+      return;
+    }
+    handleUpdatePreparationStatus(item.temp_id);
+  }}
+  title={`Change status to ${
+    PREPARATION_STATUSES[statusInfo.nextStatus]?.label || "Pending"
+  }`}
+  className={`p-2 rounded-full ${statusInfo.color} hover:bg-gray-200 text-center m-auto transition-colors duration-200 ${
+    isItemLoading ? "opacity-50 cursor-not-allowed" : ""
+  }`}
+  disabled={isItemLoading}
+>
+  {isItemLoading ? (
+    <div className="w-5 h-5 border-2 border-gray-300 border-t-current rounded-full animate-spin"></div>
+  ) : (
+    <StatusIcon size={20} />
+  )}
+</button>
           </div>
         </td>
       )}

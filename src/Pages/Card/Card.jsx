@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Loading from "@/components/Loading";
 import { Button } from "@/components/ui/button";
@@ -156,6 +156,17 @@ export default function Card({
     return statusOrder[lowestStatusIndex];
   }, [selectedItems, orderItems]);
 
+  // Add temp_id to items if missing
+  useEffect(() => {
+    const updatedItemsWithTempId = orderItems.map((item) => ({
+      ...item,
+      temp_id: item.temp_id || `item-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    }));
+    if (JSON.stringify(updatedItemsWithTempId) !== JSON.stringify(orderItems)) {
+      updateOrderItems(updatedItemsWithTempId);
+    }
+  }, [orderItems, updateOrderItems]);
+
   // Clear cart function
   const clearCart = () => {
     updateOrderItems([]);
@@ -166,123 +177,112 @@ export default function Card({
   };
 
   // Handle save as pending order
-const handleSaveAsPending = async () => {
-  // Check if there are items to save
-  if (orderItems.length === 0) {
-    toast.warning("No items to save as pending.");
-    return;
-  }
+  const handleSaveAsPending = async () => {
+    if (orderItems.length === 0) {
+      toast.warning("No items to save as pending.");
+      return;
+    }
 
-  const cashierId = sessionStorage.getItem("cashier_id");
-  // 1. جلب التوكن من sessionStorage
-  const token = sessionStorage.getItem("access_token"); 
+    const cashierId = sessionStorage.getItem("cashier_id");
+    const token = sessionStorage.getItem("access_token");
 
-  // --- Product Processing Helper (Kept for creating 'products' array) ---
-  const processProductItem = (item) => {
-    // ... (Your existing processProductItem logic remains unchanged) ...
-    const groupedVariations =
-      item.allSelectedVariations?.reduce((acc, variation) => {
-        const existing = acc.find(
-          (v) => v.variation_id === variation.variation_id
-        );
-        if (existing) {
-          existing.option_id = Array.isArray(existing.option_id)
-            ? [...existing.option_id, variation.option_id.toString()]
-            : [existing.option_id.toString(), variation.option_id.toString()];
-        } else {
-          acc.push({
-            variation_id: variation.variation_id.toString(),
-            option_id: [variation.option_id.toString()],
-          });
-        }
-        return acc;
-      }, []) || [];
-
-    const realExtrasIds = [];
-    const addonItems = [];
-
-    if (item.selectedExtras && item.selectedExtras.length > 0) {
-      item.selectedExtras.forEach((extraId) => {
-        const isRealExtra = item.allExtras?.some((extra) => extra.id === extraId);
-        if (isRealExtra) {
-          realExtrasIds.push(extraId.toString());
-        } else {
-          const addon = item.addons?.find((addon) => addon.id === extraId);
-          if (addon) {
-            addonItems.push({
-              addon_id: extraId.toString(),
-              count: "1",
+    const processProductItem = (item) => {
+      const groupedVariations =
+        item.allSelectedVariations?.reduce((acc, variation) => {
+          const existing = acc.find(
+            (v) => v.variation_id === variation.variation_id
+          );
+          if (existing) {
+            existing.option_id = Array.isArray(existing.option_id)
+              ? [...existing.option_id, variation.option_id.toString()]
+              : [existing.option_id.toString(), variation.option_id.toString()];
+          } else {
+            acc.push({
+              variation_id: variation.variation_id.toString(),
+              option_id: [variation.option_id.toString()],
             });
           }
-        }
-      });
-    }
+          return acc;
+        }, []) || [];
 
-    if (item.selectedAddons && item.selectedAddons.length > 0) {
-      item.selectedAddons.forEach((addonData) => {
-        const alreadyExists = addonItems.some(
-          (existing) => existing.addon_id === addonData.addon_id.toString()
-        );
-        if (!alreadyExists) {
-          addonItems.push({
-            addon_id: addonData.addon_id.toString(),
-            count: (addonData.count || 1).toString(),
-          });
-        }
-      });
-    }
+      const realExtrasIds = [];
+      const addonItems = [];
 
-    return {
-      product_id: item.id.toString(),
-      count: item.count.toString(),
-      note: item.note || "Product Note",
-      addons: addonItems,
-      variation: groupedVariations,
-      exclude_id: (item.selectedExcludes || []).map((id) => id.toString()),
-      extra_id: realExtrasIds,
+      if (item.selectedExtras && item.selectedExtras.length > 0) {
+        item.selectedExtras.forEach((extraId) => {
+          const isRealExtra = item.allExtras?.some((extra) => extra.id === extraId);
+          if (isRealExtra) {
+            realExtrasIds.push(extraId.toString());
+          } else {
+            const addon = item.addons?.find((addon) => addon.id === extraId);
+            if (addon) {
+              addonItems.push({
+                addon_id: extraId.toString(),
+                count: "1",
+              });
+            }
+          }
+        });
+      }
+
+      if (item.selectedAddons && item.selectedAddons.length > 0) {
+        item.selectedAddons.forEach((addonData) => {
+          const alreadyExists = addonItems.some(
+            (existing) => existing.addon_id === addonData.addon_id.toString()
+          );
+          if (!alreadyExists) {
+            addonItems.push({
+              addon_id: addonData.addon_id.toString(),
+              count: (addonData.count || 1).toString(),
+            });
+          }
+        });
+      }
+
+      return {
+        product_id: item.id.toString(),
+        count: item.count.toString(),
+        note: item.note || "Product Note",
+        addons: addonItems,
+        variation: groupedVariations,
+        exclude_id: (item.selectedExcludes || []).map((id) => id.toString()),
+        extra_id: realExtrasIds,
+      };
     };
-  };
-  // ----------------------------------------------------------------------
 
-  // Map order items to the required product structure
-  const productsToSend = orderItems.map(processProductItem);
+    const productsToSend = orderItems.map(processProductItem);
 
-  const endpoint = "cashier/take_away_order"; 
-
-  // Construct the payload to strictly match the example keys
-  const payload = {
-    amount: amountToPay.toString(),
-    total_tax: totalTax.toString(),
-    total_discount: totalOtherCharge.toString(),
-    notes: "Customer requested no plastic bag.",
-    source: "web",
-    financials: [],
-    order_pending: 1,
-    cashier_id: cashierId.toString(),
-    products: productsToSend,
-  };
-
-  try {
-    // 2. إعداد Headers بما في ذلك Authorization Token
-    const headers = {
-      "Content-Type": "application/json",
+    const payload = {
+      amount: amountToPay.toString(),
+      total_tax: totalTax.toString(),
+      total_discount: totalOtherCharge.toString(),
+      notes: "Customer requested no plastic bag.",
+      source: "web",
+      financials: [],
+      order_pending: 1,
+      cashier_id: cashierId.toString(),
+      products: productsToSend,
     };
-    
-    if (token) {
-        // إضافة التوكن بصيغة Bearer
+
+    try {
+      const headers = {
+        "Content-Type": "application/json",
+      };
+      if (token) {
         headers.Authorization = `Bearer ${token}`;
+      }
+
+      const response = await postData("cashier/take_away_order", payload, { headers });
+
+      toast.success("Order saved as pending!");
+      clearCart();
+      navigate("/pending-orders");
+    } catch (e) {
+      console.error("Pending order error:", e);
+      toast.error(e.response?.data?.message || "Failed to save as pending.");
     }
+  };
 
-    const response = await postData(endpoint, payload, { headers }); // تمرير الـ headers الجديدة
-
-    toast.success("Order saved as pending!");
-    clearCart(); // إفراغ السلة
-    navigate("/pending-orders");
-  } catch (e) {
-    console.error("Pending order error:", e);
-    toast.error(e.response?.data?.message || "Failed to save as pending.");
-  }
-};
   // Offers Functions
   const handleApplyOffer = async () => {
     if (!offerCode.trim()) {
@@ -350,7 +350,7 @@ const handleSaveAsPending = async () => {
       if (response?.success) {
         toast.success(`Reward item "${product}" successfully added to the order!`);
         const freeItem = {
-          temp_id: `reward-${Date.now()}`,
+          temp_id: `reward-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           id: offer_order_id,
           name: product + " (Reward Item)",
           price: 0.0,
@@ -417,7 +417,7 @@ const handleSaveAsPending = async () => {
 
     toast.success(`Deal "${deal_title}" successfully added to the order!`);
     const dealItem = {
-      temp_id: `deal-${Date.now()}`,
+      temp_id: `deal-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       id: deal_id,
       name: deal_title + " (Deal Item)",
       price: deal_price || 0.0,
@@ -445,19 +445,39 @@ const handleSaveAsPending = async () => {
   };
 
   const handleUpdatePreparationStatus = async (itemTempId) => {
+    console.log("Starting update for itemTempId:", itemTempId, "Current orderItems:", orderItems);
+    if (!itemTempId) {
+      console.error("itemTempId is undefined, cannot proceed with update.");
+      toast.error("Failed to identify the item to update.");
+      return;
+    }
+
     const itemToUpdate = orderItems.find((item) => item.temp_id === itemTempId);
     if (!itemToUpdate || !itemToUpdate.cart_id || !tableId) {
+      console.error("Missing required data:", { itemToUpdate, tableId });
       toast.error("Missing required data to update item status.");
       return;
     }
-    const nextStatus =
-      PREPARATION_STATUSES[itemToUpdate.preparation_status || "pending"]
-        ?.nextStatus;
+
+    const currentStatus = itemToUpdate.preparation_status || "pending";
+    const nextStatus = PREPARATION_STATUSES[currentStatus]?.nextStatus;
     if (!nextStatus || !PREPARATION_STATUSES[nextStatus]?.canSendToAPI) {
+      console.warn("Cannot update to next status:", nextStatus);
       toast.info("Status cannot be updated via API at this time.");
       return;
     }
+
+    console.log(
+      "Preparing API request for cart_id:",
+      itemToUpdate.cart_id,
+      "to status:",
+      nextStatus,
+      "table_id:",
+      tableId
+    );
+
     setItemLoadingStates((prev) => ({ ...prev, [itemTempId]: true }));
+
     const formData = new FormData();
     formData.append("table_id", tableId.toString());
     formData.append("preparing[0][cart_id]", itemToUpdate.cart_id.toString());
@@ -465,16 +485,26 @@ const handleSaveAsPending = async () => {
       "preparing[0][status]",
       PREPARATION_STATUSES[nextStatus]?.apiValue || nextStatus
     );
+
     try {
-      await postData("cashier/preparing", formData);
+      const response = await postData("cashier/preparing", formData);
+      console.log("API response:", response);
+
       const updatedItems = orderItems.map((item) =>
-        item.temp_id === itemTempId
-          ? { ...item, preparation_status: nextStatus }
-          : item
+        item.temp_id === itemTempId ? { ...item, preparation_status: nextStatus } : item
       );
-      updateOrderItems(updatedItems);
-      toast.success("Status updated successfully!");
+      console.log("Updated orderItems before update:", updatedItems);
+      if (updatedItems.some((item) => item.temp_id === itemTempId && item.preparation_status === nextStatus)) {
+        updateOrderItems(updatedItems);
+        toast.success(
+          `Status updated to ${PREPARATION_STATUSES[nextStatus].label} for item ${itemToUpdate.name}`
+        );
+      } else {
+        console.error("Update failed to apply to the target item.");
+        toast.error("Failed to apply the status update locally.");
+      }
     } catch (err) {
+      console.error("Error updating status:", err);
       const errorMessage =
         err.response?.data?.message ||
         err.response?.data?.exception ||
@@ -599,42 +629,50 @@ const handleSaveAsPending = async () => {
       );
       return;
     }
+
+    console.log("Applying bulk status:", bulkStatus, "to items:", selectedItems);
     const itemsToUpdate = orderItems.filter((item) =>
       selectedItems.includes(item.temp_id)
     );
+
+    if (itemsToUpdate.length === 0) {
+      console.warn("No valid items to update");
+      toast.warning("No valid items to update.");
+      return;
+    }
+
     const itemsForApi = itemsToUpdate.filter(
       (item) => PREPARATION_STATUSES[bulkStatus]?.canSendToAPI && item.cart_id
     );
+
     if (itemsForApi.length > 0) {
       const formData = new FormData();
       formData.append("table_id", tableId.toString());
       itemsForApi.forEach((item, index) => {
-        formData.append(
-          `preparing[${index}][cart_id]`,
-          item.cart_id.toString()
-        );
+        formData.append(`preparing[${index}][cart_id]`, item.cart_id.toString());
         formData.append(
           `preparing[${index}][status]`,
           PREPARATION_STATUSES[bulkStatus].apiValue
         );
       });
       try {
-        await postData("cashier/preparing", formData);
+        const response = await postData("cashier/preparing", formData);
+        console.log("Bulk update API response:", response);
         toast.success(
           `Successfully updated ${itemsForApi.length} items to ${PREPARATION_STATUSES[bulkStatus].label}`
         );
       } catch (err) {
+        console.error("Bulk update error:", err);
         toast.error(err.response?.data?.message || "Failed to update status.");
         return;
       }
-    } else if (!PREPARATION_STATUSES[bulkStatus]?.canSendToAPI) {
+    } else {
+      console.warn("No items sent to API, updating locally");
       toast.info(
         `Status updated to ${PREPARATION_STATUSES[bulkStatus]?.label} locally.`
       );
-    } else {
-      toast.warning("No valid items to update.");
-      return;
     }
+
     const updatedItems = orderItems.map((item) =>
       selectedItems.includes(item.temp_id)
         ? { ...item, preparation_status: bulkStatus }
@@ -861,9 +899,7 @@ const handleSaveAsPending = async () => {
                     handleDecrease={handleDecrease}
                     allowQuantityEdit={allowQuantityEdit}
                     itemLoadingStates={itemLoadingStates}
-                    handleUpdatePreparationStatus={
-                      handleUpdatePreparationStatus
-                    }
+                    handleUpdatePreparationStatus={handleUpdatePreparationStatus}
                     handleVoidItem={handleVoidItem}
                     renderItemVariations={renderItemVariations}
                     handleRemoveFrontOnly={handleRemoveFrontOnly}
