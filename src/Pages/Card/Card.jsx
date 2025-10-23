@@ -2,7 +2,7 @@ import React, { useMemo, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Loading from "@/components/Loading";
 import { Button } from "@/components/ui/button";
-import CheckOut from "../CheckOut";
+import CheckOut from "../Checkout/CheckOut";
 import {
   Select,
   SelectContent,
