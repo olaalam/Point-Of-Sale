@@ -1,277 +1,259 @@
-// src/components/Home.jsx
 import React, { useState, useEffect, useCallback } from "react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import Delivery from "./Delivery/Delivery";
 import Dine from "./Dine";
-import { useLocation } from "react-router-dom";
 import TakeAway from "./TakeAway";
 import OrderPage from "./OrderPage";
-import { usePost } from "@/Hooks/usePost"; // ✅ Import usePost hook
-import { toast, ToastContainer } from "react-toastify"; // ✅ Import for notifications
+import { usePost } from "@/Hooks/usePost";
+import { useLocation } from "react-router-dom";
+import { toast, ToastContainer } from "react-toastify";
 
-// ✅ دالة تجلب الحالة الأولية من sessionStorage
 const getInitialState = () => {
-    const storedOrderType = sessionStorage.getItem("order_type") || "take_away";
-    const storedTab = sessionStorage.getItem("tab") || storedOrderType;
-    const storedTableId = sessionStorage.getItem("table_id") || null;
-    const storedDeliveryUserId = sessionStorage.getItem("selected_user_id") || null;
-    
-    // ✅ قراءة بيانات النقل من sessionStorage
-    const transferSourceTableId = sessionStorage.getItem("transfer_source_table_id") || null;
-    const transferCartIds = JSON.parse(sessionStorage.getItem("transfer_cart_ids")) || null;
-    
-    // تحديد ما إذا كان المكون في وضع النقل
-    const isTransferring = !!(transferSourceTableId && transferCartIds && transferCartIds.length > 0);
+  const storedOrderType = sessionStorage.getItem("order_type") || "take_away";
+  const storedTab = sessionStorage.getItem("tab") || storedOrderType;
+  const storedTableId = sessionStorage.getItem("table_id") || null;
+  const storedDeliveryUserId = sessionStorage.getItem("selected_user_id") || null;
+  const transferSourceTableId = sessionStorage.getItem("transfer_source_table_id") || null;
+  const transferCartIds = JSON.parse(sessionStorage.getItem("transfer_cart_ids")) || null;
+  const isTransferring = !!(transferSourceTableId && transferCartIds && transferCartIds.length > 0);
 
-    return {
-        tabValue: storedTab,
-        orderType: storedOrderType,
-        tableId: storedTableId,
-        deliveryUserId: storedDeliveryUserId,
-        isTransferring: isTransferring, // ✅ حالة جديدة لتحديد وضع النقل
-        transferSourceTableId: transferSourceTableId,
-        transferCartIds: transferCartIds,
-    };
+  return {
+    tabValue: storedTab,
+    orderType: storedOrderType,
+    tableId: storedTableId,
+    deliveryUserId: storedDeliveryUserId,
+    isTransferring,
+    transferSourceTableId,
+    transferCartIds,
+  };
 };
 
-// ✅ دالة لمسح بيانات النقل من sessionStorage
 const clearTransferData = () => {
-    sessionStorage.removeItem("transfer_source_table_id");
-    sessionStorage.removeItem("transfer_first_cart_id");
-    sessionStorage.removeItem("transfer_cart_ids");
+  sessionStorage.removeItem("transfer_source_table_id");
+  sessionStorage.removeItem("transfer_first_cart_id");
+  sessionStorage.removeItem("transfer_cart_ids");
 };
 
 export default function Home() {
-    const location = useLocation();
-    const [state, setState] = useState(getInitialState);
-    const { postData, loading: transferLoading } = usePost(); // ✅ استخدام usePost
+  const location = useLocation();
+  const [state, setState] = useState(getInitialState);
+  const { postData, loading: transferLoading } = usePost();
 
-    // ✅ Effect لتحديث الحالة عند تغيير المسار (لإعادة القراءة بعد التنقل)
-    useEffect(() => {
-        const storedState = getInitialState();
-        setState(storedState);
-    }, [location.key]);
+  // ✅ دالة لجلب بيانات الخصم وتخزينها في sessionStorage
+  const fetchDiscount = useCallback(async () => {
+    try {
+      const branch_id = sessionStorage.getItem("branch_id") || "4"; // الافتراضي 4 لو ماكنش موجود
+      const response = await postData(`cashier/discount_module?branch_id=${branch_id}`);
+      console.log("Discount API Response:", response);
+      const discountData = {
+        discount: response?.discount || 0,
+        module: response?.module || [],
+      };
+      // ✅ تخزين بيانات الخصم في sessionStorage
+      sessionStorage.setItem("discount_data", JSON.stringify(discountData));
+    } catch (error) {
+      console.error("Error fetching discount:", error);
+      toast.error("Failed to fetch discount data.");
+      // في حالة الخطأ، نخزن قيم افتراضية
+      sessionStorage.setItem("discount_data", JSON.stringify({ discount: 0, module: [] }));
+    }
+  }, [postData]);
 
-    // ✅ دالة جديدة لتشغيل API النقل
-    const runTransferAPI = useCallback(async (newTableId, sourceTableId, cartIds) => {
-        if (!newTableId || !sourceTableId || !cartIds || cartIds.length === 0) {
-            toast.error("بيانات النقل غير مكتملة. لا يمكن إتمام عملية النقل.");
-            clearTransferData();
-            return;
-        }
+  // ✅ جلب بيانات الخصم عند تحميل الصفحة
+  useEffect(() => {
+    fetchDiscount();
+  }, [fetchDiscount]);
 
-        const formData = new FormData();
-        formData.append("source_table_id", sourceTableId.toString()); // الطاولة المصدر
-        formData.append("new_table_id", newTableId.toString());     // الطاولة الجديدة
-        
-        cartIds.forEach((cart_id, index) => {
-            formData.append(`cart_ids[${index}]`, cart_id.toString());
-        });
+  // ✅ تحديث الحالة عند تغيير المسار
+  useEffect(() => {
+    const storedState = getInitialState();
+    setState(storedState);
+  }, [location.key]);
 
-        try {
-            console.log("Starting Transfer API call...", { sourceTableId, newTableId, cartIds });
-            await postData("cashier/complete_transfer_order", formData); // ⚠️ تأكد من اسم الـ API الصحيح
-            
-            toast.success(`تم نقل الطلب بنجاح من طاولة ${sourceTableId} إلى طاولة ${newTableId}.`);
-            
-            // مسح بيانات النقل بعد النجاح
-            clearTransferData();
-            
-            // تحديث الحالة للتحول إلى صفحة الطلب للطاولة الجديدة
-            setState((prevState) => ({
-                ...prevState,
-                tableId: newTableId,
-                orderType: "dine_in",
-                tabValue: "dine_in",
-                isTransferring: false,
-                transferSourceTableId: null,
-                transferCartIds: null,
-            }));
-            
-        } catch (error) {
-            console.error("Transfer API Failed:", error);
-            const errorMessage = error.response?.data?.message || 
-                                 error.response?.data?.exception ||
-                                 "فشل في إتمام عملية النقل. يرجى المحاولة مرة أخرى.";
-            toast.error(errorMessage);
-            
-            // مسح البيانات والسماح للمستخدم بالبقاء على شاشة اختيار الطاولات
-            clearTransferData();
-            setState((prevState) => ({
-                ...prevState,
-                isTransferring: false,
-                transferSourceTableId: null,
-                transferCartIds: null,
-            }));
-        }
-    }, [postData]);
+  const runTransferAPI = useCallback(
+    async (newTableId, sourceTableId, cartIds) => {
+      if (!newTableId || !sourceTableId || !cartIds || cartIds.length === 0) {
+        toast.error("Incomplete transfer data. Cannot complete transfer.");
+        clearTransferData();
+        return;
+      }
 
+      const formData = new FormData();
+      formData.append("source_table_id", sourceTableId.toString());
+      formData.append("new_table_id", newTableId.toString());
+      cartIds.forEach((cart_id, index) => {
+        formData.append(`cart_ids[${index}]`, cart_id.toString());
+      });
 
-    const handleTabChange = (value) => {
-        let newState = {
-            tabValue: value,
-            orderType: value,
-            tableId: null,
-            deliveryUserId: null,
-            isTransferring: false, // ✅ مسح حالة النقل عند تغيير التاب
-            transferSourceTableId: state.transferSourceTableId, // الاحتفاظ ببيانات النقل حتى يتم مسحها في الدالة الأخرى
-            transferCartIds: state.transferCartIds,
-        };
-
-        if (value === "take_away") {
-            sessionStorage.removeItem("table_id");
-            sessionStorage.removeItem("delivery_user_id");
-            clearTransferData(); // ✅ مسح بيانات النقل عند التحويل إلى TakeAway
-        } else if (value === "dine_in") {
-            newState.tableId = sessionStorage.getItem("table_id");
-            sessionStorage.removeItem("delivery_user_id");
-            // إذا كانت هناك بيانات نقل موجودة، يجب عرض شاشة اختيار الطاولات (Dine)
-            if (state.isTransferring) {
-                newState.tableId = null; 
-            }
-        } else if (value === "delivery") {
-            newState.deliveryUserId = sessionStorage.getItem("delivery_user_id");
-            sessionStorage.removeItem("table_id");
-            clearTransferData(); // ✅ مسح بيانات النقل عند التحويل إلى Delivery
-        }
-
-        setState(newState);
-        sessionStorage.setItem("tab", value);
-        sessionStorage.setItem("order_type", value);
-    };
-
-    const handleTableSelect = (newTableId) => {
-        const { isTransferring, transferSourceTableId, transferCartIds } = state;
-
-        if (isTransferring) {
-            // ✅ الحالة: عملية نقل الطاولة
-            // يتم تشغيل API النقل فوراً
-            runTransferAPI(newTableId, transferSourceTableId, transferCartIds);
-            
-        } else {
-            // ✅ الحالة: عملية Dine In عادية (فتح طلب جديد أو استكمال طلب موجود)
-            setState((prevState) => ({
-                ...prevState,
-                tableId: newTableId,
-                orderType: "dine_in",
-                tabValue: "dine_in",
-                isTransferring: false,
-            }));
-            sessionStorage.setItem("table_id", newTableId);
-            sessionStorage.setItem("order_type", "dine_in");
-            sessionStorage.setItem("tab", "dine_in");
-        }
-    };
-    
-    // ... الدوال الأخرى (handleDeliveryUserSelect, handleClose) تبقى كما هي
-
-    const handleDeliveryUserSelect = (id) => {
+      try {
+        console.log("Starting Transfer API call...", { sourceTableId, newTableId, cartIds });
+        await postData("cashier/complete_transfer_order", formData);
+        toast.success(`Order transferred successfully from table ${sourceTableId} to table ${newTableId}.`);
+        clearTransferData();
         setState((prevState) => ({
-            ...prevState,
-            deliveryUserId: id,
-            orderType: "delivery",
-            tabValue: "delivery",
+          ...prevState,
+          tableId: newTableId,
+          orderType: "dine_in",
+          tabValue: "dine_in",
+          isTransferring: false,
+          transferSourceTableId: null,
+          transferCartIds: null,
         }));
-        sessionStorage.setItem("delivery_user_id", id);
-        sessionStorage.setItem("order_type", "delivery");
-        sessionStorage.setItem("tab", "delivery");
+      } catch (error) {
+        console.error("Transfer API Failed:", error);
+        const errorMessage =
+          error.response?.data?.message ||
+          error.response?.data?.exception ||
+          "Failed to complete transfer. Please try again.";
+        toast.error(errorMessage);
+        clearTransferData();
+        setState((prevState) => ({
+          ...prevState,
+          isTransferring: false,
+          transferSourceTableId: null,
+          transferCartIds: null,
+        }));
+      }
+    },
+    [postData]
+  );
+
+  const handleTabChange = (value) => {
+    let newState = {
+      tabValue: value,
+      orderType: value,
+      tableId: null,
+      deliveryUserId: null,
+      isTransferring: false,
+      transferSourceTableId: state.transferSourceTableId,
+      transferCartIds: state.transferCartIds,
     };
 
-    const handleClose = () => {
-        sessionStorage.removeItem("selected_user_id");
-        sessionStorage.removeItem("selected_address_id");
-        sessionStorage.removeItem("order_type");
-        setState({ ...state, deliveryUserId: null, orderType: "delivery", tabValue: "delivery" });
-    };
+    if (value === "take_away") {
+      sessionStorage.removeItem("table_id");
+      sessionStorage.removeItem("delivery_user_id");
+      clearTransferData();
+    } else if (value === "dine_in") {
+      newState.tableId = sessionStorage.getItem("table_id");
+      sessionStorage.removeItem("delivery_user_id");
+      if (state.isTransferring) {
+        newState.tableId = null;
+      }
+    } else if (value === "delivery") {
+      newState.deliveryUserId = sessionStorage.getItem("delivery_user_id");
+      sessionStorage.removeItem("table_id");
+      clearTransferData();
+    }
 
-    // ✅ Debugging logs
-    console.log("Home Component State:", state);
+    setState(newState);
+    sessionStorage.setItem("tab", value);
+    sessionStorage.setItem("order_type", value);
 
-    // تحديد محتوى Dine In بناءً على حالة النقل والطاولة
-    const dineInContent = (() => {
-        if (state.isTransferring || !state.tableId) {
-            // عرض شاشة اختيار الطاولة في الحالتين:
-            // 1. إذا كنا في وضع النقل (isTransferring = true)
-            // 2. إذا لم يتم اختيار طاولة بعد (!state.tableId)
-            return <Dine onTableSelect={handleTableSelect} isTransferring={state.isTransferring} />;
-        }
-        
-        // عرض صفحة الطلب إذا تم اختيار طاولة (ولسنا في وضع النقل)
-        return (
-            <OrderPage 
-                propOrderType="dine_in" 
-                propTableId={state.tableId} 
-            />
-        );
-    })();
-    
-    return (
-        <div className="min-h-screen bg-white flex flex-col items-center py-8">
-            <Tabs
-                value={state.tabValue}
-                onValueChange={handleTabChange}
-                className="w-full"
-            >
-                <TabsList className="w-full flex justify-center gap-6 bg-transparent mb-10 p-0 h-auto">
-                    <TabsTrigger
-                        value="take_away"
-                        className="flex-1 max-w-[200px] text-lg font-semibold h-12 rounded-full
-                            bg-white text-bg-primary border-2 border-bg-primary
-                            data-[state=active]:bg-bg-primary data-[state=active]:text-white
-                            data-[state=active]:shadow-lg transition-colors duration-200 cursor_pointer p-8"
-                    >
-                        TakeAway
-                    </TabsTrigger>
-                    <TabsTrigger
-                        value="delivery"
-                        className="flex-1 max-w-[200px] text-lg font-semibold h-12 rounded-full
-                            bg-white text-bg-primary border-2 border-bg-primary
-                            data-[state=active]:bg-bg-primary data-[state=active]:text-white
-                            data-[state=active]:shadow-lg transition-colors duration-200 cursor_pointer p-8"
-                    >
-                        Delivery
-                    </TabsTrigger>
-                    <TabsTrigger
-                        value="dine_in"
-                        className="flex-1 max-w-[200px] text-lg font-semibold h-12 rounded-full
-                            bg-white text-bg-primary border-2 border-bg-primary
-                            data-[state=active]:bg-bg-primary data-[state=active]:text-white
-                            data-[state=active]:shadow-lg transition-colors duration-200 cursor_pointer p-8"
-                        disabled={transferLoading} // تعطيل الزر أثناء النقل
-                    >
-                        Dine In
-                    </TabsTrigger>
-                </TabsList>
+    // ✅ جلب بيانات الخصم عند تغيير الـ Tab
+    fetchDiscount();
+  };
 
-                <TabsContent
-                    value="take_away"
-                    className="mt-8 flex flex-col items-center space-y-6"
-                >
-                    <TakeAway orderType={state.orderType} />
-                </TabsContent>
+  const handleTableSelect = (newTableId) => {
+    const { isTransferring, transferSourceTableId, transferCartIds } = state;
 
-                <TabsContent value="delivery">
-                    {state.deliveryUserId ? (
-                        <OrderPage
-                            propOrderType="delivery"
-                            propUserId={state.deliveryUserId}
-                            onClose={handleClose}
-                        />
-                    ) : (
-                        <Delivery onCustomerSelect={handleDeliveryUserSelect} />
-                    )}
-                </TabsContent>
+    if (isTransferring) {
+      runTransferAPI(newTableId, transferSourceTableId, transferCartIds);
+    } else {
+      setState((prevState) => ({
+        ...prevState,
+        tableId: newTableId,
+        orderType: "dine_in",
+        tabValue: "dine_in",
+        isTransferring: false,
+      }));
+      sessionStorage.setItem("table_id", newTableId);
+      sessionStorage.setItem("order_type", "dine_in");
+      sessionStorage.setItem("tab", "dine_in");
+    }
+  };
 
-                <TabsContent value="dine_in">
-                    {dineInContent}
-                </TabsContent>
-            </Tabs>
-            {transferLoading && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-                    <div className="bg-white p-4 rounded-lg shadow-2xl">جاري نقل الطلب...</div>
-                </div>
-            )}
-            <ToastContainer />
+  const handleDeliveryUserSelect = (id) => {
+    setState((prevState) => ({
+      ...prevState,
+      deliveryUserId: id,
+      orderType: "delivery",
+      tabValue: "delivery",
+    }));
+    sessionStorage.setItem("delivery_user_id", id);
+    sessionStorage.setItem("order_type", "delivery");
+    sessionStorage.setItem("tab", "delivery");
+  };
+
+  const handleClose = () => {
+    sessionStorage.removeItem("selected_user_id");
+    sessionStorage.removeItem("selected_address_id");
+    sessionStorage.removeItem("order_type");
+    setState({ ...state, deliveryUserId: null, orderType: "delivery", tabValue: "delivery" });
+  };
+
+  console.log("Home Component State:", state);
+
+  const dineInContent = (() => {
+    if (state.isTransferring || !state.tableId) {
+      return <Dine onTableSelect={handleTableSelect} isTransferring={state.isTransferring} />;
+    }
+    return <OrderPage propOrderType="dine_in" propTableId={state.tableId} />;
+  })();
+
+  return (
+    <div className="min-h-screen bg-white flex flex-col items-center py-8">
+      <Tabs value={state.tabValue} onValueChange={handleTabChange} className="w-full">
+        <TabsList className="w-full flex justify-center gap-6 bg-transparent mb-10 p-0 h-auto">
+          <TabsTrigger
+            value="take_away"
+            className="flex-1 max-w-[200px] text-lg font-semibold h-12 rounded-full
+              bg-white text-bg-primary border-2 border-bg-primary
+              data-[state=active]:bg-bg-primary data-[state=active]:text-white
+              data-[state=active]:shadow-lg transition-colors duration-200 cursor_pointer p-8"
+          >
+            TakeAway
+          </TabsTrigger>
+          <TabsTrigger
+            value="delivery"
+            className="flex-1 max-w-[200px] text-lg font-semibold h-12 rounded-full
+              bg-white text-bg-primary border-2 border-bg-primary
+              data-[state=active]:bg-bg-primary data-[state=active]:text-white
+              data-[state=active]:shadow-lg transition-colors duration-200 cursor_pointer p-8"
+          >
+            Delivery
+          </TabsTrigger>
+          <TabsTrigger
+            value="dine_in"
+            className="flex-1 max-w-[200px] text-lg font-semibold h-12 rounded-full
+              bg-white text-bg-primary border-2 border-bg-primary
+              data-[state=active]:bg-bg-primary data-[state=active]:text-white
+              data-[state=active]:shadow-lg transition-colors duration-200 cursor_pointer p-8"
+            disabled={transferLoading}
+          >
+            Dine In
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="take_away" className="mt-8 flex flex-col items-center space-y-6">
+          <TakeAway orderType={state.orderType} />
+        </TabsContent>
+
+        <TabsContent value="delivery">
+          {state.deliveryUserId ? (
+            <OrderPage propOrderType="delivery" propUserId={state.deliveryUserId} onClose={handleClose} />
+          ) : (
+            <Delivery onCustomerSelect={handleDeliveryUserSelect} />
+          )}
+        </TabsContent>
+
+        <TabsContent value="dine_in">{dineInContent}</TabsContent>
+      </Tabs>
+      {/* {transferLoading && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white p-4 rounded-lg shadow-2xl">جاري نقل الطلب...</div>
         </div>
-    );
+      )} */}
+      <ToastContainer />
+    </div>
+  );
 }

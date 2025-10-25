@@ -8,20 +8,10 @@ import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import Loading from "@/components/Loading";
 import { useNavigate } from "react-router-dom";
-
-// استيراد المودالات المنفصلة
 import CustomerSelectionModal from "./CustomerSelectionModal";
 import DuePaymentModal from "./DuePaymentModal";
 import DeliveryAssignmentModal from "./DeliveryAssignmentModal";
-
-// استيراد الدوال المساعدة
-import {
-  buildFinancialsPayload,
-  getOrderEndpoint,
-  buildOrderPayload,
-  buildDealPayload,
-  validatePaymentSplits,
-} from "./processProductItem";
+import { buildFinancialsPayload, getOrderEndpoint, buildOrderPayload, buildDealPayload, validatePaymentSplits } from "./processProductItem";
 
 const CheckOut = ({
   amountToPay,
@@ -40,18 +30,12 @@ const CheckOut = ({
   const tableId = sessionStorage.getItem("table_id") || null;
   const navigate = useNavigate();
 
-  // جلب البيانات من API
-  const { data, loading: isLoading, error: isError } = useGet(
-    `captain/selection_lists?branch_id=${branch_id}`
-  );
+  const { data, loading: isLoading, error: isError } = useGet(`captain/selection_lists?branch_id=${branch_id}`);
   const { data: deliveryData, loading: deliveryLoading } = useGet("cashier/delivery_lists");
   const { postData, loading } = usePost();
 
-  // ===== حالات الدفع العادي =====
   const [paymentSplits, setPaymentSplits] = useState([]);
   const [customerPaid, setCustomerPaid] = useState("");
-
-  // ===== حالات الدفع الآجل (Due) =====
   const [isDueOrder, setIsDueOrder] = useState(false);
   const [customerSelectionOpen, setCustomerSelectionOpen] = useState(false);
   const [duePaymentOpen, setDuePaymentOpen] = useState(false);
@@ -60,12 +44,9 @@ const CheckOut = ({
   const [dueSplits, setDueSplits] = useState([]);
   const [dueAmount, setDueAmount] = useState(0);
 
-  // جلب قائمة العملاء المؤجلين
-  const {
-    data: dueUsersData,
-    loading: customerSearchLoading,
-    refetch: refetchDueUsers,
-  } = useGet(`cashier/list_due_users?search=${customerSearchQuery}`);
+  const { data: dueUsersData, loading: customerSearchLoading, refetch: refetchDueUsers } = useGet(
+    `cashier/list_due_users?search=${customerSearchQuery}`
+  );
 
   const searchResults = useMemo(() => {
     const users = dueUsersData?.users || [];
@@ -77,24 +58,41 @@ const CheckOut = ({
     );
   }, [dueUsersData, customerSearchQuery]);
 
-  // ===== حالات التوصيل =====
   const [deliveryModelOpen, setDeliveryModelOpen] = useState(false);
   const [selectedDeliveryId, setSelectedDeliveryId] = useState(null);
   const [orderId, setOrderId] = useState(null);
 
-  // ===== حسابات المبالغ =====
+  // ✅ جلب بيانات الخصم من sessionStorage
+  const discountData = useMemo(() => {
+    const storedDiscount = sessionStorage.getItem("discount_data");
+    try {
+      return storedDiscount ? JSON.parse(storedDiscount) : { discount: 0, module: [] };
+    } catch (error) {
+      console.error("Error parsing discount data from sessionStorage:", error);
+      return { discount: 0, module: [] };
+    }
+  }, []);
+
+  // ✅ حساب المبلغ بعد الخصم بناءً على orderType و module
+  const discountedAmount = useMemo(() => {
+    if (discountData.module.includes(orderType)) {
+      const discountPercentage = discountData.discount / 100;
+      const discount = amountToPay * discountPercentage;
+      return amountToPay - discount;
+    }
+    return amountToPay;
+  }, [amountToPay, orderType, discountData]);
+
+  // ✅ استخدام discountedAmount في requiredTotal
   const requiredTotal = useMemo(() => {
     if (orderType === "dine_in") {
       return orderItems.reduce((acc, item) => acc + item.price * item.count, 0);
     }
-    return amountToPay;
-  }, [orderItems, orderType, amountToPay]);
+    return discountedAmount;
+  }, [orderItems, orderType, discountedAmount]);
 
   const { totalScheduled, remainingAmount, changeAmount } = useMemo(() => {
-    const sum = paymentSplits.reduce(
-      (acc, split) => acc + (parseFloat(split.amount) || 0),
-      0
-    );
+    const sum = paymentSplits.reduce((acc, split) => acc + (parseFloat(split.amount) || 0), 0);
     const calculatedRemaining = requiredTotal - sum;
     const calculatedChange = sum - requiredTotal;
 
@@ -112,7 +110,6 @@ const CheckOut = ({
 
   const isTotalMet = totalScheduled >= requiredTotal;
 
-  // ===== تهيئة طرق الدفع الافتراضية =====
   useEffect(() => {
     if (data?.financial_account?.length > 0 && paymentSplits.length === 0 && !isDueOrder) {
       const defaultAccountId = data.financial_account[0]?.id;
@@ -120,7 +117,7 @@ const CheckOut = ({
         {
           id: "split-1",
           accountId: defaultAccountId,
-          amount: amountToPay || 0,
+          amount: requiredTotal || 0,
           description: "",
         },
       ]);
@@ -128,20 +125,18 @@ const CheckOut = ({
     if (isDueOrder) {
       setPaymentSplits([]);
     }
-  }, [data, amountToPay, isDueOrder]);
+  }, [data, requiredTotal, isDueOrder]);
 
-  // تحديث المبلغ تلقائياً عند تغيير amountToPay
   useEffect(() => {
     if (paymentSplits.length === 1 && paymentSplits[0].id === "split-1" && !isDueOrder) {
       setPaymentSplits((prev) =>
         prev.map((split) =>
-          split.id === "split-1" ? { ...split, amount: amountToPay || 0 } : split
+          split.id === "split-1" ? { ...split, amount: requiredTotal || 0 } : split
         )
       );
     }
-  }, [amountToPay, isDueOrder]);
+  }, [requiredTotal, isDueOrder]);
 
-  // ===== دوال إدارة طرق الدفع =====
   const handleAmountChange = (id, value) => {
     const newAmount = parseFloat(value) || 0;
     if (newAmount < 0) {
@@ -215,10 +210,9 @@ const CheckOut = ({
     return acc?.description_status === 1;
   };
 
-  // ===== دوال الدفع الآجل =====
   const handlePayLater = () => {
     if (orderType !== "take_away" && orderType !== "delivery") {
-      return toast.error("Pay Later is only available for Take-Away orders.");
+      return toast.error("Pay Later is only available for Take-Away and Delivery orders.");
     }
     setIsDueOrder(true);
     setPaymentSplits([]);
@@ -235,7 +229,7 @@ const CheckOut = ({
       {
         id: "split-1",
         accountId: defaultAccountId,
-        amount: amountToPay || 0,
+        amount: requiredTotal || 0,
         description: "",
       },
     ]);
@@ -284,7 +278,6 @@ const CheckOut = ({
     }
   };
 
-  // ===== دوال التوصيل =====
   const handleAssignDelivery = async () => {
     if (!orderId) return toast.error("Order ID is missing.");
     if (!selectedDeliveryId) return toast.error("Please select a delivery person.");
@@ -308,9 +301,7 @@ const CheckOut = ({
     navigate("/orders");
   };
 
-  // ===== إرسال الطلب =====
   const handleSubmitOrder = async () => {
-    // التحقق من الطلبات الآجلة
     if (isDueOrder) {
       if (!selectedCustomer) {
         return toast.error("Please select a customer for a Pay Later order.");
@@ -318,12 +309,10 @@ const CheckOut = ({
       return;
     }
 
-    // التحقق من المبلغ
     if (!isTotalMet || totalScheduled === 0) {
       return toast.error(`Total must equal ${requiredTotal.toFixed(2)} EGP.`);
     }
 
-    // التحقق من صحة البيانات
     const validation = validatePaymentSplits(paymentSplits, getDescriptionStatus);
     if (!validation.valid) {
       return toast.error(validation.error);
@@ -340,9 +329,11 @@ const CheckOut = ({
       payload = buildOrderPayload({
         orderType,
         orderItems,
-        amountToPay,
+        amountToPay: requiredTotal,
         totalTax,
-        totalDiscount,
+        totalDiscount: discountData.module.includes(orderType)
+          ? amountToPay * (discountData.discount / 100)
+          : totalDiscount,
         notes,
         source,
         financialsPayload,
@@ -384,15 +375,12 @@ const CheckOut = ({
     }
   };
 
-  // ===== العرض =====
   if (isLoading || deliveryLoading) return <Loading />;
   if (isError) return <p className="text-red-500">{isError?.message}</p>;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4">
       <ToastContainer position="bottom-right" />
-
-      {/* المودالات */}
       <CustomerSelectionModal
         isOpen={customerSelectionOpen}
         onClose={() => setCustomerSelectionOpen(false)}
@@ -403,7 +391,6 @@ const CheckOut = ({
         loading={customerSearchLoading}
         requiredTotal={requiredTotal}
       />
-
       <DuePaymentModal
         isOpen={duePaymentOpen}
         onClose={() => setDuePaymentOpen(false)}
@@ -411,7 +398,6 @@ const CheckOut = ({
         requiredTotal={requiredTotal}
         onConfirm={handleConfirmDuePayment}
       />
-
       <DeliveryAssignmentModal
         isOpen={deliveryModelOpen}
         onClose={handleSkip}
@@ -421,14 +407,11 @@ const CheckOut = ({
         onAssign={handleAssignDelivery}
         onSkip={handleSkip}
       />
-
-      {/* الواجهة الرئيسية */}
       {!deliveryModelOpen && (
         <div className="relative w-full max-w-2xl bg-white p-8 rounded-2xl shadow-2xl">
           <button onClick={onClose} className="absolute top-4 right-4 text-xl">
             ×
           </button>
-
           <h2 className="text-2xl font-semibold mb-6">
             Process Payment
             {isDueOrder && selectedCustomer && (
@@ -437,9 +420,17 @@ const CheckOut = ({
               </span>
             )}
           </h2>
-
-          {/* ملخص المبلغ */}
           <div className="mb-6 border-b pb-4">
+            <div className="flex justify-between mb-2">
+              <span>Original Amount:</span>
+              <span>{amountToPay.toFixed(2)} EGP</span>
+            </div>
+            {discountData.module.includes(orderType) && (
+              <div className="flex justify-between mb-2">
+                <span>Discount ({discountData.discount}%):</span>
+                <span>-{(amountToPay * (discountData.discount / 100)).toFixed(2)} EGP</span>
+              </div>
+            )}
             <div className="flex justify-between mb-2">
               <span>Total Amount:</span>
               <span>{requiredTotal.toFixed(2)} EGP</span>
@@ -461,8 +452,6 @@ const CheckOut = ({
               </>
             )}
           </div>
-
-          {/* معلومات الدفع الآجل */}
           {isDueOrder && selectedCustomer && (
             <div className="mb-6 p-4 bg-red-50 border border-red-300 rounded-lg">
               <p className="font-semibold text-red-800">
@@ -478,8 +467,6 @@ const CheckOut = ({
               </Button>
             </div>
           )}
-
-          {/* طرق الدفع */}
           {!isDueOrder && (
             <div className="space-y-6">
               {paymentSplits.map((split) => (
@@ -535,8 +522,6 @@ const CheckOut = ({
               )}
             </div>
           )}
-
-          {/* المبلغ المدفوع من العميل */}
           {!isDueOrder && (
             <div className="mt-6">
               <label className="block text-sm mb-1">Amount Paid by Customer</label>
@@ -558,10 +543,8 @@ const CheckOut = ({
               )}
             </div>
           )}
-
-          {/* أزرار التحكم */}
           <div className="flex space-x-4 mt-6">
-           {(orderType === "take_away" || orderType === "delivery") && !isDueOrder && (
+            {(orderType === "take_away" || orderType === "delivery") && !isDueOrder && (
               <Button
                 className="flex-1 text-white bg-blue-600 hover:bg-blue-700"
                 disabled={loading}
