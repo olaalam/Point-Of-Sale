@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import Delivery from "./Delivery/Delivery";
 import Dine from "./Dine";
@@ -6,7 +6,7 @@ import TakeAway from "./TakeAway";
 import OrderPage from "./OrderPage";
 import { usePost } from "@/Hooks/usePost";
 import { useLocation } from "react-router-dom";
-import { toast, ToastContainer } from "react-toastify";
+import { toast} from "react-toastify";
 
 const getInitialState = () => {
   const storedOrderType = sessionStorage.getItem("order_type") || "take_away";
@@ -37,38 +37,40 @@ const clearTransferData = () => {
 export default function Home() {
   const location = useLocation();
   const [state, setState] = useState(getInitialState);
+
+  const initialState = useMemo(() => getInitialState(), [location.key]);
+  useEffect(() => {
+    setState((prevState) => {
+      const newState = { ...prevState, ...initialState };
+      return newState.tabValue === prevState.tabValue ? prevState : newState;
+    });
+  }, [initialState]);
+
   const { postData, loading: transferLoading } = usePost();
 
-  // ✅ دالة لجلب بيانات الخصم وتخزينها في sessionStorage
   const fetchDiscount = useCallback(async () => {
+    const cachedDiscount = sessionStorage.getItem("discount_data");
+    if (cachedDiscount) return;
+
     try {
-      const branch_id = sessionStorage.getItem("branch_id") || "4"; // الافتراضي 4 لو ماكنش موجود
+      const branch_id = sessionStorage.getItem("branch_id") || "4";
       const response = await postData(`cashier/discount_module?branch_id=${branch_id}`);
       console.log("Discount API Response:", response);
       const discountData = {
         discount: response?.discount || 0,
         module: response?.module || [],
       };
-      // ✅ تخزين بيانات الخصم في sessionStorage
       sessionStorage.setItem("discount_data", JSON.stringify(discountData));
     } catch (error) {
       console.error("Error fetching discount:", error);
       toast.error("Failed to fetch discount data.");
-      // في حالة الخطأ، نخزن قيم افتراضية
       sessionStorage.setItem("discount_data", JSON.stringify({ discount: 0, module: [] }));
     }
   }, [postData]);
 
-  // ✅ جلب بيانات الخصم عند تحميل الصفحة
   useEffect(() => {
     fetchDiscount();
   }, [fetchDiscount]);
-
-  // ✅ تحديث الحالة عند تغيير المسار
-  useEffect(() => {
-    const storedState = getInitialState();
-    setState(storedState);
-  }, [location.key]);
 
   const runTransferAPI = useCallback(
     async (newTableId, sourceTableId, cartIds) => {
@@ -118,7 +120,7 @@ export default function Home() {
     [postData]
   );
 
-  const handleTabChange = (value) => {
+  const handleTabChange = useCallback((value) => {
     let newState = {
       tabValue: value,
       orderType: value,
@@ -145,15 +147,14 @@ export default function Home() {
       clearTransferData();
     }
 
-    setState(newState);
+    setState((prevState) => (prevState.tabValue === value ? prevState : newState));
     sessionStorage.setItem("tab", value);
     sessionStorage.setItem("order_type", value);
 
-    // ✅ جلب بيانات الخصم عند تغيير الـ Tab
     fetchDiscount();
-  };
+  }, [state.transferSourceTableId, state.transferCartIds]);
 
-  const handleTableSelect = (newTableId) => {
+  const handleTableSelect = useCallback((newTableId) => {
     const { isTransferring, transferSourceTableId, transferCartIds } = state;
 
     if (isTransferring) {
@@ -170,9 +171,9 @@ export default function Home() {
       sessionStorage.setItem("order_type", "dine_in");
       sessionStorage.setItem("tab", "dine_in");
     }
-  };
+  }, [state.isTransferring, state.transferSourceTableId, state.transferCartIds, runTransferAPI]);
 
-  const handleDeliveryUserSelect = (id) => {
+  const handleDeliveryUserSelect = useCallback((id) => {
     setState((prevState) => ({
       ...prevState,
       deliveryUserId: id,
@@ -182,23 +183,23 @@ export default function Home() {
     sessionStorage.setItem("delivery_user_id", id);
     sessionStorage.setItem("order_type", "delivery");
     sessionStorage.setItem("tab", "delivery");
-  };
+  }, []);
 
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
     sessionStorage.removeItem("selected_user_id");
     sessionStorage.removeItem("selected_address_id");
     sessionStorage.removeItem("order_type");
-    setState({ ...state, deliveryUserId: null, orderType: "delivery", tabValue: "delivery" });
-  };
+    setState((prevState) => ({ ...prevState, deliveryUserId: null, orderType: "delivery", tabValue: "delivery" }));
+  }, []);
 
   console.log("Home Component State:", state);
 
-  const dineInContent = (() => {
+  const dineInContent = useMemo(() => {
     if (state.isTransferring || !state.tableId) {
       return <Dine onTableSelect={handleTableSelect} isTransferring={state.isTransferring} />;
     }
     return <OrderPage propOrderType="dine_in" propTableId={state.tableId} />;
-  })();
+  }, [state.isTransferring, state.tableId, handleTableSelect]);
 
   return (
     <div className="min-h-screen bg-white flex flex-col items-center py-8">
@@ -248,12 +249,6 @@ export default function Home() {
 
         <TabsContent value="dine_in">{dineInContent}</TabsContent>
       </Tabs>
-      {/* {transferLoading && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-white p-4 rounded-lg shadow-2xl">جاري نقل الطلب...</div>
-        </div>
-      )} */}
-      <ToastContainer />
     </div>
   );
 }

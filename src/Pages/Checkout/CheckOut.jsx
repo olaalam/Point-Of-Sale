@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useGet } from "@/Hooks/useGet";
 import { usePost } from "@/Hooks/usePost";
-import { ToastContainer, toast } from "react-toastify";
+import {  toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import Loading from "@/components/Loading";
 import { useNavigate } from "react-router-dom";
@@ -380,7 +380,6 @@ const CheckOut = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4">
-      <ToastContainer position="bottom-right" />
       <CustomerSelectionModal
         isOpen={customerSelectionOpen}
         onClose={() => setCustomerSelectionOpen(false)}

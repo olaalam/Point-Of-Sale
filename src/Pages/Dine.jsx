@@ -24,7 +24,7 @@ import { usePost } from "@/Hooks/usePost";
 import { usePut } from "@/Hooks/usePut";
 import Loading from "@/components/Loading";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ToastContainer, toast } from "react-toastify";
+import {  toast } from "react-toastify";
 
 const CustomStatusSelect = ({ table, statusOptions, onStatusChange }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -580,7 +580,7 @@ const MergedTableCard = ({ table }) => {
         )}
       </div>
       
-      <ToastContainer />
+
     </div>
   );
 };

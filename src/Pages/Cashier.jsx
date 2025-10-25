@@ -5,7 +5,7 @@ import { User } from "lucide-react";
 import { useGet } from "@/Hooks/useGet";
 import { usePut } from "@/Hooks/usePut";
 import Loading from "@/components/Loading";
-import { ToastContainer, toast } from "react-toastify";
+import {  toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { useNavigate } from "react-router-dom";
 
@@ -148,7 +148,6 @@ export default function Cashier() {
           className="w-full h-auto max-w-[378px] max-h-[311px] object-contain"
         />
       </div>
-      <ToastContainer />
     </div>
   );
 }

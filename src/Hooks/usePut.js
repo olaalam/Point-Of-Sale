@@ -1,5 +1,6 @@
 import { useState } from "react";
 import axios from "axios";
+import { toast } from "react-toastify";
 
 export function usePut() {
   const baseUrl = import.meta.env.VITE_API_BASE_URL;
@@ -11,9 +12,8 @@ export function usePut() {
     setLoading(true);
     setError(null);
 
-    // معالجة الرابط لتجنب // مكررة
     const url =
-      baseUrl.endsWith('/') && endpoint.startsWith('/')
+      baseUrl.endsWith("/") && endpoint.startsWith("/")
         ? baseUrl + endpoint.slice(1)
         : baseUrl + endpoint;
 
@@ -23,21 +23,33 @@ export function usePut() {
 
       const response = await axios.put(url, body, { headers });
       setData(response.data);
-
       setLoading(false);
 
-      // إعادة تحميل الصفحة إذا كان الـ endpoint خاص بحالة الطاولة
-      if (endpoint.includes('tables_status') && options.reloadPage !== false) {
+      // ✅ Toast عند النجاح
+      if (!options.silent) {
+        toast.success(response.data?.message || "Updated successfully!");
+      }
+
+      // 🔁 Reload إذا كان endpoint خاص بالـ tables_status
+      if (endpoint.includes("tables_status") && options.reloadPage !== false) {
         setTimeout(() => {
           window.location.reload();
-        }, 1000); // انتظار ثانية واحدة لإظهار رسالة النجاح
+        }, 1000);
       }
 
       return response.data;
     } catch (err) {
-      const message = err.response?.data?.message || err.message || "Error occurred";
+      const message =
+        err.response?.data?.message || err.message || "Error occurred";
+
       setError(message);
       setLoading(false);
+
+      // ❌ Toast عند الفشل
+      if (!options.silent) {
+        toast.error(message);
+      }
+
       throw err;
     }
   };

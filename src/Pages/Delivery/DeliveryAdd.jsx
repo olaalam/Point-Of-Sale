@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import { Form } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
 import { usePost } from "@/Hooks/usePost";
-import { toast, ToastContainer } from "react-toastify";
+import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
 import "react-toastify/dist/ReactToastify.css";
 import Loading from "@/components/Loading";
@@ -302,7 +302,6 @@ export default function DeliveryAdd() {
           </div>
         </div>
       </div>
-      <ToastContainer />
     </div>
   );
 }

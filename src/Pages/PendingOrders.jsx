@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import Loading from "@/components/Loading";
 import { Button } from "@/components/ui/button";
 import { useGet } from "@/Hooks/useGet";
-import { ToastContainer, toast } from "react-toastify";
+import { toast } from "react-toastify";
 import { ArrowLeft, Clock, Package } from "lucide-react";
 
 export default function PendingOrders() {
@@ -277,7 +277,6 @@ export default function PendingOrders() {
         
 
       </div>
-      <ToastContainer position="top-right" />
     </div>
   );
 }

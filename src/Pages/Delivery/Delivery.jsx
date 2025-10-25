@@ -8,7 +8,6 @@ import { useNavigate } from "react-router-dom";
 import Loading from "@/components/Loading";
 import { usePost } from "@/Hooks/usePost";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { ToastContainer } from "react-toastify";
 
 export default function Delivery({ orderType: propOrderType }) {
   const [searchQuery, setSearchQuery] = useState("");
@@ -377,7 +376,6 @@ export default function Delivery({ orderType: propOrderType }) {
         </DialogContent>
       </Dialog>
       
-      <ToastContainer position="top-right" autoClose={5000} />
     </div>
   );
 }
