@@ -3,7 +3,7 @@ import { useGet } from "@/Hooks/useGet";
 import { toast } from "react-toastify";
 import DuePaymentModal from "../Checkout/DuePaymentModal";
 import { useNavigate } from "react-router-dom";
-import { useConfirmDuePayment } from "@/hooks/useConfirmDuePayment";
+import { useConfirmDuePayment } from "../../Hooks/useConfirmDuePayment";
 
 const DueUsers = () => {
   const navigate = useNavigate();
