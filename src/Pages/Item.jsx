@@ -103,7 +103,7 @@ export default function Item({ fetchEndpoint, onAddToOrder, onClose, refreshCart
 
   // Handle add to order
   const handleAddToOrder = async (product, customQuantity = 1) => {
-    console.log("Adding product to order:", product);
+      console.log("Parent → handleAddToOrder called", product.id);
 
     let productBasePrice = product.price_after_discount ?? product.price ?? 0;
     const allSelectedVariationsData = [];
@@ -251,7 +251,11 @@ export default function Item({ fetchEndpoint, onAddToOrder, onClose, refreshCart
         toast.error(`Failed to submit "${product.name}" to backend`);
       }
     } else {
-      toast.success(`"${product.name}" added to cart!`);
+  if (!toast.isActive(product.id)) {
+    toast.success(`"${product.name}" added successfully!`, {
+      toastId: product.id,
+    });
+  }
     }
   };
 

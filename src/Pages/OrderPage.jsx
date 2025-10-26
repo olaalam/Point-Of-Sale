@@ -11,6 +11,7 @@ export default function OrderPage({
   propOrderType,
   propTableId,
   propUserId,
+  discountData = { discount: 0, module: [] }, // ✅ Added discountData prop
 }) {
   const [ordersByTable, setOrdersByTable] = useState({});
   const [ordersByUser, setOrdersByUser] = useState({});
@@ -23,7 +24,6 @@ export default function OrderPage({
   const navigate = useNavigate();
   const pendingOrder = location.state?.pendingOrder;
 
-  // ✅ CORRECT: Define these variables at the top
   const currentOrderType = propOrderType || location.state?.orderType || sessionStorage.getItem("order_type") || "take_away";
   const currentTableId = propTableId || location.state?.tableId || sessionStorage.getItem("table_id") || null;
   const currentUserId = propUserId || location.state?.delivery_user_id || sessionStorage.getItem("delivery_user_id") || null;
@@ -39,7 +39,6 @@ export default function OrderPage({
     isDelivery && currentUserId ? `cashier/delivery_order/${currentUserId}` : null
   );
 
-  // ✅ IMPROVED: This useEffect handles the initial loading of data only once.
   useEffect(() => {
     if (pendingOrder && pendingOrder.orderDetails && !pendingOrderLoaded) {
       console.log("Loading pending order from navigation state:", pendingOrder);
@@ -62,8 +61,8 @@ export default function OrderPage({
           price: parseFloat(addon.price || 0),
           originalPrice: parseFloat(addon.price || 0),
           count: parseInt(addon.count || 1),
-          preparation_status: "pending"
-        })) : []
+          preparation_status: "pending",
+        })) : [],
       }));
       setTakeAwayItems(mappedItems);
       setPendingOrderLoaded(true);
@@ -73,7 +72,7 @@ export default function OrderPage({
         orderId: pendingOrder.orderId,
         orderNumber: pendingOrder.orderNumber,
         amount: pendingOrder.amount,
-        notes: pendingOrder.notes
+        notes: pendingOrder.notes,
       }));
     } else if (!pendingOrderLoaded && currentOrderType === "take_away") {
       const storedCartString = sessionStorage.getItem("cart");
@@ -88,30 +87,28 @@ export default function OrderPage({
       }
     }
   }, [pendingOrder, pendingOrderLoaded, currentOrderType]);
-const clearOrderData = () => {
-  console.log("Clearing order data...");
-  
-  if (currentOrderType === "take_away") {
-    setTakeAwayItems([]);
-    sessionStorage.removeItem("cart");
-    sessionStorage.removeItem("pending_order_info");
-  } else if (currentOrderType === "dine_in" && currentTableId) {
-    // للـ dine_in، مسح البيانات المحلية
-    setOrdersByTable((prev) => ({
-      ...prev,
-      [currentTableId]: [],
-    }));
-    // يمكن إضافة refresh من الـ API إذا لزم الأمر
-  } else if (currentOrderType === "delivery" && currentUserId) {
-    setOrdersByUser((prev) => ({
-      ...prev,
-      [currentUserId]: [],
-    }));
-    sessionStorage.removeItem("selected_user_id");
-    sessionStorage.removeItem("selected_address_id");
-  }
-};
-  // ✅ Separate useEffect for handling dine-in API data.
+
+  const clearOrderData = () => {
+    console.log("Clearing order data...");
+    if (currentOrderType === "take_away") {
+      setTakeAwayItems([]);
+      sessionStorage.removeItem("cart");
+      sessionStorage.removeItem("pending_order_info");
+    } else if (currentOrderType === "dine_in" && currentTableId) {
+      setOrdersByTable((prev) => ({
+        ...prev,
+        [currentTableId]: [],
+      }));
+    } else if (currentOrderType === "delivery" && currentUserId) {
+      setOrdersByUser((prev) => ({
+        ...prev,
+        [currentUserId]: [],
+      }));
+      sessionStorage.removeItem("selected_user_id");
+      sessionStorage.removeItem("selected_address_id");
+    }
+  };
+
   useEffect(() => {
     if (isDineIn && currentTableId && dineInData?.success) {
       setOrdersByTable((prev) => ({
@@ -122,7 +119,6 @@ const clearOrderData = () => {
     }
   }, [isDineIn, currentTableId, dineInData]);
 
-  // ✅ Separate useEffect for handling delivery API data.
   useEffect(() => {
     if (isDelivery && currentUserId && deliveryData?.success) {
       setOrdersByUser((prev) => ({
@@ -137,17 +133,15 @@ const clearOrderData = () => {
     try {
       setIsLoading(true);
       console.log("Refreshing cart data...");
-      
-if (isDineIn && currentTableId) {
-  if (refetchDineIn) {
-    const dineData = await refetchDineIn();
-    if (!dineData || typeof dineData !== "object") {
-      console.warn("Invalid dine-in response:", dineData);
-      return;
-    }
-  }
-}
- else if (isDelivery && currentUserId) {
+      if (isDineIn && currentTableId) {
+        if (refetchDineIn) {
+          const dineData = await refetchDineIn();
+          if (!dineData || typeof dineData !== "object") {
+            console.warn("Invalid dine-in response:", dineData);
+            return;
+          }
+        }
+      } else if (isDelivery && currentUserId) {
         if (refetchDelivery) {
           await refetchDelivery();
         }
@@ -163,9 +157,7 @@ if (isDineIn && currentTableId) {
           }
         }
       }
-      
-      setRefreshTrigger(prev => prev + 1);
-      
+      setRefreshTrigger((prev) => prev + 1);
       console.log("Cart data refreshed successfully");
     } catch (error) {
       console.error("Error refreshing cart data:", error);
@@ -175,14 +167,19 @@ if (isDineIn && currentTableId) {
   };
 
   const currentOrderItems = isDineIn
-    ? Array.isArray(ordersByTable[currentTableId]) ? ordersByTable[currentTableId] : []
+    ? Array.isArray(ordersByTable[currentTableId])
+      ? ordersByTable[currentTableId]
+      : []
     : isDelivery
-    ? Array.isArray(ordersByUser[currentUserId]) ? ordersByUser[currentUserId] : []
-    : Array.isArray(takeAwayItems) ? takeAwayItems : [];
+    ? Array.isArray(ordersByUser[currentUserId])
+      ? ordersByUser[currentUserId]
+      : []
+    : Array.isArray(takeAwayItems)
+    ? takeAwayItems
+    : [];
 
   const updateOrderItems = (newItems) => {
     const safeNewItems = Array.isArray(newItems) ? newItems : [];
-
     if (isDineIn) {
       setOrdersByTable((prev) => ({
         ...prev,
@@ -201,7 +198,6 @@ if (isDineIn && currentTableId) {
 
   const handleAddItem = (product) => {
     const safeCurrentItems = Array.isArray(currentOrderItems) ? currentOrderItems : [];
-
     const existingItemIndex = safeCurrentItems.findIndex(
       (item) =>
         item.id === product.id &&
@@ -236,7 +232,6 @@ if (isDineIn && currentTableId) {
     sessionStorage.removeItem("delivery_user_id");
     sessionStorage.removeItem("cart");
     sessionStorage.removeItem("pending_order_info");
-    
     setPendingOrderLoaded(false);
     navigate("/");
   };
@@ -250,18 +245,19 @@ if (isDineIn && currentTableId) {
           updateOrderItems={updateOrderItems}
           allowQuantityEdit={allowQuantityEdit}
           orderType={currentOrderType}
-           clearOrderData={clearOrderData}
+          clearOrderData={clearOrderData}
           tableId={currentTableId}
           userId={currentUserId}
           isLoading={dineInLoading || deliveryLoading || isLoading}
+          discountData={discountData} // ✅ Pass discountData to Card
         />
       </div>
       <div className="w-full lg:w-1/2 mt-4 lg:mt-0">
-        <Item 
-          onAddToOrder={handleAddItem} 
-          fetchEndpoint={fetchEndpoint} 
+        <Item
+          onAddToOrder={handleAddItem}
+          fetchEndpoint={fetchEndpoint}
           onClose={handleClose}
-          refreshCartData={refreshCartData} 
+          refreshCartData={refreshCartData}
         />
       </div>
     </div>

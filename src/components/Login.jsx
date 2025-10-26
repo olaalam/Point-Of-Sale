@@ -3,7 +3,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import logo from "@/assets/Food2go Icon Vector Container.png";
 import Loading from "./Loading";
-import { ToastContainer, toast } from "react-toastify";
+import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
@@ -148,7 +148,6 @@ setTimeout(() => {
           className="w-full h-auto max-w-[378px] max-h-[311px] object-contain"
         />
       </div>
-      <ToastContainer />
     </div>
   );
 }

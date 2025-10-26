@@ -17,6 +17,8 @@ const ProductCard = ({ product, onAddToOrder, onOpenModal }) => {
   const handleAddToOrder = async (product) => {
     setIsCurrentItemLoading(true);
     try {
+      console.log("ProductCard → handleAddToOrder called", product.id);
+
       await onAddToOrder(product);
     } catch (error) {
       console.error("Error adding product:", error);
