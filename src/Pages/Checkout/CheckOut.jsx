@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useGet } from "@/Hooks/useGet";
 import { usePost } from "@/Hooks/usePost";
-import {  toast } from "react-toastify";
+import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import Loading from "@/components/Loading";
 import { useNavigate } from "react-router-dom";
@@ -62,12 +62,13 @@ const CheckOut = ({
   const [selectedDeliveryId, setSelectedDeliveryId] = useState(null);
   const [orderId, setOrderId] = useState(null);
 
-  // ===== حالات كود الخصم =====
+  // ===== Discount Code State =====
   const [discountCode, setDiscountCode] = useState("");
   const [appliedDiscount, setAppliedDiscount] = useState(0);
   const [discountError, setDiscountError] = useState(null);
+  const [isCheckingDiscount, setIsCheckingDiscount] = useState(false);
 
-  // ✅ جلب بيانات الخصم من sessionStorage
+  // ✅ Memoized discount from sessionStorage
   const discountData = useMemo(() => {
     const storedDiscount = sessionStorage.getItem("discount_data");
     try {
@@ -78,17 +79,18 @@ const CheckOut = ({
     }
   }, []);
 
-  // ✅ حساب المبلغ بعد الخصم بناءً على orderType و module
+  // ✅ Calculate discounted amount based on applied discount or sessionStorage
   const discountedAmount = useMemo(() => {
-    if (discountData.module.includes(orderType)) {
-      const discountPercentage = discountData.discount / 100;
-      const discount = amountToPay * discountPercentage;
-      return amountToPay - discount;
+    let totalDiscount = 0;
+    if (appliedDiscount > 0) {
+      totalDiscount = amountToPay * (appliedDiscount / 100);
+    } else if (discountData.module.includes(orderType)) {
+      totalDiscount = amountToPay * (discountData.discount / 100);
     }
-    return amountToPay;
-  }, [amountToPay, orderType, discountData]);
+    return amountToPay - totalDiscount;
+  }, [amountToPay, orderType, discountData, appliedDiscount]);
 
-  // ✅ استخدام discountedAmount في requiredTotal
+  // ✅ Use discountedAmount in requiredTotal
   const requiredTotal = useMemo(() => {
     if (orderType === "dine_in") {
       return orderItems.reduce((acc, item) => acc + item.price * item.count, 0);
@@ -141,6 +143,35 @@ const CheckOut = ({
       );
     }
   }, [requiredTotal, isDueOrder]);
+
+  // ===== Handle Discount Code Validation =====
+  const handleApplyDiscount = async () => {
+    if (!discountCode) {
+      toast.error("Please enter a discount code.");
+      return;
+    }
+
+    setIsCheckingDiscount(true);
+    setDiscountError(null);
+
+    try {
+      const response = await postData("cashier/check_discount_code", { code: discountCode });
+      if (response.success) {
+        setAppliedDiscount(response.discount);
+        toast.success(`Discount of ${response.discount}% applied!`);
+      } else {
+        setAppliedDiscount(0);
+        setDiscountError("Invalid or expired discount code.");
+        toast.error("Invalid or expired discount code.");
+      }
+    } catch (e) {
+      setAppliedDiscount(0);
+      setDiscountError(e.message || "Failed to validate discount code.");
+      toast.error(e.message || "Failed to validate discount code.");
+    } finally {
+      setIsCheckingDiscount(false);
+    }
+  };
 
   const handleAmountChange = (id, value) => {
     const newAmount = parseFloat(value) || 0;
@@ -336,16 +367,18 @@ const CheckOut = ({
         orderItems,
         amountToPay: requiredTotal,
         totalTax,
-        totalDiscount: discountData.module.includes(orderType)
-          ? amountToPay * (discountData.discount / 100)
-          : totalDiscount,
+        totalDiscount: appliedDiscount > 0
+          ? amountToPay * (appliedDiscount / 100)
+          : discountData.module.includes(orderType)
+            ? amountToPay * (discountData.discount / 100)
+            : totalDiscount,
         notes,
         source,
         financialsPayload,
         cashierId,
         tableId,
         customerPaid,
-        discountCode: appliedDiscount > 0 ? discountCode : undefined, // Include discount code if applied
+        discountCode: appliedDiscount > 0 ? discountCode : undefined,
       });
     }
 
@@ -430,7 +463,13 @@ const CheckOut = ({
               <span>Original Amount:</span>
               <span>{amountToPay.toFixed(2)} EGP</span>
             </div>
-            {discountData.module.includes(orderType) && (
+            {appliedDiscount > 0 && (
+              <div className="flex justify-between mb-2">
+                <span>Discount ({appliedDiscount}%):</span>
+                <span>-{(amountToPay * (appliedDiscount / 100)).toFixed(2)} EGP</span>
+              </div>
+            )}
+            {discountData.module.includes(orderType) && appliedDiscount === 0 && (
               <div className="flex justify-between mb-2">
                 <span>Discount ({discountData.discount}%):</span>
                 <span>-{(amountToPay * (discountData.discount / 100)).toFixed(2)} EGP</span>
@@ -455,6 +494,34 @@ const CheckOut = ({
                   </div>
                 )}
               </>
+            )}
+          </div>
+          {/* ===== Discount Code Input ===== */}
+          <div className="mb-6">
+            <label className="block text-sm mb-1">Discount by Company</label>
+            <div className="flex space-x-2">
+              <Input
+                type="text"
+                placeholder="Enter discount code"
+                value={discountCode}
+                onChange={(e) => setDiscountCode(e.target.value)}
+                disabled={isCheckingDiscount}
+              />
+              <Button
+                onClick={handleApplyDiscount}
+                disabled={isCheckingDiscount || !discountCode}
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                {isCheckingDiscount ? "Checking..." : "Apply"}
+              </Button>
+            </div>
+            {discountError && (
+              <p className="mt-2 text-red-500 text-sm">{discountError}</p>
+            )}
+            {appliedDiscount > 0 && (
+              <p className="mt-2 text-green-600 text-sm">
+                Discount of {appliedDiscount}% applied successfully!
+              </p>
             )}
           </div>
           {isDueOrder && selectedCustomer && (
