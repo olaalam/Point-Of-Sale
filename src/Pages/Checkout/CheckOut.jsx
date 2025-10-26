@@ -12,7 +12,7 @@ import CustomerSelectionModal from "./CustomerSelectionModal";
 import DuePaymentModal from "./DuePaymentModal";
 import DeliveryAssignmentModal from "./DeliveryAssignmentModal";
 import { buildFinancialsPayload, getOrderEndpoint, buildOrderPayload, buildDealPayload, validatePaymentSplits } from "./processProductItem";
-import { useConfirmDuePayment } from "@/hooks/useConfirmDuePayment";
+import { useConfirmDuePayment } from "../../Hooks/useConfirmDuePayment";
 
 const CheckOut = ({
   amountToPay,
