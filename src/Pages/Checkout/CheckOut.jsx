@@ -82,13 +82,22 @@ const CheckOut = ({
   const [selectedDeliveryId, setSelectedDeliveryId] = useState(null);
   const [orderId, setOrderId] = useState(null);
 
+  // ===== حالات كود الخصم =====
+  const [discountCode, setDiscountCode] = useState("");
+  const [appliedDiscount, setAppliedDiscount] = useState(0);
+  const [discountError, setDiscountError] = useState(null);
+
   // ===== حسابات المبالغ =====
-  const requiredTotal = useMemo(() => {
+  const baseTotal = useMemo(() => {
     if (orderType === "dine_in") {
       return orderItems.reduce((acc, item) => acc + item.price * item.count, 0);
     }
     return amountToPay;
   }, [orderItems, orderType, amountToPay]);
+
+  const requiredTotal = useMemo(() => {
+    return Math.max(0, baseTotal - appliedDiscount);
+  }, [baseTotal, appliedDiscount]);
 
   const { totalScheduled, remainingAmount, changeAmount } = useMemo(() => {
     const sum = paymentSplits.reduce(
@@ -120,7 +129,7 @@ const CheckOut = ({
         {
           id: "split-1",
           accountId: defaultAccountId,
-          amount: amountToPay || 0,
+          amount: requiredTotal || 0,
           description: "",
         },
       ]);
@@ -128,18 +137,51 @@ const CheckOut = ({
     if (isDueOrder) {
       setPaymentSplits([]);
     }
-  }, [data, amountToPay, isDueOrder]);
+  }, [data, requiredTotal, isDueOrder]);
 
-  // تحديث المبلغ تلقائياً عند تغيير amountToPay
+  // تحديث المبلغ تلقائياً عند تغيير requiredTotal
   useEffect(() => {
     if (paymentSplits.length === 1 && paymentSplits[0].id === "split-1" && !isDueOrder) {
       setPaymentSplits((prev) =>
         prev.map((split) =>
-          split.id === "split-1" ? { ...split, amount: amountToPay || 0 } : split
+          split.id === "split-1" ? { ...split, amount: requiredTotal || 0 } : split
         )
       );
     }
-  }, [amountToPay, isDueOrder]);
+  }, [requiredTotal, isDueOrder]);
+
+  // ===== دالة التحقق من كود الخصم =====
+  const handleCheckDiscountCode = async () => {
+    if (!discountCode.trim()) {
+      toast.error("Please enter a discount code.");
+      return;
+    }
+
+    try {
+      const response = await postData(
+        "cashier/check_discount_code",
+        { code: discountCode },
+        { headers: { "Content-Type": "application/json" } }
+      );
+
+      if (response.success) {
+        const discount = parseFloat(response.discount) || 0;
+        if (discount > baseTotal) {
+          toast.error("Discount cannot exceed the total amount.");
+          return;
+        }
+        setAppliedDiscount(discount);
+        setDiscountError(null);
+        toast.success(`Discount of ${discount.toFixed(2)} EGP applied!`);
+      } else {
+        setDiscountError("Invalid or expired discount code.");
+        toast.error("Invalid or expired discount code.");
+      }
+    } catch (e) {
+      setDiscountError(e.message || "Failed to validate discount code.");
+      toast.error(e.message || "Failed to validate discount code.");
+    }
+  };
 
   // ===== دوال إدارة طرق الدفع =====
   const handleAmountChange = (id, value) => {
@@ -218,7 +260,7 @@ const CheckOut = ({
   // ===== دوال الدفع الآجل =====
   const handlePayLater = () => {
     if (orderType !== "take_away" && orderType !== "delivery") {
-      return toast.error("Pay Later is only available for Take-Away orders.");
+      return toast.error("Pay Later is only available for Take-Away or Delivery orders.");
     }
     setIsDueOrder(true);
     setPaymentSplits([]);
@@ -235,7 +277,7 @@ const CheckOut = ({
       {
         id: "split-1",
         accountId: defaultAccountId,
-        amount: amountToPay || 0,
+        amount: requiredTotal || 0,
         description: "",
       },
     ]);
@@ -340,15 +382,16 @@ const CheckOut = ({
       payload = buildOrderPayload({
         orderType,
         orderItems,
-        amountToPay,
+        amountToPay: requiredTotal, // Use requiredTotal to reflect discount
         totalTax,
-        totalDiscount,
+        totalDiscount: totalDiscount + appliedDiscount, // Include applied discount
         notes,
         source,
         financialsPayload,
         cashierId,
         tableId,
         customerPaid,
+        discountCode: appliedDiscount > 0 ? discountCode : undefined, // Include discount code if applied
       });
     }
 
@@ -438,8 +481,50 @@ const CheckOut = ({
             )}
           </h2>
 
+          {/* إدخال كود الخصم */}
+          <div className="mb-6">
+            <label className="block text-sm mb-1">Discount Code</label>
+            <div className="flex space-x-2">
+              <Input
+                type="text"
+                placeholder="Enter discount code"
+                value={discountCode}
+                onChange={(e) => {
+                  setDiscountCode(e.target.value);
+                  setDiscountError(null); // Clear error on input change
+                }}
+                disabled={appliedDiscount > 0 || isDueOrder} // Disable if discount applied or due order
+              />
+              <Button
+                onClick={handleCheckDiscountCode}
+                disabled={loading || appliedDiscount > 0 || isDueOrder}
+                className="bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                {loading ? "Checking..." : "Apply"}
+              </Button>
+            </div>
+            {discountError && (
+              <p className="mt-2 text-red-600 text-sm">{discountError}</p>
+            )}
+            {appliedDiscount > 0 && (
+              <p className="mt-2 text-green-600 text-sm">
+                Discount Applied: {appliedDiscount.toFixed(2)} EGP
+              </p>
+            )}
+          </div>
+
           {/* ملخص المبلغ */}
           <div className="mb-6 border-b pb-4">
+            <div className="flex justify-between mb-2">
+              <span>Base Total:</span>
+              <span>{baseTotal.toFixed(2)} EGP</span>
+            </div>
+            {appliedDiscount > 0 && (
+              <div className="flex justify-between mb-2">
+                <span>Discount:</span>
+                <span className="text-green-600">-{appliedDiscount.toFixed(2)} EGP</span>
+              </div>
+            )}
             <div className="flex justify-between mb-2">
               <span>Total Amount:</span>
               <span>{requiredTotal.toFixed(2)} EGP</span>
@@ -561,7 +646,7 @@ const CheckOut = ({
 
           {/* أزرار التحكم */}
           <div className="flex space-x-4 mt-6">
-           {(orderType === "take_away" || orderType === "delivery") && !isDueOrder && (
+            {(orderType === "take_away" || orderType === "delivery") && !isDueOrder && (
               <Button
                 className="flex-1 text-white bg-blue-600 hover:bg-blue-700"
                 disabled={loading}
