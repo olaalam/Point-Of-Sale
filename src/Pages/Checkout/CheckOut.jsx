@@ -12,6 +12,7 @@ import CustomerSelectionModal from "./CustomerSelectionModal";
 import DuePaymentModal from "./DuePaymentModal";
 import DeliveryAssignmentModal from "./DeliveryAssignmentModal";
 import { buildFinancialsPayload, getOrderEndpoint, buildOrderPayload, buildDealPayload, validatePaymentSplits } from "./processProductItem";
+import { useConfirmDuePayment } from "@/hooks/useConfirmDuePayment";
 
 const CheckOut = ({
   amountToPay,
@@ -283,36 +284,13 @@ const CheckOut = ({
     setDuePaymentOpen(true);
   };
 
-  const handleConfirmDuePayment = async (splits, dueAmt) => {
-    setDueSplits(splits);
-    setDueAmount(dueAmt);
-    setDuePaymentOpen(false);
-
-    const formData = new FormData();
-    formData.append("user_id", selectedCustomer.id.toString());
-    formData.append("amount", dueAmt.toString());
-
-    splits.forEach((split, index) => {
-      formData.append(`financials[${index}][id]`, split.accountId.toString());
-      formData.append(`financials[${index}][amount]`, split.amount.toString());
-      if (split.description) {
-        formData.append(`financials[${index}][description]`, split.description);
-      }
-    });
-
-    try {
-      await postData("cashier/customer/pay_debit", formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
-      toast.success("Due order processed successfully!");
-      onClearCart();
-      onClose();
-      navigate("/orders");
-    } catch (e) {
-      console.error("Due payment error:", e);
-      toast.error(e.message || "Failed to process due payment.");
-    }
-  };
+  const { handleConfirmDuePayment } = useConfirmDuePayment({
+    navigate,
+    onClearCart,
+    onClose: () => setDuePaymentOpen(false), // Update onClose to close duePaymentOpen
+    setDueSplits,
+    setDueAmount,
+  });
 
   const handleAssignDelivery = async () => {
     if (!orderId) return toast.error("Order ID is missing.");
@@ -434,7 +412,7 @@ const CheckOut = ({
         onClose={() => setDuePaymentOpen(false)}
         customer={selectedCustomer}
         requiredTotal={requiredTotal}
-        onConfirm={handleConfirmDuePayment}
+        onConfirm={(splits, dueAmount) => handleConfirmDuePayment(splits, dueAmount, selectedCustomer)} // Pass selectedCustomer here
       />
       <DeliveryAssignmentModal
         isOpen={deliveryModelOpen}

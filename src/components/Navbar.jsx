@@ -2,9 +2,9 @@ import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { usePost } from "@/Hooks/usePost";
 import { useShift } from "@/context/ShiftContext";
-import { toast} from "react-toastify";
+import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-import { FaUserCircle } from "react-icons/fa";
+import { FaUserCircle, FaUsers } from "react-icons/fa"; // Added FaUsers for DueUsers icon
 
 export default function Navbar() {
   const navigate = useNavigate();
@@ -57,6 +57,10 @@ export default function Navbar() {
     navigate("/shift?action=close");
   };
 
+  const handleDueUsers = () => {
+    navigate("/due");
+  };
+
   const formatElapsedTime = () => {
     const start = shiftStartTime || sessionStorage.getItem("shift_start_time");
     if (!start) return "00:00:00";
@@ -72,21 +76,19 @@ export default function Navbar() {
 
   return (
     <div className="text-gray-800 px-4 py-2 md:px-6 mb-6 w-full z-50 bg-white shadow-md">
-
-
-
       <div className="relative flex items-center justify-between">
         {/* Left section (Back + Profile) */}
         <div className="flex items-center space-x-2">
-          {location.pathname !== "/shift" && location.pathname !== "/cashier" && (
-            <button
-              onClick={() => navigate(-1)}
-              className="font-bold  text-center px-1 pb-1 hover:bg-red-200 cursor-pointer hover:text-gray-800 rounded bg-bg-primary text-4xl text-white transition-colors duration-200"
-              title="Go back"
-            >
-              ←
-            </button>
-          )}
+          {location.pathname !== "/shift" &&
+            location.pathname !== "/cashier" && (
+              <button
+                onClick={() => navigate(-1)}
+                className="font-bold text-center px-1 pb-1 hover:bg-red-200 cursor-pointer hover:text-gray-800 rounded bg-bg-primary text-4xl text-white transition-colors duration-200"
+                title="Go back"
+              >
+                ←
+              </button>
+            )}
 
           {/* Profile icon */}
           <button
@@ -95,6 +97,14 @@ export default function Navbar() {
             title="Profile"
           >
             <FaUserCircle className="text-2xl md:text-3xl" />
+          </button>
+          {/* DueUsers icon */}
+          <button
+            onClick={handleDueUsers}
+            className="text-gray-600 hover:text-[#910000] transition-colors duration-200"
+            title="Due Users"
+          >
+            <FaUsers className="text-2xl md:text-3xl" />
           </button>
         </div>
 
@@ -105,28 +115,29 @@ export default function Navbar() {
 
         {/* Right section */}
         <div className="flex items-center space-x-2">
-          {location.pathname !== "/shift" && location.pathname !== "/cashier" && (
-            <>
-              {/* Timer always visible */}
-              <div className="flex items-center text-xs md:text-sm font-medium text-gray-600">
-                <span className="text-gray-500 mr-1 hidden sm:inline">
-                  Shift:
-                </span>
-                <span className="bg-gray-100 px-2 py-1 rounded-md text-gray-800 text-xs md:text-sm">
-                  {formatElapsedTime()}
-                </span>
-              </div>
+          {location.pathname !== "/shift" &&
+            location.pathname !== "/cashier" && (
+              <>
+                {/* Timer always visible */}
+                <div className="flex items-center text-xs md:text-sm font-medium text-gray-600">
+                  <span className="text-gray-500 mr-1 hidden sm:inline">
+                    Shift:
+                  </span>
+                  <span className="bg-gray-100 px-2 py-1 rounded-md text-gray-800 text-xs md:text-sm">
+                    {formatElapsedTime()}
+                  </span>
+                </div>
 
-              {/* ✅ Close shift now visible on all screens */}
-              <button
-                onClick={handleCloseShift}
-                className="bg-[#910000] text-white px-3 py-1 md:px-4 md:py-2 rounded-md text-xs md:text-sm font-semibold hover:bg-red-700 transition duration-300"
-              >
-                <span className="hidden md:inline">Close Shift</span>
-                <span className="md:hidden">Close</span>
-              </button>
-            </>
-          )}
+                {/* Close shift button */}
+                <button
+                  onClick={handleCloseShift}
+                  className="bg-[#910000] text-white px-3 py-1 md:px-4 md:py-2 rounded-md text-xs md:text-sm font-semibold hover:bg-red-700 transition duration-300"
+                >
+                  <span className="hidden md:inline">Close Shift</span>
+                  <span className="md:hidden">Close</span>
+                </button>
+              </>
+            )}
 
           {/* Logout button */}
           <button
