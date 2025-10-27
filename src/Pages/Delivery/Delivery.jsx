@@ -129,13 +129,10 @@ export default function Delivery({ orderType: propOrderType }) {
       addressId: addressId,
     });
 
-    navigate("/delivery-order", {
-      state: {
-        orderType: "delivery",
-        userId: user.id,
-        addressId: addressId,
-      },
-    });
+navigate("/delivery-order", {
+  state: { orderType: "delivery", userId: user.id, addressId: addressId },
+  replace: true,
+});
   };
 
   // حساب حالة الـ disabled للـ form في الـ dialog
