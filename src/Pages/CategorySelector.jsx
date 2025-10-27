@@ -12,8 +12,8 @@ const CategorySelector = ({ categories, selectedCategory, onCategorySelect }) =>
   }
 
   return (
-<div className="flex flex-nowrap w-full space-x-4 pb-4 overflow-x-auto ">
-      {/* "All" button */}
+    <div className="flex flex-nowrap w-full space-x-4 pb-4 overflow-x-auto">
+      {/* "Favorite" button بدل "All" */}
       <div className="flex-shrink-0">
         <Button
           onClick={() => onCategorySelect("all")}
@@ -24,9 +24,11 @@ const CategorySelector = ({ categories, selectedCategory, onCategorySelect }) =>
           }`}
         >
           <div className="w-10 h-10 mb-1 rounded-full bg-red-100 flex items-center justify-center">
-            <span className="text-bg-primary font-bold">🍽️</span>
+            <span className="text-2xl">
+              {selectedCategory === "all" ? "❤️" : "🤍"}
+            </span>
           </div>
-          <span className="text-sm font-semibold">All</span>
+          <span className="text-sm font-semibold">Favorite</span>
         </Button>
       </div>
 
