@@ -287,7 +287,7 @@ const CheckOut = ({
   const { handleConfirmDuePayment } = useConfirmDuePayment({
     navigate,
     onClearCart,
-    onClose: () => setDuePaymentOpen(false), // Update onClose to close duePaymentOpen
+    onClose: () => setDuePaymentOpen(false),
     setDueSplits,
     setDueAmount,
   });
@@ -412,7 +412,7 @@ const CheckOut = ({
         onClose={() => setDuePaymentOpen(false)}
         customer={selectedCustomer}
         requiredTotal={requiredTotal}
-        onConfirm={(splits, dueAmount) => handleConfirmDuePayment(splits, dueAmount, selectedCustomer)} // Pass selectedCustomer here
+        onConfirm={(splits, dueAmount) => handleConfirmDuePayment(splits, dueAmount, selectedCustomer)}
       />
       <DeliveryAssignmentModal
         isOpen={deliveryModelOpen}
@@ -424,194 +424,203 @@ const CheckOut = ({
         onSkip={handleSkip}
       />
       {!deliveryModelOpen && (
-        <div className="relative w-full max-w-2xl bg-white p-8 rounded-2xl shadow-2xl">
-          <button onClick={onClose} className="absolute top-4 right-4 text-xl">
-            ×
-          </button>
-          <h2 className="text-2xl font-semibold mb-6">
-            Process Payment
-            {isDueOrder && selectedCustomer && (
-              <span className="text-sm text-red-500 ml-2">
-                (Due Order for {selectedCustomer.name})
-              </span>
-            )}
-          </h2>
-          <div className="mb-6 border-b pb-4">
-            <div className="flex justify-between mb-2">
-              <span>Original Amount:</span>
-              <span>{amountToPay.toFixed(2)} EGP</span>
-            </div>
-            {appliedDiscount > 0 && (
+        <div className="relative w-full max-w-2xl bg-white rounded-2xl shadow-2xl h-auto flex flex-col">
+          {/* Fixed Header with Title and Close Button */}
+          <div className="bg-white p-4 border-b flex items-center justify-between">
+            <h2 className="text-2xl font-semibold">
+              Process Payment
+              {isDueOrder && selectedCustomer && (
+                <span className="text-sm text-red-500 ml-2">
+                  (Due Order for {selectedCustomer.name})
+                </span>
+              )}
+            </h2>
+            <button
+              onClick={onClose}
+              className="text-4xl p-2 rounded-full hover:bg-gray-100"
+            >
+              ×
+            </button>
+          </div>
+          {/* Content Area */}
+          <div className="p-8 overflow-y-auto max-h-[calc(90vh-6rem)]">
+            <div className="mb-6 border-b pb-4">
               <div className="flex justify-between mb-2">
-                <span>Discount ({appliedDiscount}%):</span>
-                <span>-{(amountToPay * (appliedDiscount / 100)).toFixed(2)} EGP</span>
+                <span>Original Amount:</span>
+                <span>{amountToPay.toFixed(2)} EGP</span>
               </div>
-            )}
-            {discountData.module.includes(orderType) && appliedDiscount === 0 && (
-              <div className="flex justify-between mb-2">
-                <span>Discount ({discountData.discount}%):</span>
-                <span>-{(amountToPay * (discountData.discount / 100)).toFixed(2)} EGP</span>
-              </div>
-            )}
-            <div className="flex justify-between mb-2">
-              <span>Total Amount:</span>
-              <span>{requiredTotal.toFixed(2)} EGP</span>
-            </div>
-            {!isDueOrder && (
-              <>
+              {appliedDiscount > 0 && (
                 <div className="flex justify-between mb-2">
-                  <span>Remaining:</span>
-                  <span className={remainingAmount > 0 ? "text-orange-500" : "text-green-600"}>
-                    {remainingAmount.toFixed(2)} EGP
-                  </span>
+                  <span>Discount ({appliedDiscount}%):</span>
+                  <span>-{(amountToPay * (appliedDiscount / 100)).toFixed(2)} EGP</span>
                 </div>
-                {changeAmount > 0 && (
-                  <div className="flex justify-between">
-                    <span>Change:</span>
-                    <span className="text-green-600">{changeAmount.toFixed(2)} EGP</span>
-                  </div>
-                )}
-              </>
-            )}
-          </div>
-          {/* ===== Discount Code Input ===== */}
-          <div className="mb-6">
-            <label className="block text-sm mb-1">Discount by Company</label>
-            <div className="flex space-x-2">
-              <Input
-                type="text"
-                placeholder="Enter discount code"
-                value={discountCode}
-                onChange={(e) => setDiscountCode(e.target.value)}
-                disabled={isCheckingDiscount}
-              />
-              <Button
-                onClick={handleApplyDiscount}
-                disabled={isCheckingDiscount || !discountCode}
-                className="bg-blue-600 hover:bg-blue-700 text-white"
-              >
-                {isCheckingDiscount ? "Checking..." : "Apply"}
-              </Button>
-            </div>
-            {discountError && (
-              <p className="mt-2 text-red-500 text-sm">{discountError}</p>
-            )}
-            {appliedDiscount > 0 && (
-              <p className="mt-2 text-green-600 text-sm">
-                Discount of {appliedDiscount}% applied successfully!
-              </p>
-            )}
-          </div>
-          {isDueOrder && selectedCustomer && (
-            <div className="mb-6 p-4 bg-red-50 border border-red-300 rounded-lg">
-              <p className="font-semibold text-red-800">
-                This order is marked as <strong>Pay Later</strong> for{" "}
-                <strong>{selectedCustomer.name}</strong>.
-              </p>
-              <Button
-                variant="link"
-                onClick={handleBackToPayment}
-                className="mt-2 p-0 text-sm text-blue-600"
-              >
-                Go back to full payment
-              </Button>
-            </div>
-          )}
-          {!isDueOrder && (
-            <div className="space-y-6">
-              {paymentSplits.map((split) => (
-                <div key={split.id} className="flex items-center space-x-4">
-                  <div className="w-40">
-                    <Select
-                      value={String(split.accountId)}
-                      onValueChange={(val) => handleAccountChange(split.id, val)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue>{getAccountNameById(split.accountId)}</SelectValue>
-                      </SelectTrigger>
-                      <SelectContent>
-                        {data.financial_account.map((acc) => (
-                          <SelectItem key={acc.id} value={String(acc.id)}>
-                            {acc.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="relative flex-grow">
-                    <Input
-                      type="number"
-                      min="0"
-                      value={split.amount === 0 ? "" : String(split.amount)}
-                      onChange={(e) => handleAmountChange(split.id, e.target.value)}
-                      className="pl-16"
-                    />
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2">EGP</span>
-                  </div>
-                  {getDescriptionStatus(split.accountId) && (
-                    <Input
-                      type="text"
-                      placeholder="Last 4 digits"
-                      value={split.description}
-                      onChange={(e) => handleDescriptionChange(split.id, e.target.value)}
-                      maxLength={4}
-                      className="w-32"
-                    />
-                  )}
-                  {paymentSplits.length > 1 && (
-                    <Button variant="ghost" size="icon" onClick={() => handleRemoveSplit(split.id)}>
-                      ×
-                    </Button>
-                  )}
+              )}
+              {discountData.module.includes(orderType) && appliedDiscount === 0 && (
+                <div className="flex justify-between mb-2">
+                  <span>Discount ({discountData.discount}%):</span>
+                  <span>-{(amountToPay * (discountData.discount / 100)).toFixed(2)} EGP</span>
                 </div>
-              ))}
-              {remainingAmount > 0 && (
-                <Button variant="link" onClick={handleAddSplit} className="text-sm text-blue-600">
-                  + Add account split
-                </Button>
+              )}
+              <div className="flex justify-between mb-2">
+                <span>Total Amount:</span>
+                <span>{requiredTotal.toFixed(2)} EGP</span>
+              </div>
+              {!isDueOrder && (
+                <>
+                  <div className="flex justify-between mb-2">
+                    <span>Remaining:</span>
+                    <span className={remainingAmount > 0 ? "text-orange-500" : "text-green-600"}>
+                      {remainingAmount.toFixed(2)} EGP
+                    </span>
+                  </div>
+                  {changeAmount > 0 && (
+                    <div className="flex justify-between">
+                      <span>Change:</span>
+                      <span className="text-green-600">{changeAmount.toFixed(2)} EGP</span>
+                    </div>
+                  )}
+                </>
               )}
             </div>
-          )}
-          {!isDueOrder && (
-            <div className="mt-6">
-              <label className="block text-sm mb-1">Amount Paid by Customer</label>
-              <div className="relative">
+            {/* ===== Discount Code Input ===== */}
+            <div className="mb-6">
+              <label className="block text-sm mb-1">Discount by Company</label>
+              <div className="flex space-x-2">
                 <Input
-                  type="number"
-                  min="0"
-                  placeholder="Enter amount paid"
-                  value={customerPaid}
-                  onChange={(e) => setCustomerPaid(e.target.value)}
-                  className="pl-16"
+                  type="text"
+                  placeholder="Enter discount code"
+                  value={discountCode}
+                  onChange={(e) => setDiscountCode(e.target.value)}
+                  disabled={isCheckingDiscount}
                 />
-                <span className="absolute left-3 top-1/2 -translate-y-1/2">EGP</span>
+                <Button
+                  onClick={handleApplyDiscount}
+                  disabled={isCheckingDiscount || !discountCode}
+                  className="bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  {isCheckingDiscount ? "Checking..." : "Apply"}
+                </Button>
               </div>
-              {parseFloat(customerPaid) > requiredTotal && (
-                <p className="mt-2 text-green-600 text-sm font-semibold">
-                  Change Due: {calculatedChange.toFixed(2)} EGP
+              {discountError && (
+                <p className="mt-2 text-red-500 text-sm">{discountError}</p>
+              )}
+              {appliedDiscount > 0 && (
+                <p className="mt-2 text-green-600 text-sm">
+                  Discount of {appliedDiscount}% applied successfully!
                 </p>
               )}
             </div>
-          )}
-          <div className="flex space-x-4 mt-6">
-            {(orderType === "take_away" || orderType === "delivery") && !isDueOrder && (
-              <Button
-                className="flex-1 text-white bg-blue-600 hover:bg-blue-700"
-                disabled={loading}
-                onClick={handlePayLater}
-              >
-                Pay Later (Due)
-              </Button>
+            {isDueOrder && selectedCustomer && (
+              <div className="mb-6 p-4 bg-red-50 border border-red-300 rounded-lg">
+                <p className="font-semibold text-red-800">
+                  This order is marked as <strong>Pay Later</strong> for{" "}
+                  <strong>{selectedCustomer.name}</strong>.
+                </p>
+                <Button
+                  variant="link"
+                  onClick={handleBackToPayment}
+                  className="mt-2 p-0 text-sm text-blue-600"
+                >
+                  Go back to full payment
+                </Button>
+              </div>
             )}
-            <Button
-              className={`flex-1 text-white ${
-                isDueOrder ? "bg-red-600 hover:bg-red-700" : "bg-green-600 hover:bg-green-700"
-              }`}
-              disabled={loading || (!isDueOrder && !isTotalMet) || (isDueOrder && !selectedCustomer)}
-              onClick={handleSubmitOrder}
-            >
-              {loading ? "Processing..." : isDueOrder ? "Confirm Due Order" : "Confirm & Pay"}
-            </Button>
+            {!isDueOrder && (
+              <div className="space-y-6">
+                {paymentSplits.map((split) => (
+                  <div key={split.id} className="flex items-center space-x-4">
+                    <div className="w-40">
+                      <Select
+                        value={String(split.accountId)}
+                        onValueChange={(val) => handleAccountChange(split.id, val)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue>{getAccountNameById(split.accountId)}</SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          {data.financial_account.map((acc) => (
+                            <SelectItem key={acc.id} value={String(acc.id)}>
+                              {acc.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="relative flex-grow">
+                      <Input
+                        type="number"
+                        min="0"
+                        value={split.amount === 0 ? "" : String(split.amount)}
+                        onChange={(e) => handleAmountChange(split.id, e.target.value)}
+                        className="pl-16"
+                      />
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2">EGP</span>
+                    </div>
+                    {getDescriptionStatus(split.accountId) && (
+                      <Input
+                        type="text"
+                        placeholder="Last 4 digits"
+                        value={split.description}
+                        onChange={(e) => handleDescriptionChange(split.id, e.target.value)}
+                        maxLength={4}
+                        className="w-32"
+                      />
+                    )}
+                    {paymentSplits.length > 1 && (
+                      <Button variant="ghost" size="icon" onClick={() => handleRemoveSplit(split.id)}>
+                        ×
+                      </Button>
+                    )}
+                  </div>
+                ))}
+                {remainingAmount > 0 && (
+                  <Button variant="link" onClick={handleAddSplit} className="text-sm text-blue-600">
+                    + Add account split
+                  </Button>
+                )}
+              </div>
+            )}
+            {!isDueOrder && (
+              <div className="mt-6">
+                <label className="block text-sm mb-1">Amount Paid by Customer</label>
+                <div className="relative">
+                  <Input
+                    type="number"
+                    min="0"
+                    placeholder="Enter amount paid"
+                    value={customerPaid}
+                    onChange={(e) => setCustomerPaid(e.target.value)}
+                    className="pl-16"
+                  />
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2">EGP</span>
+                </div>
+                {parseFloat(customerPaid) > requiredTotal && (
+                  <p className="mt-2 text-green-600 text-sm font-semibold">
+                    Change Due: {calculatedChange.toFixed(2)} EGP
+                  </p>
+                )}
+              </div>
+            )}
+            <div className="flex space-x-4 mt-6">
+              {(orderType === "take_away" || orderType === "delivery") && !isDueOrder && (
+                <Button
+                  className="flex-1 text-white bg-blue-600 hover:bg-blue-700"
+                  disabled={loading}
+                  onClick={handlePayLater}
+                >
+                  Pay Later (Due)
+                </Button>
+              )}
+              <Button
+                className={`flex-1 text-white ${
+                  isDueOrder ? "bg-red-600 hover:bg-red-700" : "bg-green-600 hover:bg-green-700"
+                }`}
+                disabled={loading || (!isDueOrder && !isTotalMet) || (isDueOrder && !selectedCustomer)}
+                onClick={handleSubmitOrder}
+              >
+                {loading ? "Processing..." : isDueOrder ? "Confirm Due Order" : "Confirm & Pay"}
+              </Button>
+            </div>
           </div>
         </div>
       )}
