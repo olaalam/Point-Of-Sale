@@ -283,9 +283,10 @@ const Dine = () => {
               order_type: "dine_in",
               table_id: table.id,
               transferred: true,
+              replace: true,
             },
           });
-          
+
         } catch (err) {
           console.error("Failed to transfer order:", err);
           const errorMessage = err.response?.data?.message || 

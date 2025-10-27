@@ -432,18 +432,30 @@ export default function Card({
     setDealCode("");
   };
 
-  const handleTransferOrder = () => {
-    if (!tableId || allCartIds.length === 0) {
-      toast.error("Cannot transfer order: Table ID or Cart IDs are missing.");
-      return;
-    }
-    sessionStorage.setItem("transfer_cart_ids", JSON.stringify(allCartIds));
-    sessionStorage.setItem("transfer_source_table_id", tableId.toString());
-    sessionStorage.setItem("transfer_pending", "true");
-    toast.info("Please select a new table to transfer the order.");
-    navigate("/order-page");
-  };
-
+const handleTransferOrder = () => {
+  if (!tableId || allCartIds.length === 0) {
+    toast.error("Cannot transfer order: Table ID or Cart IDs are missing.");
+    return;
+  }
+  
+  // حفظ البيانات في sessionStorage
+  sessionStorage.setItem("transfer_cart_ids", JSON.stringify(allCartIds));
+  sessionStorage.setItem("transfer_source_table_id", tableId.toString());
+  sessionStorage.setItem("transfer_pending", "true");
+  
+  toast.info("Please select a new table to transfer the order.");
+  
+  // Navigate مع state واضح
+  navigate("/", { 
+    state: { 
+      initiateTransfer: true,
+      sourceTableId: tableId,
+      cartIds: allCartIds,
+      timestamp: Date.now() // عشان نضمن إن الـ state يتغير
+    },
+    replace: false 
+  });
+};
   const handleUpdatePreparationStatus = async (itemTempId) => {
     console.log("Starting update for itemTempId:", itemTempId, "Current orderItems:", orderItems);
     if (!itemTempId) {
