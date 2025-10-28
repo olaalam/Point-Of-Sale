@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { usePost } from "@/Hooks/usePost";
-import {  toast } from "react-toastify";
+import { toast, ToastContainer } from "react-toastify";
 import SummaryRow from "./SummaryRow";
 import ItemRow from "./ItemRow";
 import VoidItemModal from "./VoidItemModal";
@@ -160,7 +160,9 @@ export default function Card({
   useEffect(() => {
     const updatedItemsWithTempId = orderItems.map((item) => ({
       ...item,
-      temp_id: item.temp_id || `item-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      temp_id:
+        item.temp_id ||
+        `item-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
     }));
     if (JSON.stringify(updatedItemsWithTempId) !== JSON.stringify(orderItems)) {
       updateOrderItems(updatedItemsWithTempId);
@@ -210,7 +212,9 @@ export default function Card({
 
       if (item.selectedExtras && item.selectedExtras.length > 0) {
         item.selectedExtras.forEach((extraId) => {
-          const isRealExtra = item.allExtras?.some((extra) => extra.id === extraId);
+          const isRealExtra = item.allExtras?.some(
+            (extra) => extra.id === extraId
+          );
           if (isRealExtra) {
             realExtrasIds.push(extraId.toString());
           } else {
@@ -272,7 +276,9 @@ export default function Card({
         headers.Authorization = `Bearer ${token}`;
       }
 
-      const response = await postData("cashier/take_away_order", payload, { headers });
+      const response = await postData("cashier/take_away_order", payload, {
+        headers,
+      });
 
       toast.success("Order saved as pending!");
       clearCart();
@@ -322,7 +328,10 @@ export default function Card({
           toast.error("Offer details are incomplete in the response.");
         }
       } else {
-        console.error("❌ Failed check - appliedOfferDetails:", appliedOfferDetails);
+        console.error(
+          "❌ Failed check - appliedOfferDetails:",
+          appliedOfferDetails
+        );
         toast.error("Offer details are incomplete in the response.");
       }
     } catch (err) {
@@ -348,9 +357,13 @@ export default function Card({
     try {
       const response = await postData("cashier/offer/approve_offer", formData);
       if (response?.success) {
-        toast.success(`Reward item "${product}" successfully added to the order!`);
+        toast.success(
+          `Reward item "${product}" successfully added to the order!`
+        );
         const freeItem = {
-          temp_id: `reward-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          temp_id: `reward-${Date.now()}-${Math.random()
+            .toString(36)
+            .substr(2, 9)}`,
           id: offer_order_id,
           name: product + " (Reward Item)",
           price: 0.0,
@@ -432,32 +445,37 @@ export default function Card({
     setDealCode("");
   };
 
-const handleTransferOrder = () => {
-  if (!tableId || allCartIds.length === 0) {
-    toast.error("Cannot transfer order: Table ID or Cart IDs are missing.");
-    return;
-  }
-  
-  // حفظ البيانات في sessionStorage
-  sessionStorage.setItem("transfer_cart_ids", JSON.stringify(allCartIds));
-  sessionStorage.setItem("transfer_source_table_id", tableId.toString());
-  sessionStorage.setItem("transfer_pending", "true");
-  
-  toast.info("Please select a new table to transfer the order.");
-  
-  // Navigate مع state واضح
-  navigate("/", { 
-    state: { 
-      initiateTransfer: true,
-      sourceTableId: tableId,
-      cartIds: allCartIds,
-      timestamp: Date.now() // عشان نضمن إن الـ state يتغير
-    },
-    replace: false 
-  });
-};
+  const handleTransferOrder = () => {
+    if (!tableId || allCartIds.length === 0) {
+      toast.error("Cannot transfer order: Table ID or Cart IDs are missing.");
+      return;
+    }
+
+    // حفظ البيانات في sessionStorage
+    sessionStorage.setItem("transfer_cart_ids", JSON.stringify(allCartIds));
+    sessionStorage.setItem("transfer_source_table_id", tableId.toString());
+    sessionStorage.setItem("transfer_pending", "true");
+
+    toast.info("Please select a new table to transfer the order.");
+
+    // Navigate مع state واضح
+    navigate("/", {
+      state: {
+        initiateTransfer: true,
+        sourceTableId: tableId,
+        cartIds: allCartIds,
+        timestamp: Date.now(), // عشان نضمن إن الـ state يتغير
+      },
+      replace: false,
+    });
+  };
   const handleUpdatePreparationStatus = async (itemTempId) => {
-    console.log("Starting update for itemTempId:", itemTempId, "Current orderItems:", orderItems);
+    console.log(
+      "Starting update for itemTempId:",
+      itemTempId,
+      "Current orderItems:",
+      orderItems
+    );
     if (!itemTempId) {
       console.error("itemTempId is undefined, cannot proceed with update.");
       toast.error("Failed to identify the item to update.");
@@ -503,10 +521,18 @@ const handleTransferOrder = () => {
       console.log("API response:", response);
 
       const updatedItems = orderItems.map((item) =>
-        item.temp_id === itemTempId ? { ...item, preparation_status: nextStatus } : item
+        item.temp_id === itemTempId
+          ? { ...item, preparation_status: nextStatus }
+          : item
       );
       console.log("Updated orderItems before update:", updatedItems);
-      if (updatedItems.some((item) => item.temp_id === itemTempId && item.preparation_status === nextStatus)) {
+      if (
+        updatedItems.some(
+          (item) =>
+            item.temp_id === itemTempId &&
+            item.preparation_status === nextStatus
+        )
+      ) {
         updateOrderItems(updatedItems);
         toast.success(
           `Status updated to ${PREPARATION_STATUSES[nextStatus].label} for item ${itemToUpdate.name}`
@@ -532,45 +558,91 @@ const handleTransferOrder = () => {
     setShowVoidModal(true);
   };
 
-  const confirmVoidItem = async () => {
-    const itemToVoid = orderItems.find((item) => item.temp_id === voidItemId);
-    if (!itemToVoid?.cart_id || !tableId || !managerId || !managerPassword) {
-      toast.error("Invalid item or missing data for voiding.");
-      setShowVoidModal(false);
-      return;
-    }
-    setItemLoadingStates((prev) => ({ ...prev, [voidItemId]: true }));
-    const formData = new FormData();
-    const cartIds = Array.isArray(itemToVoid.cart_id)
-      ? itemToVoid.cart_id
-      : typeof itemToVoid.cart_id === "string"
-      ? itemToVoid.cart_id.split(",").map((id) => id.trim())
-      : [itemToVoid.cart_id];
-    cartIds.forEach((id) => formData.append("cart_ids[]", id.toString()));
-    formData.append("manager_id", managerId);
-    formData.append("manager_password", managerPassword);
-    formData.append("table_id", tableId.toString());
-    try {
-      await postData("cashier/order_void", formData);
-      const updatedItems = orderItems.filter(
-        (item) => item.temp_id !== voidItemId
-      );
-      updateOrderItems(updatedItems);
+const confirmVoidItem = async () => {
+  // تحقق من البيانات الأساسية
+  const itemToVoid = orderItems.find((item) => item.temp_id === voidItemId);
+  if (!itemToVoid?.cart_id || !tableId || !managerId || !managerPassword) {
+    setTimeout(() => {
+      toast.error("Please fill in all required fields: Manager ID and Password.");
+    }, 100);
+    return;
+  }
+
+  // بدء الـ loading
+  setItemLoadingStates((prev) => ({ ...prev, [voidItemId]: true }));
+
+  const formData = new FormData();
+  const cartIds = Array.isArray(itemToVoid.cart_id)
+    ? itemToVoid.cart_id
+    : typeof itemToVoid.cart_id === "string"
+    ? itemToVoid.cart_id.split(",").map((id) => id.trim())
+    : [itemToVoid.cart_id];
+
+  cartIds.forEach((id) => formData.append("cart_ids[]", id.toString()));
+  formData.append("manager_id", managerId);
+  formData.append("manager_password", managerPassword);
+  formData.append("table_id", tableId.toString());
+
+  try {
+    // نجاح الـ API
+    const response = await postData("cashier/order_void", formData);
+
+    const updatedItems = orderItems.filter((item) => item.temp_id !== voidItemId);
+    updateOrderItems(updatedItems);
+
+    // إظهار toast نجاح
+    setTimeout(() => {
       toast.success("Item voided successfully!");
-    } catch (err) {
-      const errorMessage =
-        err.response?.data?.message ||
-        err.response?.data?.exception ||
-        "Failed to void item.";
-      toast.error(errorMessage);
-    } finally {
-      setItemLoadingStates((prev) => ({ ...prev, [voidItemId]: false }));
-      setShowVoidModal(false);
-      setManagerId("");
-      setManagerPassword("");
-      setVoidItemId(null);
+    }, 100);
+
+    // إغلاق المودال فقط عند النجاح
+    setShowVoidModal(false);
+    setManagerId("");
+    setManagerPassword("");
+    setVoidItemId(null);
+  } catch (err) {
+    // طباعة الخطأ للـ debug
+    console.error("Void Item Error:", err);
+    if (err.response) {
+      console.error("Status:", err.response.status);
+      console.error("Response data:", err.response.data);
     }
-  };
+
+    // استخراج الرسالة
+    let errorMessage = "Failed to void item.";
+
+    if (err.response) {
+      const { status, data } = err.response;
+
+      // الأولوية: errors → message → error → حالة خاصة
+      if (data?.errors) {
+        errorMessage = data.errors; // مثل: "id or password is wrong"
+      } else if (data?.message) {
+        errorMessage = data.message;
+      } else if (data?.error) {
+        errorMessage = data.error;
+      } else if ([401, 403, 400].includes(status)) {
+        errorMessage = "Invalid Manager ID or Password. Access denied.";
+      } else {
+        errorMessage = `Server error (${status})`;
+      }
+    } else if (err.request) {
+      errorMessage = "No response from server. Check your internet connection.";
+    } else {
+      errorMessage = err.message || "An unexpected error occurred.";
+    }
+
+    // إظهار الـ toast مهما كان (حتى لو الـ container اتحمل متأخر)
+    setTimeout(() => {
+      toast.error(errorMessage);
+    }, 100);
+
+    // لا تحذف العنصر، لا تغلق المودال
+  } finally {
+    // إنهاء الـ loading
+    setItemLoadingStates((prev) => ({ ...prev, [voidItemId]: false }));
+  }
+};
 
   const handleIncrease = (itemTempId) => {
     const updatedItems = orderItems.map((item) =>
@@ -642,7 +714,12 @@ const handleTransferOrder = () => {
       return;
     }
 
-    console.log("Applying bulk status:", bulkStatus, "to items:", selectedItems);
+    console.log(
+      "Applying bulk status:",
+      bulkStatus,
+      "to items:",
+      selectedItems
+    );
     const itemsToUpdate = orderItems.filter((item) =>
       selectedItems.includes(item.temp_id)
     );
@@ -661,7 +738,10 @@ const handleTransferOrder = () => {
       const formData = new FormData();
       formData.append("table_id", tableId.toString());
       itemsForApi.forEach((item, index) => {
-        formData.append(`preparing[${index}][cart_id]`, item.cart_id.toString());
+        formData.append(
+          `preparing[${index}][cart_id]`,
+          item.cart_id.toString()
+        );
         formData.append(
           `preparing[${index}][status]`,
           PREPARATION_STATUSES[bulkStatus].apiValue
@@ -740,18 +820,18 @@ const handleTransferOrder = () => {
               Apply Offer (Points)
             </Button>
             <Button
-              onClick={() => setShowDealModal(true)}
-              className="bg-orange-600 text-white hover:bg-orange-700 text-sm py-4"
-              disabled={isLoading}
-            >
-              Apply Deal
-            </Button>
-            <Button
               onClick={handleViewOrders}
               className="bg-gray-500 text-white hover:bg-gray-600 text-sm py-4"
               disabled={isLoading}
             >
               View Orders
+            </Button>
+            <Button
+              onClick={() => setShowDealModal(true)}
+              className="bg-orange-600 text-white hover:bg-orange-700 text-sm py-4"
+              disabled={isLoading}
+            >
+              Apply Deal
             </Button>
           </div>
           {orderType === "take_away" && (
@@ -911,7 +991,9 @@ const handleTransferOrder = () => {
                     handleDecrease={handleDecrease}
                     allowQuantityEdit={allowQuantityEdit}
                     itemLoadingStates={itemLoadingStates}
-                    handleUpdatePreparationStatus={handleUpdatePreparationStatus}
+                    handleUpdatePreparationStatus={
+                      handleUpdatePreparationStatus
+                    }
                     handleVoidItem={handleVoidItem}
                     renderItemVariations={renderItemVariations}
                     handleRemoveFrontOnly={handleRemoveFrontOnly}
@@ -1164,6 +1246,7 @@ const handleTransferOrder = () => {
           </div>
         </div>
       )}
+      <ToastContainer/>
     </div>
   );
 }

@@ -17,57 +17,83 @@ const VoidItemModal = ({
   managerPassword,
   setManagerPassword,
   confirmVoidItem,
+  onManagerIdChange,  
   isLoading,
-}) => (
-  <Dialog open={open} onOpenChange={onOpenChange}>
-    <DialogContent>
-      <DialogHeader>
-        <DialogTitle>Void Item - Manager Authentication</DialogTitle>
-      </DialogHeader>
-      <div className="grid gap-4 py-4">
-        <div className="grid grid-cols-4 items-center gap-4">
-          <label htmlFor="managerId" className="text-right">
-            Manager ID
-          </label>
-          <Input
-            type="number"
-            id="managerId"
-            value={managerId}
-            onChange={(e) => setManagerId(e.target.value)}
-            className="col-span-3"
-          />
+}) => {
+  const handleManagerIdBlur = async () => {
+    if (!managerId || managerId.trim() === "") return;
+
+    // منع التحقق المتكرر إذا كان نفس القيمة
+    if (managerId === sessionStorage.getItem("lastValidatedManagerId")) {
+      return;
+    }
+
+    await onManagerIdChange?.(managerId);
+  };
+
+  const handleClose = () => {
+    setManagerId("");
+    setManagerPassword("");
+    onOpenChange(false);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={handleClose}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Void Item - Manager Authentication</DialogTitle>
+        </DialogHeader>
+        <div className="grid gap-4 py-4">
+          <div className="grid grid-cols-4 items-center gap-4">
+            <label htmlFor="managerId" className="text-right font-medium">
+              Manager ID
+            </label>
+            <Input
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              id="managerId"
+              value={managerId}
+              onChange={(e) => {
+                const value = e.target.value.replace(/\D/g, ""); // أرقام فقط
+                setManagerId(value);
+              }}
+              onBlur={handleManagerIdBlur} // هنا التحقق
+              className="col-span-3"
+              placeholder="Enter Manager ID"
+              disabled={isLoading}
+            />
+          </div>
+          <div className="grid grid-cols-4 items-center gap-4">
+            <label htmlFor="password" className="text-right font-medium">
+              Password
+            </label>
+            <Input
+              id="password"
+              type="password"
+              value={managerPassword}
+              onChange={(e) => setManagerPassword(e.target.value)}
+              className="col-span-3"
+              placeholder="Enter password"
+              disabled={isLoading}
+            />
+          </div>
         </div>
-        <div className="grid grid-cols-4 items-center gap-4">
-          <label htmlFor="password" className="text-right">
-            Password
-          </label>
-          <Input
-            id="password"
-            type="password"
-            value={managerPassword}
-            onChange={(e) => setManagerPassword(e.target.value)}
-            className="col-span-3"
-          />
-        </div>
-      </div>
-      <DialogFooter>
-        <Button
-          variant="outline"
-          onClick={() => onOpenChange(false)}
-          className="mr-2"
-        >
-          Cancel
-        </Button>
-        <Button
-          onClick={confirmVoidItem}
-          disabled={!managerId || !managerPassword || isLoading}
-          className="bg-red-600 text-white hover:bg-red-700"
-        >
-          Confirm Void
-        </Button>
-      </DialogFooter>
-    </DialogContent>
-  </Dialog>
-);
+        <DialogFooter>
+          <Button variant="outline" onClick={handleClose} disabled={isLoading}>
+            Cancel
+          </Button>
+          <Button
+            onClick={confirmVoidItem}
+            disabled={!managerId || !managerPassword || isLoading}
+            className="bg-red-600 text-white hover:bg-red-700"
+          >
+            {isLoading ? "Voiding..." : "Confirm Void"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+};
 
 export default VoidItemModal;
