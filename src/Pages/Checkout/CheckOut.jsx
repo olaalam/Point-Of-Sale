@@ -9,10 +9,8 @@ import "react-toastify/dist/ReactToastify.css";
 import Loading from "@/components/Loading";
 import { useNavigate } from "react-router-dom";
 import CustomerSelectionModal from "./CustomerSelectionModal";
-import DuePaymentModal from "./DuePaymentModal";
 import DeliveryAssignmentModal from "./DeliveryAssignmentModal";
 import { buildFinancialsPayload, getOrderEndpoint, buildOrderPayload, buildDealPayload, validatePaymentSplits } from "./processProductItem";
-import { useConfirmDuePayment } from "../../Hooks/useConfirmDuePayment";
 
 const CheckOut = ({
   amountToPay,
@@ -37,13 +35,9 @@ const CheckOut = ({
 
   const [paymentSplits, setPaymentSplits] = useState([]);
   const [customerPaid, setCustomerPaid] = useState("");
-  const [isDueOrder, setIsDueOrder] = useState(false);
   const [customerSelectionOpen, setCustomerSelectionOpen] = useState(false);
-  const [duePaymentOpen, setDuePaymentOpen] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [customerSearchQuery, setCustomerSearchQuery] = useState("");
-  const [dueSplits, setDueSplits] = useState([]);
-  const [dueAmount, setDueAmount] = useState(0);
 
   const { data: dueUsersData, loading: customerSearchLoading, refetch: refetchDueUsers } = useGet(
     `cashier/list_due_users?search=${customerSearchQuery}`
@@ -63,13 +57,13 @@ const CheckOut = ({
   const [selectedDeliveryId, setSelectedDeliveryId] = useState(null);
   const [orderId, setOrderId] = useState(null);
 
-  // ===== Discount Code State =====
+  // Discount Code State
   const [discountCode, setDiscountCode] = useState("");
   const [appliedDiscount, setAppliedDiscount] = useState(0);
   const [discountError, setDiscountError] = useState(null);
   const [isCheckingDiscount, setIsCheckingDiscount] = useState(false);
 
-  // ✅ Memoized discount from sessionStorage
+  // Memoized discount from sessionStorage
   const discountData = useMemo(() => {
     const storedDiscount = sessionStorage.getItem("discount_data");
     try {
@@ -80,7 +74,7 @@ const CheckOut = ({
     }
   }, []);
 
-  // ✅ Calculate discounted amount based on applied discount or sessionStorage
+  // Calculate discounted amount
   const discountedAmount = useMemo(() => {
     let totalDiscount = 0;
     if (appliedDiscount > 0) {
@@ -91,7 +85,7 @@ const CheckOut = ({
     return amountToPay - totalDiscount;
   }, [amountToPay, orderType, discountData, appliedDiscount]);
 
-  // ✅ Use discountedAmount in requiredTotal
+  // Required Total
   const requiredTotal = useMemo(() => {
     if (orderType === "dine_in") {
       return orderItems.reduce((acc, item) => acc + item.price * item.count, 0);
@@ -118,8 +112,9 @@ const CheckOut = ({
 
   const isTotalMet = totalScheduled >= requiredTotal;
 
+  // Initialize default payment split
   useEffect(() => {
-    if (data?.financial_account?.length > 0 && paymentSplits.length === 0 && !isDueOrder) {
+    if (data?.financial_account?.length > 0 && paymentSplits.length === 0) {
       const defaultAccountId = data.financial_account[0]?.id;
       setPaymentSplits([
         {
@@ -130,22 +125,20 @@ const CheckOut = ({
         },
       ]);
     }
-    if (isDueOrder) {
-      setPaymentSplits([]);
-    }
-  }, [data, requiredTotal, isDueOrder]);
+  }, [data, requiredTotal, paymentSplits.length]);
 
+  // Auto-update single split amount
   useEffect(() => {
-    if (paymentSplits.length === 1 && paymentSplits[0].id === "split-1" && !isDueOrder) {
+    if (paymentSplits.length === 1 && paymentSplits[0].id === "split-1") {
       setPaymentSplits((prev) =>
         prev.map((split) =>
           split.id === "split-1" ? { ...split, amount: requiredTotal || 0 } : split
         )
       );
     }
-  }, [requiredTotal, isDueOrder]);
+  }, [requiredTotal, paymentSplits]);
 
-  // ===== Handle Discount Code Validation =====
+  // Handle Discount Code
   const handleApplyDiscount = async () => {
     if (!discountCode) {
       toast.error("Please enter a discount code.");
@@ -247,82 +240,88 @@ const CheckOut = ({
     return acc?.description_status === 1;
   };
 
-  const handlePayLater = () => {
-    if (orderType !== "take_away" && orderType !== "delivery") {
-      return toast.error("Pay Later is only available for Take-Away and Delivery orders.");
+  // زرار Check → يفتح قايمة العملاء المدينين
+  const handleCheckDue = async () => {
+    if (!isTotalMet) {
+      toast.error(`Total must equal ${requiredTotal.toFixed(2)} EGP.`);
+      return;
     }
-    setIsDueOrder(true);
-    setPaymentSplits([]);
-    setCustomerPaid("");
+
+    const validation = validatePaymentSplits(paymentSplits, getDescriptionStatus);
+    if (!validation.valid) {
+      return toast.error(validation.error);
+    }
+
     setCustomerSelectionOpen(true);
     refetchDueUsers();
   };
 
-  const handleBackToPayment = () => {
-    setIsDueOrder(false);
-    setSelectedCustomer(null);
-    const defaultAccountId = data.financial_account[0]?.id;
-    setPaymentSplits([
-      {
-        id: "split-1",
-        accountId: defaultAccountId,
-        amount: requiredTotal || 0,
-        description: "",
-      },
-    ]);
-  };
-
-  const handleSelectCustomer = (customer) => {
+  // بعد اختيار العميل → إرسال الطلب مع due: 1
+  const handleSelectCustomer = async (customer) => {
     if (requiredTotal > customer.can_debit) {
       toast.error(
         `Order amount (${requiredTotal.toFixed(2)} EGP) exceeds customer's debit limit.`
       );
       return;
     }
+
     setSelectedCustomer(customer);
-    setCustomerSelectionOpen(false);
-    setDuePaymentOpen(true);
-  };
 
-  const { handleConfirmDuePayment } = useConfirmDuePayment({
-    navigate,
-    onClearCart,
-    onClose: () => setDuePaymentOpen(false),
-    setDueSplits,
-    setDueAmount,
-  });
+    const hasDealItems = orderItems.some((item) => item.is_deal);
+    const endpoint = getOrderEndpoint(orderType, orderItems, totalDineInItems, hasDealItems);
+    const financialsPayload = buildFinancialsPayload(paymentSplits);
 
-  const handleAssignDelivery = async () => {
-    if (!orderId) return toast.error("Order ID is missing.");
-    if (!selectedDeliveryId) return toast.error("Please select a delivery person.");
+    let payload;
+    if (hasDealItems) {
+      payload = buildDealPayload(orderItems, financialsPayload);
+    } else {
+      payload = buildOrderPayload({
+        orderType,
+        orderItems,
+        amountToPay: requiredTotal,
+        totalTax,
+        totalDiscount: appliedDiscount > 0
+          ? amountToPay * (appliedDiscount / 100)
+          : discountData.module.includes(orderType)
+            ? amountToPay * (discountData.discount / 100)
+            : totalDiscount,
+        notes,
+        source,
+        financialsPayload,
+        cashierId,
+        tableId,
+        customerPaid,
+        discountCode: appliedDiscount > 0 ? discountCode : undefined,
+        due: 1, // مهم
+        customer_id: customer.id, // مهم
+      });
+    }
 
     try {
-      await postData(`cashier/determine_delivery/${orderId}`, {
-        delivery_id: selectedDeliveryId,
+      const response = await postData(endpoint, payload, {
+        headers: { "Content-Type": "application/json" },
       });
-      toast.success("Delivery person assigned successfully!");
-      setDeliveryModelOpen(false);
-      onClose();
-      navigate("/orders");
-    } catch (e) {
-      toast.error(e.message || "Failed to assign delivery person.");
-    }
-  };
 
-  const handleSkip = () => {
-    setDeliveryModelOpen(false);
-    onClose();
-    navigate("/orders");
-  };
+      if (response?.success) {
+        toast.success("Due order created successfully!");
+        onClearCart();
+        sessionStorage.setItem("last_order_type", orderType);
 
-  const handleSubmitOrder = async () => {
-    if (isDueOrder) {
-      if (!selectedCustomer) {
-        return toast.error("Please select a customer for a Pay Later order.");
+        setCustomerSelectionOpen(false);
+        onClose();
+
+        navigate("/due"); // يروح على صفحة المديونيات
+      } else {
+        toast.error(response?.message || "Failed to create due order.");
       }
-      return;
+    } catch (e) {
+      console.error("Due order error:", e);
+      toast.error(e.message || "Failed to process due order.");
     }
+  };
 
+  // دفع عادي (Confirm & Pay)
+  const handleSubmitOrder = async () => {
     if (!isTotalMet || totalScheduled === 0) {
       return toast.error(`Total must equal ${requiredTotal.toFixed(2)} EGP.`);
     }
@@ -392,11 +391,35 @@ const CheckOut = ({
     }
   };
 
+  const handleAssignDelivery = async () => {
+    if (!orderId) return toast.error("Order ID is missing.");
+    if (!selectedDeliveryId) return toast.error("Please select a delivery person.");
+
+    try {
+      await postData(`cashier/determine_delivery/${orderId}`, {
+        delivery_id: selectedDeliveryId,
+      });
+      toast.success("Delivery person assigned successfully!");
+      setDeliveryModelOpen(false);
+      onClose();
+      navigate("/orders");
+    } catch (e) {
+      toast.error(e.message || "Failed to assign delivery person.");
+    }
+  };
+
+  const handleSkip = () => {
+    setDeliveryModelOpen(false);
+    onClose();
+    navigate("/orders");
+  };
+
   if (isLoading || deliveryLoading) return <Loading />;
   if (isError) return <p className="text-red-500">{isError?.message}</p>;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4">
+      {/* قايمة اختيار العميل */}
       <CustomerSelectionModal
         isOpen={customerSelectionOpen}
         onClose={() => setCustomerSelectionOpen(false)}
@@ -407,13 +430,8 @@ const CheckOut = ({
         loading={customerSearchLoading}
         requiredTotal={requiredTotal}
       />
-      <DuePaymentModal
-        isOpen={duePaymentOpen}
-        onClose={() => setDuePaymentOpen(false)}
-        customer={selectedCustomer}
-        requiredTotal={requiredTotal}
-        onConfirm={(splits, dueAmount) => handleConfirmDuePayment(splits, dueAmount, selectedCustomer)}
-      />
+
+      {/* تعيين مندوب التوصيل */}
       <DeliveryAssignmentModal
         isOpen={deliveryModelOpen}
         onClose={handleSkip}
@@ -423,18 +441,11 @@ const CheckOut = ({
         onAssign={handleAssignDelivery}
         onSkip={handleSkip}
       />
+
       {!deliveryModelOpen && (
         <div className="relative w-full max-w-2xl bg-white rounded-2xl shadow-2xl h-auto flex flex-col">
-          {/* Fixed Header with Title and Close Button */}
           <div className="bg-white p-4 border-b flex items-center justify-between">
-            <h2 className="text-2xl font-semibold">
-              Process Payment
-              {isDueOrder && selectedCustomer && (
-                <span className="text-sm text-red-500 ml-2">
-                  (Due Order for {selectedCustomer.name})
-                </span>
-              )}
-            </h2>
+            <h2 className="text-2xl font-semibold">Process Payment</h2>
             <button
               onClick={onClose}
               className="text-4xl p-2 rounded-full hover:bg-gray-100"
@@ -442,7 +453,7 @@ const CheckOut = ({
               ×
             </button>
           </div>
-          {/* Content Area */}
+
           <div className="p-8 overflow-y-auto max-h-[calc(90vh-6rem)]">
             <div className="mb-6 border-b pb-4">
               <div className="flex justify-between mb-2">
@@ -465,24 +476,21 @@ const CheckOut = ({
                 <span>Total Amount:</span>
                 <span>{requiredTotal.toFixed(2)} EGP</span>
               </div>
-              {!isDueOrder && (
-                <>
-                  <div className="flex justify-between mb-2">
-                    <span>Remaining:</span>
-                    <span className={remainingAmount > 0 ? "text-orange-500" : "text-green-600"}>
-                      {remainingAmount.toFixed(2)} EGP
-                    </span>
-                  </div>
-                  {changeAmount > 0 && (
-                    <div className="flex justify-between">
-                      <span>Change:</span>
-                      <span className="text-green-600">{changeAmount.toFixed(2)} EGP</span>
-                    </div>
-                  )}
-                </>
+              <div className="flex justify-between mb-2">
+                <span>Remaining:</span>
+                <span className={remainingAmount > 0 ? "text-orange-500" : "text-green-600"}>
+                  {remainingAmount.toFixed(2)} EGP
+                </span>
+              </div>
+              {changeAmount > 0 && (
+                <div className="flex justify-between">
+                  <span>Change:</span>
+                  <span className="text-green-600">{changeAmount.toFixed(2)} EGP</span>
+                </div>
               )}
             </div>
-            {/* ===== Discount Code Input ===== */}
+
+            {/* Discount Code */}
             <div className="mb-6">
               <label className="block text-sm mb-1">Discount by Company</label>
               <div className="flex space-x-2">
@@ -510,115 +518,99 @@ const CheckOut = ({
                 </p>
               )}
             </div>
-            {isDueOrder && selectedCustomer && (
-              <div className="mb-6 p-4 bg-red-50 border border-red-300 rounded-lg">
-                <p className="font-semibold text-red-800">
-                  This order is marked as <strong>Pay Later</strong> for{" "}
-                  <strong>{selectedCustomer.name}</strong>.
-                </p>
-                <Button
-                  variant="link"
-                  onClick={handleBackToPayment}
-                  className="mt-2 p-0 text-sm text-blue-600"
-                >
-                  Go back to full payment
-                </Button>
-              </div>
-            )}
-            {!isDueOrder && (
-              <div className="space-y-6">
-                {paymentSplits.map((split) => (
-                  <div key={split.id} className="flex items-center space-x-4">
-                    <div className="w-40">
-                      <Select
-                        value={String(split.accountId)}
-                        onValueChange={(val) => handleAccountChange(split.id, val)}
-                      >
-                        <SelectTrigger>
-                          <SelectValue>{getAccountNameById(split.accountId)}</SelectValue>
-                        </SelectTrigger>
-                        <SelectContent>
-                          {data.financial_account.map((acc) => (
-                            <SelectItem key={acc.id} value={String(acc.id)}>
-                              {acc.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="relative flex-grow">
-                      <Input
-                        type="number"
-                        min="0"
-                        value={split.amount === 0 ? "" : String(split.amount)}
-                        onChange={(e) => handleAmountChange(split.id, e.target.value)}
-                        className="pl-16"
-                      />
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2">EGP</span>
-                    </div>
-                    {getDescriptionStatus(split.accountId) && (
-                      <Input
-                        type="text"
-                        placeholder="Last 4 digits"
-                        value={split.description}
-                        onChange={(e) => handleDescriptionChange(split.id, e.target.value)}
-                        maxLength={4}
-                        className="w-32"
-                      />
-                    )}
-                    {paymentSplits.length > 1 && (
-                      <Button variant="ghost" size="icon" onClick={() => handleRemoveSplit(split.id)}>
-                        ×
-                      </Button>
-                    )}
+
+            {/* Payment Splits */}
+            <div className="space-y-6">
+              {paymentSplits.map((split) => (
+                <div key={split.id} className="flex items-center space-x-4">
+                  <div className="w-40">
+                    <Select
+                      value={String(split.accountId)}
+                      onValueChange={(val) => handleAccountChange(split.id, val)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue>{getAccountNameById(split.accountId)}</SelectValue>
+                      </SelectTrigger>
+                      <SelectContent>
+                        {data.financial_account.map((acc) => (
+                          <SelectItem key={acc.id} value={String(acc.id)}>
+                            {acc.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
-                ))}
-                {remainingAmount > 0 && (
-                  <Button variant="link" onClick={handleAddSplit} className="text-sm text-blue-600">
-                    + Add account split
-                  </Button>
-                )}
-              </div>
-            )}
-            {!isDueOrder && (
-              <div className="mt-6">
-                <label className="block text-sm mb-1">Amount Paid by Customer</label>
-                <div className="relative">
-                  <Input
-                    type="number"
-                    min="0"
-                    placeholder="Enter amount paid"
-                    value={customerPaid}
-                    onChange={(e) => setCustomerPaid(e.target.value)}
-                    className="pl-16"
-                  />
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2">EGP</span>
+                  <div className="relative flex-grow">
+                    <Input
+                      type="number"
+                      min="0"
+                      value={split.amount === 0 ? "" : String(split.amount)}
+                      onChange={(e) => handleAmountChange(split.id, e.target.value)}
+                      className="pl-16"
+                    />
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2">EGP</span>
+                  </div>
+                  {getDescriptionStatus(split.accountId) && (
+                    <Input
+                      type="text"
+                      placeholder="Last 4 digits"
+                      value={split.description}
+                      onChange={(e) => handleDescriptionChange(split.id, e.target.value)}
+                      maxLength={4}
+                      className="w-32"
+                    />
+                  )}
+                  {paymentSplits.length > 1 && (
+                    <Button variant="ghost" size="icon" onClick={() => handleRemoveSplit(split.id)}>
+                      ×
+                    </Button>
+                  )}
                 </div>
-                {parseFloat(customerPaid) > requiredTotal && (
-                  <p className="mt-2 text-green-600 text-sm font-semibold">
-                    Change Due: {calculatedChange.toFixed(2)} EGP
-                  </p>
-                )}
-              </div>
-            )}
-            <div className="flex space-x-4 mt-6">
-              {(orderType === "take_away" || orderType === "delivery") && !isDueOrder && (
-                <Button
-                  className="flex-1 text-white bg-blue-600 hover:bg-blue-700"
-                  disabled={loading}
-                  onClick={handlePayLater}
-                >
-                  Pay Later (Due)
+              ))}
+              {remainingAmount > 0 && (
+                <Button variant="link" onClick={handleAddSplit} className="text-sm text-blue-600">
+                  + Add account split
                 </Button>
               )}
+            </div>
+
+            {/* Amount Paid */}
+            <div className="mt-6">
+              <label className="block text-sm mb-1">Amount Paid by Customer</label>
+              <div className="relative">
+                <Input
+                  type="number"
+                  min="0"
+                  placeholder="Enter amount paid"
+                  value={customerPaid}
+                  onChange={(e) => setCustomerPaid(e.target.value)}
+                  className="pl-16"
+                />
+                <span className="absolute left-3 top-1/2 -translate-y-1/2">EGP</span>
+              </div>
+              {parseFloat(customerPaid) > requiredTotal && (
+                <p className="mt-2 text-green-600 text-sm font-semibold">
+                  Change Due: {calculatedChange.toFixed(2)} EGP
+                </p>
+              )}
+            </div>
+
+            {/* الأزرار الجديدة */}
+            <div className="flex space-x-4 mt-6">
               <Button
-                className={`flex-1 text-white ${
-                  isDueOrder ? "bg-red-600 hover:bg-red-700" : "bg-green-600 hover:bg-green-700"
-                }`}
-                disabled={loading || (!isDueOrder && !isTotalMet) || (isDueOrder && !selectedCustomer)}
+                className="flex-1 text-white bg-orange-600 hover:bg-orange-700"
+                disabled={loading || !isTotalMet}
+                onClick={handleCheckDue}
+              >
+                {loading ? "Checking..." : "Check"}
+              </Button>
+
+              <Button
+                className="flex-1 text-white bg-green-600 hover:bg-green-700"
+                disabled={loading || !isTotalMet}
                 onClick={handleSubmitOrder}
               >
-                {loading ? "Processing..." : isDueOrder ? "Confirm Due Order" : "Confirm & Pay"}
+                {loading ? "Processing..." : "Confirm & Pay"}
               </Button>
             </div>
           </div>
