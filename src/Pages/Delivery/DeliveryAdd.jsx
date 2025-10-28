@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import { Form } from "@/components/ui/form";
 import { Button } from "@/components/ui/button";
 import { usePost } from "@/Hooks/usePost";
-import { toast } from "react-toastify";
+import { toast, ToastContainer } from "react-toastify";
 import { useNavigate } from "react-router-dom";
 import "react-toastify/dist/ReactToastify.css";
 import Loading from "@/components/Loading";
@@ -43,129 +43,130 @@ export default function DeliveryAdd() {
   const navigate = useNavigate();
   const { loading, error, postData } = usePost();
 
-  const onSubmit = async (values) => {
-    // منع الـ submission إذا كان هناك عملية قيد التنفيذ
-    if (isSubmitting || loading) {
+const onSubmit = async (values) => {
+  if (isSubmitting || loading) return;
+
+  setIsSubmitting(true);
+
+  try {
+    console.log("Form Values:", values);
+    console.log("Selected Location:", selectedLocation);
+
+    // التحقق من الحقول الأساسية
+    if (!values.city_id) {
+      toast.error("Please select a city");
+      return;
+    }
+    if (!values.zone_id) {
+      toast.error("Please select a zone");
+      return;
+    }
+    if (!values.address || values.address.length < 5) {
+      toast.error("Please provide a valid address");
       return;
     }
 
-    // تفعيل حالة الـ submission
-    setIsSubmitting(true);
+    const addressObject = {
+      latitude: selectedLocation.lat,
+      longitude: selectedLocation.lng,
+      map: formattedMapCoordinates,
+      street: values.street || "",
+      building_num: values.building_num || "",
+      floor_num: values.floor_num || "",
+      apartment: values.apartment || "",
+      city_id: Number(values.city_id),
+      zone_id: Number(values.zone_id),
+      address: values.address,
+      additional_data: values.additional_data,
+      type: values.type,
+    };
 
-    try {
-      console.log("editAddressData:", editAddressData);
-      console.log("onSubmit function called!");
-      console.log("Form Values:", values);
-      console.log("Selected Location:", selectedLocation);
+    let finalPayload;
+    let apiEndpoint;
 
-      // Validate required fields before submission
-      if (!values.city_id) {
-        toast.error("Please select a city");
+    if (isEditMode) {
+      const addressId = editAddressData?.addresses?.[0]?.id || editAddressData?.address?.id;
+      if (!addressId) {
+        toast.error("Address ID not found");
         return;
       }
-
-      if (!values.zone_id) {
-        toast.error("Please select a zone");
-        return;
-      }
-
-      if (!values.address || values.address.length < 5) {
-        toast.error("Please provide a valid address");
-        return;
-      }
-
-      const addressObject = {
-        latitude: selectedLocation.lat,
-        longitude: selectedLocation.lng,
-        map: formattedMapCoordinates,
-        street: values.street || "",
-        building_num: values.building_num || "",
-        floor_num: values.floor_num || "",
-        apartment: values.apartment || "",
-        city_id: Number(values.city_id),
-        zone_id: Number(values.zone_id),
-        address: values.address,
-        additional_data: values.additional_data,
-        type: values.type,
+      finalPayload = { ...addressObject, user_id: editAddressData?.user_id };
+      apiEndpoint = `cashier/user/address/update/${addressId}`;
+    } else if (isAddAnotherAddress) {
+      finalPayload = { ...addressObject, user_id: Number(userIdFromUrl) };
+      apiEndpoint = `cashier/user/address/add/${userIdFromUrl}`;
+    } else {
+      finalPayload = {
+        f_name: values.f_name,
+        l_name: values.l_name,
+        phone: values.phone,
+        addresses: [addressObject],
       };
-
-      let finalPayload;
-      let apiEndpoint;
-
-      if (isEditMode) {
-        console.log("editAddressData.addresses:", editAddressData?.addresses);
-        console.log("editAddressData.address:", editAddressData?.address);
-        const addressId = editAddressData?.addresses?.[0]?.id || editAddressData?.address?.id;
-
-        if (!addressId) {
-          toast.error("Address ID not found");
-          return;
-        }
-
-        finalPayload = {
-          ...addressObject,
-          user_id: editAddressData?.user_id,
-        };
-        apiEndpoint = `cashier/user/address/update/${addressId}`;
-      } else if (isAddAnotherAddress) {
-        finalPayload = {
-          ...addressObject,
-          user_id: Number(userIdFromUrl),
-        };
-        apiEndpoint = `cashier/user/address/add/${userIdFromUrl}`;
-      } else {
-        finalPayload = {
-          f_name: values.f_name,
-          l_name: values.l_name,
-          phone: values.phone,
-          addresses: [addressObject],
-        };
-        if (values.phone_2?.trim()) {
-          finalPayload.phone_2 = values.phone_2;
-        }
-        apiEndpoint = "cashier/user/add";
+      if (values.phone_2?.trim()) {
+        finalPayload.phone_2 = values.phone_2;
       }
-
-      console.log("Final Payload:", finalPayload);
-
-      const response = await postData(apiEndpoint, finalPayload);
-      
-      if (response && response.success) {
-        toast.success(
-          `${isEditMode
-            ? "Address updated"
-            : isAddAnotherAddress
-              ? "Address added"
-              : "User added"
-          } successfully!`
-        );
-        
-        if (!isEditMode && !isAddAnotherAddress) {
-          form.reset();
-        }
-        
-        setTimeout(() => {
-          navigate("/");
-        }, 1500);
-      } else {
-        toast.error(
-          response?.message ||
-          `Failed to ${isEditMode
-            ? "update address"
-            : isAddAnotherAddress
-              ? "add address"
-              : "add user"
-          }.`
-        );
-      }
-    } catch (err) {
-      console.error("Submit Error:", err);
-      toast.error("Submission error: " + (err.message || "Unknown error."));
-    } finally {
-      // إلغاء تفعيل حالة الـ submission في جميع الحالات
-      setIsSubmitting(false);
+      apiEndpoint = "cashier/user/add";
     }
-  };
+
+    console.log("Final Payload:", finalPayload);
+
+    const response = await postData(apiEndpoint, finalPayload);
+
+    if (response && response.success) {
+      toast.success(
+        `${isEditMode ? "Address updated" : isAddAnotherAddress ? "Address added" : "User added"} successfully!`
+      );
+
+      if (!isEditMode && !isAddAnotherAddress) {
+        form.reset();
+      }
+
+      setTimeout(() => {
+        navigate("/");
+      }, 1500);
+    } else {
+      toast.error(response?.message || "Operation failed.");
+    }
+  } catch (err) {
+    console.error("Submit Error:", err);
+
+    let errorMessage = "An unexpected error occurred.";
+
+    if (err.response) {
+      const { data } = err.response;
+
+      // الـ API بيرسل { errors: { phone: ["The phone has already been taken."] } }
+      if (data?.errors && typeof data.errors === "object") {
+        const errorMessages = Object.values(data.errors).flat(); // ["The phone has already been taken."]
+        errorMessage = errorMessages.join(" ");
+      }
+      // لو فيه message عادي
+      else if (data?.message) {
+        errorMessage = data.message;
+      }
+      // لو فيه error
+      else if (data?.error) {
+        errorMessage = data.error;
+      }
+      // fallback
+      else {
+        errorMessage = "Failed to submit. Please try again.";
+      }
+    } else if (err.request) {
+      errorMessage = "No response from server. Check your internet connection.";
+    } else {
+      errorMessage = err.message || "Unknown error.";
+    }
+
+    // إظهار الرسالة في الـ toast
+    setTimeout(() => {
+      toast.error(errorMessage);
+    }, 100);
+
+  } finally {
+    setIsSubmitting(false);
+  }
+};
 
   // Loading state for address lists
   if (isLoadingLists) {
@@ -302,6 +303,7 @@ export default function DeliveryAdd() {
           </div>
         </div>
       </div>
+      <ToastContainer/>
     </div>
   );
 }
