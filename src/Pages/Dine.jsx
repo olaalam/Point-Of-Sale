@@ -320,7 +320,7 @@ const MergedTableCard = ({ table }) => {
       await putStatusChange(`cashier/tables_status/${table.id}?current_status=${newStatus}`, {});
       toast.success(`Status updated to "${statusOptions.find(o => o.value === newStatus)?.label}"`);
     } catch (err) {
-      toast.error("Failed to update status.");
+      toast.error("Failed to update status.",err);
     }
   };
 
