@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { useGet } from "@/Hooks/useGet";
-import { usePost } from "@/Hooks/usePost";
+import { usePost } from "@/Hooks/usePost"; // تأكدي إن usePost يستخدم useCallback
 import { Button } from "@/components/ui/button";
 import Loading from "@/components/Loading";
 import { toast } from "react-toastify";
@@ -17,19 +17,28 @@ const PRODUCTS_PER_ROW = 4;
 const PRODUCTS_TO_SHOW_INITIALLY = INITIAL_PRODUCT_ROWS * PRODUCTS_PER_ROW;
 
 export default function Item({ fetchEndpoint, onAddToOrder, onClose, refreshCartData }) {
-  // State management
+  // === State Management ===
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [visibleProductCount, setVisibleProductCount] = useState(PRODUCTS_TO_SHOW_INITIALLY);
   const [branchIdState, setBranchIdState] = useState(sessionStorage.getItem("branch_id"));
-  const [productType, setProductType] = useState("piece"); // New state: "piece" or "weight"
+  const [productType, setProductType] = useState("piece");
 
-  // Get order type
+  // === Group Product States ===
+  const [selectedGroup, setSelectedGroup] = useState("all");
+  const [groupProducts, setGroupProducts] = useState([]);
+  const [favouriteCategories, setFavouriteCategories] = useState([]);
+  const [groupProductsData, setGroupProductsData] = useState(null);
+
+  // === Order Type ===
   const orderType = sessionStorage.getItem("order_type") || "dine_in";
 
-  // Custom hooks
+  // === Custom Hooks ===
   const { deliveryUserData, userLoading, userError } = useDeliveryUser(orderType);
-  const { postData, loading: orderLoading } = usePost();
+  const { postData: postOrder, loading: orderLoading } = usePost();
+  const { postData: postFavourite } = usePost();
+  const { postData: postProductInCat } = usePost();
+
   const {
     selectedProduct,
     isProductModalOpen,
@@ -47,7 +56,7 @@ export default function Item({ fetchEndpoint, onAddToOrder, onClose, refreshCart
     handleExtraDecrement,
   } = useProductModal();
 
-  // Branch ID management
+  // === Branch ID Sync ===
   useEffect(() => {
     const storedBranchId = sessionStorage.getItem("branch_id");
     if (storedBranchId !== branchIdState) {
@@ -55,7 +64,80 @@ export default function Item({ fetchEndpoint, onAddToOrder, onClose, refreshCart
     }
   }, [branchIdState]);
 
-  // API endpoint for products
+  // === 1. Fetch Group Products (Modules) ===
+  const groupEndpoint = branchIdState ? `cashier/group_product` : null;
+  const { data: groupData, isLoading: groupLoading, error: groupError } = useGet(groupEndpoint);
+
+  useEffect(() => {
+    if (groupData?.group_product) {
+      setGroupProducts(groupData.group_product);
+    }
+  }, [groupData]);
+
+  // === 2. Restore Last Selected Group ===
+  useEffect(() => {
+    if (groupProducts.length > 0) {
+      const saved = sessionStorage.getItem("last_selected_group");
+      const validGroup = groupProducts.find(g => g.id === parseInt(saved));
+      if (validGroup) {
+        setSelectedGroup(validGroup.id.toString());
+      } else if (saved && saved !== "all") {
+        sessionStorage.removeItem("last_selected_group");
+      }
+    }
+  }, [groupProducts]);
+
+  // === 3. Fetch Favourite Categories ===
+  const categoryFavouriteEndpoint = useMemo(() => {
+    if (!branchIdState || selectedGroup === "all") return null;
+    return `cashier/group_product/favourite`;
+  }, [branchIdState, selectedGroup]);
+
+  useEffect(() => {
+    if (selectedGroup !== "all" && branchIdState && categoryFavouriteEndpoint) {
+      postFavourite(categoryFavouriteEndpoint, {
+        group_id: parseInt(selectedGroup),
+        branch_id: parseInt(branchIdState),
+      })
+        .then((res) => {
+          setFavouriteCategories(res?.categories || []);
+        })
+        .catch((err) => {
+          console.error("Failed to fetch categories:", err);
+          setFavouriteCategories([]);
+        });
+    } else {
+      setFavouriteCategories([]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedGroup, branchIdState, categoryFavouriteEndpoint]);
+
+  // === 4. Fetch Products in Category ===
+  const productInCategoryEndpoint = useMemo(() => {
+    if (!branchIdState || selectedGroup === "all" || selectedCategory === "all") return null;
+    return `cashier/group_product/product_in_category/${selectedCategory}`;
+  }, [branchIdState, selectedGroup, selectedCategory]);
+
+  useEffect(() => {
+    if (selectedGroup !== "all" && selectedCategory !== "all" && productInCategoryEndpoint) {
+      postProductInCat(productInCategoryEndpoint, { 
+        branch_id: parseInt(branchIdState),
+        group_id: parseInt(selectedGroup)  // تم إضافته هنا
+      })
+        .then((res) => {
+          setGroupProductsData(res);
+        })
+        .catch((err) => {
+          console.error("Failed to fetch products:", err);
+          setGroupProductsData(null);
+        });
+    } else {
+      setGroupProductsData(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCategory, selectedGroup, branchIdState, productInCategoryEndpoint]);
+
+  // === 5. Original Endpoints (All Modules) ===
   const productEndpoint = useMemo(() => {
     if (!branchIdState) return null;
     if (selectedCategory === "all") {
@@ -64,37 +146,37 @@ export default function Item({ fetchEndpoint, onAddToOrder, onClose, refreshCart
     return `captain/product_category_lists/${selectedCategory}?branch_id=${branchIdState}`;
   }, [branchIdState, selectedCategory, fetchEndpoint]);
 
-  // Fetch categories separately
   const categoryEndpoint = fetchEndpoint || (branchIdState ? `captain/lists?branch_id=${branchIdState}` : null);
   const { data: categoryData, isLoading: isCategoryLoading, error: categoryError } = useGet(categoryEndpoint);
+  const { data: productData, isLoading: isProductLoading, error: productError } = useGet(productEndpoint);
 
-  // Fetch products
-  const { data: productData, isLoading, error } = useGet(productEndpoint);
+  // === 6. Final Data ===
+  const finalCategories = selectedGroup === "all" ? categoryData?.categories || [] : favouriteCategories;
 
-  // Data processing - handle both regular products and weight products
   const allProducts = useMemo(() => {
-    if (productType === "weight") {
-      return productData?.products_weight || [];
+    if (selectedGroup !== "all" && groupProductsData) {
+      return productType === "weight"
+        ? groupProductsData.products_weight || []
+        : groupProductsData.products || [];
     }
-    return productData?.products || [];
-  }, [productData, productType]);
+    return productType === "weight"
+      ? productData?.products_weight || []
+      : productData?.products || [];
+  }, [productData, groupProductsData, productType, selectedGroup]);
 
-  const categories = categoryData?.categories || [];
-
-  // Filter products by search query
   const filteredProducts = useMemo(() => {
     return allProducts.filter((product) =>
       product.name?.toLowerCase().includes(searchQuery.toLowerCase())
     );
   }, [allProducts, searchQuery]);
 
-  // Products to display
   const productsToDisplay = filteredProducts.slice(0, visibleProductCount);
 
-  // Event handlers
+  // === Handlers ===
   const handleCategorySelect = (categoryId) => {
     setSelectedCategory(categoryId);
     setVisibleProductCount(PRODUCTS_TO_SHOW_INITIALLY);
+    setSearchQuery("");
   };
 
   const handleProductTypeChange = (type) => {
@@ -104,59 +186,56 @@ export default function Item({ fetchEndpoint, onAddToOrder, onClose, refreshCart
   };
 
   const handleShowMoreProducts = () => {
-    setVisibleProductCount(
-      (prevCount) => prevCount + PRODUCTS_PER_ROW * INITIAL_PRODUCT_ROWS
-    );
+    setVisibleProductCount((prev) => prev + PRODUCTS_PER_ROW * INITIAL_PRODUCT_ROWS);
   };
 
-  // Helper function to create temp_id
+  const handleGroupChange = (groupId) => {
+    const id = groupId === "all" ? "all" : groupId.toString();  // تم تعديله للحفاظ على string
+    sessionStorage.setItem("last_selected_group", id);
+    setSelectedGroup(id);
+    setSelectedCategory("all");
+    setVisibleProductCount(PRODUCTS_TO_SHOW_INITIALLY);
+    setSearchQuery("");
+  };
+
   const createTempId = (productId) => {
     return `${productId}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   };
 
-  // Handle add to order
+  // === Handle Add to Order ===
   const handleAddToOrder = async (product, customQuantity = 1) => {
-    console.log("Parent → handleAddToOrder called", product.id);
-
     let productBasePrice = product.price_after_discount ?? product.price ?? 0;
     const allSelectedVariationsData = [];
-
     const selectedVariations = product.selectedVariation || selectedVariation || {};
     const productSelectedExtras = product.selectedExtras || selectedExtras || [];
     const productSelectedExcludes = product.selectedExcludes || selectedExcludes || [];
 
-    // Handle variations
+    // Variations
     if (product.variations && Object.keys(selectedVariations).length > 0) {
       product.variations.forEach((variation) => {
         if (variation.type === "single" && selectedVariations[variation.id]) {
-          const selectedOption = variation.options.find(
-            (opt) => opt.id === selectedVariations[variation.id]
-          );
-          if (selectedOption) {
-            productBasePrice = selectedOption.price_after_tax ?? selectedOption.price;
+          const opt = variation.options.find((o) => o.id === selectedVariations[variation.id]);
+          if (opt) {
+            productBasePrice = opt.price_after_tax ?? opt.price;
             allSelectedVariationsData.push({
               variation_id: variation.id,
-              option_id: selectedOption.id,
+              option_id: opt.id,
               variation_name: variation.name,
-              option_name: selectedOption.name,
-              price: selectedOption.price_after_tax ?? selectedOption.price,
+              option_name: opt.name,
+              price: opt.price_after_tax ?? opt.price,
             });
           }
-        } else if (
-          variation.type === "multiple" &&
-          selectedVariations[variation.id] &&
-          Array.isArray(selectedVariations[variation.id])
-        ) {
-          selectedVariations[variation.id].forEach((optionId) => {
-            const selectedOption = variation.options.find((opt) => opt.id === optionId);
-            if (selectedOption) {
-              productBasePrice += selectedOption.price_after_tax ?? selectedOption.price;
+        } else if (variation.type === "multiple" && Array.isArray(selectedVariations[variation.id])) {
+          selectedVariations[variation.id].forEach((optId) => {
+            const opt = variation.options.find((o) => o.id === optId);
+            if (opt) {
+              productBasePrice += opt.price_after_tax ?? opt.price;
               allSelectedVariationsData.push({
                 variation_id: variation.id,
-                option_id: selectedOption.id,
+                option_id: opt.id,
                 variation_name: variation.name,
-                option_name: selectedOption.name,
-                price: selectedOption.price_after_tax ?? selectedOption.price,
+                option_name: opt.name,
+                price: opt.price_after_tax ?? opt.price,
               });
             }
           });
@@ -164,63 +243,24 @@ export default function Item({ fetchEndpoint, onAddToOrder, onClose, refreshCart
       });
     }
 
-    // Grouped extras format for backend
+    // Extras
     const groupedExtras = () => {
-      if (!productSelectedExtras || productSelectedExtras.length === 0) {
-        return [];
-      }
-
-      const extraCounts = {};
-      productSelectedExtras.forEach((extraId) => {
-        const id = extraId.toString();
-        extraCounts[id] = (extraCounts[id] || 0) + 1;
-      });
-
-      return Object.keys(extraCounts).map((addonId) => ({
-        addon_id: addonId,
-        count: extraCounts[addonId].toString(),
-      }));
+      if (!productSelectedExtras.length) return [];
+      const counts = {};
+      productSelectedExtras.forEach((id) => (counts[id] = (counts[id] || 0) + 1));
+      return Object.entries(counts).map(([id, count]) => ({ addon_id: id, count: count.toString() }));
     };
 
-    // Calculate addons price for display
     let addonsTotalPrice = 0;
-    const selectedAddonsData = [];
-
     if (productSelectedExtras.length > 0) {
-      const addonCounts = {};
-      productSelectedExtras.forEach((extraId) => {
-        addonCounts[extraId] = (addonCounts[extraId] || 0) + 1;
-      });
-
-      Object.keys(addonCounts).forEach((extraId) => {
-        if (product.addons) {
-          const addon = product.addons.find((a) => a.id === parseInt(extraId));
-          if (addon) {
-            const addonPrice = addon.price_after_discount ?? addon.price ?? 0;
-            const count = addonCounts[extraId];
-            addonsTotalPrice += addonPrice * count;
-            selectedAddonsData.push({
-              addon_id: addon.id,
-              name: addon.name,
-              price: addonPrice,
-              count: count,
-            });
-          }
-        }
-
-        if (product.allExtras) {
-          const extra = product.allExtras.find((e) => e.id === parseInt(extraId));
-          if (extra) {
-            const extraPrice = extra.price_after_discount ?? extra.price ?? 0;
-            const count = addonCounts[extraId];
-            addonsTotalPrice += extraPrice * count;
-            selectedAddonsData.push({
-              addon_id: extra.id,
-              name: extra.name,
-              price: extraPrice,
-              count: count,
-            });
-          }
+      const counts = {};
+      productSelectedExtras.forEach((id) => (counts[id] = (counts[id] || 0) + 1));
+      Object.keys(counts).forEach((id) => {
+        const addon = (product.addons || []).find((a) => a.id === parseInt(id)) ||
+                     (product.allExtras || []).find((e) => e.id === parseInt(id));
+        if (addon) {
+          const price = addon.price_after_discount ?? addon.price ?? 0;
+          addonsTotalPrice += price * counts[id];
         }
       });
     }
@@ -242,43 +282,37 @@ export default function Item({ fetchEndpoint, onAddToOrder, onClose, refreshCart
       selectedAddons: groupedExtras(),
       selectedExtras: groupedExtras(),
       selectedExcludes: productSelectedExcludes,
-      productType: productType, // Add product type to order item
+      productType,
       ...(orderType === "dine_in" && { preparation_status: "pending" }),
     };
-
-    console.log("Final order item with grouped extras:", orderItem);
-    console.log("Grouped extras format:", groupedExtras());
 
     onAddToOrder(orderItem);
 
     if (orderType === "dine_in") {
       try {
-        await submitItemToBackend(postData, orderItem, customQuantity, orderType);
-        console.log("Item submitted to backend successfully");
-        if (refreshCartData && typeof refreshCartData === "function") {
-          console.log("Refreshing cart data...");
-          await refreshCartData();
-        }
+        await submitItemToBackend(postOrder, orderItem, customQuantity, orderType);
+        if (refreshCartData) await refreshCartData();
         toast.success(`"${product.name}" added successfully!`);
       } catch (error) {
-        console.error("Error submitting item to backend:", error);
-        toast.error(`Failed to submit "${product.name}" to backend`);
+        console.error("Error submitting item:", error);
+        toast.error(`Failed to submit "${product.name}"`);
       }
     } else {
       if (!toast.isActive(product.id)) {
-        toast.success(`"${product.name}" added successfully!`, {
-          toastId: product.id,
-        });
+        toast.success(`"${product.name}" added successfully!`, { toastId: product.id });
       }
     }
   };
 
   const handleAddFromModal = (enhancedProduct) => {
-    console.log("Adding from modal:", enhancedProduct);
     handleAddToOrder(enhancedProduct, enhancedProduct.quantity);
   };
 
-  if (isCategoryLoading || isLoading) {
+  // === Loading & Error States ===
+  const isAnyLoading = isCategoryLoading || isProductLoading || groupLoading || orderLoading;
+  const hasError = categoryError || productError || groupError;
+
+  if (isAnyLoading) {
     return (
       <div className="flex justify-center items-center h-40">
         <Loading />
@@ -286,7 +320,7 @@ export default function Item({ fetchEndpoint, onAddToOrder, onClose, refreshCart
     );
   }
 
-  if (categoryError || error) {
+  if (hasError) {
     return (
       <div className="text-center text-red-500 p-4">
         <p>Error loading data. Please try again later.</p>
@@ -294,7 +328,7 @@ export default function Item({ fetchEndpoint, onAddToOrder, onClose, refreshCart
     );
   }
 
-  if (!categoryData && !isCategoryLoading && !categoryError && categoryEndpoint === null) {
+  if (!branchIdState) {
     return (
       <div className="text-center text-gray-500 py-8">
         Please select a branch to view items.
@@ -302,11 +336,29 @@ export default function Item({ fetchEndpoint, onAddToOrder, onClose, refreshCart
     );
   }
 
+  // === Render UI ===
   return (
     <div className="">
-      <h2 className="text-bg-primary text-2xl font-bold mb-4">
+      {/* Select Category + Group Selector */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 my-2">
+      <h2 className="text-bg-primary text-2xl font-bold mb-4 flex flex-wrap items-center gap-4">
         Select Category
-      </h2>
+         </h2>
+        <select
+          value={selectedGroup}
+          onChange={(e) => handleGroupChange(e.target.value)}
+          disabled={groupLoading || !branchIdState}
+          className="px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-bg-primary bg-white text-gray-700 font-medium"
+        >
+          <option value="all">All Modules</option>
+          {groupProducts.map((group) => (
+            <option key={group.id} value={group.id}>
+              {group.name}
+            </option>
+          ))}
+        </select>
+      </div>
+     
 
       <DeliveryInfo
         orderType={orderType}
@@ -317,17 +369,15 @@ export default function Item({ fetchEndpoint, onAddToOrder, onClose, refreshCart
       />
 
       <CategorySelector
-        categories={categories}
+        categories={finalCategories}
         selectedCategory={selectedCategory}
         onCategorySelect={handleCategorySelect}
       />
 
       <div className="my-8">
-        <div className="flex items-center justify-between mb-4 me-3">
-          <div className="flex items-center gap-4">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
             <h2 className="text-bg-primary text-2xl font-bold">Select Product</h2>
-            
-            {/* Product Type Selector */}
             <select
               value={productType}
               onChange={(e) => handleProductTypeChange(e.target.value)}
@@ -343,7 +393,7 @@ export default function Item({ fetchEndpoint, onAddToOrder, onClose, refreshCart
             placeholder="Search by product name..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="ml-4 px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-bg-primary"
+            className="w-full sm:w-auto px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-bg-primary"
           />
         </div>
 
@@ -353,8 +403,7 @@ export default function Item({ fetchEndpoint, onAddToOrder, onClose, refreshCart
               No products found for "
               {selectedCategory === "all"
                 ? "All Categories"
-                : categories.find((cat) => cat.id === selectedCategory)?.name ||
-                  "Selected Category"}
+                : finalCategories.find((cat) => cat.id === selectedCategory)?.name || "Selected Category"}
               " ({productType === "weight" ? "By Weight" : "By Piece"}).
             </div>
           ) : (
@@ -406,7 +455,7 @@ export default function Item({ fetchEndpoint, onAddToOrder, onClose, refreshCart
       />
 
       {orderLoading && (
-        <div className="bg-white p-6 rounded-lg shadow-lg">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <Loading />
         </div>
       )}
