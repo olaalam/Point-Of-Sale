@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { usePost } from "@/Hooks/usePost";
-import { toast, ToastContainer } from "react-toastify";
+import { toast } from "react-toastify";
 import SummaryRow from "./SummaryRow";
 import ItemRow from "./ItemRow";
 import VoidItemModal from "./VoidItemModal";
@@ -1246,7 +1246,6 @@ const confirmVoidItem = async () => {
           </div>
         </div>
       )}
-      <ToastContainer/>
     </div>
   );
 }

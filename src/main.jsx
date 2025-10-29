@@ -7,6 +7,7 @@ import "./index.css";
 import { Provider } from "react-redux";
 import { store } from "./Store/store.js";
 import { ShiftProvider } from "./context/ShiftContext.jsx";
+import { ToastContainer } from "react-toastify";
 
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker
@@ -22,6 +23,7 @@ if ("serviceWorker" in navigator) {
 ReactDOM.createRoot(document.getElementById("root")).render(
   <Provider store={store}>
     <ShiftProvider>
+          <ToastContainer/>
       <App />
     </ShiftProvider>
   </Provider>
