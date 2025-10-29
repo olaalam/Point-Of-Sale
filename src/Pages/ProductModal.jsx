@@ -1,4 +1,4 @@
-// ProductModal.jsx - Fixed version with proper decrement handling
+// ProductModal.jsx - With Weight Support
 
 import React from "react";
 import {
@@ -78,7 +78,7 @@ const calculateProductTotalPrice = (
   return totalPrice * quantity;
 };
 
-// Updated ProductModal component with proper price calculation
+// Updated ProductModal component with weight support
 const ProductModal = ({
   isOpen,
   onClose,
@@ -96,8 +96,11 @@ const ProductModal = ({
   onQuantityChange,
   onAddFromModal,
   orderLoading,
+  productType = "piece", // New prop: "piece" or "weight"
 }) => {
   if (!selectedProduct) return null;
+
+  const isWeightProduct = productType === "weight" || selectedProduct.weight_status === 1;
 
   // ✅ Calculate total price dynamically
   const totalPrice = calculateProductTotalPrice(
@@ -139,6 +142,20 @@ const ProductModal = ({
       return `${option.name}`;
     }
     return `${option.name} (+${price.toFixed(2)} EGP)`;
+  };
+
+  // Handle weight input change
+  const handleWeightChange = (e) => {
+    const value = e.target.value;
+    // Allow empty string or valid decimal numbers
+    if (value === '' || /^\d*\.?\d*$/.test(value)) {
+      const numValue = parseFloat(value);
+      if (!isNaN(numValue) && numValue > 0) {
+        onQuantityChange(numValue);
+      } else if (value === '') {
+        onQuantityChange(0);
+      }
+    }
   };
 
   return (
@@ -461,24 +478,43 @@ const ProductModal = ({
                   {totalPrice.toFixed(2)} EGP
                 </span>
               </div>
-              <div className="flex items-center space-x-3">
-                <button
-                  className="bg-gray-200 text-red-600 p-1 rounded-full hover:bg-gray-300 transition-colors"
-                  onClick={() => onQuantityChange(Math.max(1, quantity - 1))}
-                >
-                  <Minus size={16} />
-                </button>
-                <span className="text-base font-semibold">{quantity}</span>
-                <button
-                  className="bg-red-600 text-white p-1 rounded-full hover:bg-red-700 transition-colors"
-                  onClick={() => onQuantityChange(quantity + 1)}
-                >
-                  <Plus size={16} />
-                </button>
-              </div>
+              
+              {/* Quantity selector - different for weight vs piece */}
+              {isWeightProduct ? (
+                <div className="flex items-center space-x-2">
+                  <label className="text-sm font-medium text-gray-700">
+                    Weight (kg):
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    value={quantity || ''}
+                    onChange={handleWeightChange}
+                    placeholder="0.00"
+                    className="w-24 px-3 py-2 border border-gray-300 rounded-lg text-center font-semibold focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                  />
+                </div>
+              ) : (
+                <div className="flex items-center space-x-3">
+                  <button
+                    className="bg-gray-200 text-red-600 p-1 rounded-full hover:bg-gray-300 transition-colors"
+                    onClick={() => onQuantityChange(Math.max(1, quantity - 1))}
+                  >
+                    <Minus size={16} />
+                  </button>
+                  <span className="text-base font-semibold">{quantity}</span>
+                  <button
+                    className="bg-red-600 text-white p-1 rounded-full hover:bg-red-700 transition-colors"
+                    onClick={() => onQuantityChange(quantity + 1)}
+                  >
+                    <Plus size={16} />
+                  </button>
+                </div>
+              )}
             </div>
             <Button
-              className="w-full bg-red-600 text-white font-bold py-3 rounded-xl hover:bg-red-700 transition-colors"
+              className="w-full bg-red-600 text-white font-bold py-3 rounded-xl hover:bg-red-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
               onClick={() => {
                 const enhancedProduct = {
                   ...selectedProduct,
@@ -492,7 +528,7 @@ const ProductModal = ({
                 onAddFromModal(enhancedProduct);
                 onClose();
               }}
-              disabled={orderLoading || hasErrors}
+              disabled={orderLoading || hasErrors || (isWeightProduct && (!quantity || quantity <= 0))}
             >
               {orderLoading ? "Adding..." : "Add to Cart"}
             </Button>

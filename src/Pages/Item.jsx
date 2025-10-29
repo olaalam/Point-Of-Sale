@@ -22,6 +22,7 @@ export default function Item({ fetchEndpoint, onAddToOrder, onClose, refreshCart
   const [searchQuery, setSearchQuery] = useState("");
   const [visibleProductCount, setVisibleProductCount] = useState(PRODUCTS_TO_SHOW_INITIALLY);
   const [branchIdState, setBranchIdState] = useState(sessionStorage.getItem("branch_id"));
+  const [productType, setProductType] = useState("piece"); // New state: "piece" or "weight"
 
   // Get order type
   const orderType = sessionStorage.getItem("order_type") || "dine_in";
@@ -63,18 +64,24 @@ export default function Item({ fetchEndpoint, onAddToOrder, onClose, refreshCart
     return `captain/product_category_lists/${selectedCategory}?branch_id=${branchIdState}`;
   }, [branchIdState, selectedCategory, fetchEndpoint]);
 
-  // Fetch categories separately (assuming they come from the same or a different endpoint)
+  // Fetch categories separately
   const categoryEndpoint = fetchEndpoint || (branchIdState ? `captain/lists?branch_id=${branchIdState}` : null);
   const { data: categoryData, isLoading: isCategoryLoading, error: categoryError } = useGet(categoryEndpoint);
 
   // Fetch products
   const { data: productData, isLoading, error } = useGet(productEndpoint);
 
-  // Data processing
-  const allProducts = productData?.products || [];
+  // Data processing - handle both regular products and weight products
+  const allProducts = useMemo(() => {
+    if (productType === "weight") {
+      return productData?.products_weight || [];
+    }
+    return productData?.products || [];
+  }, [productData, productType]);
+
   const categories = categoryData?.categories || [];
 
-  // Filter products by search query (client-side, assuming backend doesn't support search)
+  // Filter products by search query
   const filteredProducts = useMemo(() => {
     return allProducts.filter((product) =>
       product.name?.toLowerCase().includes(searchQuery.toLowerCase())
@@ -90,6 +97,12 @@ export default function Item({ fetchEndpoint, onAddToOrder, onClose, refreshCart
     setVisibleProductCount(PRODUCTS_TO_SHOW_INITIALLY);
   };
 
+  const handleProductTypeChange = (type) => {
+    setProductType(type);
+    setVisibleProductCount(PRODUCTS_TO_SHOW_INITIALLY);
+    setSearchQuery("");
+  };
+
   const handleShowMoreProducts = () => {
     setVisibleProductCount(
       (prevCount) => prevCount + PRODUCTS_PER_ROW * INITIAL_PRODUCT_ROWS
@@ -103,7 +116,7 @@ export default function Item({ fetchEndpoint, onAddToOrder, onClose, refreshCart
 
   // Handle add to order
   const handleAddToOrder = async (product, customQuantity = 1) => {
-      console.log("Parent → handleAddToOrder called", product.id);
+    console.log("Parent → handleAddToOrder called", product.id);
 
     let productBasePrice = product.price_after_discount ?? product.price ?? 0;
     const allSelectedVariationsData = [];
@@ -229,6 +242,7 @@ export default function Item({ fetchEndpoint, onAddToOrder, onClose, refreshCart
       selectedAddons: groupedExtras(),
       selectedExtras: groupedExtras(),
       selectedExcludes: productSelectedExcludes,
+      productType: productType, // Add product type to order item
       ...(orderType === "dine_in" && { preparation_status: "pending" }),
     };
 
@@ -251,11 +265,11 @@ export default function Item({ fetchEndpoint, onAddToOrder, onClose, refreshCart
         toast.error(`Failed to submit "${product.name}" to backend`);
       }
     } else {
-  if (!toast.isActive(product.id)) {
-    toast.success(`"${product.name}" added successfully!`, {
-      toastId: product.id,
-    });
-  }
+      if (!toast.isActive(product.id)) {
+        toast.success(`"${product.name}" added successfully!`, {
+          toastId: product.id,
+        });
+      }
     }
   };
 
@@ -310,7 +324,20 @@ export default function Item({ fetchEndpoint, onAddToOrder, onClose, refreshCart
 
       <div className="my-8">
         <div className="flex items-center justify-between mb-4 me-3">
-          <h2 className="text-bg-primary text-2xl font-bold">Select Product</h2>
+          <div className="flex items-center gap-4">
+            <h2 className="text-bg-primary text-2xl font-bold">Select Product</h2>
+            
+            {/* Product Type Selector */}
+            <select
+              value={productType}
+              onChange={(e) => handleProductTypeChange(e.target.value)}
+              className="px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-bg-primary bg-white text-gray-700 font-medium"
+            >
+              <option value="piece">By Piece</option>
+              <option value="weight">By Weight</option>
+            </select>
+          </div>
+
           <input
             type="text"
             placeholder="Search by product name..."
@@ -322,13 +349,13 @@ export default function Item({ fetchEndpoint, onAddToOrder, onClose, refreshCart
 
         <div className="bg-gray-50 border border-gray-200 px-5 mb-8 rounded-lg max-h-[500px] overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
           {filteredProducts.length === 0 ? (
-            <div className="text-center text-gray-500 text-lg">
+            <div className="text-center text-gray-500 text-lg py-8">
               No products found for "
               {selectedCategory === "all"
                 ? "All Categories"
                 : categories.find((cat) => cat.id === selectedCategory)?.name ||
                   "Selected Category"}
-              ".
+              " ({productType === "weight" ? "By Weight" : "By Piece"}).
             </div>
           ) : (
             <>
@@ -375,6 +402,7 @@ export default function Item({ fetchEndpoint, onAddToOrder, onClose, refreshCart
         onQuantityChange={setQuantity}
         onAddFromModal={handleAddFromModal}
         orderLoading={orderLoading}
+        productType={productType}
       />
 
       {orderLoading && (
