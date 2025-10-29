@@ -812,14 +812,7 @@ const confirmVoidItem = async () => {
             >
               Clear All Items ({orderItems.length || 0})
             </Button>
-            <Button
-              onClick={() => setShowOfferModal(true)}
-              className="bg-green-600 text-white hover:bg-green-700 text-sm py-4"
-              disabled={isLoading}
-            >
-              Apply Offer (Points)
-            </Button>
-            <Button
+                        <Button
               onClick={handleViewOrders}
               className="bg-gray-500 text-white hover:bg-gray-600 text-sm py-4"
               disabled={isLoading}
@@ -827,18 +820,27 @@ const confirmVoidItem = async () => {
               View Orders
             </Button>
             <Button
+              onClick={() => setShowOfferModal(true)}
+              className="bg-green-600 text-white hover:bg-green-700 text-sm py-4"
+              disabled={isLoading}
+            >
+              Apply Offer (Points)
+            </Button>
+                        <Button
               onClick={() => setShowDealModal(true)}
               className="bg-orange-600 text-white hover:bg-orange-700 text-sm py-4"
               disabled={isLoading}
             >
               Apply Deal
             </Button>
+
+
           </div>
           {orderType === "take_away" && (
             <div className="flex md:flex-col flex-row items-stretch justify-center">
               <Button
                 onClick={handleViewPendingOrders}
-                className="bg-gray-500 text-white hover:bg-gray-600 text-sm px-6 py-4 md:h-full w-full md:w-36"
+                className="bg-yellow-600 text-white hover:bg-yellow-500 text-sm px-6 py-4 md:h-full w-full md:w-36"
               >
                 Pending Orders
               </Button>
