@@ -128,15 +128,20 @@ const CheckOut = ({
   }, [data, requiredTotal, paymentSplits.length]);
 
   // Auto-update single split amount
-  useEffect(() => {
-    if (paymentSplits.length === 1 && paymentSplits[0].id === "split-1") {
-      setPaymentSplits((prev) =>
-        prev.map((split) =>
+// Auto-update single split amount
+useEffect(() => {
+  if (paymentSplits.length === 1 && paymentSplits[0].id === "split-1") {
+    setPaymentSplits((prev) => {
+      // Only update if the amount actually changed
+      if (prev.length === 1 && prev[0].id === "split-1" && prev[0].amount !== requiredTotal) {
+        return prev.map((split) =>
           split.id === "split-1" ? { ...split, amount: requiredTotal || 0 } : split
-        )
-      );
-    }
-  }, [requiredTotal, paymentSplits]);
+        );
+      }
+      return prev; // No change needed
+    });
+  }
+}, [requiredTotal]); // ✅ Remove paymentSplits from dependencies
 
   // Handle Discount Code
   const handleApplyDiscount = async () => {
@@ -602,7 +607,7 @@ const CheckOut = ({
                 disabled={loading || !isTotalMet}
                 onClick={handleCheckDue}
               >
-                {loading ? "Checking..." : "Check"}
+                {loading ? "Checking..." : "Check Due"}
               </Button>
 
               <Button

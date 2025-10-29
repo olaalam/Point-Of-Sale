@@ -18,6 +18,7 @@ import PendingOrders from "./Pages/PendingOrders";
 import Notifications from "./components/Notifications";
 import Profile from "./Pages/Profile";
 import DueUsers from "./Pages/Due/DueUsers";
+import InvoicePage from "./Pages/Receipt/InvoicePage";
 
 const router = createBrowserRouter(
   [
@@ -188,6 +189,14 @@ const router = createBrowserRouter(
         {
           path: "*",
           element: <NotFound />,
+        },
+        {
+          path:"/invoice"
+          ,          element:(
+            <ProtectedRoute>
+              <InvoicePage/>
+            </ProtectedRoute>
+          )
         },
       ],
     },

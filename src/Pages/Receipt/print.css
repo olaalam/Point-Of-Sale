@@ -1,0 +1,13 @@
+@media print {
+  body * { visibility: hidden; }
+  #root, #root * { visibility: visible; }
+  .receipt {
+    position: absolute;
+    left: 0; top: 0;
+    width: 80mm;
+    margin: 0;
+    padding: 10px;
+  }
+  .print-btn, nav, header, footer { display: none !important; }
+  @page { margin: 0; size: 80mm auto; }
+}

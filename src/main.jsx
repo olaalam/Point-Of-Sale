@@ -8,7 +8,6 @@ import { Provider } from "react-redux";
 import { store } from "./Store/store.js";
 import { ShiftProvider } from "./context/ShiftContext.jsx";
 import { ToastContainer } from "react-toastify";
-
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker
     .register(`${import.meta.env.BASE_URL}firebase-messaging-sw.js`)

@@ -1,0 +1,120 @@
+/* ReceiptPrinter.css */
+.receipt-print {
+  width: 80mm;
+  max-width: 80mm;
+  padding: 8px;
+  margin: 0 auto;
+  font-family: 'Courier New', monospace, sans-serif;
+  font-size: 11px;
+  line-height: 1.3;
+  color: #000;
+  direction: rtl;
+  text-align: right;
+}
+
+.receipt-print .header {
+  text-align: center;
+  margin-bottom: 8px;
+}
+
+.receipt-print .header h1 {
+  font-size: 14px;
+  margin: 0 0 4px 0;
+  font-weight: bold;
+}
+
+.receipt-print .header p {
+  margin: 2px 0;
+  font-size: 10px;
+}
+
+.receipt-print .info {
+  margin: 10px 0;
+  font-size: 10px;
+  line-height: 1.4;
+}
+
+.receipt-print .info div {
+  display: flex;
+  justify-content: space-between;
+}
+
+.receipt-print table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 10px 0;
+  font-size: 10px;
+}
+
+.receipt-print th,
+.receipt-print td {
+  padding: 3px 2px;
+  text-align: center;
+  border-bottom: 1px dotted #999;
+}
+
+.receipt-print th {
+  font-weight: bold;
+  font-size: 11px;
+}
+
+.receipt-print .totals {
+  margin-top: 10px;
+  font-size: 11px;
+}
+
+.receipt-print .totals div {
+  display: flex;
+  justify-content: space-between;
+  padding: 2px 0;
+}
+
+.receipt-print .totals .final {
+  font-weight: bold;
+  font-size: 13px;
+  border-top: 1px dashed #000;
+  padding-top: 5px;
+  margin-top: 5px;
+}
+
+.receipt-print .footer {
+  text-align: center;
+  margin-top: 15px;
+  font-size: 10px;
+}
+
+/* زر الطباعة (مخفي عند الطباعة) */
+.no-print {
+  margin: 20px auto;
+  display: block;
+  padding: 10px 20px;
+}
+
+/* إعدادات الطباعة */
+@media print {
+  @page {
+    size: 80mm auto;
+    margin: 0;
+  }
+
+  body * {
+    visibility: hidden;
+  }
+
+  #receipt, #receipt * {
+    visibility: visible;
+  }
+
+  #receipt {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 80mm;
+    padding: 8px;
+    margin: 0;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+}
