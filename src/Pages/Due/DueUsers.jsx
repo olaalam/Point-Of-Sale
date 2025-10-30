@@ -2,11 +2,9 @@ import React, { useState, useEffect } from "react";
 import { useGet } from "@/Hooks/useGet";
 import { toast } from "react-toastify";
 import DuePaymentModal from "../Checkout/DuePaymentModal";
-import { useNavigate } from "react-router-dom";
 import { useConfirmDuePayment } from "../../Hooks/useConfirmDuePayment";
 
 const DueUsers = () => {
-  const navigate = useNavigate();
   const { data, loading, error } = useGet("cashier/customer/due_user");
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -19,7 +17,6 @@ const DueUsers = () => {
   }, [error]);
 
   const { handleConfirmDuePayment } = useConfirmDuePayment({
-    navigate,
     onClearCart: () => {}, // No cart to clear
     onClose: () => setIsModalOpen(false),
     setDueSplits: () => {},

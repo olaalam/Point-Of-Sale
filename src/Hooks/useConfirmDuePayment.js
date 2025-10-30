@@ -3,7 +3,6 @@ import { usePost } from "@/Hooks/usePost";
 import { toast } from "react-toastify";
 
 export const useConfirmDuePayment = ({
-  navigate,
   onClearCart,
   onClose,
   setDueSplits,
@@ -40,7 +39,6 @@ export const useConfirmDuePayment = ({
       toast.success("Due order processed successfully!");
       onClearCart();
       onClose();
-      navigate("/orders");
     } catch (e) {
       console.error("Due payment error:", e);
       toast.error(e.message || "Failed to process due payment.");
