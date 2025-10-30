@@ -232,7 +232,7 @@ const Dine = () => {
       case tableStates.not_available_but_checkout:
         return "bg-green-500 text-white hover:bg-green-600";
       default:
-        return "bg-gray-100 border-gray-300 text-gray-600 hover:bg-gray-200";
+        return "bg-blue-300 border-gray-300 text-gray-600 hover:bg-gray-200";
     }
   };
 
