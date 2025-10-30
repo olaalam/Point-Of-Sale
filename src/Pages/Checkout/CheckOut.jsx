@@ -56,6 +56,9 @@ const CheckOut = ({
   const [deliveryModelOpen, setDeliveryModelOpen] = useState(false);
   const [selectedDeliveryId, setSelectedDeliveryId] = useState(null);
   const [orderId, setOrderId] = useState(null);
+  
+  // Due checkbox state
+  const [isDueOrder, setIsDueOrder] = useState(false);
 
   // Discount Code State
   const [discountCode, setDiscountCode] = useState("");
@@ -128,20 +131,18 @@ const CheckOut = ({
   }, [data, requiredTotal, paymentSplits.length]);
 
   // Auto-update single split amount
-// Auto-update single split amount
-useEffect(() => {
-  if (paymentSplits.length === 1 && paymentSplits[0].id === "split-1") {
-    setPaymentSplits((prev) => {
-      // Only update if the amount actually changed
-      if (prev.length === 1 && prev[0].id === "split-1" && prev[0].amount !== requiredTotal) {
-        return prev.map((split) =>
-          split.id === "split-1" ? { ...split, amount: requiredTotal || 0 } : split
-        );
-      }
-      return prev; // No change needed
-    });
-  }
-}, [requiredTotal]); // ✅ Remove paymentSplits from dependencies
+  useEffect(() => {
+    if (paymentSplits.length === 1 && paymentSplits[0].id === "split-1") {
+      setPaymentSplits((prev) => {
+        if (prev.length === 1 && prev[0].id === "split-1" && prev[0].amount !== requiredTotal) {
+          return prev.map((split) =>
+            split.id === "split-1" ? { ...split, amount: requiredTotal || 0 } : split
+          );
+        }
+        return prev;
+      });
+    }
+  }, [requiredTotal]);
 
   // Handle Discount Code
   const handleApplyDiscount = async () => {
@@ -245,33 +246,8 @@ useEffect(() => {
     return acc?.description_status === 1;
   };
 
-  // زرار Check → يفتح قايمة العملاء المدينين
-  const handleCheckDue = async () => {
-    if (!isTotalMet) {
-      toast.error(`Total must equal ${requiredTotal.toFixed(2)} EGP.`);
-      return;
-    }
-
-    const validation = validatePaymentSplits(paymentSplits, getDescriptionStatus);
-    if (!validation.valid) {
-      return toast.error(validation.error);
-    }
-
-    setCustomerSelectionOpen(true);
-    refetchDueUsers();
-  };
-
-  // بعد اختيار العميل → إرسال الطلب مع due: 1
-  const handleSelectCustomer = async (customer) => {
-    if (requiredTotal > customer.can_debit) {
-      toast.error(
-        `Order amount (${requiredTotal.toFixed(2)} EGP) exceeds customer's debit limit.`
-      );
-      return;
-    }
-
-    setSelectedCustomer(customer);
-
+  // === دالة مشتركة لإرسال الطلب ===
+  const proceedWithOrderSubmission = async (due = 0, customer_id = undefined) => {
     const hasDealItems = orderItems.some((item) => item.is_deal);
     const endpoint = getOrderEndpoint(orderType, orderItems, totalDineInItems, hasDealItems);
     const financialsPayload = buildFinancialsPayload(paymentSplits);
@@ -297,8 +273,8 @@ useEffect(() => {
         tableId,
         customerPaid,
         discountCode: appliedDiscount > 0 ? discountCode : undefined,
-        due: 1, // مهم
-        customer_id: customer.id, // مهم
+        due,
+        customer_id,
       });
     }
 
@@ -308,24 +284,47 @@ useEffect(() => {
       });
 
       if (response?.success) {
-        toast.success("Due order created successfully!");
+        toast.success(due === 1 ? "Due order created successfully!" : "Order placed successfully!");
         onClearCart();
         sessionStorage.setItem("last_order_type", orderType);
 
-        setCustomerSelectionOpen(false);
-        onClose();
-
-        navigate("/due"); // يروح على صفحة المديونيات
+        if (orderType === "delivery") {
+          const newOrderId = response?.success?.id;
+          if (newOrderId) {
+            setOrderId(newOrderId);
+            setDeliveryModelOpen(true);
+          } else {
+            onClose();
+            navigate("/orders");
+          }
+        } else {
+          onClose();
+          navigate(due === 1 ? "/due" : "/orders");
+        }
       } else {
-        toast.error(response?.message || "Failed to create due order.");
+        toast.error(response?.message || "Failed to process order.");
       }
     } catch (e) {
-      console.error("Due order error:", e);
-      toast.error(e.message || "Failed to process due order.");
+      console.error("Submit error:", e);
+      toast.error(e.message || "Submission failed");
     }
   };
 
-  // دفع عادي (Confirm & Pay)
+  // === اختيار العميل → إرسال الطلب فورًا ===
+  const handleSelectCustomer = async (customer) => {
+    if (requiredTotal > customer.can_debit) {
+      toast.error(`Order amount (${requiredTotal.toFixed(2)} EGP) exceeds customer's debit limit.`);
+      return;
+    }
+
+    setSelectedCustomer(customer);
+    setCustomerSelectionOpen(false);
+
+    // إرسال الطلب مع due: 1
+    await proceedWithOrderSubmission(1, customer.id);
+  };
+
+  // === الضغط على Confirm & Pay ===
   const handleSubmitOrder = async () => {
     if (!isTotalMet || totalScheduled === 0) {
       return toast.error(`Total must equal ${requiredTotal.toFixed(2)} EGP.`);
@@ -336,64 +335,19 @@ useEffect(() => {
       return toast.error(validation.error);
     }
 
-    const hasDealItems = orderItems.some((item) => item.is_deal);
-    const endpoint = getOrderEndpoint(orderType, orderItems, totalDineInItems, hasDealItems);
-    const financialsPayload = buildFinancialsPayload(paymentSplits);
-
-    let payload;
-    if (hasDealItems) {
-      payload = buildDealPayload(orderItems, financialsPayload);
-    } else {
-      payload = buildOrderPayload({
-        orderType,
-        orderItems,
-        amountToPay: requiredTotal,
-        totalTax,
-        totalDiscount: appliedDiscount > 0
-          ? amountToPay * (appliedDiscount / 100)
-          : discountData.module.includes(orderType)
-            ? amountToPay * (discountData.discount / 100)
-            : totalDiscount,
-        notes,
-        source,
-        financialsPayload,
-        cashierId,
-        tableId,
-        customerPaid,
-        discountCode: appliedDiscount > 0 ? discountCode : undefined,
-      });
+    // إذا كان Due Order
+    if (isDueOrder) {
+      if (!selectedCustomer) {
+        setCustomerSelectionOpen(true);
+        refetchDueUsers();
+        return;
+      }
+      // تم الإرسال من handleSelectCustomer → لا نفعل شيئًا
+      return;
     }
 
-    try {
-      const response = await postData(endpoint, payload, {
-        headers: { "Content-Type": "application/json" },
-      });
-
-      toast.success("Order placed successfully!");
-
-      if (orderType === "take_away") {
-        onClearCart();
-      }
-
-      sessionStorage.setItem("last_order_type", orderType);
-
-      if (orderType === "delivery") {
-        const newOrderId = response?.success?.id;
-        if (newOrderId) {
-          setOrderId(newOrderId);
-          setDeliveryModelOpen(true);
-        } else {
-          onClose();
-          navigate("/orders");
-        }
-      } else {
-        onClose();
-        navigate("/orders");
-      }
-    } catch (e) {
-      console.error("Submit error:", e);
-      toast.error(e.message || "Submission failed");
-    }
+    // دفع عادي
+    await proceedWithOrderSubmission(0);
   };
 
   const handleAssignDelivery = async () => {
@@ -455,7 +409,7 @@ useEffect(() => {
               onClick={onClose}
               className="text-4xl p-2 rounded-full hover:bg-gray-100"
             >
-              ×
+              X
             </button>
           </div>
 
@@ -567,7 +521,7 @@ useEffect(() => {
                   )}
                   {paymentSplits.length > 1 && (
                     <Button variant="ghost" size="icon" onClick={() => handleRemoveSplit(split.id)}>
-                      ×
+                      [Remove]
                     </Button>
                   )}
                 </div>
@@ -600,22 +554,39 @@ useEffect(() => {
               )}
             </div>
 
-            {/* الأزرار الجديدة */}
-            <div className="flex space-x-4 mt-6">
-              <Button
-                className="flex-1 text-white bg-orange-600 hover:bg-orange-700"
-                disabled={loading || !isTotalMet}
-                onClick={handleCheckDue}
-              >
-                {loading ? "Checking..." : "Check Due"}
-              </Button>
+            {/* Due Order Checkbox */}
+            <div className="mt-6 flex items-center gap-3 p-4 bg-orange-50 border border-orange-200 rounded-lg">
+              <input
+                type="checkbox"
+                id="isDueOrder"
+                checked={isDueOrder}
+                onChange={(e) => {
+                  setIsDueOrder(e.target.checked);
+                  if (!e.target.checked) {
+                    setSelectedCustomer(null);
+                  }
+                }}
+                className="w-5 h-5 text-orange-600 border-gray-300 rounded focus:ring-orange-500"
+              />
+              <label htmlFor="isDueOrder" className="text-sm font-medium text-gray-700 cursor-pointer">
+                Mark as Due Order (Customer will pay later)
+              </label>
+            </div>
 
+            {/* الأزرار */}
+            <div className="flex space-x-4 mt-6">
               <Button
                 className="flex-1 text-white bg-green-600 hover:bg-green-700"
                 disabled={loading || !isTotalMet}
                 onClick={handleSubmitOrder}
               >
-                {loading ? "Processing..." : "Confirm & Pay"}
+                {loading
+                  ? "Processing..."
+                  : isDueOrder
+                    ? selectedCustomer
+                      ? "Due Order Ready"
+                      : "Select Customer"
+                    : "Confirm & Pay"}
               </Button>
             </div>
           </div>
