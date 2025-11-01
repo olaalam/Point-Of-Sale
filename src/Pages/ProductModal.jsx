@@ -17,7 +17,7 @@ const calculateProductTotalPrice = (
   selectedExtras = [],
   quantity = 1
 ) => {
-  let totalPrice = parseFloat(baseProduct.price || 0);
+  let totalPrice = parseFloat(baseProduct.price_after_discount || 0);
 
   // Add variation prices
   if (baseProduct.variations && Object.keys(selectedVariation).length > 0) {
@@ -513,25 +513,47 @@ const ProductModal = ({
                 </div>
               )}
             </div>
-            <Button
-              className="w-full bg-red-600 text-white font-bold py-3 rounded-xl hover:bg-red-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
-              onClick={() => {
-                const enhancedProduct = {
-                  ...selectedProduct,
-                  selectedVariation,
-                  selectedExtras,
-                  selectedExcludes,
-                  quantity,
-                  totalPrice,
-                  price: totalPrice / quantity,
-                };
-                onAddFromModal(enhancedProduct);
-                onClose();
-              }}
-              disabled={orderLoading || hasErrors || (isWeightProduct && (!quantity || quantity <= 0))}
-            >
-              {orderLoading ? "Adding..." : "Add to Cart"}
-            </Button>
+<Button
+onClick={() => {
+  const totalUnitPrice = calculateProductTotalPrice(
+    selectedProduct,
+    selectedVariation,
+    selectedExtras,
+    1
+  );
+
+  const enhancedProduct = {
+    ...selectedProduct,
+    temp_id: `item-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+    selectedVariation,
+    selectedExtras,
+    selectedExcludes,
+    quantity,
+    price: totalUnitPrice,           // ← هنا السعر الكلي للوحدة
+    originalPrice: selectedProduct.price, // السعر الأساسي
+    totalPrice: totalUnitPrice * quantity,
+    // احتفظ بالبيانات للعرض
+    addons: selectedExtras.map(id => {
+      const extra = (selectedProduct.allExtras || []).find(e => e.id === id) ||
+                    (selectedProduct.addons || []).find(a => a.id === id);
+      return extra ? { ...extra } : null;
+    }).filter(Boolean),
+    variations: (selectedProduct.variations || []).map(group => ({
+      ...group,
+      selected_option_id: Array.isArray(selectedVariation[group.id])
+        ? selectedVariation[group.id]
+        : selectedVariation[group.id] || null
+    }))
+  };
+
+  onAddFromModal(enhancedProduct);
+  onClose();
+}}
+  
+  disabled={orderLoading || hasErrors || (isWeightProduct && (!quantity || quantity <= 0))}
+>
+  {orderLoading ? "Adding..." : "Add to Cart"}
+</Button>
           </div>
         </div>
       </DialogContent>
