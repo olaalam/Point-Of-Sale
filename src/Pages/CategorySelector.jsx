@@ -47,9 +47,7 @@ const CategorySelector = ({ categories, selectedCategory, onCategorySelect }) =>
               src={category.image_link || "https://via.placeholder.com/40"}
               alt={category.name}
               className="w-10 h-10 mb-1 rounded-full object-cover"
-              onError={(e) => {
-                e.target.src = "https://via.placeholder.com/40";
-              }}
+
             />
             <span className="text-sm font-semibold capitalize text-center">
               {category.name}
