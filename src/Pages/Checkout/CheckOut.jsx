@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useGet } from "@/Hooks/useGet";
@@ -18,7 +19,6 @@ const CheckOut = ({
   onClose,
   totalTax,
   totalDiscount,
-  notes = "Customer requested no plastic bag.",
   source = "web",
   totalDineInItems,
   orderType,
@@ -33,6 +33,9 @@ const CheckOut = ({
   const { data: deliveryData, loading: deliveryLoading } = useGet("cashier/delivery_lists");
   const { postData, loading } = usePost();
 
+  // ✅ State for order notes
+  const [orderNotes, setOrderNotes] = useState("");
+  
   const [paymentSplits, setPaymentSplits] = useState([]);
   const [customerPaid, setCustomerPaid] = useState("");
   const [customerSelectionOpen, setCustomerSelectionOpen] = useState(false);
@@ -266,7 +269,7 @@ const CheckOut = ({
           : discountData.module.includes(orderType)
             ? amountToPay * (discountData.discount / 100)
             : totalDiscount,
-        notes,
+        notes: orderNotes.trim() || "No special instructions", // ✅ Use dynamic notes
         source,
         financialsPayload,
         cashierId,
@@ -342,7 +345,6 @@ const CheckOut = ({
         refetchDueUsers();
         return;
       }
-      // تم الإرسال من handleSelectCustomer → لا نفعل شيئًا
       return;
     }
 
@@ -378,7 +380,6 @@ const CheckOut = ({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4">
-      {/* قايمة اختيار العميل */}
       <CustomerSelectionModal
         isOpen={customerSelectionOpen}
         onClose={() => setCustomerSelectionOpen(false)}
@@ -390,7 +391,6 @@ const CheckOut = ({
         requiredTotal={requiredTotal}
       />
 
-      {/* تعيين مندوب التوصيل */}
       <DeliveryAssignmentModal
         isOpen={deliveryModelOpen}
         onClose={handleSkip}
@@ -447,6 +447,21 @@ const CheckOut = ({
                   <span className="text-green-600">{changeAmount.toFixed(2)} EGP</span>
                 </div>
               )}
+            </div>
+
+            {/* ✅ Order Notes Section */}
+            <div className="mb-6">
+              <label className="block text-sm font-medium mb-2">Order Notes (Optional)</label>
+              <Textarea
+                placeholder="Add any special instructions or notes for this order..."
+                value={orderNotes}
+                onChange={(e) => setOrderNotes(e.target.value)}
+                className="w-full min-h-[100px] resize-none"
+                maxLength={500}
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                {orderNotes.length}/500 characters
+              </p>
             </div>
 
             {/* Discount Code */}

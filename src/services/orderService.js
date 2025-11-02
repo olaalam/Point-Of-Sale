@@ -84,7 +84,7 @@ const processProductItem = (item) => {
   const productData = {
     product_id: item.id.toString(),
     count: item.count.toString(),
-    note: item.note || "Product Note",  // يمكن تعديل هذا حسب الحاجة
+    note: item.notes || "Product Note",  // يمكن تعديل هذا حسب الحاجة
     addons: addonItems,  // إضافة الـ Addons
     variation: groupedVariations,
     exclude_id: (item.selectedExcludes || []).map(id => id.toString()),

@@ -1,3 +1,4 @@
+{/* Card.jsx */}
 import React, { useMemo, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Loading from "@/components/Loading";
@@ -39,6 +40,7 @@ import { renderItemVariations } from "@/lib/utils";
  * @property {boolean} [is_reward=false] - Indicates if the item was obtained via a reward/points system.
  * @property {boolean} [is_deal=false] - Indicates if the item was obtained via a deal.
  * @property {number} [applied_discount=0] - The discount applied to this specific item.
+ * @property {string} [notes] - Special instructions for the item.
  */
 
 /**
@@ -246,7 +248,7 @@ export default function Card({
       return {
         product_id: item.id.toString(),
         count: item.count.toString(),
-        note: item.note || "Product Note",
+        note: (item.notes || "").trim() || "No special instructions", // ✅ تم التصحيح هنا
         addons: addonItems,
         variation: groupedVariations,
         exclude_id: (item.selectedExcludes || []).map((id) => id.toString()),
@@ -469,6 +471,7 @@ export default function Card({
       replace: false,
     });
   };
+
   const handleUpdatePreparationStatus = async (itemTempId) => {
     console.log(
       "Starting update for itemTempId:",
@@ -558,91 +561,96 @@ export default function Card({
     setShowVoidModal(true);
   };
 
-const confirmVoidItem = async () => {
-  // تحقق من البيانات الأساسية
-  const itemToVoid = orderItems.find((item) => item.temp_id === voidItemId);
-  if (!itemToVoid?.cart_id || !tableId || !managerId || !managerPassword) {
-    setTimeout(() => {
-      toast.error("Please fill in all required fields: Manager ID and Password.");
-    }, 100);
-    return;
-  }
-
-  // بدء الـ loading
-  setItemLoadingStates((prev) => ({ ...prev, [voidItemId]: true }));
-
-  const formData = new FormData();
-  const cartIds = Array.isArray(itemToVoid.cart_id)
-    ? itemToVoid.cart_id
-    : typeof itemToVoid.cart_id === "string"
-    ? itemToVoid.cart_id.split(",").map((id) => id.trim())
-    : [itemToVoid.cart_id];
-
-  cartIds.forEach((id) => formData.append("cart_ids[]", id.toString()));
-  formData.append("manager_id", managerId);
-  formData.append("manager_password", managerPassword);
-  formData.append("table_id", tableId.toString());
-
-  try {
-    // نجاح الـ API
-    const response = await postData("cashier/order_void", formData);
-
-    const updatedItems = orderItems.filter((item) => item.temp_id !== voidItemId);
-    updateOrderItems(updatedItems);
-
-    // إظهار toast نجاح
-    setTimeout(() => {
-      toast.success("Item voided successfully!");
-    }, 100);
-
-    // إغلاق المودال فقط عند النجاح
-    setShowVoidModal(false);
-    setManagerId("");
-    setManagerPassword("");
-    setVoidItemId(null);
-  } catch (err) {
-    // طباعة الخطأ للـ debug
-    console.error("Void Item Error:", err);
-    if (err.response) {
-      console.error("Status:", err.response.status);
-      console.error("Response data:", err.response.data);
+  const confirmVoidItem = async () => {
+    // تحقق من البيانات الأساسية
+    const itemToVoid = orderItems.find((item) => item.temp_id === voidItemId);
+    if (!itemToVoid?.cart_id || !tableId || !managerId || !managerPassword) {
+      setTimeout(() => {
+        toast.error(
+          "Please fill in all required fields: Manager ID and Password."
+        );
+      }, 100);
+      return;
     }
 
-    // استخراج الرسالة
-    let errorMessage = "Failed to void item.";
+    // بدء الـ loading
+    setItemLoadingStates((prev) => ({ ...prev, [voidItemId]: true }));
 
-    if (err.response) {
-      const { status, data } = err.response;
+    const formData = new FormData();
+    const cartIds = Array.isArray(itemToVoid.cart_id)
+      ? itemToVoid.cart_id
+      : typeof itemToVoid.cart_id === "string"
+      ? itemToVoid.cart_id.split(",").map((id) => id.trim())
+      : [itemToVoid.cart_id];
 
-      // الأولوية: errors → message → error → حالة خاصة
-      if (data?.errors) {
-        errorMessage = data.errors; // مثل: "id or password is wrong"
-      } else if (data?.message) {
-        errorMessage = data.message;
-      } else if (data?.error) {
-        errorMessage = data.error;
-      } else if ([401, 403, 400].includes(status)) {
-        errorMessage = "Invalid Manager ID or Password. Access denied.";
-      } else {
-        errorMessage = `Server error (${status})`;
+    cartIds.forEach((id) => formData.append("cart_ids[]", id.toString()));
+    formData.append("manager_id", managerId);
+    formData.append("manager_password", managerPassword);
+    formData.append("table_id", tableId.toString());
+
+    try {
+      // نجاح الـ API
+      const response = await postData("cashier/order_void", formData);
+
+      const updatedItems = orderItems.filter(
+        (item) => item.temp_id !== voidItemId
+      );
+      updateOrderItems(updatedItems);
+
+      // إظهار toast نجاح
+      setTimeout(() => {
+        toast.success("Item voided successfully!");
+      }, 100);
+
+      // إغلاق المودال فقط عند النجاح
+      setShowVoidModal(false);
+      setManagerId("");
+      setManagerPassword("");
+      setVoidItemId(null);
+    } catch (err) {
+      // طباعة الخطأ للـ debug
+      console.error("Void Item Error:", err);
+      if (err.response) {
+        console.error("Status:", err.response.status);
+        console.error("Response data:", err.response.data);
       }
-    } else if (err.request) {
-      errorMessage = "No response from server. Check your internet connection.";
-    } else {
-      errorMessage = err.message || "An unexpected error occurred.";
+
+      // استخراج الرسالة
+      let errorMessage = "Failed to void item.";
+
+      if (err.response) {
+        const { status, data } = err.response;
+
+        // الأولوية: errors → message → error → حالة خاصة
+        if (data?.errors) {
+          errorMessage = data.errors; // مثل: "id or password is wrong"
+        } else if (data?.message) {
+          errorMessage = data.message;
+        } else if (data?.error) {
+          errorMessage = data.error;
+        } else if ([401, 403, 400].includes(status)) {
+          errorMessage = "Invalid Manager ID or Password. Access denied.";
+        } else {
+          errorMessage = `Server error (${status})`;
+        }
+      } else if (err.request) {
+        errorMessage =
+          "No response from server. Check your internet connection.";
+      } else {
+        errorMessage = err.message || "An unexpected error occurred.";
+      }
+
+      // إظهار الـ toast مهما كان (حتى لو الـ container اتحمل متأخر)
+      setTimeout(() => {
+        toast.error(errorMessage);
+      }, 100);
+
+      // لا تحذف العنصر، لا تغلق المودال
+    } finally {
+      // إنهاء الـ loading
+      setItemLoadingStates((prev) => ({ ...prev, [voidItemId]: false }));
     }
-
-    // إظهار الـ toast مهما كان (حتى لو الـ container اتحمل متأخر)
-    setTimeout(() => {
-      toast.error(errorMessage);
-    }, 100);
-
-    // لا تحذف العنصر، لا تغلق المودال
-  } finally {
-    // إنهاء الـ loading
-    setItemLoadingStates((prev) => ({ ...prev, [voidItemId]: false }));
-  }
-};
+  };
 
   const handleIncrease = (itemTempId) => {
     const updatedItems = orderItems.map((item) =>
@@ -812,7 +820,7 @@ const confirmVoidItem = async () => {
             >
               Clear All Items ({orderItems.length || 0})
             </Button>
-                        <Button
+            <Button
               onClick={handleViewOrders}
               className="bg-gray-500 text-white hover:bg-gray-600 text-sm py-4"
               disabled={isLoading}
@@ -826,15 +834,13 @@ const confirmVoidItem = async () => {
             >
               Apply Offer (Points)
             </Button>
-                        <Button
+            <Button
               onClick={() => setShowDealModal(true)}
               className="bg-orange-600 text-white hover:bg-orange-700 text-sm py-4"
               disabled={isLoading}
             >
               Apply Deal
             </Button>
-
-
           </div>
           {orderType === "take_away" && (
             <div className="flex md:flex-col flex-row items-stretch justify-center">

@@ -329,6 +329,7 @@ export default function Item({ fetchEndpoint, onAddToOrder, onClose, refreshCart
             selectedExtras: groupedExtras(),
             selectedExcludes: productSelectedExcludes,
             productType,
+            notes: product.notes || "",
             ...(orderType === "dine_in" && { preparation_status: "pending" }),
         };
 

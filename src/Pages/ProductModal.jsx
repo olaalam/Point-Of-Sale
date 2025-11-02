@@ -1,6 +1,6 @@
-// ProductModal.jsx - With Weight Support and Duplicate Check
+{/* ProductModal.jsx - With Weight Support, Duplicate Check, and Notes */}
 
-import React from "react";
+import React, { useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Minus, Plus } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
 
 // Helper function to calculate total price including variations, extras, and addons
 const calculateProductTotalPrice = (
@@ -105,6 +106,12 @@ export const areProductsEqual = (product1, product2) => {
   
   if (JSON.stringify(excludes1) !== JSON.stringify(excludes2)) return false;
   
+  // ✅ Check notes match
+  const notes1 = (product1.notes || "").trim();
+  const notes2 = (product2.notes || "").trim();
+  
+  if (notes1 !== notes2) return false;
+  
   return true;
 };
 
@@ -127,6 +134,9 @@ const ProductModal = ({
   orderLoading,
   productType = "piece",
 }) => {
+  // ✅ State for notes
+  const [notes, setNotes] = useState("");
+
   if (!selectedProduct) return null;
 
   const isWeightProduct = productType === "weight" || selectedProduct.weight_status === 1;
@@ -181,7 +191,10 @@ const ProductModal = ({
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={() => {
+      setNotes(""); // Clear notes on close
+      onClose();
+    }}>
       <DialogContent className="w-[90vw] !max-w-[500px] p-0 rounded-2xl shadow-2xl overflow-y-auto max-h-[90vh] scrollbar-width-none [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
         <div className="flex flex-col">
           <div className="relative">
@@ -193,7 +206,10 @@ const ProductModal = ({
               className="w-full h-48 object-cover"
             />
             <button
-              onClick={onClose}
+              onClick={() => {
+                setNotes("");
+                onClose();
+              }}
               className="absolute top-4 right-4 text-white bg-black bg-opacity-50 rounded-full p-2 hover:bg-opacity-75 transition-colors"
             >
               <svg
@@ -490,6 +506,23 @@ const ProductModal = ({
                 </div>
               </div>
             )}
+
+            {/* ✅ Notes Section */}
+            <div className="mb-4">
+              <h4 className="text-sm font-semibold text-gray-700 mb-2">
+                Special Instructions (Optional)
+              </h4>
+              <Textarea
+                placeholder="Add any special instructions for this item..."
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                className="w-full min-h-[80px] resize-none"
+                maxLength={200}
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                {notes.length}/200 characters
+              </p>
+            </div>
           </div>
           <div className="p-4 border-t border-gray-200">
             <div className="flex items-center justify-between mb-4">
@@ -550,6 +583,7 @@ const ProductModal = ({
                   selectedExtras,
                   selectedExcludes,
                   quantity,
+                  notes: notes.trim(), // ✅ Add notes to product
                   price: totalUnitPrice,
                   originalPrice: selectedProduct.price,
                   totalPrice: totalUnitPrice * quantity,
@@ -568,6 +602,7 @@ const ProductModal = ({
 
                 // ✅ Pass flag to check for duplicates
                 onAddFromModal(enhancedProduct, { checkDuplicate: true });
+                setNotes(""); // Clear notes after adding
                 onClose();
               }}
               disabled={orderLoading || hasErrors || (isWeightProduct && (!quantity || quantity <= 0))}
