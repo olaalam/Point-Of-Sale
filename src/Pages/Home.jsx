@@ -6,7 +6,7 @@ import TakeAway from "./TakeAway";
 import OrderPage from "./OrderPage";
 import { usePost } from "@/Hooks/usePost";
 import { useLocation } from "react-router-dom";
-import { toast} from "react-toastify";
+import { toast } from "react-toastify";
 
 const getInitialState = () => {
   const storedOrderType = sessionStorage.getItem("order_type") || "take_away";
@@ -45,6 +45,21 @@ export default function Home() {
       return newState.tabValue === prevState.tabValue ? prevState : newState;
     });
   }, [initialState]);
+
+  useEffect(() => {
+    const { state: locationState } = location;
+    if (locationState && locationState.userId) {
+      setState((prevState) => ({
+        ...prevState,
+        deliveryUserId: locationState.userId,
+        orderType: locationState.orderType || "delivery",
+        tabValue: locationState.orderType || "delivery",
+      }));
+      sessionStorage.setItem("selected_user_id", locationState.userId);
+      sessionStorage.setItem("order_type", locationState.orderType || "delivery");
+      sessionStorage.setItem("tab", locationState.orderType || "delivery");
+    }
+  }, [location]);
 
   const { postData, loading: transferLoading } = usePost();
 
