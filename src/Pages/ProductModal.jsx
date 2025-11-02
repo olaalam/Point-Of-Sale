@@ -1,4 +1,4 @@
-// ProductModal.jsx - With Weight Support
+// ProductModal.jsx - With Weight Support and Duplicate Check
 
 import React from "react";
 import {
@@ -26,13 +26,11 @@ const calculateProductTotalPrice = (
       
       if (selectedOptions !== undefined) {
         if (variation.type === 'single') {
-          // For single select, selectedOptions is a single option ID
           const selectedOption = variation.options?.find(opt => opt.id === selectedOptions);
           if (selectedOption) {
             totalPrice += parseFloat(selectedOption.price_after_tax || selectedOption.price || 0);
           }
         } else if (variation.type === 'multiple') {
-          // For multiple select, selectedOptions is an array of option IDs
           const optionsArray = Array.isArray(selectedOptions) ? selectedOptions : [selectedOptions];
           optionsArray.forEach(optionId => {
             const option = variation.options?.find(opt => opt.id === optionId);
@@ -47,18 +45,14 @@ const calculateProductTotalPrice = (
 
   // Add extras and addons prices
   if (selectedExtras && selectedExtras.length > 0) {
-    // Count occurrences of each extra
     const extraCounts = {};
     selectedExtras.forEach(extraId => {
       extraCounts[extraId] = (extraCounts[extraId] || 0) + 1;
     });
 
-    // Calculate price for each extra
     Object.entries(extraCounts).forEach(([extraId, count]) => {
-      // Check in allExtras first
       let extraItem = baseProduct.allExtras?.find(extra => extra.id === parseInt(extraId));
       
-      // If not found, check in addons
       if (!extraItem) {
         extraItem = baseProduct.addons?.find(addon => addon.id === parseInt(extraId));
       }
@@ -78,7 +72,42 @@ const calculateProductTotalPrice = (
   return totalPrice * quantity;
 };
 
-// Updated ProductModal component with weight support
+// Helper function to check if two products are identical
+export const areProductsEqual = (product1, product2) => {
+  // Check basic product ID
+  if (product1.id !== product2.id) return false;
+  
+  // Check variations match
+  const vars1 = product1.selectedVariation || {};
+  const vars2 = product2.selectedVariation || {};
+  
+  const varKeys1 = Object.keys(vars1).sort();
+  const varKeys2 = Object.keys(vars2).sort();
+  
+  if (JSON.stringify(varKeys1) !== JSON.stringify(varKeys2)) return false;
+  
+  for (let key of varKeys1) {
+    const val1 = Array.isArray(vars1[key]) ? [...vars1[key]].sort() : vars1[key];
+    const val2 = Array.isArray(vars2[key]) ? [...vars2[key]].sort() : vars2[key];
+    
+    if (JSON.stringify(val1) !== JSON.stringify(val2)) return false;
+  }
+  
+  // Check extras match
+  const extras1 = [...(product1.selectedExtras || [])].sort();
+  const extras2 = [...(product2.selectedExtras || [])].sort();
+  
+  if (JSON.stringify(extras1) !== JSON.stringify(extras2)) return false;
+  
+  // Check excludes match
+  const excludes1 = [...(product1.selectedExcludes || [])].sort();
+  const excludes2 = [...(product2.selectedExcludes || [])].sort();
+  
+  if (JSON.stringify(excludes1) !== JSON.stringify(excludes2)) return false;
+  
+  return true;
+};
+
 const ProductModal = ({
   isOpen,
   onClose,
@@ -96,13 +125,12 @@ const ProductModal = ({
   onQuantityChange,
   onAddFromModal,
   orderLoading,
-  productType = "piece", // New prop: "piece" or "weight"
+  productType = "piece",
 }) => {
   if (!selectedProduct) return null;
 
   const isWeightProduct = productType === "weight" || selectedProduct.weight_status === 1;
 
-  // ✅ Calculate total price dynamically
   const totalPrice = calculateProductTotalPrice(
     selectedProduct,
     selectedVariation,
@@ -118,24 +146,20 @@ const ProductModal = ({
   const hasExcludes =
     selectedProduct.excludes && selectedProduct.excludes.length > 0;
 
-  // Helper function to get extra count
   const getExtraCount = (extraId) => {
     return selectedExtras.filter((id) => id === extraId).length;
   };
 
-  // Helper function to handle extra increment
   const handleExtraIncrement = (extraId) => {
     onExtraChange(extraId);
   };
 
-  // Helper function to handle extra decrement
   const handleExtraDecrement = (extraId) => {
     if (onExtraDecrement && getExtraCount(extraId) > 0) {
       onExtraDecrement(extraId);
     }
   };
 
-  // ✅ Helper function to get variation option price display
   const getVariationOptionDisplay = (option) => {
     const price = parseFloat(option.price_after_tax || option.price || 0);
     if (price === 0) {
@@ -144,10 +168,8 @@ const ProductModal = ({
     return `${option.name} (+${price.toFixed(2)} EGP)`;
   };
 
-  // Handle weight input change
   const handleWeightChange = (e) => {
     const value = e.target.value;
-    // Allow empty string or valid decimal numbers
     if (value === '' || /^\d*\.?\d*$/.test(value)) {
       const numValue = parseFloat(value);
       if (!isNaN(numValue) && numValue > 0) {
@@ -273,7 +295,6 @@ const ProductModal = ({
                           ).length;
                           const totalSelected = selectedOptions.length;
 
-                          // Check min/max constraints
                           const canDecrease =
                             totalSelected > (variation.min || 0);
                           const canIncrease =
@@ -513,47 +534,47 @@ const ProductModal = ({
                 </div>
               )}
             </div>
-<Button
-onClick={() => {
-  const totalUnitPrice = calculateProductTotalPrice(
-    selectedProduct,
-    selectedVariation,
-    selectedExtras,
-    1
-  );
+            <Button
+              onClick={() => {
+                const totalUnitPrice = calculateProductTotalPrice(
+                  selectedProduct,
+                  selectedVariation,
+                  selectedExtras,
+                  1
+                );
 
-  const enhancedProduct = {
-    ...selectedProduct,
-    temp_id: `item-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-    selectedVariation,
-    selectedExtras,
-    selectedExcludes,
-    quantity,
-    price: totalUnitPrice,           // ← هنا السعر الكلي للوحدة
-    originalPrice: selectedProduct.price, // السعر الأساسي
-    totalPrice: totalUnitPrice * quantity,
-    // احتفظ بالبيانات للعرض
-    addons: selectedExtras.map(id => {
-      const extra = (selectedProduct.allExtras || []).find(e => e.id === id) ||
-                    (selectedProduct.addons || []).find(a => a.id === id);
-      return extra ? { ...extra } : null;
-    }).filter(Boolean),
-    variations: (selectedProduct.variations || []).map(group => ({
-      ...group,
-      selected_option_id: Array.isArray(selectedVariation[group.id])
-        ? selectedVariation[group.id]
-        : selectedVariation[group.id] || null
-    }))
-  };
+                const enhancedProduct = {
+                  ...selectedProduct,
+                  temp_id: `item-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                  selectedVariation,
+                  selectedExtras,
+                  selectedExcludes,
+                  quantity,
+                  price: totalUnitPrice,
+                  originalPrice: selectedProduct.price,
+                  totalPrice: totalUnitPrice * quantity,
+                  addons: selectedExtras.map(id => {
+                    const extra = (selectedProduct.allExtras || []).find(e => e.id === id) ||
+                                  (selectedProduct.addons || []).find(a => a.id === id);
+                    return extra ? { ...extra } : null;
+                  }).filter(Boolean),
+                  variations: (selectedProduct.variations || []).map(group => ({
+                    ...group,
+                    selected_option_id: Array.isArray(selectedVariation[group.id])
+                      ? selectedVariation[group.id]
+                      : selectedVariation[group.id] || null
+                  }))
+                };
 
-  onAddFromModal(enhancedProduct);
-  onClose();
-}}
-  
-  disabled={orderLoading || hasErrors || (isWeightProduct && (!quantity || quantity <= 0))}
->
-  {orderLoading ? "Adding..." : "Add to Cart"}
-</Button>
+                // ✅ Pass flag to check for duplicates
+                onAddFromModal(enhancedProduct, { checkDuplicate: true });
+                onClose();
+              }}
+              disabled={orderLoading || hasErrors || (isWeightProduct && (!quantity || quantity <= 0))}
+              className="w-full"
+            >
+              {orderLoading ? "Adding..." : "Add to Cart"}
+            </Button>
           </div>
         </div>
       </DialogContent>

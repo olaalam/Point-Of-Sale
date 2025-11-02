@@ -3,6 +3,7 @@ import Card from "./Card/Card";
 import Item from "./Item";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useGet } from "@/Hooks/useGet";
+import { areProductsEqual } from "./ProductModal"; // ✅ Import the comparison function
 
 export default function OrderPage({
   fetchEndpoint,
@@ -11,7 +12,7 @@ export default function OrderPage({
   propOrderType,
   propTableId,
   propUserId,
-  discountData = { discount: 0, module: [] }, // ✅ Added discountData prop
+  discountData = { discount: 0, module: [] },
 }) {
   const [ordersByTable, setOrdersByTable] = useState({});
   const [ordersByUser, setOrdersByUser] = useState({});
@@ -196,31 +197,48 @@ export default function OrderPage({
     }
   };
 
-  const handleAddItem = (product) => {
+  // ✅ Updated handleAddItem with proper duplicate checking
+  const handleAddItem = (product, options = {}) => {
     const safeCurrentItems = Array.isArray(currentOrderItems) ? currentOrderItems : [];
-    const existingItemIndex = safeCurrentItems.findIndex(
-      (item) =>
-        item.id === product.id &&
-        item.selectedVariation === product.selectedVariation &&
-        JSON.stringify(item.selectedExtras?.sort()) ===
-          JSON.stringify(product.selectedExtras?.sort())
+    
+    // Check if we should update an existing item instead of adding new
+    if (options.updateExisting && options.index !== undefined) {
+      const updatedItems = [...safeCurrentItems];
+      updatedItems[options.index] = product;
+      updateOrderItems(updatedItems);
+      return;
+    }
+
+    // ✅ Use areProductsEqual for accurate duplicate detection
+    const existingItemIndex = safeCurrentItems.findIndex((item) =>
+      areProductsEqual(item, product)
     );
 
     let updatedItems = [...safeCurrentItems];
 
     if (existingItemIndex !== -1) {
+      // Product exists - update quantity
+      const existingItem = updatedItems[existingItemIndex];
+      const newCount = existingItem.count + (product.count || 1);
+      
       updatedItems[existingItemIndex] = {
-        ...updatedItems[existingItemIndex],
-        count: updatedItems[existingItemIndex].count + product.count,
-        addons: [...updatedItems[existingItemIndex].addons, ...product.addons],
+        ...existingItem,
+        count: newCount,
+        totalPrice: existingItem.price * newCount,
       };
+      
+      console.log(`Updated quantity for "${product.name}" to ${newCount}`);
     } else {
+      // New product - add to cart
       updatedItems.push({
         ...product,
         count: product.count || 1,
         preparation_status: product.preparation_status || "pending",
       });
+      
+      console.log(`Added new product "${product.name}" to cart`);
     }
+    
     updateOrderItems(updatedItems);
   };
 
@@ -249,7 +267,7 @@ export default function OrderPage({
           tableId={currentTableId}
           userId={currentUserId}
           isLoading={dineInLoading || deliveryLoading || isLoading}
-          discountData={discountData} // ✅ Pass discountData to Card
+          discountData={discountData}
         />
       </div>
       <div className="w-full lg:w-1/2 mt-4 lg:mt-0">
@@ -258,6 +276,7 @@ export default function OrderPage({
           fetchEndpoint={fetchEndpoint}
           onClose={handleClose}
           refreshCartData={refreshCartData}
+          orderItems={currentOrderItems} // ✅ Pass orderItems to Item component
         />
       </div>
     </div>

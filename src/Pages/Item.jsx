@@ -1,8 +1,6 @@
 import React, { useState, useMemo, useEffect, useCallback } from "react";
-// ❌ REMOVE custom data fetching hooks
-// import { useGet } from "@/Hooks/useGet";
-import { usePost } from "@/Hooks/usePost"; // Retain for order submission
-import { useQuery } from "@tanstack/react-query"; // ✅ ADD React Query
+import { usePost } from "@/Hooks/usePost";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import Loading from "@/components/Loading";
 import { toast } from "react-toastify";
@@ -12,31 +10,24 @@ import { submitItemToBackend } from "@/services/orderService";
 import DeliveryInfo from "./Delivery/DeliveryInfo";
 import CategorySelector from "./CategorySelector";
 import ProductCard from "./ProductCard";
-import ProductModal from "./ProductModal";
+import ProductModal, { areProductsEqual } from "./ProductModal"; // ✅ Import areProductsEqual
 
-// #######################################################################
-// # 1. API BASE URL & Fetchers using ENV (FIXED)
-// #######################################################################
+// API Configuration
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "https://bcknd.food2go.online/";
 
-// 1. FIX: Use import.meta.env for VITE projects to fix 'process is not defined'
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "https://bcknd.food2go.online/"; 
-
-// دالة مساعدة لجلب التوكن (قد تحتاج لتعديل key التخزين)
 const getAuthToken = () => {
-    return sessionStorage.getItem("token"); 
+    return sessionStorage.getItem("token");
 };
 
-// 2. FIX: Add Authorization Header to fix 500 Internal Server Error
 const apiFetcher = async (path) => {
     const url = `${API_BASE_URL}${path}`;
-    const token = getAuthToken(); 
+    const token = getAuthToken();
     
     const options = {
         method: 'GET',
         headers: {
             'Content-Type': 'application/json',
-            // إضافة التوكن كـ Bearer Token
-            ...(token && { 'Authorization': `Bearer ${token}` }), 
+            ...(token && { 'Authorization': `Bearer ${token}` }),
         },
     };
 
@@ -47,16 +38,14 @@ const apiFetcher = async (path) => {
     return response.json();
 };
 
-// 3. FIX: Add Authorization Header to POST fetcher as well
 const postFetcher = async (path, data) => {
     const url = `${API_BASE_URL}${path}`;
     const token = getAuthToken();
 
     const options = {
         method: "POST",
-        headers: { 
+        headers: {
             "Content-Type": "application/json",
-            // إضافة التوكن كـ Bearer Token
             ...(token && { 'Authorization': `Bearer ${token}` }),
         },
         body: JSON.stringify(data),
@@ -69,13 +58,12 @@ const postFetcher = async (path, data) => {
     }
     return response.json();
 };
-// ----------------------------------------------------------------------------------
 
 const INITIAL_PRODUCT_ROWS = 2;
 const PRODUCTS_PER_ROW = 4;
 const PRODUCTS_TO_SHOW_INITIALLY = INITIAL_PRODUCT_ROWS * PRODUCTS_PER_ROW;
 
-export default function Item({ fetchEndpoint, onAddToOrder, onClose, refreshCartData }) {
+export default function Item({ fetchEndpoint, onAddToOrder, onClose, refreshCartData, orderItems = [] }) {
     // === State Management ===
     const [selectedCategory, setSelectedCategory] = useState("all");
     const [searchQuery, setSearchQuery] = useState("");
@@ -89,7 +77,7 @@ export default function Item({ fetchEndpoint, onAddToOrder, onClose, refreshCart
 
     // === Custom Hooks ===
     const { deliveryUserData, userLoading, userError } = useDeliveryUser(orderType);
-    const { postData: postOrder, loading: orderLoading } = usePost(); 
+    const { postData: postOrder, loading: orderLoading } = usePost();
 
     const {
         selectedProduct,
@@ -116,22 +104,15 @@ export default function Item({ fetchEndpoint, onAddToOrder, onClose, refreshCart
         }
     }, [branchIdState]);
 
-
-    // #######################################################################
-    // # 2. REACT QUERY FETCHING (Endpoints use the API_BASE_URL internally via fetchers)
-    // #######################################################################
-
-    // 1. Fetch Group Products (Modules)
-    // The queryKey is updated to include branchIdState to refetch if branch changes
+    // === React Query Fetching ===
     const { data: groupData, isLoading: groupLoading, error: groupError } = useQuery({
         queryKey: ['groups', branchIdState],
         queryFn: () => apiFetcher(`cashier/group_product`),
         enabled: !!branchIdState,
-        staleTime: Infinity, 
+        staleTime: Infinity,
     });
     const groupProducts = groupData?.group_product || [];
 
-    // 2. Restore Last Selected Group (Keep the original useEffect)
     useEffect(() => {
         if (groupProducts.length > 0) {
             const saved = sessionStorage.getItem("last_selected_group");
@@ -144,19 +125,17 @@ export default function Item({ fetchEndpoint, onAddToOrder, onClose, refreshCart
         }
     }, [groupProducts]);
 
-    // 3. Fetch Data for 'All Modules' (Default view: Categories + Products)
     const allModulesEnabled = selectedGroup === "all" && !!branchIdState;
     const allModulesEndpoint = fetchEndpoint || `captain/lists?branch_id=${branchIdState}`;
     const { data: allModulesData, isLoading: isAllDataLoading, error: allModulesError } = useQuery({
         queryKey: ['allData', branchIdState],
         queryFn: () => apiFetcher(allModulesEndpoint),
         enabled: allModulesEnabled,
-        staleTime: 5 * 60 * 1000, 
+        staleTime: 5 * 60 * 1000,
     });
 
-    // 4. Fetch Products for a Specific Category in 'All Modules'
     const allModulesProductEndpoint = useMemo(() => {
-        if (selectedCategory === "all") return null; 
+        if (selectedCategory === "all") return null;
         return `captain/product_category_lists/${selectedCategory}?branch_id=${branchIdState}`;
     }, [branchIdState, selectedCategory]);
 
@@ -164,10 +143,9 @@ export default function Item({ fetchEndpoint, onAddToOrder, onClose, refreshCart
         queryKey: ['products_all_modules', branchIdState, selectedCategory],
         queryFn: () => apiFetcher(allModulesProductEndpoint),
         enabled: selectedGroup === "all" && selectedCategory !== "all" && !!branchIdState,
-        staleTime: 1 * 60 * 1000, 
+        staleTime: 1 * 60 * 1000,
     });
 
-    // 5. Fetch Favourite Categories (Module Specific) - Uses POST
     const moduleFavEnabled = selectedGroup !== "all" && !!branchIdState;
     const fetchFavouriteCategories = async () => {
         return await postFetcher(`cashier/group_product/favourite`, {
@@ -185,7 +163,6 @@ export default function Item({ fetchEndpoint, onAddToOrder, onClose, refreshCart
 
     const favouriteCategories = moduleFavData?.categories || [];
 
-    // 6. Fetch Products in Category (Module Specific) - Uses POST
     const moduleProductEnabled = selectedGroup !== "all" && selectedCategory !== "all" && !!branchIdState;
     const fetchGroupProductsData = async () => {
         return await postFetcher(`cashier/group_product/product_in_category/${selectedCategory}`, {
@@ -201,11 +178,7 @@ export default function Item({ fetchEndpoint, onAddToOrder, onClose, refreshCart
         staleTime: 1 * 60 * 1000,
     });
 
-
-    // #######################################################################
-    // # FINAL DATA & DERIVED STATE
-    // #######################################################################
-
+    // === Final Data & Derived State ===
     const finalCategories = useMemo(() => {
         if (selectedGroup !== "all") {
             return favouriteCategories;
@@ -215,24 +188,20 @@ export default function Item({ fetchEndpoint, onAddToOrder, onClose, refreshCart
 
     const productSourceData = useMemo(() => {
         if (selectedGroup !== "all") {
-            // Module selected
             if (selectedCategory === "all") {
-                // Show favorite products if no specific category is selected in the module
                 return {
                     products: moduleFavData?.favourite_products || [],
                     products_weight: moduleFavData?.favourite_products_weight || [],
                 };
             } else {
-                // Show products for the selected category in the module
                 return groupProductsData || {};
             }
         }
 
-        // All Modules selected
         if (selectedCategory === "all") {
-            return allModulesData || {}; // Default all data including products
+            return allModulesData || {};
         }
-        return allModulesProductData || {}; // Specific category products
+        return allModulesProductData || {};
     }, [selectedGroup, selectedCategory, moduleFavData, groupProductsData, allModulesData, allModulesProductData]);
 
     const allProducts = useMemo(() => {
@@ -270,7 +239,7 @@ export default function Item({ fetchEndpoint, onAddToOrder, onClose, refreshCart
         const id = groupId === "all" ? "all" : groupId.toString();
         sessionStorage.setItem("last_selected_group", id);
         setSelectedGroup(id);
-        setSelectedCategory("all"); // Reset category when group changes
+        setSelectedCategory("all");
         setVisibleProductCount(PRODUCTS_TO_SHOW_INITIALLY);
         setSearchQuery("");
     };
@@ -279,8 +248,8 @@ export default function Item({ fetchEndpoint, onAddToOrder, onClose, refreshCart
         return `${productId}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     };
 
-    // === Handle Add to Order (NO CHANGE) ===
-    const handleAddToOrder = useCallback(async (product, customQuantity = 1) => {
+    // === Handle Add to Order ===
+    const handleAddToOrder = useCallback(async (product, customQuantity = 1, options = {}) => {
         let productBasePrice = product.price_after_discount ?? product.price ?? 0;
         const allSelectedVariationsData = [];
         const selectedVariations = product.selectedVariation || selectedVariation || {};
@@ -363,6 +332,41 @@ export default function Item({ fetchEndpoint, onAddToOrder, onClose, refreshCart
             ...(orderType === "dine_in" && { preparation_status: "pending" }),
         };
 
+        // ✅ Check for duplicate products if flag is set
+        if (options.checkDuplicate && orderItems && Array.isArray(orderItems)) {
+            const existingProductIndex = orderItems.findIndex(item => 
+                areProductsEqual(item, orderItem)
+            );
+
+            if (existingProductIndex !== -1) {
+                // Product exists - update quantity instead of adding new row
+                const existingItem = orderItems[existingProductIndex];
+                const newQuantity = existingItem.count + customQuantity;
+                
+                // Update the item in the parent component
+                onAddToOrder({
+                    ...existingItem,
+                    count: newQuantity,
+                    totalPrice: existingItem.price * newQuantity
+                }, { updateExisting: true, index: existingProductIndex });
+
+                if (orderType === "dine_in") {
+                    try {
+                        await submitItemToBackend(postOrder, orderItem, customQuantity, orderType);
+                        if (refreshCartData) await refreshCartData();
+                        toast.success(`تم زيادة كمية "${product.name}" إلى ${newQuantity}`);
+                    } catch (error) {
+                        console.error("Error submitting item:", error);
+                        toast.error(`Failed to update "${product.name}"`);
+                    }
+                } else {
+                    toast.success(`تم زيادة كمية "${product.name}" إلى ${newQuantity}`);
+                }
+                return;
+            }
+        }
+
+        // Product is new - add it normally
         onAddToOrder(orderItem);
 
         if (orderType === "dine_in") {
@@ -379,10 +383,11 @@ export default function Item({ fetchEndpoint, onAddToOrder, onClose, refreshCart
                 toast.success(`"${product.name}" added successfully!`, { toastId: product.id });
             }
         }
-    }, [selectedVariation, selectedExtras, selectedExcludes, orderType, onAddToOrder, productType, postOrder, refreshCartData, createTempId, selectedProduct]);
+    }, [selectedVariation, selectedExtras, selectedExcludes, orderType, onAddToOrder, productType, postOrder, refreshCartData, orderItems]);
 
-    const handleAddFromModal = (enhancedProduct) => {
-        handleAddToOrder(enhancedProduct, enhancedProduct.quantity);
+    // ✅ Updated handleAddFromModal to pass checkDuplicate flag
+    const handleAddFromModal = (enhancedProduct, options = {}) => {
+        handleAddToOrder(enhancedProduct, enhancedProduct.quantity, options);
     };
 
     // === Loading & Error States ===
@@ -423,7 +428,6 @@ export default function Item({ fetchEndpoint, onAddToOrder, onClose, refreshCart
     // === Render UI ===
     return (
         <div className="">
-            {/* Select Category + Group Selector */}
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 my-2">
                 <h2 className="text-bg-primary text-2xl font-bold mb-4 flex flex-wrap items-center gap-4">
                     Select Category
@@ -442,7 +446,6 @@ export default function Item({ fetchEndpoint, onAddToOrder, onClose, refreshCart
                     ))}
                 </select>
             </div>
-
 
             <DeliveryInfo
                 orderType={orderType}
@@ -544,4 +547,5 @@ export default function Item({ fetchEndpoint, onAddToOrder, onClose, refreshCart
                 </div>
             )}
         </div>
-        );}
+    );
+}

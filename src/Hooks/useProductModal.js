@@ -1,5 +1,3 @@
-// useProductModal.js - تحديث لدعم الـ min/max constraints للـ multi-select variations
-
 import { useState, useEffect } from "react";
 
 export const useProductModal = () => {
