@@ -24,7 +24,7 @@ import { usePost } from "@/Hooks/usePost";
 import { usePut } from "@/Hooks/usePut";
 import Loading from "@/components/Loading";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {  toast } from "react-toastify";
+import { toast } from "react-toastify";
 
 const CustomStatusSelect = ({ table, statusOptions, onStatusChange }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -110,7 +110,7 @@ const Dine = () => {
 
   const locations = data?.cafe_location || [];
 
-  // Updated status options with icons
+  // All available status options
   const statusOptions = [
     { 
       label: "Available", 
@@ -154,9 +154,7 @@ const Dine = () => {
     const processedTables = [];
 
     tables.forEach(table => {
-      // Check if this table has sub_tables (is a merged table)
       if (table.sub_table && table.sub_table.length > 0) {
-        // Create merged table object
         const mergedTable = {
           ...table,
           isMerged: true,
@@ -164,10 +162,8 @@ const Dine = () => {
           totalCapacity: table.capacity,
           mergedTableNumbers: [table.table_number, ...table.sub_table.map(sub => sub.table_number)].join(" + ")
         };
-        
         processedTables.push(mergedTable);
       } else {
-        // Regular table (not merged)
         processedTables.push({
           ...table,
           isMerged: false
@@ -200,11 +196,8 @@ const Dine = () => {
     }
   }, []);
 
-  const selectedLocation = locations.find(
-    (loc) => loc.id === selectedLocationId
-  );
+  const selectedLocation = locations.find(loc => loc.id === selectedLocationId);
   
-  // Process tables to handle merging
   const rawTables = selectedLocation?.tables || [];
   const processedTables = processTablesWithMerge(rawTables);
   const tablesToDisplay = processedTables;
@@ -257,16 +250,10 @@ const Dine = () => {
         cartIds.forEach((cart_id, index) => {
           formData.append(`cart_ids[${index}]`, cart_id.toString());
         });
-        
-        console.log("Transfer order payload:", { 
-          old_table_id: sourceTableId, 
-          new_table_id: table.id,
-          cart_ids: cartIds 
-        });
 
         try {
           await postData("cashier/transfer_order", formData);
-         setTimeout(() => {
+          setTimeout(() => {
             toast.success("Order transferred successfully!");
           }, 200);
           
@@ -309,87 +296,88 @@ const Dine = () => {
     }
   };
 
-const MergedTableCard = ({ table }) => {
-  const transferPending = sessionStorage.getItem("transfer_pending") === "true";
-  const sourceTableId = sessionStorage.getItem("transfer_source_table_id");
-  const isSourceTable = transferPending && sourceTableId === table.id.toString();
-  const { putData: putStatusChange } = usePut();
+  // Merged Table Card
+  const MergedTableCard = ({ table, statusOptions: customStatusOptions, onStatusChange }) => {
+    const transferPending = sessionStorage.getItem("transfer_pending") === "true";
+    const sourceTableId = sessionStorage.getItem("transfer_source_table_id");
+    const isSourceTable = transferPending && sourceTableId === table.id.toString();
 
-  const handleStatusChange = async (newStatus) => {
-    try {
-      await putStatusChange(`cashier/tables_status/${table.id}?current_status=${newStatus}`, {});
-      toast.success(`Status updated to "${statusOptions.find(o => o.value === newStatus)?.label}"`);
-    } catch (err) {
-      toast.error("Failed to update status.",err);
-    }
-  };
+    const effectiveStatusOptions = customStatusOptions || statusOptions;
 
-  return (
-    <div
-      className={`
-        relative rounded-xl p-5 shadow-lg transition-all duration-200
-        bg-gradient-to-b from-purple-50 to-purple-100
-        ${selectedTable === table.id ? "ring-4 ring-blue-500" : ""}
-        cursor-pointer hover:scale-105
-      `}
-      onClick={() => !transferLoading && handleSelectTable(table)}
-    >
-      {/* Merged Header */}
-      <div className="absolute -top-3 left-4 bg-purple-600 text-white px-3 py-1 rounded-full flex items-center gap-2 shadow-md">
-        <Link size={14} />
-        <span className="font-semibold text-xs uppercase tracking-wider">Merged Table</span>
-      </div>
-
-      {/* Main Table */}
-      <div className="text-center mb-3">
-        <div className="text-2xl font-bold text-purple-800">{table.table_number}</div>
-        <div className="text-sm text-purple-700 flex items-center justify-center gap-1">
-          <Users size={14} /> {table.capacity} Cap
+    return (
+      <div
+        className={`
+          relative rounded-xl p-5 shadow-lg transition-all duration-200
+          bg-gradient-to-b from-purple-50 to-purple-100
+          ${selectedTable === table.id ? "ring-4 ring-blue-500" : ""}
+          cursor-pointer hover:scale-105
+        `}
+        onClick={() => !transferLoading && handleSelectTable(table)}
+      >
+        {/* Merged Header */}
+        <div className="absolute -top-3 left-4 bg-purple-600 text-white px-3 py-1 rounded-full flex items-center gap-2 shadow-md">
+          <Link size={14} />
+          <span className="font-semibold text-xs uppercase tracking-wider">Merged Table</span>
         </div>
-      </div>
 
-      {/* Sub Tables Grid */}
-      <div className="grid grid-cols-2 gap-2 mb-4">
-        {table.subTables.map(sub => (
-          <div
-            key={sub.id}
-            className={`p-3 rounded-lg border shadow-sm transition-all duration-150
-              ${getTableColor(sub.current_status || table.current_status)}
-              ${(sub.current_status || table.current_status) === tableStates.available ? "border-dashed" : ""}
-              hover:scale-105
-            `}
-          >
-            <div className="text-center">
-              <div className="text-lg font-bold">{sub.table_number}</div>
-              <div className="flex items-center justify-center gap-1 text-xs">
-                <Users size={12} />
-                <span>{sub.capacity} Cap</span>
+        {/* Main Table */}
+        <div className="text-center mb-3">
+          <div className="text-2xl font-bold text-purple-800">{table.table_number}</div>
+          <div className="text-sm text-purple-700 flex items-center justify-center gap-1">
+            <Users size={14} /> {table.capacity} Cap
+          </div>
+        </div>
+
+        {/* Sub Tables Grid */}
+        <div className="grid grid-cols-2 gap-2 mb-4">
+          {table.subTables.map(sub => (
+            <div
+              key={sub.id}
+              className={`p-3 rounded-lg border shadow-sm transition-all duration-150
+                ${getTableColor(sub.current_status || table.current_status)}
+                ${(sub.current_status || table.current_status) === tableStates.available ? "border-dashed" : ""}
+                hover:scale-105
+              `}
+            >
+              <div className="text-center">
+                <div className="text-lg font-bold">{sub.table_number}</div>
+                <div className="flex items-center justify-center gap-1 text-xs">
+                  <Users size={12} />
+                  <span>{sub.capacity} Cap</span>
+                </div>
               </div>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
+
+        {/* Status Control */}
+        <CustomStatusSelect
+          table={table}
+          statusOptions={effectiveStatusOptions}
+          onStatusChange={onStatusChange}
+        />
+
+        {/* Transfer Badges */}
+        {isSourceTable && <div className="absolute top-2 right-2 bg-yellow-500 text-white text-xs px-2 py-1 rounded">Source</div>}
+        {transferPending && !isSourceTable && <div className="absolute top-2 right-2 bg-green-500 text-white text-xs px-2 py-1 rounded">Select</div>}
       </div>
+    );
+  };
 
-      {/* Status Control */}
-      <CustomStatusSelect
-        table={table}
-        statusOptions={statusOptions}
-        onStatusChange={handleStatusChange}
-      />
-
-      {/* Transfer Badges */}
-      {isSourceTable && <div className="absolute top-2 right-2 bg-yellow-500 text-white text-xs px-2 py-1 rounded">Source</div>}
-      {transferPending && !isSourceTable && <div className="absolute top-2 right-2 bg-green-500 text-white text-xs px-2 py-1 rounded">Select</div>}
-    </div>
-  );
-};
-
-
+  // Regular Table Card
   const TableCard = ({ table }) => {
     const transferPending = sessionStorage.getItem("transfer_pending") === "true";
     const sourceTableId = sessionStorage.getItem("transfer_source_table_id");
     const isSourceTable = transferPending && sourceTableId === table.id.toString();
     const { putData: putStatusChange } = usePut();
+
+    // Dynamic status options: Show "Reserved" only if table is available OR already reserved
+    const dynamicStatusOptions = statusOptions.filter(option => {
+      if (option.value === "reserved") {
+        return table.current_status === "available" || table.current_status === "reserved";
+      }
+      return true;
+    });
 
     const handleStatusChange = async (newStatus) => {
       try {
@@ -404,9 +392,14 @@ const MergedTableCard = ({ table }) => {
       }
     };
 
-    // If it's a merged table, use the special merged table card
     if (table.isMerged) {
-      return <MergedTableCard table={table} />;
+      return (
+        <MergedTableCard
+          table={table}
+          statusOptions={dynamicStatusOptions}
+          onStatusChange={handleStatusChange}
+        />
+      );
     }
 
     return (
@@ -430,10 +423,9 @@ const MergedTableCard = ({ table }) => {
             <span>Capacity: {table.capacity}</span>
           </div>
 
-          {/* Custom Status Select */}
           <CustomStatusSelect
             table={table}
-            statusOptions={statusOptions}
+            statusOptions={dynamicStatusOptions}
             onStatusChange={handleStatusChange}
           />
 
@@ -580,8 +572,6 @@ const MergedTableCard = ({ table }) => {
           </div>
         )}
       </div>
-      
-
     </div>
   );
 };
