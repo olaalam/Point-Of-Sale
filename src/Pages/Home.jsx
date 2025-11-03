@@ -141,39 +141,7 @@ toast.success(
     [postData]
   );
 
-  const handleTabChange = useCallback((value) => {
-    let newState = {
-      tabValue: value,
-      orderType: value,
-      tableId: null,
-      deliveryUserId: null,
-      isTransferring: false,
-      transferSourceTableId: state.transferSourceTableId,
-      transferCartIds: state.transferCartIds,
-    };
 
-    if (value === "take_away") {
-      sessionStorage.removeItem("table_id");
-      sessionStorage.removeItem("delivery_user_id");
-      clearTransferData();
-    } else if (value === "dine_in") {
-      newState.tableId = sessionStorage.getItem("table_id");
-      sessionStorage.removeItem("delivery_user_id");
-      if (state.isTransferring) {
-        newState.tableId = null;
-      }
-    } else if (value === "delivery") {
-      newState.deliveryUserId = sessionStorage.getItem("delivery_user_id");
-      sessionStorage.removeItem("table_id");
-      clearTransferData();
-    }
-
-    setState((prevState) => (prevState.tabValue === value ? prevState : newState));
-    sessionStorage.setItem("tab", value);
-    sessionStorage.setItem("order_type", value);
-
-    fetchDiscount();
-  }, [state.transferSourceTableId, state.transferCartIds]);
 
   const handleTableSelect = useCallback((newTableId) => {
     const { isTransferring, transferSourceTableId, transferCartIds } = state;
@@ -222,54 +190,26 @@ toast.success(
     return <OrderPage propOrderType="dine_in" propTableId={state.tableId} />;
   }, [state.isTransferring, state.tableId, handleTableSelect]);
 
-  return (
-    <div className="min-h-screen bg-white flex flex-col items-center py-8">
-      <Tabs value={state.tabValue} onValueChange={handleTabChange} className="w-full">
-        <TabsList className="w-full flex justify-center gap-6 bg-transparent mb-10 p-0 h-auto">
-          <TabsTrigger
-            value="take_away"
-            className="flex-1 max-w-[200px] text-lg font-semibold h-12 rounded-full
-              bg-white text-bg-primary border-2 border-bg-primary
-              data-[state=active]:bg-bg-primary data-[state=active]:text-white
-              data-[state=active]:shadow-lg transition-colors duration-200 cursor_pointer p-8"
-          >
-            {t("take_away")}
-          </TabsTrigger>
-          <TabsTrigger
-            value="delivery"
-            className="flex-1 max-w-[200px] text-lg font-semibold h-12 rounded-full
-              bg-white text-bg-primary border-2 border-bg-primary
-              data-[state=active]:bg-bg-primary data-[state=active]:text-white
-              data-[state=active]:shadow-lg transition-colors duration-200 cursor_pointer p-8"
-          >
-            {t("Delivery")}
-          </TabsTrigger>
-          <TabsTrigger
-            value="dine_in"
-            className="flex-1 max-w-[200px] text-lg font-semibold h-12 rounded-full
-              bg-white text-bg-primary border-2 border-bg-primary
-              data-[state=active]:bg-bg-primary data-[state=active]:text-white
-              data-[state=active]:shadow-lg transition-colors duration-200 cursor_pointer p-8"
-            disabled={transferLoading}
-          >
-            {t("Dinein")}
-          </TabsTrigger>
-        </TabsList>
+return (
+  <div className="min-h-screen bg-white flex flex-col items-center py-8">
+    {/* إزالة الـ Tabs من هنا */}
 
-        <TabsContent value="take_away" className="mt-8 flex flex-col items-center space-y-6">
-          <TakeAway orderType={state.orderType} />
-        </TabsContent>
+    {/* عرض المحتوى بناءً على الـ tab الحالي */}
+    {state.tabValue === "take_away" && (
+      <TakeAway orderType={state.orderType} />
+    )}
 
-        <TabsContent value="delivery">
-          {state.deliveryUserId ? (
-            <OrderPage propOrderType="delivery" propUserId={state.deliveryUserId} onClose={handleClose} />
-          ) : (
-            <Delivery onCustomerSelect={handleDeliveryUserSelect} />
-          )}
-        </TabsContent>
+    {state.tabValue === "delivery" && (
+      <>
+        {state.deliveryUserId ? (
+          <OrderPage propOrderType="delivery" propUserId={state.deliveryUserId} onClose={handleClose} />
+        ) : (
+          <Delivery onCustomerSelect={handleDeliveryUserSelect} />
+        )}
+      </>
+    )}
 
-        <TabsContent value="dine_in">{dineInContent}</TabsContent>
-      </Tabs>
-    </div>
-  );
+    {state.tabValue === "dine_in" && dineInContent}
+  </div>
+);
 }

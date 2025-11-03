@@ -142,7 +142,7 @@ navigate("/delivery-order", {
   
   return (
     <div className={`bg-gray-100 min-h-screen ${!searchQuery && filteredusers.length === 0 ? "flex items-center justify-center" : ""}`}>
-      <div className="max-w-6xl mx-auto px-6 py-3">
+      <div className="w-full mx-auto px-6 py-3">
         {/* Search and Add User */}
         <div className="flex gap-2 items-center my-6">
           <Input

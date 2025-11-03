@@ -1,35 +1,29 @@
-import React, { useState, useEffect } from "react";
+// Navbar.js (بعد التعديل)
+import React from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { usePost } from "@/Hooks/usePost";
 import { useShift } from "@/context/ShiftContext";
 import { toast } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
 import { FaUserCircle, FaUsers } from "react-icons/fa";
-import { useTranslation } from "react-i18next"; // ⬅️ إضافة جديدة
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useTranslation } from "react-i18next";
 
 export default function Navbar() {
   const navigate = useNavigate();
   const location = useLocation();
   const { postData } = usePost();
   const { isShiftOpen, shiftStartTime } = useShift();
-  const [currentTime, setCurrentTime] = useState(new Date());
-  const { t, i18n } = useTranslation()
-  const [language, setLanguage] = useState(i18n.language || "en");
+  const [currentTime, setCurrentTime] = React.useState(new Date());
+  const { t } = useTranslation();
 
-  useEffect(() => {
+  const currentTab = sessionStorage.getItem("tab") || "take_away";
+
+  React.useEffect(() => {
     if (isShiftOpen) {
       const timer = setInterval(() => setCurrentTime(new Date()), 1000);
       return () => clearInterval(timer);
     }
   }, [isShiftOpen]);
-
-const toggleLanguage = () => {
-  const newLang = language === "en" ? "ar" : "en"; // ⬅️ عرّفيه الأول
-  i18n.changeLanguage(newLang);
-  setLanguage(newLang);
-  localStorage.setItem("language", newLang); // ⬅️ بعد التعريف
-  document.body.dir = newLang === "ar" ? "rtl" : "ltr";
-};
 
   const checkShiftStatus = () => {
     if (isShiftOpen !== undefined) return isShiftOpen;
@@ -62,8 +56,13 @@ const toggleLanguage = () => {
     }
   };
 
-  const handleCloseShift = () => navigate("/shift?action=close");
-  const handleDueUsers = () => navigate("/due");
+  const handleCloseShift = () => {
+    navigate("/shift?action=close");
+  };
+
+  const handleDueUsers = () => {
+    navigate("/due");
+  };
 
   const formatElapsedTime = () => {
     const start = shiftStartTime || sessionStorage.getItem("shift_start_time");
@@ -77,82 +76,111 @@ const toggleLanguage = () => {
       .padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
   };
 
+  const handleTabChange = (value) => {
+    sessionStorage.setItem("tab", value);
+    sessionStorage.setItem("order_type", value);
+    if (value === "take_away") {
+      sessionStorage.removeItem("table_id");
+      sessionStorage.removeItem("delivery_user_id");
+    } else if (value === "dine_in") {
+      sessionStorage.removeItem("delivery_user_id");
+    } else if (value === "delivery") {
+      sessionStorage.removeItem("table_id");
+    }
+    navigate("/", { replace: true });
+  };
+
   return (
     <div className="text-gray-800 px-4 py-2 md:px-6 mb-6 w-full z-50 bg-white shadow-md">
-      <div className="relative flex items-center justify-between">
-        {/* Left section (Back + Profile) */}
-        <div className="flex items-center space-x-2">
-          {location.pathname !== "/shift" &&
-            location.pathname !== "/cashier" && (
-              <button
-                onClick={() => navigate(-1)}
-                className="font-bold text-center px-1 pb-1 hover:bg-red-200 cursor-pointer hover:text-gray-800 rounded bg-bg-primary text-4xl text-white transition-colors duration-200"
-                title="Go back"
-              >
-                ←
-              </button>
-            )}
-
-          {/* Profile */}
+      <div className="flex items-center justify-between gap-4">
+        {/* القسم الأيسر */}
+        <div className="flex items-center gap-2">
+          {location.pathname !== "/shift" && location.pathname !== "/cashier" && (
+            <button
+              onClick={() => navigate(-1)}
+              className="font-bold text-center px-1 pb-1 hover:bg-red-200 cursor-pointer hover:text-gray-800 rounded bg-bg-primary text-3xl text-white transition-colors duration-200"
+              title="Go back"
+            >
+              ←
+            </button>
+          )}
           <button
             onClick={() => navigate("/profile")}
-            className="text-gray-600 hover:text-[#910000] transition-colors duration-200"
-            title={t("profile")}
+            className="text-gray-600 hover:text-[#910000]"
           >
             <FaUserCircle className="text-2xl md:text-3xl" />
           </button>
-
-          {/* Due Users */}
           <button
             onClick={handleDueUsers}
-            className="text-gray-600 hover:text-[#910000] transition-colors duration-200"
-            title={t("dueUsers")}
+            className="text-gray-600 hover:text-[#910000]"
           >
             <FaUsers className="text-2xl md:text-3xl" />
           </button>
 
-          {/* 🌐 Language Switcher */}
-          <button
-            onClick={toggleLanguage}
-            className="bg-gray-200 text-gray-800 px-2 py-1 rounded-md text-xs font-semibold hover:bg-gray-300 transition duration-300"
-          >
-            {language === "en" ? "AR" : "EN"}
-          </button>
+          {/* التابات جمبهم */}
+          <Tabs value={currentTab} onValueChange={handleTabChange}>
+            <TabsList className="flex gap-2 bg-transparent p-0 ml-2">
+              <TabsTrigger
+                value="take_away"
+                className="px-3 py-1 text-sm font-semibold rounded-full
+                  bg-white text-bg-primary border border-bg-primary
+                  data-[state=active]:bg-bg-primary data-[state=active]:text-white
+                  transition-colors duration-200"
+              >
+                {t("take_away")}
+              </TabsTrigger>
+              <TabsTrigger
+                value="delivery"
+                className="px-3 py-1 text-sm font-semibold rounded-full
+                  bg-white text-bg-primary border border-bg-primary
+                  data-[state=active]:bg-bg-primary data-[state=active]:text-white
+                  transition-colors duration-200"
+              >
+                {t("Delivery")}
+              </TabsTrigger>
+              <TabsTrigger
+                value="dine_in"
+                className="px-3 py-1 text-sm font-semibold rounded-full
+                  bg-white text-bg-primary border border-bg-primary
+                  data-[state=active]:bg-bg-primary data-[state=active]:text-white
+                  transition-colors duration-200"
+              >
+                {t("Dinein")}
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
         </div>
 
-        {/* Title */}
-        <h1 className="text-lg md:text-xl font-bold text-[#910000] text-center absolute left-1/2 transform -translate-x-1/2 whitespace-nowrap">
-          {t("title")}
+        {/* العنوان */}
+        <h1 className="text-lg md:text-xl font-bold text-[#910000] text-center">
+          Food2go
         </h1>
 
-        {/* Right Section */}
-        <div className="flex items-center space-x-2">
-          {location.pathname !== "/shift" &&
-            location.pathname !== "/cashier" && (
-              <>
-                <div className="flex items-center text-xs md:text-sm font-medium text-gray-600">
-                  <span className="text-gray-500 mr-1 hidden sm:inline">
-                    {t("shift")}:
-                  </span>
-                  <span className="bg-gray-100 px-2 py-1 rounded-md text-gray-800 text-xs md:text-sm">
-                    {formatElapsedTime()}
-                  </span>
-                </div>
-
-                <button
-                  onClick={handleCloseShift}
-                  className="bg-[#910000] text-white px-3 py-1 md:px-4 md:py-2 rounded-md text-xs md:text-sm font-semibold hover:bg-red-700 transition duration-300"
-                >
-                  {t("closeShift")}
-                </button>
-              </>
-            )}
-
+        {/* القسم الأيمن */}
+        <div className="flex items-center gap-2">
+          {location.pathname !== "/shift" && location.pathname !== "/cashier" && (
+            <>
+              <div className="flex items-center text-xs md:text-sm font-medium text-gray-600">
+                <span className="text-gray-500 mr-1 hidden sm:inline">Shift:</span>
+                <span className="bg-gray-100 px-2 py-1 rounded-md text-gray-800 text-xs md:text-sm">
+                  {formatElapsedTime()}
+                </span>
+              </div>
+              <button
+                onClick={handleCloseShift}
+                className="bg-[#910000] text-white px-3 py-1 md:px-4 md:py-2 rounded-md text-xs md:text-sm font-semibold hover:bg-red-700"
+              >
+                <span className="hidden md:inline">Close Shift</span>
+                <span className="md:hidden">Close</span>
+              </button>
+            </>
+          )}
           <button
             onClick={handleLogout}
-            className="bg-gray-200 text-gray-800 px-3 py-1 md:px-4 md:py-2 rounded-md text-xs md:text-sm font-semibold hover:bg-gray-300 transition duration-300"
+            className="bg-gray-200 text-gray-800 px-3 py-1 md:px-4 md:py-2 rounded-md text-xs md:text-sm font-semibold hover:bg-gray-300"
           >
-            {t("logout")}
+            <span className="hidden sm:inline">Logout</span>
+            <span className="sm:hidden">Exit</span>
           </button>
         </div>
       </div>
