@@ -7,7 +7,7 @@ import OrderPage from "./OrderPage";
 import { usePost } from "@/Hooks/usePost";
 import { useLocation } from "react-router-dom";
 import { toast } from "react-toastify";
-
+import { useTranslation } from "react-i18next"; 
 const getInitialState = () => {
   const storedOrderType = sessionStorage.getItem("order_type") || "take_away";
   const storedTab = sessionStorage.getItem("tab") || storedOrderType;
@@ -35,6 +35,7 @@ const clearTransferData = () => {
 };
 
 export default function Home() {
+      const { t, i18n } = useTranslation()
   const location = useLocation();
   const [state, setState] = useState(getInitialState);
 
@@ -78,7 +79,7 @@ export default function Home() {
       sessionStorage.setItem("discount_data", JSON.stringify(discountData));
     } catch (error) {
       console.error("Error fetching discount:", error);
-      toast.error("Failed to fetch discount data.");
+      toast.error(t("Failedtofetchdiscountdata"));
       sessionStorage.setItem("discount_data", JSON.stringify({ discount: 0, module: [] }));
     }
   }, [postData]);
@@ -90,7 +91,7 @@ export default function Home() {
   const runTransferAPI = useCallback(
     async (newTableId, sourceTableId, cartIds) => {
       if (!newTableId || !sourceTableId || !cartIds || cartIds.length === 0) {
-        toast.error("Incomplete transfer data. Cannot complete transfer.");
+        toast.error(t("IncompletetransferdataCannotcompletetransfer"));
         clearTransferData();
         return;
       }
@@ -105,7 +106,12 @@ export default function Home() {
       try {
         console.log("Starting Transfer API call...", { sourceTableId, newTableId, cartIds });
         await postData("cashier/complete_transfer_order", formData);
-        toast.success(`Order transferred successfully from table ${sourceTableId} to table ${newTableId}.`);
+toast.success(
+  t("Order transferred successfully from table {{sourceTableId}} to table {{newTableId}}.", {
+    sourceTableId,
+    newTableId
+  })
+);
         clearTransferData();
         setState((prevState) => ({
           ...prevState,
@@ -121,7 +127,7 @@ export default function Home() {
         const errorMessage =
           error.response?.data?.message ||
           error.response?.data?.exception ||
-          "Failed to complete transfer. Please try again.";
+          t("FailedtocompletetransferPleasetryagain");
         toast.error(errorMessage);
         clearTransferData();
         setState((prevState) => ({
@@ -227,7 +233,7 @@ export default function Home() {
               data-[state=active]:bg-bg-primary data-[state=active]:text-white
               data-[state=active]:shadow-lg transition-colors duration-200 cursor_pointer p-8"
           >
-            TakeAway
+            {t("take_away")}
           </TabsTrigger>
           <TabsTrigger
             value="delivery"
@@ -236,7 +242,7 @@ export default function Home() {
               data-[state=active]:bg-bg-primary data-[state=active]:text-white
               data-[state=active]:shadow-lg transition-colors duration-200 cursor_pointer p-8"
           >
-            Delivery
+            {t("Delivery")}
           </TabsTrigger>
           <TabsTrigger
             value="dine_in"
@@ -246,7 +252,7 @@ export default function Home() {
               data-[state=active]:shadow-lg transition-colors duration-200 cursor_pointer p-8"
             disabled={transferLoading}
           >
-            Dine In
+            {t("Dinein")}
           </TabsTrigger>
         </TabsList>
 

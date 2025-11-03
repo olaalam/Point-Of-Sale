@@ -13,7 +13,7 @@ export default function Navbar() {
   const { postData } = usePost();
   const { isShiftOpen, shiftStartTime } = useShift();
   const [currentTime, setCurrentTime] = useState(new Date());
-  const { t, i18n } = useTranslation(); // ⬅️ تفعيل الترجمة
+  const { t, i18n } = useTranslation()
   const [language, setLanguage] = useState(i18n.language || "en");
 
   useEffect(() => {

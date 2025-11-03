@@ -25,7 +25,7 @@ import {
   statusOrder,
 } from "./constants";
 import { renderItemVariations } from "@/lib/utils";
-
+import { useTranslation } from "react-i18next";
 /**
  * @typedef {object} OrderItem
  * @property {string} temp_id - Temporary unique ID for the item.
@@ -69,6 +69,7 @@ export default function Card({
   const [managerId, setManagerId] = useState("");
   const [managerPassword, setManagerPassword] = useState("");
   const [showClearAllConfirm, setShowClearAllConfirm] = useState(false);
+  const { t, i18n } = useTranslation()
 
   // Offers States
   const [showOfferModal, setShowOfferModal] = useState(false);
@@ -177,13 +178,13 @@ export default function Card({
     sessionStorage.removeItem("cart");
     setSelectedItems([]);
     setSelectedPaymentItems([]);
-    toast.success("All items cleared from the order.");
+    toast.success(t("Allitemsclearedfromtheorder"));
   };
 
   // Handle save as pending order
   const handleSaveAsPending = async () => {
     if (orderItems.length === 0) {
-      toast.warning("No items to save as pending.");
+      toast.warning(t("Noitemstosaveaspending"));
       return;
     }
 
@@ -248,7 +249,7 @@ export default function Card({
       return {
         product_id: item.id.toString(),
         count: item.count.toString(),
-        note: (item.notes || "").trim() || "No special instructions", // ✅ تم التصحيح هنا
+        note: (item.notes || "").trim() || t("Nospecialinstructions"), // ✅ تم التصحيح هنا
         addons: addonItems,
         variation: groupedVariations,
         exclude_id: (item.selectedExcludes || []).map((id) => id.toString()),
@@ -282,19 +283,19 @@ export default function Card({
         headers,
       });
 
-      toast.success("Order saved as pending!");
+      toast.success(t("Ordersavedaspending"));
       clearCart();
       navigate("/pending-orders");
     } catch (e) {
       console.error("Pending order error:", e);
-      toast.error(e.response?.data?.message || "Failed to save as pending.");
+      toast.error(e.response?.data?.message || t("Failedtosaveaspending"));
     }
   };
 
   // Offers Functions
   const handleApplyOffer = async () => {
     if (!offerCode.trim()) {
-      toast.warning("Please enter an offer code.");
+      toast.warning(t("Pleaseenteranoffercode"));
       return;
     }
 
@@ -318,7 +319,7 @@ export default function Card({
           offerInfo?.points || appliedOfferDetails.points || 0;
 
         if (productName) {
-          toast.success("Offer validated successfully! Please confirm.");
+          toast.success(t("OffervalidatedsuccessfullyPleaseconfirm"));
           setPendingOfferApproval({
             offer_order_id: appliedOfferDetails.id,
             user_id: appliedOfferDetails.user_id,
@@ -327,22 +328,22 @@ export default function Card({
           });
           setShowOfferModal(false);
         } else {
-          toast.error("Offer details are incomplete in the response.");
+          toast.error(t("Offerdetailsareincompleteintheresponse"));
         }
       } else {
         console.error(
           "❌ Failed check - appliedOfferDetails:",
           appliedOfferDetails
         );
-        toast.error("Offer details are incomplete in the response.");
+        toast.error(t("Offerdetailsareincompleteintheresponse"));
       }
     } catch (err) {
       if (err.response?.status === 404 || err.response?.status === 400) {
         toast.error(
-          err.response?.data?.message || "Invalid or expired offer code."
+          err.response?.data?.message || t("Failedtofetchdiscountdata")
         );
       } else {
-        toast.error("Failed to validate offer. Please try again.");
+        toast.error(t("FailedtovalidateofferPleasetryagain"));
       }
     }
   };
@@ -360,7 +361,7 @@ export default function Card({
       const response = await postData("cashier/offer/approve_offer", formData);
       if (response?.success) {
         toast.success(
-          `Reward item "${product}" successfully added to the order!`
+  t("RewardAdded", { product })
         );
         const freeItem = {
           temp_id: `reward-${Date.now()}-${Math.random()
@@ -377,13 +378,13 @@ export default function Card({
         setPendingOfferApproval(null);
         setOfferCode("");
       } else {
-        toast.error(response.message || "Failed to approve offer.");
+        toast.error(response.message || t("Failedtoapproveoffer"));
       }
     } catch (err) {
       const errorMessage =
         err.response?.data?.message ||
         err.response?.data?.exception ||
-        "Failed to approve offer.";
+        t("Failedtoapproveoffer");
       toast.error(errorMessage);
     }
   };
@@ -391,7 +392,7 @@ export default function Card({
   // Deals Functions
   const handleApplyDeal = async () => {
     if (!dealCode.trim()) {
-      toast.warning("Please enter a deal code.");
+      toast.warning(t("Pleaseenteradealcode"));
       return;
     }
 
@@ -404,7 +405,7 @@ export default function Card({
       const userDetails = response?.user || response?.data?.user;
 
       if (dealDetails && userDetails) {
-        toast.success("Deal validated successfully! Please confirm.");
+        toast.success(t("DealvalidatedsuccessfullyPleaseconfirm"));
         setPendingDealApproval({
           deal_id: dealDetails.id,
           user_id: userDetails.id,
@@ -414,13 +415,13 @@ export default function Card({
         });
         setShowDealModal(false);
       } else {
-        toast.error("Unexpected response from server or invalid deal.");
+        toast.error(t("Unexpectedresponsefromserverorinvaliddeal"));
       }
     } catch (err) {
       const errorMessage =
         err.response?.data?.message ||
         err.response?.data?.exception ||
-        "Failed to apply deal. Please try again.";
+        t("FailedtoapplydealPleasetryagain");
       toast.error(errorMessage);
     }
   };
@@ -430,7 +431,7 @@ export default function Card({
 
     const { deal_id, user_id, deal_title, deal_price } = pendingDealApproval;
 
-    toast.success(`Deal "${deal_title}" successfully added to the order!`);
+  t("DealAdded", { deal_title })
     const dealItem = {
       temp_id: `deal-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       id: deal_id,
@@ -449,7 +450,7 @@ export default function Card({
 
   const handleTransferOrder = () => {
     if (!tableId || allCartIds.length === 0) {
-      toast.error("Cannot transfer order: Table ID or Cart IDs are missing.");
+      toast.error(t("CannottransferorderTableIDorCartIDsaremissing"));
       return;
     }
 
@@ -458,7 +459,7 @@ export default function Card({
     sessionStorage.setItem("transfer_source_table_id", tableId.toString());
     sessionStorage.setItem("transfer_pending", "true");
 
-    toast.info("Please select a new table to transfer the order.");
+    toast.info(t("Pleaseselectanewtabletotransfertheorder"));
 
     // Navigate مع state واضح
     navigate("/", {
@@ -481,14 +482,14 @@ export default function Card({
     );
     if (!itemTempId) {
       console.error("itemTempId is undefined, cannot proceed with update.");
-      toast.error("Failed to identify the item to update.");
+      toast.error(t("Failedtoidentifytheitemtoupdate"));
       return;
     }
 
     const itemToUpdate = orderItems.find((item) => item.temp_id === itemTempId);
     if (!itemToUpdate || !itemToUpdate.cart_id || !tableId) {
       console.error("Missing required data:", { itemToUpdate, tableId });
-      toast.error("Missing required data to update item status.");
+      toast.error(t("Missingrequireddatatoupdateitemstatus"));
       return;
     }
 
@@ -496,7 +497,7 @@ export default function Card({
     const nextStatus = PREPARATION_STATUSES[currentStatus]?.nextStatus;
     if (!nextStatus || !PREPARATION_STATUSES[nextStatus]?.canSendToAPI) {
       console.warn("Cannot update to next status:", nextStatus);
-      toast.info("Status cannot be updated via API at this time.");
+      toast.info(t("StatuscannotbeupdatedviaAPIatthistime"));
       return;
     }
 
@@ -542,14 +543,14 @@ export default function Card({
         );
       } else {
         console.error("Update failed to apply to the target item.");
-        toast.error("Failed to apply the status update locally.");
+        toast.error(t("Failedtoapplythestatusupdatelocally"));
       }
     } catch (err) {
       console.error("Error updating status:", err);
       const errorMessage =
         err.response?.data?.message ||
         err.response?.data?.exception ||
-        "Failed to update status.";
+        t("Failedtoupdatestatus");
       toast.error(errorMessage);
     } finally {
       setItemLoadingStates((prev) => ({ ...prev, [itemTempId]: false }));
@@ -567,8 +568,7 @@ export default function Card({
     if (!itemToVoid?.cart_id || !tableId || !managerId || !managerPassword) {
       setTimeout(() => {
         toast.error(
-          "Please fill in all required fields: Manager ID and Password."
-        );
+t("PleasefillinallrequiredfieldsManagerIDandPassword")        );
       }, 100);
       return;
     }
@@ -599,7 +599,7 @@ export default function Card({
 
       // إظهار toast نجاح
       setTimeout(() => {
-        toast.success("Item voided successfully!");
+        toast.success(t("Itemvoidedsuccessfully"));
       }, 100);
 
       // إغلاق المودال فقط عند النجاح
@@ -629,15 +629,15 @@ export default function Card({
         } else if (data?.error) {
           errorMessage = data.error;
         } else if ([401, 403, 400].includes(status)) {
-          errorMessage = "Invalid Manager ID or Password. Access denied.";
+          errorMessage = t("InvalidManagerIDorPasswordAccessdenied");
         } else {
           errorMessage = `Server error (${status})`;
         }
       } else if (err.request) {
         errorMessage =
-          "No response from server. Check your internet connection.";
+          t("NoresponsefromserverCheckyourinternetconnection");
       } else {
-        errorMessage = err.message || "An unexpected error occurred.";
+        errorMessage = err.message || t("Anunexpectederroroccurred");
       }
 
       // إظهار الـ toast مهما كان (حتى لو الـ container اتحمل متأخر)
@@ -678,7 +678,7 @@ export default function Card({
 
   const handleCheckOut = () => {
     if (orderType === "dine_in" && selectedPaymentItems.length === 0) {
-      toast.warning("Please select items to pay for from the done items list.");
+      toast.warning(t("Pleaseselectitemstopayforfromthedoneitemslist"));
       return;
     }
     setShowModal(true);
@@ -717,7 +717,7 @@ export default function Card({
   const applyBulkStatus = async () => {
     if (!bulkStatus || selectedItems.length === 0 || !tableId) {
       toast.warning(
-        "Please select items, choose a status, and ensure a Table ID is set."
+        t('PleaseselectitemschooseastatusandensureaTableIDisset')
       );
       return;
     }
@@ -734,7 +734,7 @@ export default function Card({
 
     if (itemsToUpdate.length === 0) {
       console.warn("No valid items to update");
-      toast.warning("No valid items to update.");
+      toast.warning(t("Novaliditemstoupdate"));
       return;
     }
 
@@ -763,14 +763,16 @@ export default function Card({
         );
       } catch (err) {
         console.error("Bulk update error:", err);
-        toast.error(err.response?.data?.message || "Failed to update status.");
+        toast.error(err.response?.data?.message || t("Failedtoupdatestatus"));
         return;
       }
     } else {
       console.warn("No items sent to API, updating locally");
       toast.info(
-        `Status updated to ${PREPARATION_STATUSES[bulkStatus]?.label} locally.`
-      );
+t("BulkUpdateSuccess", {
+    count: itemsForApi.length,
+    status: PREPARATION_STATUSES[bulkStatus].label
+  })      );
     }
 
     const updatedItems = orderItems.map((item) =>
@@ -786,12 +788,12 @@ export default function Card({
   const handleRemoveFrontOnly = (temp_id) => {
     const updatedItems = orderItems.filter((item) => item.temp_id !== temp_id);
     updateOrderItems(updatedItems);
-    toast.success("Item removed successfully");
+    toast.success(t("Itemremovedsuccessfully"));
   };
 
   const handleClearAllItems = () => {
     if (orderItems.length === 0) {
-      toast.warning("No items to clear.");
+      toast.warning(t("Noitemstoclear"));
       return;
     }
     setShowClearAllConfirm(true);
@@ -809,7 +811,7 @@ export default function Card({
     <div className="flex flex-col h-full">
       <div className="flex-shrink-0">
         <h2 className="text-bg-primary text-3xl font-bold mb-6">
-          Order Details
+          {t("OrderDetails")}
         </h2>
         <div className="!p-4 flex md:flex-row flex-col gap-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-grow">
@@ -818,28 +820,28 @@ export default function Card({
               className="bg-bg-primary text-white hover:bg-red-700 text-sm flex items-center justify-center gap-2 py-4"
               disabled={isLoading || orderItems.length === 0}
             >
-              Clear All Items ({orderItems.length || 0})
+              {t("ClearAllItems")} ({orderItems.length || 0})
             </Button>
             <Button
               onClick={handleViewOrders}
               className="bg-gray-500 text-white hover:bg-gray-600 text-sm py-4"
               disabled={isLoading}
             >
-              View Orders
+              {t("ViewOrders")}
             </Button>
             <Button
               onClick={() => setShowOfferModal(true)}
               className="bg-green-600 text-white hover:bg-green-700 text-sm py-4"
               disabled={isLoading}
             >
-              Apply Offer (Points)
+              {t("ApplyOffer")}
             </Button>
             <Button
               onClick={() => setShowDealModal(true)}
               className="bg-orange-600 text-white hover:bg-orange-700 text-sm py-4"
               disabled={isLoading}
             >
-              Apply Deal
+              {t("ApplyDeal")}
             </Button>
           </div>
           {orderType === "take_away" && (
@@ -848,7 +850,7 @@ export default function Card({
                 onClick={handleViewPendingOrders}
                 className="bg-yellow-600 text-white hover:bg-yellow-500 text-sm px-6 py-4 md:h-full w-full md:w-36"
               >
-                Pending Orders
+                {t("PendingOrders")}
               </Button>
             </div>
           )}
@@ -886,14 +888,14 @@ export default function Card({
               className="bg-bg-primary text-white hover:bg-red-700 text-sm"
               disabled={selectedItems.length === 0 || !bulkStatus || isLoading}
             >
-              Apply Status ({selectedItems.length} selected)
+  {t("ApplyStatus", { count: selectedItems.length })}
             </Button>
             <Button
               onClick={handleTransferOrder}
               className="bg-red-700 text-white hover:bg-bg-primary text-sm flex items-center gap-1"
               disabled={isLoading || allCartIds.length === 0}
             >
-              Change Table
+              {t("ChangeTable")}
             </Button>
           </div>
         )}
@@ -909,24 +911,24 @@ export default function Card({
           <div className="fixed inset-0 bg-gray-500/50 flex items-center justify-center z-50">
             <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full mx-4">
               <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                Confirm Clear All Items
+                {t("ConfirmClearAllItems")}
               </h3>
               <p className="text-gray-600 mb-6">
-                Are you sure you want to remove all {orderItems?.length || 0}{" "}
-                items? This action cannot be undone.
+           {t("ConfirmRemoveAll", { count: orderItems?.length || 0 })}
+
               </p>
               <div className="flex justify-end gap-3">
                 <Button
                   onClick={() => setShowClearAllConfirm(false)}
                   variant="outline"
                 >
-                  Cancel
+                  {t("Cancel")}
                 </Button>
                 <Button
                   onClick={confirmClearAllItems}
                   className="bg-red-600 text-white hover:bg-red-700"
                 >
-                  Clear All Items
+                  {t("ClearAllItems")}
                 </Button>
               </div>
             </div>
@@ -949,29 +951,29 @@ export default function Card({
                   </th>
                 )}
                 <th className="py-3 px-4 text-center text-gray-600 font-semibold">
-                  Item
+                  {t("Item")}
                 </th>
                 <th className="py-3 px-4 text-center text-gray-600 font-semibold">
-                  Price
+                  {t("Price")}
                 </th>
                 <th className="py-3 px-4 text-center text-gray-600 font-semibold">
-                  Quantity
+                  {t("Quantity")}
                 </th>
                 {orderType === "dine_in" && (
                   <th className="py-3 px-4 text-center text-gray-600 font-semibold">
-                    Preparation
+                    {t("Preparation")}
                   </th>
                 )}
                 {orderType === "dine_in" && (
                   <th className="py-3 px-4 text-center text-gray-600 font-semibold">
-                    Pay
+                    {t("Pay")}
                   </th>
                 )}
                 <th className="py-3 px-4 text-right text-gray-600 font-semibold">
-                  Total
+                  {t("Total")}
                 </th>
                 <th className="py-3 px-4 text-right text-gray-600 font-semibold">
-                  Void
+                  {t("Void")}
                 </th>
               </tr>
             </thead>
@@ -982,7 +984,7 @@ export default function Card({
                     colSpan={orderType === "dine_in" ? 8 : 6}
                     className="text-center py-4 text-gray-500"
                   >
-                    No items found for this order.
+<p>{t("NoItemsFound")}</p>
                   </td>
                 </tr>
               ) : (
@@ -1032,26 +1034,26 @@ export default function Card({
         {orderType === "dine_in" && (
           <>
             <div className="grid grid-cols-2 gap-4 items-center mb-4">
-              <p className="text-gray-600">Total Order Amount:</p>
+              <p className="text-gray-600">{t("TotalOrderAmount")}:</p>
               <p className="text-right text-lg font-semibold">
-                {totalAmountDisplay.toFixed(2)} EGP
+                {totalAmountDisplay.toFixed(2)} {t('EGP')}
               </p>
             </div>
             <div className="grid grid-cols-2 gap-4 items-center mb-4">
               <p className="text-gray-600">
-                Selected Items ({selectedPaymentItems.length}):
+<p>{t("SelectedItems", { count: selectedPaymentItems.length })}</p>
               </p>
               <p className="text-right text-lg font-semibold text-green-600">
-                {amountToPay.toFixed(2)} EGP
+                {amountToPay.toFixed(2)} {t("EGP")}
               </p>
             </div>
             <hr className="my-4 border-t border-gray-300" />
           </>
         )}
         <div className="grid grid-cols-2 gap-4 items-center mb-6">
-          <p className="text-bg-primary text-xl font-bold">Amount To Pay:</p>
+          <p className="text-bg-primary text-xl font-bold">{t("AmountToPay")}</p>
           <p className="text-right text-2xl font-bold text-green-700">
-            {amountToPay.toFixed(2)} EGP
+            {amountToPay.toFixed(2)} {t("EGP")}
           </p>
         </div>
         <div className="flex justify-center gap-4">
@@ -1064,7 +1066,7 @@ export default function Card({
               (orderType === "dine_in" && selectedPaymentItems.length === 0)
             }
           >
-            Checkout
+            {t("Checkout")}
           </Button>
           {orderType === "take_away" && (
             <Button
@@ -1072,7 +1074,7 @@ export default function Card({
               className="bg-orange-600 text-white hover:bg-orange-700 text-lg px-8 py-3"
               disabled={isLoading || orderItems.length === 0}
             >
-              Save as Pending
+              {t("SaveasPending")}
             </Button>
           )}
         </div>
@@ -1107,10 +1109,11 @@ export default function Card({
         <div className="fixed inset-0 bg-gray-500/50 flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full mx-4">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">
-              Apply Offer / Use Points
+  {t("ApplyOfferUsePoints")}
+
             </h3>
             <p className="text-gray-600 mb-6">
-              Enter the customer's loyalty code or the reward item code.
+{t("EnterLoyaltyOrRewardCode")}
             </p>
             <Input
               type="text"
@@ -1129,14 +1132,14 @@ export default function Card({
                 variant="outline"
                 disabled={isLoading}
               >
-                Cancel
+                {t("Cancel")}
               </Button>
               <Button
                 onClick={handleApplyOffer}
                 className="bg-bg-primary text-white hover:bg-red-700"
                 disabled={isLoading || !offerCode.trim()}
               >
-                {isLoading ? <Loading /> : "Check Code"}
+                {isLoading ? <Loading /> : t("CheckCode")}
               </Button>
             </div>
           </div>
@@ -1146,14 +1149,16 @@ export default function Card({
         <div className="fixed inset-0 bg-gray-500/50 flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full mx-4">
             <h3 className="text-lg font-semibold text-bg-primary mb-4">
-              Confirm Reward Purchase
+              {t("ConfirmRewardPurchase")}
             </h3>
             <p className="text-gray-700 mb-2 font-medium">
-              User ID : **{pendingOfferApproval.user_id}**
+              {t("UserID")}: **{pendingOfferApproval.user_id}**
             </p>
             <p className="text-gray-700 mb-6">
-              Confirm adding ({pendingOfferApproval.product}) to the order for (
-              {pendingOfferApproval.points} Points)?
+               {t("ConfirmAddOffer", {
+    product: pendingOfferApproval.product,
+    points: pendingOfferApproval.points,
+  })}
             </p>
             <div className="flex justify-end gap-3">
               <Button
@@ -1164,14 +1169,14 @@ export default function Card({
                 variant="outline"
                 disabled={isLoading}
               >
-                Cancel
+                {t("Cancel")}
               </Button>
               <Button
                 onClick={handleApproveOffer}
                 className="bg-bg-primary text-white hover:bg-red-700"
                 disabled={isLoading}
               >
-                {isLoading ? <Loading /> : "Approve and Add Item"}
+                {isLoading ? <Loading /> : t("ApproveandAddItem")}
               </Button>
             </div>
           </div>
@@ -1181,10 +1186,10 @@ export default function Card({
         <div className="fixed inset-0 bg-gray-500/50 flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full mx-4">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">
-              Apply Deal Code
+              {t("ApplyDealCode")}
             </h3>
             <p className="text-gray-600 mb-6">
-              Enter the customer's deal code to check validity.
+<p>{t("EnterDealCode")}</p>
             </p>
             <Input
               type="text"
@@ -1203,14 +1208,14 @@ export default function Card({
                 variant="outline"
                 disabled={isLoading}
               >
-                Cancel
+                {t('Cancel')}
               </Button>
               <Button
                 onClick={handleApplyDeal}
                 className="bg-orange-600 text-white hover:bg-orange-700"
                 disabled={isLoading || !dealCode.trim()}
               >
-                {isLoading ? <Loading /> : "Check Deal"}
+                {isLoading ? <Loading /> : t("CheckDeal")}
               </Button>
             </div>
           </div>
@@ -1220,14 +1225,16 @@ export default function Card({
         <div className="fixed inset-0 bg-gray-500/50 flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full mx-4">
             <h3 className="text-lg font-semibold text-orange-700 mb-4">
-              Confirm Deal Acceptance
+              {t("ConfirmDealAcceptance")}
             </h3>
             <p className="text-gray-700 mb-2 font-medium">
-              Customer: User ID **{pendingDealApproval.user_id}**
+  {t("CustomerUserId", { user_id: pendingDealApproval.user_id })}
             </p>
             <p className="text-gray-700 mb-6">
-              Confirm adding ({pendingDealApproval.deal_title}) for (
-              {pendingDealApproval.deal_price.toFixed(2)} EGP) to the order?
+ {t("ConfirmAddDeal", {
+    deal_title: pendingDealApproval.deal_title,
+    deal_price: pendingDealApproval.deal_price.toFixed(2),
+  })}
             </p>
             <p className="text-gray-700 mb-6">
               {pendingDealApproval.description || "No description available."}
@@ -1241,7 +1248,7 @@ export default function Card({
                 variant="outline"
                 disabled={isLoading}
               >
-                Cancel
+                {t("Cancel")}
               </Button>
               <Button
                 onClick={handleApproveDeal}
