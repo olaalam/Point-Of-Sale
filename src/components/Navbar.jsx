@@ -4,7 +4,8 @@ import { usePost } from "@/Hooks/usePost";
 import { useShift } from "@/context/ShiftContext";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-import { FaUserCircle, FaUsers } from "react-icons/fa"; // Added FaUsers for DueUsers icon
+import { FaUserCircle, FaUsers } from "react-icons/fa";
+import { useTranslation } from "react-i18next"; // ⬅️ إضافة جديدة
 
 export default function Navbar() {
   const navigate = useNavigate();
@@ -12,6 +13,8 @@ export default function Navbar() {
   const { postData } = usePost();
   const { isShiftOpen, shiftStartTime } = useShift();
   const [currentTime, setCurrentTime] = useState(new Date());
+  const { t, i18n } = useTranslation(); // ⬅️ تفعيل الترجمة
+  const [language, setLanguage] = useState(i18n.language || "en");
 
   useEffect(() => {
     if (isShiftOpen) {
@@ -19,6 +22,14 @@ export default function Navbar() {
       return () => clearInterval(timer);
     }
   }, [isShiftOpen]);
+
+const toggleLanguage = () => {
+  const newLang = language === "en" ? "ar" : "en"; // ⬅️ عرّفيه الأول
+  i18n.changeLanguage(newLang);
+  setLanguage(newLang);
+  localStorage.setItem("language", newLang); // ⬅️ بعد التعريف
+  document.body.dir = newLang === "ar" ? "rtl" : "ltr";
+};
 
   const checkShiftStatus = () => {
     if (isShiftOpen !== undefined) return isShiftOpen;
@@ -37,12 +48,10 @@ export default function Navbar() {
 
   const handleLogout = async () => {
     const shiftIsOpen = checkShiftStatus();
-
     if (shiftIsOpen) {
       toast.error("You must close the shift before logging out.");
       return;
     }
-
     try {
       await postData("api/logout", {});
       sessionStorage.clear();
@@ -53,18 +62,12 @@ export default function Navbar() {
     }
   };
 
-  const handleCloseShift = () => {
-    navigate("/shift?action=close");
-  };
-
-  const handleDueUsers = () => {
-    navigate("/due");
-  };
+  const handleCloseShift = () => navigate("/shift?action=close");
+  const handleDueUsers = () => navigate("/due");
 
   const formatElapsedTime = () => {
     const start = shiftStartTime || sessionStorage.getItem("shift_start_time");
     if (!start) return "00:00:00";
-
     const elapsed = Math.floor((currentTime - new Date(start)) / 1000);
     const hours = Math.floor(elapsed / 3600);
     const minutes = Math.floor((elapsed % 3600) / 60);
@@ -90,62 +93,66 @@ export default function Navbar() {
               </button>
             )}
 
-          {/* Profile icon */}
+          {/* Profile */}
           <button
             onClick={() => navigate("/profile")}
             className="text-gray-600 hover:text-[#910000] transition-colors duration-200"
-            title="Profile"
+            title={t("profile")}
           >
             <FaUserCircle className="text-2xl md:text-3xl" />
           </button>
-          {/* DueUsers icon */}
+
+          {/* Due Users */}
           <button
             onClick={handleDueUsers}
             className="text-gray-600 hover:text-[#910000] transition-colors duration-200"
-            title="Due Users"
+            title={t("dueUsers")}
           >
             <FaUsers className="text-2xl md:text-3xl" />
           </button>
+
+          {/* 🌐 Language Switcher */}
+          <button
+            onClick={toggleLanguage}
+            className="bg-gray-200 text-gray-800 px-2 py-1 rounded-md text-xs font-semibold hover:bg-gray-300 transition duration-300"
+          >
+            {language === "en" ? "AR" : "EN"}
+          </button>
         </div>
 
-        {/* Center title */}
+        {/* Title */}
         <h1 className="text-lg md:text-xl font-bold text-[#910000] text-center absolute left-1/2 transform -translate-x-1/2 whitespace-nowrap">
-          Food2go
+          {t("title")}
         </h1>
 
-        {/* Right section */}
+        {/* Right Section */}
         <div className="flex items-center space-x-2">
           {location.pathname !== "/shift" &&
             location.pathname !== "/cashier" && (
               <>
-                {/* Timer always visible */}
                 <div className="flex items-center text-xs md:text-sm font-medium text-gray-600">
                   <span className="text-gray-500 mr-1 hidden sm:inline">
-                    Shift:
+                    {t("shift")}:
                   </span>
                   <span className="bg-gray-100 px-2 py-1 rounded-md text-gray-800 text-xs md:text-sm">
                     {formatElapsedTime()}
                   </span>
                 </div>
 
-                {/* Close shift button */}
                 <button
                   onClick={handleCloseShift}
                   className="bg-[#910000] text-white px-3 py-1 md:px-4 md:py-2 rounded-md text-xs md:text-sm font-semibold hover:bg-red-700 transition duration-300"
                 >
-                  <span className="hidden md:inline">Close Shift</span>
-                  <span className="md:hidden">Close</span>
+                  {t("closeShift")}
                 </button>
               </>
             )}
 
-          {/* Logout button */}
           <button
             onClick={handleLogout}
             className="bg-gray-200 text-gray-800 px-3 py-1 md:px-4 md:py-2 rounded-md text-xs md:text-sm font-semibold hover:bg-gray-300 transition duration-300"
           >
-            <span className="hidden sm:inline">Logout</span>
-            <span className="sm:hidden">Exit</span>
+            {t("logout")}
           </button>
         </div>
       </div>
