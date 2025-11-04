@@ -3,7 +3,7 @@ import Card from "./Card/Card";
 import Item from "./Item";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useGet } from "@/Hooks/useGet";
-import { areProductsEqual } from "./ProductModal"; // ✅ Import the comparison function
+import { areProductsEqual } from "./ProductModal";
 
 export default function OrderPage({
   fetchEndpoint,
@@ -20,7 +20,6 @@ export default function OrderPage({
   const [isLoading, setIsLoading] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [pendingOrderLoaded, setPendingOrderLoaded] = useState(false);
-
   const location = useLocation();
   const navigate = useNavigate();
   const pendingOrder = location.state?.pendingOrder;
@@ -40,15 +39,15 @@ export default function OrderPage({
     isDelivery && currentUserId ? `cashier/delivery_order/${currentUserId}` : null
   );
 
+  // تحميل الطلب المؤقت (take-away)
   useEffect(() => {
     if (pendingOrder && pendingOrder.orderDetails && !pendingOrderLoaded) {
-      console.log("Loading pending order from navigation state:", pendingOrder);
       const mappedItems = pendingOrder.orderDetails.map((detail, index) => ({
         id: detail.product_id || `pending_${index}`,
         temp_id: `pending_${detail.product_id || index}_${Date.now()}`,
         name: detail.product_name || "Unknown Product",
         price: parseFloat(detail.price || 0),
-        originalPrice: parseFloat(detail.price || 0),
+        originalPrice: parseFloat(detail.price || 0), // أضيف دائمًا
         count: parseInt(detail.count || 1),
         selectedVariation: detail.variation_name || null,
         selectedExtras: Array.isArray(detail.addons) ? detail.addons : [],
@@ -60,7 +59,7 @@ export default function OrderPage({
           id: `addon_${addonIndex}_${Date.now()}`,
           name: addon.name || "Unknown Addon",
           price: parseFloat(addon.price || 0),
-          originalPrice: parseFloat(addon.price || 0),
+          originalPrice: parseFloat(addon.price || 0), // أضيف للإضافات
           count: parseInt(addon.count || 1),
           preparation_status: "pending",
         })) : [],
@@ -89,63 +88,67 @@ export default function OrderPage({
     }
   }, [pendingOrder, pendingOrderLoaded, currentOrderType]);
 
+  // dine-in: أضف originalPrice و temp_id
+  useEffect(() => {
+    if (isDineIn && currentTableId && dineInData?.success) {
+      const mappedItems = Array.isArray(dineInData.success)
+        ? dineInData.success.map((item) => ({
+            ...item,
+            originalPrice: item.originalPrice ?? item.price ?? 0,
+            temp_id: item.temp_id || `dinein_${item.id}_${Date.now()}`,
+            count: parseInt(item.count || 1),
+            price: parseFloat(item.price || 0),
+          }))
+        : [];
+
+      setOrdersByTable((prev) => ({
+        ...prev,
+        [currentTableId]: mappedItems,
+      }));
+    }
+  }, [isDineIn, currentTableId, dineInData]);
+
+  // delivery: أضف originalPrice و temp_id
+  useEffect(() => {
+    if (isDelivery && currentUserId && deliveryData?.success) {
+      const mappedItems = Array.isArray(deliveryData.success)
+        ? deliveryData.success.map((item) => ({
+            ...item,
+            originalPrice: item.originalPrice ?? item.price ?? 0,
+            temp_id: item.temp_id || `delivery_${item.id}_${Date.now()}`,
+            count: parseInt(item.count || 1),
+            price: parseFloat(item.price || 0),
+          }))
+        : [];
+
+      setOrdersByUser((prev) => ({
+        ...prev,
+        [currentUserId]: mappedItems,
+      }));
+    }
+  }, [isDelivery, currentUserId, deliveryData]);
+
   const clearOrderData = () => {
-    console.log("Clearing order data...");
     if (currentOrderType === "take_away") {
       setTakeAwayItems([]);
       sessionStorage.removeItem("cart");
       sessionStorage.removeItem("pending_order_info");
     } else if (currentOrderType === "dine_in" && currentTableId) {
-      setOrdersByTable((prev) => ({
-        ...prev,
-        [currentTableId]: [],
-      }));
+      setOrdersByTable((prev) => ({ ...prev, [currentTableId]: [] }));
     } else if (currentOrderType === "delivery" && currentUserId) {
-      setOrdersByUser((prev) => ({
-        ...prev,
-        [currentUserId]: [],
-      }));
+      setOrdersByUser((prev) => ({ ...prev, [currentUserId]: [] }));
       sessionStorage.removeItem("selected_user_id");
       sessionStorage.removeItem("selected_address_id");
     }
   };
 
-  useEffect(() => {
-    if (isDineIn && currentTableId && dineInData?.success) {
-      setOrdersByTable((prev) => ({
-        ...prev,
-        [currentTableId]: Array.isArray(dineInData.success) ? dineInData.success : [],
-      }));
-      console.log("Fetched dine-in order:", dineInData.success);
-    }
-  }, [isDineIn, currentTableId, dineInData]);
-
-  useEffect(() => {
-    if (isDelivery && currentUserId && deliveryData?.success) {
-      setOrdersByUser((prev) => ({
-        ...prev,
-        [currentUserId]: Array.isArray(deliveryData.success) ? deliveryData.success : [],
-      }));
-      console.log("Fetched delivery order:", deliveryData.success);
-    }
-  }, [isDelivery, currentUserId, deliveryData]);
-
   const refreshCartData = async () => {
     try {
       setIsLoading(true);
-      console.log("Refreshing cart data...");
-      if (isDineIn && currentTableId) {
-        if (refetchDineIn) {
-          const dineData = await refetchDineIn();
-          if (!dineData || typeof dineData !== "object") {
-            console.warn("Invalid dine-in response:", dineData);
-            return;
-          }
-        }
-      } else if (isDelivery && currentUserId) {
-        if (refetchDelivery) {
-          await refetchDelivery();
-        }
+      if (isDineIn && currentTableId && refetchDineIn) {
+        await refetchDineIn();
+      } else if (isDelivery && currentUserId && refetchDelivery) {
+        await refetchDelivery();
       } else if (currentOrderType === "take_away") {
         const storedCartString = sessionStorage.getItem("cart");
         if (storedCartString && storedCartString !== "undefined") {
@@ -159,7 +162,6 @@ export default function OrderPage({
         }
       }
       setRefreshTrigger((prev) => prev + 1);
-      console.log("Cart data refreshed successfully");
     } catch (error) {
       console.error("Error refreshing cart data:", error);
     } finally {
@@ -168,40 +170,26 @@ export default function OrderPage({
   };
 
   const currentOrderItems = isDineIn
-    ? Array.isArray(ordersByTable[currentTableId])
-      ? ordersByTable[currentTableId]
-      : []
+    ? ordersByTable[currentTableId] || []
     : isDelivery
-    ? Array.isArray(ordersByUser[currentUserId])
-      ? ordersByUser[currentUserId]
-      : []
-    : Array.isArray(takeAwayItems)
-    ? takeAwayItems
-    : [];
+    ? ordersByUser[currentUserId] || []
+    : takeAwayItems;
 
   const updateOrderItems = (newItems) => {
     const safeNewItems = Array.isArray(newItems) ? newItems : [];
     if (isDineIn) {
-      setOrdersByTable((prev) => ({
-        ...prev,
-        [currentTableId]: safeNewItems,
-      }));
+      setOrdersByTable((prev) => ({ ...prev, [currentTableId]: safeNewItems }));
     } else if (isDelivery) {
-      setOrdersByUser((prev) => ({
-        ...prev,
-        [currentUserId]: safeNewItems,
-      }));
+      setOrdersByUser((prev) => ({ ...prev, [currentUserId]: safeNewItems }));
     } else {
       setTakeAwayItems(safeNewItems);
       sessionStorage.setItem("cart", JSON.stringify(safeNewItems));
     }
   };
 
-  // ✅ Updated handleAddItem with proper duplicate checking
   const handleAddItem = (product, options = {}) => {
     const safeCurrentItems = Array.isArray(currentOrderItems) ? currentOrderItems : [];
-    
-    // Check if we should update an existing item instead of adding new
+
     if (options.updateExisting && options.index !== undefined) {
       const updatedItems = [...safeCurrentItems];
       updatedItems[options.index] = product;
@@ -209,36 +197,25 @@ export default function OrderPage({
       return;
     }
 
-    // ✅ Use areProductsEqual for accurate duplicate detection
-    const existingItemIndex = safeCurrentItems.findIndex((item) =>
-      areProductsEqual(item, product)
-    );
-
+    const existingItemIndex = safeCurrentItems.findIndex((item) => areProductsEqual(item, product));
     let updatedItems = [...safeCurrentItems];
 
     if (existingItemIndex !== -1) {
-      // Product exists - update quantity
       const existingItem = updatedItems[existingItemIndex];
       const newCount = existingItem.count + (product.count || 1);
-      
       updatedItems[existingItemIndex] = {
         ...existingItem,
         count: newCount,
         totalPrice: existingItem.price * newCount,
       };
-      
-      console.log(`Updated quantity for "${product.name}" to ${newCount}`);
     } else {
-      // New product - add to cart
       updatedItems.push({
         ...product,
         count: product.count || 1,
         preparation_status: product.preparation_status || "pending",
       });
-      
-      console.log(`Added new product "${product.name}" to cart`);
     }
-    
+
     updateOrderItems(updatedItems);
   };
 
@@ -276,7 +253,7 @@ export default function OrderPage({
           fetchEndpoint={fetchEndpoint}
           onClose={handleClose}
           refreshCartData={refreshCartData}
-          orderItems={currentOrderItems} // ✅ Pass orderItems to Item component
+          orderItems={currentOrderItems}
         />
       </div>
     </div>

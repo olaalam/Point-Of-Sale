@@ -286,7 +286,6 @@ export default function Card({
 
       toast.success(t("Ordersavedaspending"));
       clearCart();
-      navigate("/pending-orders");
     } catch (e) {
       console.error("Pending order error:", e);
       toast.error(e.response?.data?.message || t("Failedtosaveaspending"));
@@ -819,36 +818,42 @@ t("BulkUpdateSuccess", {
           {t("OrderDetails")}
         </h2>
         <div className="!p-4 flex md:flex-row flex-col gap-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-grow">
-            <Button
-              onClick={handleClearAllItems}
-              className="bg-bg-primary text-white hover:bg-red-700 text-sm flex items-center justify-center gap-2 py-4"
-              disabled={isLoading || orderItems.length === 0}
-            >
-              {t("ClearAllItems")} ({orderItems.length || 0})
-            </Button>
-            <Button
-              onClick={handleViewOrders}
-              className="bg-gray-500 text-white hover:bg-gray-600 text-sm py-4"
-              disabled={isLoading}
-            >
-              {t("ViewOrders")}
-            </Button>
-            <Button
-              onClick={() => setShowOfferModal(true)}
-              className="bg-green-600 text-white hover:bg-green-700 text-sm py-4"
-              disabled={isLoading}
-            >
-              {t("ApplyOffer")}
-            </Button>
-            <Button
-              onClick={() => setShowDealModal(true)}
-              className="bg-orange-600 text-white hover:bg-orange-700 text-sm py-4"
-              disabled={isLoading}
-            >
-              {t("ApplyDeal")}
-            </Button>
-          </div>
+<div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-grow">
+  <Button
+    onClick={handleClearAllItems}
+    className="bg-bg-primary text-white hover:bg-red-700 text-sm flex items-center justify-center gap-2 py-4"
+    disabled={isLoading || orderItems.length === 0}
+  >
+    {t("ClearAllItems")} ({orderItems.length || 0})
+  </Button>
+  <Button
+    onClick={handleViewOrders}
+    className="bg-gray-500 text-white hover:bg-gray-600 text-sm py-4"
+    disabled={isLoading}
+  >
+    {t("ViewOrders")}
+  </Button>
+
+  {/* Show Offer & Deal buttons only if NOT delivery */}
+  {orderType !== "delivery" && (
+    <>
+      <Button
+        onClick={() => setShowOfferModal(true)}
+        className="bg-green-600 text-white hover:bg-green-700 text-sm py-4"
+        disabled={isLoading}
+      >
+        {t("ApplyOffer")}
+      </Button>
+      <Button
+        onClick={() => setShowDealModal(true)}
+        className="bg-orange-600 text-white hover:bg-orange-700 text-sm py-4"
+        disabled={isLoading}
+      >
+        {t("ApplyDeal")}
+      </Button>
+    </>
+  )}
+</div>
           {orderType === "take_away" && (
             <div className="flex md:flex-col flex-row items-stretch justify-center">
               <Button

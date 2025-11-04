@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import Delivery from "./Delivery/Delivery";
 import Dine from "./Dine";
 import TakeAway from "./TakeAway";
@@ -192,7 +191,7 @@ toast.success(
   }, [state.isTransferring, state.tableId, handleTableSelect]);
 
 return (
-  <div className="min-h-screen bg-white flex flex-col items-center py-8">
+  <div className="min-h-screen bg-white flex flex-col items-center ">
     {/* إزالة الـ Tabs من هنا */}
 
     {/* عرض المحتوى بناءً على الـ tab الحالي */}
