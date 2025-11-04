@@ -7,6 +7,7 @@ import "react-toastify/dist/ReactToastify.css";
 import Loading from "@/components/Loading";
 import { CheckCircle, XCircle, User, ArrowRight } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useTranslation } from "react-i18next";
 
 export default function Shift() {
   const [shiftStatus, setShiftStatus] = useState(null);
@@ -15,6 +16,7 @@ export default function Shift() {
   const { openShift, closeShift, isShiftOpen } = useShift();
   const navigate = useNavigate();
   const location = useLocation();
+  const { t, i18n } = useTranslation()
 
   // 🧠 استرجاع بيانات المستخدم
   const userData = sessionStorage.getItem("user");
@@ -42,7 +44,7 @@ export default function Shift() {
       openShift();
       setShiftStatus("Shift is open.");
 
-      toast.success("Shift opened successfully! Redirecting to home...");
+toast.success(t("ShiftOpenedSuccessfully"));
 
       // تنظيف الـ URL من ?action
       const params = new URLSearchParams(location.search);
@@ -62,7 +64,7 @@ export default function Shift() {
       }, 1000);
     } catch (err) {
       console.error("Open shift error:", err);
-      toast.error(err?.response?.data?.message || "Failed to open shift.");
+      toast.error(err?.response?.data?.message || t("FailedToOpenShift"))
     } finally {
       setLoading(false);
     }
@@ -82,7 +84,7 @@ export default function Shift() {
 
       closeShift();
       setShiftStatus("Shift is closed.");
-      toast.success("Shift closed successfully!");
+toast.success(t("ShiftClosedSuccessfully"));
 
       // تنظيف الـ URL من ?action
       const params = new URLSearchParams(location.search);
@@ -90,7 +92,7 @@ export default function Shift() {
       navigate({ pathname: location.pathname, search: params.toString() }, { replace: true });
     } catch (err) {
       console.error("Close shift error:", err);
-      toast.error(err?.response?.data?.message || "Failed to close shift.");
+      toast.error(err?.response?.data?.message || t("FailedToCloseShift"));
     } finally {
       setLoading(false);
     }
@@ -124,7 +126,7 @@ export default function Shift() {
       <div className="max-w-md w-full m-auto pb-20">
         <div className="text-center mb-6">
           <h1 className="text-2xl text-gray-800">
-            Welcome Back, <span className="text-bg-primary font-semibold">{userName}</span>
+            {t("WelcomeBack")}, <span className="text-bg-primary font-semibold">{userName}</span>
           </h1>
         </div>
 
@@ -135,9 +137,9 @@ export default function Shift() {
           animate="visible"
         >
           <div className="p-6 text-center">
-            <h2 className="text-xl font-semibold text-gray-800 mb-2">Shift Status</h2>
+            <h2 className="text-xl font-semibold text-gray-800 mb-2">{t("ShiftStatus")}</h2>
             <p className="text-gray-500 text-sm">
-              {isShiftOpen ? "You're currently on shift" : "You're up for your shift"}
+{isShiftOpen ? t("CurrentlyOnShift") : t("UpForShift")}
             </p>
           </div>
 
@@ -163,7 +165,7 @@ export default function Shift() {
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                 >
-                  <span>Take your shift</span>
+<span>{t("TakeYourShift")}</span>
                   <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform duration-200" />
                 </motion.button>
               </motion.div>
@@ -184,7 +186,7 @@ export default function Shift() {
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                 >
-                  <span>Back to Work</span>
+<span>{t("BackToWork")}</span>
                   <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform duration-200" />
                 </motion.button>
               </motion.div>
@@ -229,7 +231,7 @@ export default function Shift() {
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                 >
-                  <span>Open New Shift</span>
+                  <span>{t("OpenNewShift")}</span>
                   <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform duration-200" />
                 </motion.button>
               </motion.div>
@@ -243,7 +245,7 @@ export default function Shift() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -20 }}
               >
-                <p className="text-gray-500 mb-2">Redirecting to home in:</p>
+                <p className="text-gray-500 mb-2">{t("Redirectingtohomein")}:</p>
                 <motion.div
                   className="text-4xl font-bold text-bg-primary"
                   key={countdown}

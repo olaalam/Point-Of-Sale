@@ -35,8 +35,9 @@ const clearTransferData = () => {
 };
 
 export default function Home() {
-      const { t, i18n } = useTranslation()
-  const location = useLocation();
+const { t , i18n } = useTranslation();
+  const isArabic = i18n.language === "ar";
+    const location = useLocation();
   const [state, setState] = useState(getInitialState);
 
   const initialState = useMemo(() => getInitialState(), [location.key]);
@@ -225,7 +226,8 @@ toast.success(
   return (
     <div className="min-h-screen bg-white flex flex-col items-center py-8">
       <Tabs value={state.tabValue} onValueChange={handleTabChange} className="w-full">
-        <TabsList className="w-full flex justify-center gap-6 bg-transparent mb-10 p-0 h-auto">
+        <TabsList className={`w-full flex ${isArabic==="ar"?"flex":" flex-row-reverse"}  justify-center gap-6 bg-transparent mb-10 p-0 h-auto`}>
+
           <TabsTrigger
             value="take_away"
             className="flex-1 max-w-[200px] text-lg font-semibold h-12 rounded-full
@@ -235,6 +237,7 @@ toast.success(
           >
             {t("take_away")}
           </TabsTrigger>
+
           <TabsTrigger
             value="delivery"
             className="flex-1 max-w-[200px] text-lg font-semibold h-12 rounded-full
@@ -244,6 +247,7 @@ toast.success(
           >
             {t("Delivery")}
           </TabsTrigger>
+
           <TabsTrigger
             value="dine_in"
             className="flex-1 max-w-[200px] text-lg font-semibold h-12 rounded-full
@@ -254,6 +258,7 @@ toast.success(
           >
             {t("Dinein")}
           </TabsTrigger>
+
         </TabsList>
 
         <TabsContent value="take_away" className="mt-8 flex flex-col items-center space-y-6">

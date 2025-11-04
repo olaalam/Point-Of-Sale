@@ -8,10 +8,13 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
+import { useTranslation } from "react-i18next";
 
 const ProductCard = ({ product, onAddToOrder, onOpenModal }) => {
   // إضافة state منفصل لكل كارت
   const [isCurrentItemLoading, setIsCurrentItemLoading] = useState(false);
+  const { t,i18n } = useTranslation();
+  const isArabic = i18n.language === "ar";
 
   // دالة للتعامل مع إضافة المنتج مع loading منفصل
   const handleAddToOrder = async (product) => {
@@ -49,12 +52,12 @@ const ProductCard = ({ product, onAddToOrder, onOpenModal }) => {
           <Dialog>
             <DialogTrigger asChild>
               <button className="text-xs text-bg-primary underline mt-1">
-                Description
+                {t("Description")}
               </button>
             </DialogTrigger>
             <DialogContent className="max-w-md">
               <DialogHeader>
-                <DialogTitle>Description</DialogTitle>
+                <DialogTitle>{t("Description")}</DialogTitle>
                 <DialogDescription>{product.description}</DialogDescription>
               </DialogHeader>
             </DialogContent>
@@ -69,12 +72,12 @@ const ProductCard = ({ product, onAddToOrder, onOpenModal }) => {
           product.price_after_discount < product.price ? (
             <>
               <span className="text-red-600 line-through mr-1">
-                {product.price} EGP
+                {product.price} {t("EGP")}
               </span>
-              <span>{product.price_after_discount} EGP</span>
+              <span>{product.price_after_discount} {t("EGP")}</span>
             </>
           ) : (
-            <span>{product.price} EGP</span>
+            <span>{product.price} {t("EGP")}</span>
           )}
         </div>
       </div>
@@ -90,7 +93,7 @@ const ProductCard = ({ product, onAddToOrder, onOpenModal }) => {
               : "bg-bg-primary text-white hover:bg-red-700"
           }`}
         >
-          {isCurrentItemLoading ? "Adding..." : "Add to Order"}
+{isCurrentItemLoading ? t("Adding") : t("AddToOrder")}
         </button>
       </div>
     </div>

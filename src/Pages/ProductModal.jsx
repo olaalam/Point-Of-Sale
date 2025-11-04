@@ -10,6 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Minus, Plus } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
+import { useTranslation } from "react-i18next";
 
 // Helper function to calculate total price including variations, extras, and addons
 const calculateProductTotalPrice = (
@@ -136,7 +137,8 @@ const ProductModal = ({
 }) => {
   // ✅ State for notes
   const [notes, setNotes] = useState("");
-
+const { t , i18n } = useTranslation();
+  const isArabic = i18n.language === "ar";
   if (!selectedProduct) return null;
 
   const isWeightProduct = productType === "weight" || selectedProduct.weight_status === 1;
@@ -234,14 +236,14 @@ const ProductModal = ({
                 {selectedProduct.name}
               </DialogTitle>
               <span className="text-xl font-semibold text-red-600">
-                {totalPrice.toFixed(2)} EGP
+                {totalPrice.toFixed(2)} {t("EGP")}
               </span>
             </div>
             <DialogDescription className="text-gray-500 text-sm mb-4">
               {selectedProduct.description &&
               selectedProduct.description !== "null"
                 ? selectedProduct.description
-                : "No description available."}
+                : t("Nodescriptionavailable")}
             </DialogDescription>
 
             {/* Variations section */}
@@ -256,7 +258,7 @@ const ProductModal = ({
                       )}
                       {variation.type === "multiple" && (
                         <span className="text-xs text-gray-500 ml-2">
-                          (Min: {variation.min || 0}, Max: {variation.max || "∞"})
+                          ({t("Min")}: {variation.min || 0}, {t("Max")}: {variation.max || "∞"})
                         </span>
                       )}
                     </h4>
@@ -377,8 +379,8 @@ const ProductModal = ({
             {hasExtras && (
               <div className="mb-4">
                 <h4 className="text-sm font-semibold text-gray-700 mb-3">
-                  Extras (Optional)
-                </h4>
+{t("ExtrasOptional")}      
+          </h4>
                 <div className="space-y-3">
                   {selectedProduct.allExtras.map((extra, index) => {
                     const count = getExtraCount(extra.id);
@@ -398,8 +400,8 @@ const ProductModal = ({
                                   extra.price_after_discount ??
                                   extra.price ??
                                   0
-                                ).toFixed(2)} EGP`
-                              : "Free"}
+                                ).toFixed(2)} ${t("EGP")}`
+                              : t("Free")}
                           </div>
                         </div>
                         <div className="flex items-center space-x-2">
@@ -431,7 +433,7 @@ const ProductModal = ({
             {hasAddons && (
               <div className="mb-4">
                 <h4 className="text-sm font-semibold text-gray-700 mb-3">
-                  Addons (Optional)
+                  {t("AddonsOptional")} 
                 </h4>
                 <div className="space-y-3">
                   {selectedProduct.addons.map((addon, index) => {
@@ -452,7 +454,7 @@ const ProductModal = ({
                               addon.price ??
                               0
                             ).toFixed(2)}{" "}
-                            EGP
+                            {t('EGP')}
                           </div>
                         </div>
                         <div className="flex items-center space-x-2">
@@ -484,7 +486,7 @@ const ProductModal = ({
             {hasExcludes && (
               <div className="mb-4">
                 <h4 className="text-sm font-semibold text-gray-700 mb-2">
-                  Exclude (Optional)
+                 {t("ExcludeOptional")}
                 </h4>
                 <div className="flex flex-wrap gap-2">
                   {selectedProduct.excludes.map((item, index) => (
@@ -510,26 +512,26 @@ const ProductModal = ({
             {/* ✅ Notes Section */}
             <div className="mb-4">
               <h4 className="text-sm font-semibold text-gray-700 mb-2">
-                Special Instructions (Optional)
+{t("SpecialInstructionsOptional")}
               </h4>
               <Textarea
-                placeholder="Add any special instructions for this item..."
+  placeholder={t("AddSpecialInstructions")}
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 className="w-full min-h-[80px] resize-none"
                 maxLength={200}
               />
               <p className="text-xs text-gray-500 mt-1">
-                {notes.length}/200 characters
+                {notes.length}/200 {t("characters")}
               </p>
             </div>
           </div>
           <div className="p-4 border-t border-gray-200">
             <div className="flex items-center justify-between mb-4">
               <div className="text-lg font-bold">
-                Total{" "}
+                {t("Total")}{" "}
                 <span className="text-red-600">
-                  {totalPrice.toFixed(2)} EGP
+                  {totalPrice.toFixed(2)} {t("EGP")}
                 </span>
               </div>
               
@@ -537,7 +539,7 @@ const ProductModal = ({
               {isWeightProduct ? (
                 <div className="flex items-center space-x-2">
                   <label className="text-sm font-medium text-gray-700">
-                    Weight (kg):
+                    {t("Weight")} (kg):
                   </label>
                   <input
                     type="number"
@@ -608,7 +610,7 @@ const ProductModal = ({
               disabled={orderLoading || hasErrors || (isWeightProduct && (!quantity || quantity <= 0))}
               className="w-full"
             >
-              {orderLoading ? "Adding..." : "Add to Cart"}
+              {orderLoading ? t("Adding") : t("AddtoCart")}
             </Button>
           </div>
         </div>

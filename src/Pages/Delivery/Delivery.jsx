@@ -8,10 +8,13 @@ import { useNavigate } from "react-router-dom";
 import Loading from "@/components/Loading";
 import { usePost } from "@/Hooks/usePost";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { useTranslation } from "react-i18next";
 
 export default function Delivery({ orderType: propOrderType }) {
   const [searchQuery, setSearchQuery] = useState("");
   const orderType = propOrderType || "delivery";
+  const { t ,i18n } = useTranslation();
+  const isArabic = i18n.language === "ar";
 
   const [filteredusers, setFilteredusers] = useState([]);
   const navigate = useNavigate();
@@ -141,13 +144,18 @@ navigate("/delivery-order", {
   console.log("Order Type:", orderType);
   
   return (
-    <div className={`bg-gray-100 min-h-screen ${!searchQuery && filteredusers.length === 0 ? "flex items-center justify-center" : ""}`}>
+    <div className={`bg-gray-100 min-h-screen ${
+        isArabic ? "text-right direction-rtl" : "text-left direction-ltr"
+      } ${!searchQuery && filteredusers.length === 0 ? "flex items-center justify-center" : ""}`}
+            dir={isArabic ? "rtl" : "ltr"}
+
+      >
       <div className="max-w-6xl mx-auto px-6 py-3">
         {/* Search and Add User */}
         <div className="flex gap-2 items-center my-6">
           <Input
             type="text"
-            placeholder="Search user Name or Phone"
+            placeholder={t("SearchuserNameorPhone")}
             value={searchQuery}
             onChange={(e) => handleInstantSearch(e.target.value)}
             className="flex-grow p-3 text-lg rounded-lg border-gray-300 bg-white"
@@ -157,7 +165,7 @@ navigate("/delivery-order", {
             className="bg-bg-primary hover:bg-red-700 text-white rounded-lg px-4 py-3"
           >
             <UserPlus className="w-5 h-5 mr-1" />
-            Add User
+            {t('AddUser')}
           </Button>
         </div>
 
@@ -168,7 +176,7 @@ navigate("/delivery-order", {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {filteredusers.length === 0 && !isLoading && !error ? (
               <p className="text-gray-500 text-center col-span-2">
-                No users found matching your search.
+              {t("Nousersfoundmatchingyoursearch")}
               </p>
             ) : (
               filteredusers.map((user) => (
@@ -237,7 +245,7 @@ navigate("/delivery-order", {
                     ) : (
                       <div className="flex items-center gap-2 text-gray-500 text-sm mb-3">
                         <MapPin className="w-4 h-4" />
-                        <span>No address available</span>
+                        <span>{t("Noaddressavailable")}</span>
                       </div>
                     )}
                   </div>
@@ -248,7 +256,7 @@ navigate("/delivery-order", {
                       className="w-1/2 bg-bg-primary hover:bg-red-700 text-white py-2 rounded-md"
                       onClick={() => navigate(`/add?user_id=${user.id}`)}
                     >
-                      + Add Address
+                      + {t("AddAddress")}
                     </button>
 
                     {selectedAddressId && selectedUserId === user.id && (
@@ -258,7 +266,7 @@ navigate("/delivery-order", {
                           handleConfirmDelivery(user, selectedAddressId)
                         }
                       >
-                        Confirm Delivery
+                        {t("ConfirmDelivery")}
                       </button>
                     )}
                   </div>
@@ -269,7 +277,7 @@ navigate("/delivery-order", {
         ) : (
           <div className="flex justify-center items-center h-[60vh]">
             <p className="text-center text-gray-500 text-lg">
-              🔍 Please search by name or phone to find users.
+              🔍 {t("Pleasesearchbynameorphonetofindusers")}
             </p>
           </div>
         )}
@@ -279,7 +287,7 @@ navigate("/delivery-order", {
       <Dialog open={openDialog} onOpenChange={setOpenDialog}>
         <DialogContent className="space-y-4 bg-white">
           <h2 className="text-xl font-semibold text-center text-bg-primary">
-            Edit user
+            {t("Edituser")}
           </h2>
           
           {/* Input Fields مع الـ disabled state */}
@@ -288,7 +296,7 @@ navigate("/delivery-order", {
             onChange={(e) =>
               setEditData({ ...editData, f_name: e.target.value })
             }
-            placeholder="First Name"
+            placeholder={t("FirstName")}
             className={`border-gray-300 ${
               isFormDisabled ? 'bg-gray-100 cursor-not-allowed opacity-60' : ''
             }`}
@@ -300,7 +308,7 @@ navigate("/delivery-order", {
             onChange={(e) =>
               setEditData({ ...editData, l_name: e.target.value })
             }
-            placeholder="Last Name"
+            placeholder={t("LastName")}
             className={`border-gray-300 ${
               isFormDisabled ? 'bg-gray-100 cursor-not-allowed opacity-60' : ''
             }`}
@@ -312,7 +320,7 @@ navigate("/delivery-order", {
             onChange={(e) =>
               setEditData({ ...editData, phone: e.target.value })
             }
-            placeholder="Phone"
+            placeholder={t("Phone")}
             className={`border-gray-300 ${
               isFormDisabled ? 'bg-gray-100 cursor-not-allowed opacity-60' : ''
             }`}
@@ -324,7 +332,7 @@ navigate("/delivery-order", {
             onChange={(e) =>
               setEditData({ ...editData, phone_2: e.target.value })
             }
-            placeholder="Another Phone"
+            placeholder={t("AnotherPhone")}
             className={`border-gray-300 ${
               isFormDisabled ? 'bg-gray-100 cursor-not-allowed opacity-60' : ''
             }`}
@@ -364,10 +372,10 @@ navigate("/delivery-order", {
                     d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                   />
                 </svg>
-                <span>Saving...</span>
+                <span>{t("Saving")}</span>
               </div>
             ) : (
-              "Save"
+              t("Save")
             )}
           </Button>
         </DialogContent>

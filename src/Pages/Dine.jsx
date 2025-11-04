@@ -25,10 +25,10 @@ import { usePut } from "@/Hooks/usePut";
 import Loading from "@/components/Loading";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "react-toastify";
+import { useTranslation } from "react-i18next";
 
 const CustomStatusSelect = ({ table, statusOptions, onStatusChange }) => {
   const [isOpen, setIsOpen] = useState(false);
-
   const currentStatus = statusOptions.find(
     (option) => option.value === table.current_status
   );
@@ -96,6 +96,8 @@ const CustomStatusSelect = ({ table, statusOptions, onStatusChange }) => {
 const Dine = () => {
   const navigate = useNavigate();
   const branch_id = sessionStorage.getItem("branch_id");
+const { t , i18n } = useTranslation();
+  const isArabic = i18n.language === "ar";
 
   const [selectedTable, setSelectedTable] = useState(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -113,35 +115,35 @@ const Dine = () => {
   // All available status options
   const statusOptions = [
     { 
-      label: "Available", 
+      label: t("Available"), 
       value: "available", 
       color: "bg-gray-100 text-gray-600",
       icon: CheckCircle,
       iconColor: "text-gray-500"
     },
     { 
-      label: "Pre-order", 
+      label: t("Preorder"), 
       value: "not_available_pre_order", 
       color: "bg-orange-500 text-white",
       icon: Clock,
       iconColor: "text-orange-500"
     },
     { 
-      label: "With order", 
+      label: t("Withorder"), 
       value: "not_available_with_order", 
       color: "bg-red-500 text-white",
       icon: ShoppingCart,
       iconColor: "text-red-500"
     },
     { 
-      label: "Reserved", 
+      label: t("Reserved"), 
       value: "reserved", 
       color: "bg-blue-500 text-white",
       icon: UserCheck,
       iconColor: "text-blue-500"
     },
     { 
-      label: "Checkout", 
+      label: t("Checkout"), 
       value: "not_available_but_checkout", 
       color: "bg-green-500 text-white",
       icon: CreditCard,
@@ -192,7 +194,7 @@ const Dine = () => {
   useEffect(() => {
     const transferPending = sessionStorage.getItem("transfer_pending");
     if (transferPending === "true") {
-      toast.info("Please select a new table to transfer the order.");
+toast.info(t("SelectNewTableToTransferOrder"));
     }
   }, []);
 
@@ -240,7 +242,7 @@ const Dine = () => {
       
       if (cartIds.length > 0 && sourceTableId) {
         if (sourceTableId === table.id.toString()) {
-          toast.error("Cannot transfer to the same table. Please select a different table.");
+toast.error(t("CannotTransferToSameTable"));
           return;
         }
 
@@ -254,7 +256,7 @@ const Dine = () => {
         try {
           await postData("cashier/transfer_order", formData);
           setTimeout(() => {
-            toast.success("Order transferred successfully!");
+toast.success(t("OrderTransferredSuccessfully"));
           }, 200);
           
           sessionStorage.removeItem("transfer_cart_ids");
@@ -278,7 +280,7 @@ const Dine = () => {
           console.error("Failed to transfer order:", err);
           const errorMessage = err.response?.data?.message || 
                               err.response?.data?.exception ||
-                              "Failed to transfer table. Please try again.";
+                              t("FailedtotransfertablePleasetryagain");
           toast.error(errorMessage);
         }
       }
@@ -317,14 +319,14 @@ const Dine = () => {
         {/* Merged Header */}
         <div className="absolute -top-3 left-4 bg-purple-600 text-white px-3 py-1 rounded-full flex items-center gap-2 shadow-md">
           <Link size={14} />
-          <span className="font-semibold text-xs uppercase tracking-wider">Merged Table</span>
+          <span className="font-semibold text-xs uppercase tracking-wider">{t("MergedTable")}</span>
         </div>
 
         {/* Main Table */}
         <div className="text-center mb-3">
           <div className="text-2xl font-bold text-purple-800">{table.table_number}</div>
           <div className="text-sm text-purple-700 flex items-center justify-center gap-1">
-            <Users size={14} /> {table.capacity} Cap
+            <Users size={14} /> {table.capacity} {t("Cap")}
           </div>
         </div>
 
@@ -343,14 +345,12 @@ const Dine = () => {
                 <div className="text-lg font-bold">{sub.table_number}</div>
                 <div className="flex items-center justify-center gap-1 text-xs">
                   <Users size={12} />
-                  <span>{sub.capacity} Cap</span>
+                  <span>{sub.capacity} {t("Cap")}</span>
                 </div>
               </div>
             </div>
           ))}
         </div>
-
-        {/* Status Control */}
         <CustomStatusSelect
           table={table}
           statusOptions={effectiveStatusOptions}
@@ -358,7 +358,7 @@ const Dine = () => {
         />
 
         {/* Transfer Badges */}
-        {isSourceTable && <div className="absolute top-2 right-2 bg-yellow-500 text-white text-xs px-2 py-1 rounded">Source</div>}
+        {isSourceTable && <div className="absolute top-2 right-2 bg-yellow-500 text-white text-xs px-2 py-1 rounded">{t("Source")}</div>}
         {transferPending && !isSourceTable && <div className="absolute top-2 right-2 bg-green-500 text-white text-xs px-2 py-1 rounded">Select</div>}
       </div>
     );
@@ -420,7 +420,7 @@ const Dine = () => {
           <div className="text-3xl font-extrabold mb-2">{table.table_number}</div>
           <div className="flex items-center justify-center gap-2 text-base font-medium mb-4">
             <Users size={20} />
-            <span>Capacity: {table.capacity}</span>
+            <span>{t("Capacity")}: {table.capacity}</span>
           </div>
 
           <CustomStatusSelect
@@ -431,12 +431,12 @@ const Dine = () => {
 
           {isSourceTable && (
             <div className="absolute top-2 right-2 bg-yellow-500 text-white text-xs px-2 py-1 rounded">
-              Source
+              {t("Source")}
             </div>
           )}
           {transferPending && !isSourceTable && (
             <div className="absolute top-2 right-2 bg-green-500 text-white text-xs px-2 py-1 rounded">
-              Select
+              {t("Select")}
             </div>
           )}
         </div>
@@ -450,7 +450,7 @@ const Dine = () => {
         <Loading />
         {transferLoading && (
           <div className="absolute bottom-10 bg-white p-4 rounded-lg shadow-lg">
-            <p className="text-sm text-gray-600">Transferring order...</p>
+            <p className="text-sm text-gray-600">{t("Transferringorder")}</p>
           </div>
         )}
       </div>
@@ -459,9 +459,13 @@ const Dine = () => {
 
   if (error) {
     return (
-      <div className="p-8 text-center text-red-600 bg-red-50 rounded-lg shadow-md mx-auto max-w-lg mt-10">
-        <p className="text-lg font-semibold">Failed to load tables.</p>
-        <p className="text-sm mt-2">Please check your network connection or try again later.</p>
+      <div className={`p-8 text-center text-red-600 bg-red-50 rounded-lg shadow-md mx-auto max-w-lg mt-10 ${
+        isArabic ? "text-right direction-rtl" : "text-left direction-ltr"
+      }`}
+            dir={isArabic ? "rtl" : "ltr"}
+>
+        <p className="text-lg font-semibold">{t("Failedtoloadtables")}</p>
+        <p className="text-sm mt-2">{t("Pleasecheckyournetworkconnectionortryagainlater")}</p>
       </div>
     );
   }
@@ -470,17 +474,17 @@ const Dine = () => {
   const sourceTableId = sessionStorage.getItem("transfer_source_table_id");
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div className="min-h-screen bg-gray-50 p-6"     dir={isArabic ? "rtl" : "ltr"}>
       <div className="max-w-7xl mx-auto bg-white p-8 rounded-xl shadow-lg">
         <div className="mb-8 border-b pb-4">
           <h1 className="text-3xl font-bold text-gray-800">
-            {transferPending ? "Select New Table for Transfer" : "Dine-in Tables"}
+{transferPending ? t("SelectNewTableForTransfer") : t("DineInTables")}
           </h1>
           <p className="text-gray-500 mt-2">
-            {transferPending 
-              ? `Select a table to transfer the order from Table ${sourceTableId}.`
-              : "Select a table to start an order. Merged tables are highlighted in purple."
-            }
+          {transferPending
+  ? t("SelectTableToTransferFrom", { sourceTableId })
+  : t("SelectTableToStartOrder")}
+
           </p>
         </div>
 
@@ -516,8 +520,9 @@ const Dine = () => {
                     </div>
                   ) : (
                     <div className="text-center py-10 text-gray-500">
-                      <p className="text-lg">No tables found for this location.</p>
-                      <p className="text-sm">Please select another location or add tables.</p>
+                <p className="text-lg">{t("NoTablesFound")}</p>
+<p className="text-sm">{t("SelectAnotherLocationOrAddTables")}</p>
+
                     </div>
                   )}
 
@@ -567,8 +572,13 @@ const Dine = () => {
           </Tabs>
         ) : (
           <div className="text-center p-10 bg-gray-50 rounded-lg shadow-inner">
-            <p className="text-lg text-gray-600 font-semibold">No cafe locations found for this branch.</p>
-            <p className="text-sm text-gray-500 mt-2">Please ensure locations are configured in the system.</p>
+        <p className="text-lg text-gray-600 font-semibold">
+  {t("NoCafeLocationsFound")}
+</p>
+<p className="text-sm text-gray-500 mt-2">
+  {t("EnsureLocationsConfigured")}
+</p>
+
           </div>
         )}
       </div>

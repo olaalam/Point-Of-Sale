@@ -11,6 +11,7 @@ import DeliveryInfo from "./Delivery/DeliveryInfo";
 import CategorySelector from "./CategorySelector";
 import ProductCard from "./ProductCard";
 import ProductModal, { areProductsEqual } from "./ProductModal"; // ✅ Import areProductsEqual
+import { useTranslation } from "react-i18next";
 
 // API Configuration
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "https://bcknd.food2go.online/";
@@ -71,6 +72,7 @@ export default function Item({ fetchEndpoint, onAddToOrder, onClose, refreshCart
     const [branchIdState, setBranchIdState] = useState(sessionStorage.getItem("branch_id"));
     const [productType, setProductType] = useState("piece");
     const [selectedGroup, setSelectedGroup] = useState("all");
+  const { t, i18n } = useTranslation()
 
     // === Order Type ===
     const orderType = sessionStorage.getItem("order_type") || "dine_in";
@@ -355,13 +357,13 @@ export default function Item({ fetchEndpoint, onAddToOrder, onClose, refreshCart
                     try {
                         await submitItemToBackend(postOrder, orderItem, customQuantity, orderType);
                         if (refreshCartData) await refreshCartData();
-                        toast.success(`تم زيادة كمية "${product.name}" إلى ${newQuantity}`);
+  t("QuantityIncreased", { name: product.name, quantity: newQuantity })
                     } catch (error) {
                         console.error("Error submitting item:", error);
-                        toast.error(`Failed to update "${product.name}"`);
+  t("UpdateFailed", { name: product.name })
                     }
                 } else {
-                    toast.success(`تم زيادة كمية "${product.name}" إلى ${newQuantity}`);
+  t("QuantityIncreased", { name: product.name, quantity: newQuantity })
                 }
                 return;
             }
@@ -374,15 +376,19 @@ export default function Item({ fetchEndpoint, onAddToOrder, onClose, refreshCart
             try {
                 await submitItemToBackend(postOrder, orderItem, customQuantity, orderType);
                 if (refreshCartData) await refreshCartData();
-                toast.success(`"${product.name}" added successfully!`);
-            } catch (error) {
+toast.success(
+  t("ProductAdded", { name: product.name })
+);            } catch (error) {
                 console.error("Error submitting item:", error);
-                toast.error(`Failed to submit "${product.name}"`);
-            }
+toast.error(
+  t("SubmitFailed", { name: product.name })
+);            }
         } else {
             if (!toast.isActive(product.id)) {
-                toast.success(`"${product.name}" added successfully!`, { toastId: product.id });
-            }
+toast.success(
+  t("ProductAdded", { name: product.name }),
+  { toastId: product.id }
+);            }
         }
     }, [selectedVariation, selectedExtras, selectedExcludes, orderType, onAddToOrder, productType, postOrder, refreshCartData, orderItems]);
 
@@ -413,7 +419,7 @@ export default function Item({ fetchEndpoint, onAddToOrder, onClose, refreshCart
     if (hasError) {
         return (
             <div className="text-center text-red-500 p-4">
-                <p>Error loading data. Please try again later. Check your authentication token.</p>
+<p>{t("ErrorLoadingData")}</p>
             </div>
         );
     }
@@ -421,25 +427,28 @@ export default function Item({ fetchEndpoint, onAddToOrder, onClose, refreshCart
     if (!branchIdState) {
         return (
             <div className="text-center text-gray-500 py-8">
-                Please select a branch to view items.
+{t("SelectBranchToViewItems")}
             </div>
         );
     }
-
+  const isArabic = i18n.language === "ar";
     // === Render UI ===
     return (
-        <div className="">
+        <div className={`${
+        isArabic ? "text-right direction-rtl" : "text-left direction-ltr"
+      }`}
+      dir={isArabic ? "rtl" : "ltr"}>
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 my-2">
                 <h2 className="text-bg-primary text-2xl font-bold mb-4 flex flex-wrap items-center gap-4">
-                    Select Category
-                </h2>
+{t("SelectCategory")}   
+             </h2>
                 <select
                     value={selectedGroup}
                     onChange={(e) => handleGroupChange(e.target.value)}
                     disabled={groupLoading || !branchIdState}
                     className="px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-bg-primary bg-white text-gray-700 font-medium"
                 >
-                    <option value="all">Take Away</option>
+                    <option value="all">{t("TakeAway")}</option>
                     {groupProducts.map((group) => (
                         <option key={group.id} value={group.id}>
                             {group.name}
@@ -465,20 +474,20 @@ export default function Item({ fetchEndpoint, onAddToOrder, onClose, refreshCart
             <div className="my-8">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-4">
                     <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-                        <h2 className="text-bg-primary text-2xl font-bold">Select Product</h2>
+                        <h2 className="text-bg-primary text-2xl font-bold">{t("SelectProduct")}</h2>
                         <select
                             value={productType}
                             onChange={(e) => handleProductTypeChange(e.target.value)}
                             className="px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-bg-primary bg-white text-gray-700 font-medium"
                         >
-                            <option value="piece">By Piece</option>
-                            <option value="weight">By Weight</option>
+                            <option value="piece">{t("ByPiece")}</option>
+                            <option value="weight">{t("ByWeight")}</option>
                         </select>
                     </div>
 
                     <input
                         type="text"
-                        placeholder="Search by product name..."
+  placeholder={t("SearchByProductName")}
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         className="w-full sm:w-auto px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-bg-primary"
@@ -488,11 +497,11 @@ export default function Item({ fetchEndpoint, onAddToOrder, onClose, refreshCart
                 <div className="bg-gray-50 border border-gray-200 px-5 mb-8 rounded-lg max-h-[500px] overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
                     {filteredProducts.length === 0 ? (
                         <div className="text-center text-gray-500 text-lg py-8">
-                            No products found for "
+                            {t("Noproductsfoundfor")} "
                             {selectedCategory === "all"
                                 ? "All Categories"
-                                : finalCategories.find((cat) => cat.id === selectedCategory)?.name || "Selected Category"}
-                            " ({productType === "weight" ? "By Weight" : "By Piece"}).
+                                : finalCategories.find((cat) => cat.id === selectedCategory)?.name || t("SelectedCategory")}
+                            " ({productType === "weight" ? t("ByWeight") : t("ByPiece")}).
                         </div>
                     ) : (
                         <>
@@ -514,7 +523,7 @@ export default function Item({ fetchEndpoint, onAddToOrder, onClose, refreshCart
                                         onClick={handleShowMoreProducts}
                                         className="bg-bg-primary text-white py-2 px-6 rounded-lg hover:bg-red-700 transition-colors"
                                     >
-                                        Show More Products
+                                        {t("ShowMoreProducts")}
                                     </Button>
                                 </div>
                             )}

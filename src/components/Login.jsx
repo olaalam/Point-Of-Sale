@@ -9,6 +9,7 @@ import { useNavigate } from "react-router-dom";
 import axios from "axios";
 import { messaging } from "../firebase";
 import { getToken } from "firebase/messaging";
+import { useTranslation } from "react-i18next";
 
 export default function LoginPage() {
   const [user_name, setUserName] = useState("");
@@ -16,6 +17,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [fcmToken, setFcmToken] = useState("");
   const navigate = useNavigate();
+    const { t, i18n } = useTranslation()
 
   // ✅ جلب FCM Token عند تحميل الصفحة
   useEffect(() => {
@@ -36,11 +38,11 @@ export default function LoginPage() {
           setFcmToken(token);
         } else {
           console.warn("Notification permission denied");
-          toast.warn("Notifications disabled; some features may be limited");
+toast.warn(t("NotificationsDisabled"));
         }
       } catch (err) {
         console.error("FCM error:", err);
-        toast.error("Failed to enable notifications: " + err.message);
+toast.error(t("FailedToEnableNotifications") + ": " + err.message);
       }
     };
 
@@ -50,7 +52,7 @@ export default function LoginPage() {
   // ✅ دالة تسجيل الدخول
   const handleLogin = async () => {
     if (!user_name || !password) {
-      toast.error("Please fill in all fields");
+toast.error(t("PleaseFillInAllFields"));
       return;
     }
 
@@ -75,7 +77,7 @@ export default function LoginPage() {
       const res = await axios.post(url, null, { params });
 
       console.log("Login Response:", res.data);
-      toast.success("Logged in successfully");
+toast.success(t("LoggedInSuccessfully"));
 
       // ✅ تخزين البيانات في sessionStorage بدل sessionStorage
 sessionStorage.setItem("token", res.data.token);
@@ -96,7 +98,7 @@ setTimeout(() => {
       const errorMessage =
         err?.response?.data?.errors ||
         err?.response?.data?.message ||
-        "An error occurred";
+t("AnErrorOccurred");
       toast.error(errorMessage);
     } finally {
       setLoading(false);
@@ -109,8 +111,9 @@ setTimeout(() => {
         <div className="w-full max-w-md space-y-6">
           <h1 className="text-3xl font-bold text-[#910000]">Food2go</h1>
           <div className="space-y-1">
-            <h2 className="text-xl font-semibold">Log in to Food2go</h2>
-            <p className="text-sm text-gray-500">Welcome back</p>
+          <h2 className="text-xl font-semibold">{t("LoginTitle")}</h2>
+<p className="text-sm text-gray-500">{t("WelcomeBack")}</p>
+
           </div>
           <form
             className="space-y-4"
@@ -121,13 +124,13 @@ setTimeout(() => {
           >
             <Input
               type="text"
-              placeholder="Username"
+              placeholder={t("Username")}
               value={user_name}
               onChange={(e) => setUserName(e.target.value)}
             />
             <Input
               type="password"
-              placeholder="Password"
+              placeholder={t("Password")}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
@@ -136,7 +139,7 @@ setTimeout(() => {
               type="submit"
               className="w-full bg-[#910000] hover:bg-[#750000]"
             >
-              {loading ? <Loading /> : "Login"}
+              {loading ? <Loading /> : t("Login")}
             </Button>
           </form>
         </div>

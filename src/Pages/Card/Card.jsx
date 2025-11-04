@@ -70,6 +70,7 @@ export default function Card({
   const [managerPassword, setManagerPassword] = useState("");
   const [showClearAllConfirm, setShowClearAllConfirm] = useState(false);
   const { t, i18n } = useTranslation()
+  const isArabic = i18n.language === "ar";
 
   // Offers States
   const [showOfferModal, setShowOfferModal] = useState(false);
@@ -808,8 +809,12 @@ t("BulkUpdateSuccess", {
   const handleViewPendingOrders = () => navigate("/pending-orders");
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="flex-shrink-0">
+  <div
+      className={`flex flex-col h-full ${
+        isArabic ? "text-right direction-rtl" : "text-left direction-ltr"
+      }`}
+      dir={isArabic ? "rtl" : "ltr"}
+    >      <div className="flex-shrink-0">
         <h2 className="text-bg-primary text-3xl font-bold mb-6">
           {t("OrderDetails")}
         </h2>
@@ -1027,9 +1032,9 @@ t("BulkUpdateSuccess", {
 
       <div className="flex-shrink-0 bg-white border-t-2 border-gray-200 pt-6 mt-4">
         <div className="bg-gray-50 p-6 rounded-lg shadow-inner mb-6">
-          <SummaryRow label="Sub Total" value={subTotal} />
-          <SummaryRow label="Tax" value={totalTax} />
-          <SummaryRow label="Other Charge" value={totalOtherCharge} />
+          <SummaryRow label={t("SubTotal")} value={subTotal} />
+          <SummaryRow label={t("Tax")} value={totalTax} />
+          <SummaryRow label={t("OtherCharge")} value={totalOtherCharge} />
         </div>
         {orderType === "dine_in" && (
           <>

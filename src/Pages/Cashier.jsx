@@ -8,6 +8,7 @@ import Loading from "@/components/Loading";
 import {  toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { useNavigate } from "react-router-dom";
+import { useTranslation } from "react-i18next";
 
 export function CashierButton({
   cashierId,
@@ -42,6 +43,9 @@ export function CashierButton({
 }
 
 export default function Cashier() {
+    const { t, i18n } = useTranslation()
+    const isArabic = i18n.language === "ar";
+
   const { data, error, isLoading, refetch } = useGet(`cashier/home`);
   const [selectedCashierId, setSelectedCashierId] = useState(null);
   const [showHidden, setShowHidden] = useState(false); // state للتحكم بالـ hidden cashiers
@@ -89,11 +93,13 @@ export default function Cashier() {
   const activeCashierIdFromApi = data?.active_cashier_id;
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 bg-white min-h-screen">
+    <div className={`grid grid-cols-1 md:grid-cols-2 bg-white min-h-screen ${
+        isArabic ? "text-right direction-rtl" : "text-left direction-ltr"
+      }`} dir={isArabic ? "rtl" : "ltr"}>
       <div className="flex items-center justify-center p-8">
         <div className="w-full max-w-md space-y-8">
-          <h1 className="text-3xl md:text-4xl font-bold text-black text-left">
-            Selection Cashier
+          <h1 className="text-3xl md:text-4xl font-bold text-black " >
+            {t("SelectionCashier")}
           </h1>
 
           <div className="space-y-4 grid grid-cols-1 gap-3">
@@ -111,7 +117,7 @@ export default function Cashier() {
                 />
               ))
             ) : (
-              <div>No cashiers available.</div>
+              <div>{t("Nocashiersavailable")}</div>
             )}
 
             {/* Show More Button */}
@@ -120,7 +126,7 @@ export default function Cashier() {
                 onClick={() => setShowHidden(true)}
                 className="w-full bg-gray-200 text-black hover:bg-gray-300 font-semibold rounded-xl p-4"
               >
-                Show More
+                {t("ShowMore")}
               </Button>
             )}
 

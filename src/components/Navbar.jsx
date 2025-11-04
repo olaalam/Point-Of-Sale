@@ -5,8 +5,7 @@ import { useShift } from "@/context/ShiftContext";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { FaUserCircle, FaUsers } from "react-icons/fa";
-import { useTranslation } from "react-i18next"; // ⬅️ إضافة جديدة
-
+import { useTranslation } from "react-i18next";
 export default function Navbar() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -24,11 +23,12 @@ export default function Navbar() {
   }, [isShiftOpen]);
 
 const toggleLanguage = () => {
-  const newLang = language === "en" ? "ar" : "en"; // ⬅️ عرّفيه الأول
+  const newLang = language === "en" ? "ar" : "en"; 
   i18n.changeLanguage(newLang);
   setLanguage(newLang);
-  localStorage.setItem("language", newLang); // ⬅️ بعد التعريف
-  document.body.dir = newLang === "ar" ? "rtl" : "ltr";
+  localStorage.setItem("language", newLang); 
+    document.documentElement.dir = language === "en" ? "ltr" : "rtl";
+  // document.body.dir = newLang === "ar" ? "rtl" : "ltr";
 };
 
   const checkShiftStatus = () => {
@@ -49,16 +49,16 @@ const toggleLanguage = () => {
   const handleLogout = async () => {
     const shiftIsOpen = checkShiftStatus();
     if (shiftIsOpen) {
-      toast.error("You must close the shift before logging out.");
+toast.error(t("YouMustCloseShiftBeforeLogout"));
       return;
     }
     try {
       await postData("api/logout", {});
       sessionStorage.clear();
-      toast.success("Logged out successfully");
+toast.success(t("LoggedOutSuccessfully"));
       navigate("/login");
     } catch (err) {
-      toast.error(err?.message || "Error while logging out");
+      toast.error(err?.message || t("Errorwhileloggingout"));
     }
   };
 
