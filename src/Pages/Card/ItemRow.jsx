@@ -1,7 +1,7 @@
 // ItemRow.jsx
 import { toast } from "react-toastify";
 import { PREPARATION_STATUSES } from "./constants";
-import { Trash2 } from "lucide-react";
+import { Trash2, FileText } from "lucide-react";
 
 const ItemRow = ({
   item,
@@ -29,17 +29,18 @@ const ItemRow = ({
   if (!item) return null;
 
   // السعر الكلي للوحدة (من ProductModal)
-  const safePrice = Number(item.originalPrice)|| 0;
+  const safePrice = Number(item.originalPrice) || 0;
   const addonsTotal = (item.addons || []).reduce((sum, addon) => {
-  return sum + (Number(addon.price_after_discount) || 0);
-}, 0);
-console.log("ItemRow → addonsTotal:", addonsTotal);
-const extrasTotal = (item.selectedExtras || []).reduce((sum, extra) => {
-  return sum + (Number(extra.price_after_discount) || 0);
-}, 0);
-console.log("ItemRow → extrasTotal:", extrasTotal);
-// السعر قبل الخصم = السعر الأصلي + الإضافات
-const safeOriginalPrice = Number(item.price) + addonsTotal + extrasTotal;
+    return sum + (Number(addon.price_after_discount) || 0);
+  }, 0);
+  console.log("ItemRow → addonsTotal:", addonsTotal);
+  const extrasTotal = (item.selectedExtras || []).reduce((sum, extra) => {
+    return sum + (Number(extra.price_after_discount) || 0);
+  }, 0);
+  console.log("ItemRow → extrasTotal:", extrasTotal);
+
+  // السعر قبل الخصم = السعر الأصلي + الإضافات
+  const safeOriginalPrice = Number(item.price) + addonsTotal + extrasTotal;
 
   return (
     <tr className={`border-b last:border-b-0 hover:bg-gray-50 ${item.type === "addon" ? "bg-blue-50" : ""} ${selectedPaymentItems.includes(item.temp_id) ? "bg-green-50" : ""}`}>
@@ -53,24 +54,41 @@ const safeOriginalPrice = Number(item.price) + addonsTotal + extrasTotal;
           />
         </td>
       )}
-      <td className="py-3 px-4 text-center align-top">
-        <div>
+      
+      {/* عمود الاسم + الـ Variations + الـ Notes */}
+      <td className="py-3 px-4 text-left align-top">
+        <div className="flex flex-col gap-1">
+          {/* اسم المنتج */}
           <span className="text-gray-800 font-medium">{item.name}</span>
+
+          {/* الـ Variations */}
           {item.variations?.map((group, i) => {
             const selected = Array.isArray(group.selected_option_id)
               ? group.options?.find(opt => group.selected_option_id.includes(opt.id))
               : group.options?.find(opt => opt.id === group.selected_option_id);
             return selected ? (
               <div key={i} className="text-xs text-gray-600">
-                {group.name}: {selected.name}
+                {group.name}: <span className="font-medium">{selected.name}</span>
               </div>
             ) : null;
           })}
+
+          {/* الـ Notes (إذا وُجدت) */}
+          {item.notes && item.notes.trim() !== "" && (
+            <div className="mt-2 p-2 bg-orange-50 border border-orange-200 rounded-lg text-xs italic text-orange-700 flex items-start gap-1.5">
+              <FileText size={14} className="mt-0.5 flex-shrink-0" />
+              <span>
+                <strong className="font-semibold">Note:</strong> {item.notes}
+              </span>
+            </div>
+          )}
         </div>
       </td>
+
+      {/* السعر للوحدة */}
       <td className="py-3 px-4 text-center align-top">
         <div>
-          <span className={hasDiscount ? "text-green-600 font-semibold" : ""}>
+          <span className={hasDiscount ? "text-green-600 font-semibold" : "font-medium"}>
             {safePrice.toFixed(2)}
           </span>
           {hasDiscount && (
@@ -82,6 +100,8 @@ const safeOriginalPrice = Number(item.price) + addonsTotal + extrasTotal;
           )}
         </div>
       </td>
+
+      {/* الكمية */}
       <td className="py-3 px-4 text-center align-top">
         {!(item.is_reward || item.is_deal) && allowQuantityEdit ? (
           <div className="flex items-center justify-center gap-1">
@@ -89,17 +109,23 @@ const safeOriginalPrice = Number(item.price) + addonsTotal + extrasTotal;
               onClick={() => handleDecrease(item.temp_id)}
               disabled={!allowQuantityEdit}
               className={`px-2 py-1 rounded ${allowQuantityEdit ? "bg-gray-200 hover:bg-gray-300" : "bg-gray-100 cursor-not-allowed"}`}
-            >−</button>
-            <span className="min-w-[24px] text-center">{item.count}</span>
+            >
+              −
+            </button>
+            <span className="min-w-[24px] text-center font-medium">{item.count}</span>
             <button
               onClick={() => handleIncrease(item.temp_id)}
               className="px-2 py-1 bg-gray-200 rounded hover:bg-gray-300"
-            >+</button>
+            >
+              +
+            </button>
           </div>
         ) : (
-          <span className="min-w-[24px] text-center">1 (Fixed)</span>
+          <span className="min-w-[24px] text-center font-medium">1 (ثابت)</span>
         )}
       </td>
+
+      {/* حالة التحضير (لـ dine_in) */}
       {orderType === "dine_in" && (
         <td className="py-3 px-4 text-center align-top">
           <div className="flex items-center gap-2">
@@ -124,6 +150,8 @@ const safeOriginalPrice = Number(item.price) + addonsTotal + extrasTotal;
           </div>
         </td>
       )}
+
+      {/* تحديد الدفع (لـ dine_in) */}
       {orderType === "dine_in" && (
         <td className="py-3 px-4 text-center align-top">
           {isDoneItem && (
@@ -136,6 +164,8 @@ const safeOriginalPrice = Number(item.price) + addonsTotal + extrasTotal;
           )}
         </td>
       )}
+
+      {/* المجموع */}
       <td className="py-3 px-4 text-center align-top">
         <span className="font-semibold">
           {(safePrice * item.count).toFixed(2)}
@@ -146,6 +176,8 @@ const safeOriginalPrice = Number(item.price) + addonsTotal + extrasTotal;
           </div>
         )}
       </td>
+
+      {/* حذف العنصر */}
       <td className="py-3 px-4 text-center align-top">
         <button
           onClick={() => orderType === "dine_in" ? handleVoidItem(item.temp_id) : handleRemoveFrontOnly(item.temp_id)}
