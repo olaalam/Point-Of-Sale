@@ -504,7 +504,7 @@ toast.success(t("OrderTransferredSuccessfully"));
                   value={loc.id.toString()}
                   className="flex-grow py-2 px-4 text-sm font-medium text-gray-700 data-[state=active]:bg-bg-primary data-[state=active]:text-white data-[state=active]:shadow-sm rounded-md transition-colors duration-200 hover:bg-gray-200"
                 >
-                  {loc.name}
+                  {loc.name==="Main Hall"?t("MainHall"):t("ReceptionHall") }
                 </TabsTrigger>
               ))}
             </TabsList>

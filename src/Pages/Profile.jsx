@@ -10,11 +10,15 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { FaEdit } from "react-icons/fa";
 import Loading from "@/components/Loading";
+import { useTranslation } from "react-i18next";
 
 const Profile = () => {
   const { data, loading, refetch } = useGet("cashier/profile");
   const { postData, loading: updating } = usePost();
   const [open, setOpen] = useState(false);
+     const { t ,i18n } = useTranslation();
+      const isArabic = i18n.language === "ar";
+
   const [form, setForm] = useState({
     user_name: "",
     password: "",
@@ -42,7 +46,7 @@ const Profile = () => {
     const file = e.target.files[0];
     if (file) {
       if (file.size > 2 * 1024 * 1024) {
-        setErrors({ ...errors, image: "Image size must be less than 2MB" });
+        setErrors({ ...errors, image: t("Imagesizemustbelessthan2MB") });
         return;
       }
       setForm({ ...form, image: file });
@@ -53,9 +57,9 @@ const Profile = () => {
 
   const validateForm = () => {
     const newErrors = {};
-    if (!form.user_name.trim()) newErrors.user_name = "Username is required";
+    if (!form.user_name.trim()) newErrors.user_name = t("Usernameisrequired");
     if (form.password && form.password.length < 3)
-      newErrors.password = "Password must be at least 3 characters";
+      newErrors.password = "Passwordmustbeatleast3characters";
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -72,11 +76,11 @@ const Profile = () => {
 
     try {
       await postData("cashier/profile/update", formData, true);
-      toast.success("Profile updated successfully!");
+      toast.success(t("Profileupdatedsuccessfully"));
       refetch();
       setOpen(false); // ✅ يقفل المودال بعد الحفظ
     } catch (err) {
-      toast.error("Error updating profile!");
+      toast.error(t("Errorupdatingprofile"));
     }
   };
 
@@ -88,7 +92,7 @@ const Profile = () => {
   if (loading) return <Loading />;
 
   return (
-    <div className="flex justify-center items-center min-h-screen bg-gradient-to-br from-gray-100 to-gray-200 p-4">
+    <div  className="flex justify-center items-center min-h-screen bg-gradient-to-br from-gray-100 to-gray-200 p-4">
       <Card className="max-w-md w-full shadow-xl rounded-2xl overflow-hidden bg-white">
         <CardContent className="flex flex-col items-center p-8">
           <div className="relative group">
@@ -120,14 +124,14 @@ const Profile = () => {
                 className="mt-6 bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-full flex items-center gap-2 transition-all duration-300"
               >
                 <FaEdit />
-                Edit Profile
+                {t("EditProfile")}
               </Button>
             </DialogTrigger>
 
             <DialogContent className="max-w-md rounded-2xl bg-white p-6">
               <DialogHeader>
                 <DialogTitle className="text-xl font-bold text-gray-900">
-                  Update Profile
+                {t("EditProfile")}
                 </DialogTitle>
               </DialogHeader>
 
@@ -143,7 +147,7 @@ const Profile = () => {
                 )}
 
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium text-gray-700">Username</Label>
+                  <Label className="text-sm font-medium text-gray-700">{t("Username")}</Label>
                   <Input
                     value={form.user_name}
                     onChange={(e) => setForm({ ...form, user_name: e.target.value })}
@@ -158,9 +162,9 @@ const Profile = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium text-gray-700">Password</Label>
+                  <Label className="text-sm font-medium text-gray-700">{t("Password")}</Label>
                   <Input
-                    type="password"
+                    type={t("Password")}
                     placeholder="••••••"
                     value={form.password}
                     onChange={(e) => setForm({ ...form, password: e.target.value })}
@@ -174,19 +178,19 @@ const Profile = () => {
                 </div>
 
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium text-gray-700">Status</Label>
+                  <Label className="text-sm font-medium text-gray-700">{t("Status")}</Label>
                   <select
                     value={form.status}
                     onChange={(e) => setForm({ ...form, status: Number(e.target.value) })}
                     className="w-full border-gray-300 focus:border-red-500 focus:ring-red-500 rounded-lg px-3 py-2 text-sm transition-all duration-200"
                   >
-                    <option value={1}>Active</option>
-                    <option value={0}>Inactive</option>
+                    <option value={1}>{t("Active")}</option>
+                    <option value={0}>{t("Inactive")}</option>
                   </select>
                 </div>
 
                 <div className="space-y-2">
-                  <Label className="text-sm font-medium text-gray-700">Profile Image</Label>
+                  <Label className="text-sm font-medium text-gray-700">{t("ProfileImage")}</Label>
                   <Input
                     type="file"
                     accept="image/*"
@@ -205,14 +209,14 @@ const Profile = () => {
                     className="border-gray-300 text-gray-700 hover:bg-gray-100 rounded-lg"
                     onClick={handleCancel}
                   >
-                    Cancel
+                    {t("Cancel")}
                   </Button>
                   <Button
                     type="submit"
                     disabled={updating}
                     className="bg-red-600 hover:bg-red-700 text-white rounded-lg transition-all duration-200"
                   >
-                    {updating ? "Saving..." : "Save"}
+                    {updating ? t("Saving") : t("Save")}
                   </Button>
                 </div>
               </form>

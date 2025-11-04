@@ -13,6 +13,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useTranslation } from "react-i18next";
 
 const AddressFormFields = ({
   form,
@@ -24,20 +25,22 @@ const AddressFormFields = ({
   // إضافة props جديدة للتحكم في الـ switch من الأب
   isAutoAddress = true,
   setIsAutoAddress,
-}) => {
+}) => {   
+   const { t ,i18n } = useTranslation();
+
   return (
     <>
       {/* Switch للاختيار بين التلقائي واليدوي */}
       <div className="flex items-center justify-between p-4 border rounded-lg bg-gray-50">
         <div className="flex flex-col">
-          <span className="font-medium text-sm">Address Selection Mode</span>
+          <span className="font-medium text-sm">{t("AddressSelectionMode")}</span>
           <span className="text-xs text-gray-600">
-            {isAutoAddress ? "Automatic from map location" : "Manual address entry"}
+            {isAutoAddress ? t("Automaticfrommaplocation") : t("Manualaddressentry")}
           </span>
         </div>
         <div className="flex items-center space-x-2">
           <span className={`text-sm ${!isAutoAddress ? 'text-blue-600 font-medium' : 'text-gray-500'}`}>
-            Manual
+            {t("Manual")}
           </span>
           <button
             type="button"
@@ -64,7 +67,7 @@ const AddressFormFields = ({
             />
           </button>
           <span className={`text-sm ${isAutoAddress ? 'text-blue-600 font-medium' : 'text-gray-500'}`}>
-            Auto
+            {t("Auto")}
           </span>
         </div>
       </div>
@@ -76,13 +79,12 @@ const AddressFormFields = ({
         render={({ field }) => (
           <FormItem>
             <FormLabel>
-              Address {isAutoAddress ? "(from Map)" : "(Manual Entry)"}
+              {t("Address")} {isAutoAddress ? t("fromMap") : t("ManualEntry")}
             </FormLabel>
             <FormControl>
               {isAutoAddress ? (
-                // وضع تلقائي - قراءة فقط من الخريطة
                 <Input
-                  placeholder="Click on map to select address"
+                  placeholder={t("Clickotaddress")}
                   {...field}
                   value={locationName}
                   onChange={(e) => {
@@ -95,7 +97,7 @@ const AddressFormFields = ({
               ) : (
                 // وضع يدوي - المستخدم يكتب بنفسه - بدون تدخل من locationName
                 <Input
-                  placeholder="Enter your address manually"
+                  placeholder={t("Enteryouraddressmanually")}
                   {...field}
                   onChange={(e) => {
                     // لا نحدث locationName في الوضع اليدوي
@@ -113,38 +115,41 @@ const AddressFormFields = ({
 
       {/* Grid for number fields */}
       <div className="grid grid-cols-2 gap-4">
-        {["street", "building_num", "floor_num", "apartment"].map((name) => (
-          <FormField
-            key={name}
-            control={form.control}
-            name={name}
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>
-                  {name
-                    .replace("_", " ")
-                    .replace(/\b\w/g, (l) => l.toUpperCase())}
-                </FormLabel>
-                <FormControl>
-                  <Input
-                    type={name === "street" ? "text" : "number"}
-                    {...field}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      if (name === "street") {
-                        field.onChange(value === "" ? null : value);
-                      } else {
-                        field.onChange(value === "" ? null : Number(value));
-                      }
-                    }}
-                    value={field.value === null ? "" : field.value}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
+       
+        {[
+  { name: "street", label: t("Street") },
+  { name: "building_num", label: t("BuildingNumber") },
+  { name: "floor_num", label: t("FloorNumber") },
+  { name: "apartment", label: t("Apartment") },
+].map(({ name, label }) => (
+  <FormField
+    key={name}
+    control={form.control}
+    name={name}
+    render={({ field }) => (
+      <FormItem>
+        <FormLabel>{label}</FormLabel>
+        <FormControl>
+          <Input
+            type={name === "street" ? "text" : "number"}
+            {...field}
+            onChange={(e) => {
+              const value = e.target.value;
+              if (name === "street") {
+                field.onChange(value === "" ? null : value);
+              } else {
+                field.onChange(value === "" ? null : Number(value));
+              }
+            }}
+            value={field.value === null ? "" : field.value}
           />
-        ))}
+        </FormControl>
+        <FormMessage />
+      </FormItem>
+    )}
+  />
+))}
+
       </div>
 
       <div className="grid grid-cols-2 gap-4">
@@ -165,7 +170,7 @@ const AddressFormFields = ({
               >
                 <FormControl>
                   <SelectTrigger className="!w-full">
-                    <SelectValue placeholder="Select City" />
+                    <SelectValue placeholder={t("SelectCity")} />
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
@@ -187,7 +192,7 @@ const AddressFormFields = ({
           name="zone_id"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Zone</FormLabel>
+              <FormLabel>{t("Zone")}</FormLabel>
               <Select
                 onValueChange={field.onChange}
                 value={field.value || ""}
@@ -195,7 +200,7 @@ const AddressFormFields = ({
               >
                 <FormControl>
                   <SelectTrigger className="!w-full">
-                    <SelectValue placeholder="Select Zone" />
+                    <SelectValue placeholder={t("SelectZone")} />
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
@@ -217,20 +222,20 @@ const AddressFormFields = ({
         name="type"
         render={({ field }) => (
           <FormItem>
-            <FormLabel>Type</FormLabel>
+            <FormLabel>{t("Type")}</FormLabel>
             <Select 
               onValueChange={field.onChange} 
               value={field.value || ""}
             >
               <FormControl>
                 <SelectTrigger className="!w-full">
-                  <SelectValue placeholder="Select Type" />
+                  <SelectValue placeholder={t("SelectType")} />
                 </SelectTrigger>
               </FormControl>
               <SelectContent>
-                <SelectItem value="home">Home</SelectItem>
-                <SelectItem value="work">Work</SelectItem>
-                <SelectItem value="other">Other</SelectItem>
+                <SelectItem value="home">{t("Home")}</SelectItem>
+                <SelectItem value="work">{t("Work")}</SelectItem>
+                <SelectItem value="other">{t("Other")}</SelectItem>
               </SelectContent>
             </Select>
             <FormMessage />
@@ -243,9 +248,9 @@ const AddressFormFields = ({
         name="additional_data"
         render={({ field }) => (
           <FormItem>
-            <FormLabel>Additional Data</FormLabel>
+            <FormLabel>{t("AdditionalData")}</FormLabel>
             <FormControl>
-              <Input placeholder="Additional Data" {...field} />
+              <Input placeholder={t("AdditionalData")} {...field} />
             </FormControl>
             <FormMessage />
           </FormItem>

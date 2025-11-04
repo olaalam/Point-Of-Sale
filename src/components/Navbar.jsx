@@ -170,7 +170,7 @@ toast.success(t("LoggedOutSuccessfully"));
           {location.pathname !== "/shift" && location.pathname !== "/cashier" && (
             <>
               <div className="flex items-center text-xs md:text-sm font-medium text-gray-600">
-                <span className="text-gray-500 mr-1 hidden sm:inline">{t("Shift")}:</span>
+                <span className="text-gray-500 mr-1 hidden sm:inline">{t("shift")}:</span>
                 <span className="bg-gray-100 px-2 py-1 rounded-md text-gray-800 text-xs md:text-sm">
                   {formatElapsedTime()}
                 </span>
@@ -179,7 +179,7 @@ toast.success(t("LoggedOutSuccessfully"));
                 onClick={handleCloseShift}
                 className="bg-[#910000] text-white px-3 py-1 md:px-4 md:py-2 rounded-md text-xs md:text-sm font-semibold hover:bg-red-700"
               >
-                <span className="hidden md:inline">{t("CloseShift")}</span>
+                <span className="hidden md:inline">{t("closeshift")}</span>
                 <span className="md:hidden">{t("Close")}</span>
               </button>
             </>
@@ -209,7 +209,7 @@ toast.success(t("LoggedOutSuccessfully"));
             onClick={handleLogout}
             className="bg-gray-200 text-gray-800 px-3 py-1 md:px-4 md:py-2 rounded-md text-xs md:text-sm font-semibold hover:bg-gray-300"
           >
-            <span className="hidden sm:inline">{t("Logout")}</span>
+            <span className="hidden sm:inline">{t("logout")}</span>
             <span className="sm:hidden">{t("Exit")}</span>
           </button>
         </div>

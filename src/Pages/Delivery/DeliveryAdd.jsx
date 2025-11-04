@@ -12,11 +12,13 @@ import { useDeliveryForm } from "@/Hooks/useDeliveryForm";
 import MapComponent from "@/components/MapComponent";
 import UserFormFields from "./UserFormFields";
 import AddressFormFields from "./AddressFormFields";
+import { useTranslation } from "react-i18next";
 
 export default function DeliveryAdd() {
   // إضافة state للتحكم في حالة الـ submission
   const [isSubmitting, setIsSubmitting] = useState(false);
-  
+    const { t ,i18n } = useTranslation();
+  const isArabic = i18n.language === "ar";
   const {
     form,
     selectedLocation,
@@ -52,17 +54,16 @@ const onSubmit = async (values) => {
     console.log("Form Values:", values);
     console.log("Selected Location:", selectedLocation);
 
-    // التحقق من الحقول الأساسية
     if (!values.city_id) {
-      toast.error("Please select a city");
+      toast.error(t("Pleaseselectacity"));
       return;
     }
     if (!values.zone_id) {
-      toast.error("Please select a zone");
+      toast.error("Pleaseselectazone");
       return;
     }
     if (!values.address || values.address.length < 5) {
-      toast.error("Please provide a valid address");
+      toast.error("Pleaseprovideavalidaddress");
       return;
     }
 
@@ -87,7 +88,7 @@ const onSubmit = async (values) => {
     if (isEditMode) {
       const addressId = editAddressData?.addresses?.[0]?.id || editAddressData?.address?.id;
       if (!addressId) {
-        toast.error("Address ID not found");
+        toast.error(t("AddressIDnotfound"));
         return;
       }
       finalPayload = { ...addressObject, user_id: editAddressData?.user_id };
@@ -114,7 +115,7 @@ const onSubmit = async (values) => {
 
     if (response && response.success) {
       toast.success(
-        `${isEditMode ? "Address updated" : isAddAnotherAddress ? "Address added" : "User added"} successfully!`
+        `${isEditMode ? t("Addressupdated") : isAddAnotherAddress ? t("Addressadded") : t("Useradded")} ${t("successfully")}!`
       );
 
       if (!isEditMode && !isAddAnotherAddress) {
@@ -125,12 +126,12 @@ const onSubmit = async (values) => {
         navigate("/");
       }, 1500);
     } else {
-      toast.error(response?.message || "Operation failed.");
+      toast.error(response?.message || t("Operationfailed"));
     }
   } catch (err) {
     console.error("Submit Error:", err);
 
-    let errorMessage = "An unexpected error occurred.";
+    let errorMessage = t("Anunexpectederroroccurred");
 
     if (err.response) {
       const { data } = err.response;
@@ -150,12 +151,12 @@ const onSubmit = async (values) => {
       }
       // fallback
       else {
-        errorMessage = "Failed to submit. Please try again.";
+        errorMessage = t("FailedtosubmitPleasetryagain");
       }
     } else if (err.request) {
-      errorMessage = "No response from server. Check your internet connection.";
+      errorMessage = t("NoresponsefromserverCheckyourinternetconnection");
     } else {
-      errorMessage = err.message || "Unknown error.";
+      errorMessage = err.message || t("Unknownerror");
     }
 
     // إظهار الرسالة في الـ toast
@@ -204,10 +205,10 @@ const onSubmit = async (values) => {
       <div className="max-w-7xl mx-auto">
         <h2 className="text-3xl font-bold text-gray-800 text-center mb-8">
           {isEditMode
-            ? "Edit Delivery Address"
+            ? t("EditDeliveryAddress")
             : isAddAnotherAddress
-              ? "Add Another Address for User"
-              : "Add New Delivery User"}
+              ? t("AddAnotherAddressforUser")
+              : t("AddNewDeliveryUser")}
         </h2>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Left - Map */}
@@ -281,19 +282,19 @@ const onSubmit = async (values) => {
                       </svg>
                       <span>
                         {isEditMode
-                          ? "Updating..."
+                          ? t("Updating")
                           : isAddAnotherAddress
-                            ? "Adding..."
-                            : "Adding..."}
+                            ? t("Adding")
+                            : t("Adding")}
                       </span>
                     </div>
                   ) : (
                     <span>
                       {isEditMode
-                        ? "Update Address"
+                        ? t("UpdateAddress")
                         : isAddAnotherAddress
-                          ? "Add Address"
-                          : "Add User"}
+                          ? t("AddAddress")
+                          : t("AddUser")}
                     </span>
                   )}
                 </Button>

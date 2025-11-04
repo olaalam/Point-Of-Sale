@@ -14,6 +14,7 @@ import { ChevronDownIcon } from "lucide-react";
 import { Circle, Hourglass, CheckCircle, ChefHat, Truck, Package } from "lucide-react";
 import { usePut } from "@/Hooks/usePut";
 import { toast } from "react-toastify";
+import { useTranslation } from "react-i18next";
 
 // تعريف حالات التحضير لكل نوع طلب
 const TAKE_AWAY_STATUSES = {
@@ -71,6 +72,8 @@ export default function OrdersView() {
  } else if (orderType === "delivery" && Array.isArray(data?.delivery)) {
  orders = data.delivery;
  }
+  const { t ,i18n } = useTranslation();
+  const isArabic = i18n.language === "ar";
 
 const [statuses, setStatuses] = useState({});
   useEffect(() => {
@@ -126,13 +129,13 @@ const filteredOrders = orders.filter((order) => {
   ...prev,
   [orderId]: newStatus,
  }));
- toast.success("Status updated successfully!");
+ toast.success(t("Statusupdatedsuccessfully"));
  } else {
- toast.error("Failed to update status.");
+ toast.error("Failedtoupdatestatus");
  console.error('Failed to update status:', response);
  }
  } catch (err) {
- toast.error("Error updating status.");
+ toast.error(t("Errorupdatingstatus"));
  console.error('Error updating status:', err);
  } finally {
  setUpdatingStatus(prev => ({ ...prev, [orderId]: false }));
@@ -173,19 +176,19 @@ const filteredOrders = orders.filter((order) => {
  <div className="p-6 space-y-6">
  <Input
  type="text"
- placeholder="Search Order Number"
+ placeholder={t("SearchOrderNumber")}
  value={search}
  onChange={(e) => setSearch(e.target.value)}
  className="max-w-md mx-auto"
  />
 
  <h2 className="text-xl font-semibold mt-6 text-center">
- Orders:{" "}
- <span className="capitalize">{orderType.replace("_", " ")}</span>
- </h2>
+ {t("Orders")}{" "}
+ <span className="capitalize"> {orderType==="take_away"?t('take_away'):t("delivery")} </span>
+</h2>
 
  {filteredOrders.length === 0 ? (
- <p className="text-gray-500 text-center">No orders found.</p>
+ <p className="text-gray-500 text-center">{t("Noordersfound")}</p>
  ) : (
  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
  {filteredOrders.map((order) => (
@@ -209,7 +212,7 @@ const filteredOrders = orders.filter((order) => {
    {updatingStatus[order.id] ? (
    <div className="flex items-center gap-1">
    <Hourglass size={16} className="animate-spin text-gray-400" />
-   <span>Updating...</span>
+   <span>{t("Updating")}</span>
    </div>
    ) : (
    renderStatusBadge(statuses[order.id])
@@ -233,14 +236,14 @@ const filteredOrders = orders.filter((order) => {
    </DropdownMenuContent>
   </DropdownMenu>
   ) : (
-  <span className="text-sm text-gray-500">Dine In</span>
+  <span className="text-sm text-gray-500">{t("DineIn")}</span>
   )}
   </div>
   <p className="text-sm text-gray-500">
   {order.order_date} — {order.date}
   </p>
   <div className="space-y-1">
-  <p className="text-sm font-medium">Items:</p>
+  <p className="text-sm font-medium">{t("Items")}:</p>
   <ul className="list-disc list-inside text-sm text-gray-700">
   {order.order_details?.map((detail, i) =>
    detail.product?.map((prod, j) => (

@@ -5,12 +5,14 @@ import { Button } from "@/components/ui/button";
 import { useGet } from "@/Hooks/useGet";
 import { toast } from "react-toastify";
 import { ArrowLeft, Clock, Package } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 export default function PendingOrders() {
   const navigate = useNavigate();
   const { data: pendingOrders, loading, error, refetch } = useGet("cashier/get_pending_orders");
   const [selectedOrderId, setSelectedOrderId] = useState(null);
   const [orderDetailsEndpoint, setOrderDetailsEndpoint] = useState(null);
+   const { t ,i18n } = useTranslation();
 
   const { 
     data: orderDetailsData, 
@@ -20,13 +22,13 @@ export default function PendingOrders() {
 
   useEffect(() => {
     if (error) {
-      toast.error(`Error loading pending orders: ${error}`);
+      toast.error(`${t("Errorloadingpendingorders")}: ${error}`);
     }
   }, [error]);
 
   useEffect(() => {
     if (orderError) {
-      toast.error(`Error loading order details: ${orderError}`);
+      toast.error(`${t("Errorloadingorderdetails")}: ${orderError}`);
       setSelectedOrderId(null);
       setOrderDetailsEndpoint(null);
     }
@@ -157,7 +159,7 @@ export default function PendingOrders() {
 
             <h1 className="text-3xl font-bold text-gray-800 flex  items-center gap-2">
               <Clock className="text-orange-600" size={32} />
-              Pending Orders
+              {t("PendingOrders")}
             </h1>
           </div>
 
@@ -171,14 +173,14 @@ export default function PendingOrders() {
 
         {error && (
           <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-            <p className="text-red-600">Error loading pending orders: {error}</p>
+            <p className="text-red-600">{t("Errorloadingpendingorders")}: {error}</p>
             <Button 
               onClick={refetch} 
               variant="outline" 
               className="mt-2"
               disabled={loading}
             >
-              Retry
+              {t("Retry")}
             </Button>
           </div>
         )}
@@ -188,7 +190,7 @@ export default function PendingOrders() {
             {!pendingOrders || !Array.isArray(pendingOrders.all_orders) || pendingOrders.all_orders.length === 0 ? (
               <div className="col-span-full text-center py-12">
                 <Package className="mx-auto mb-4 text-gray-400" size={64} />
-                <p className="text-gray-500 text-lg">No pending orders found</p>
+                <p className="text-gray-500 text-lg">{t("Nopendingordersfound")}</p>
   
               </div>
             ) : (
@@ -206,7 +208,7 @@ export default function PendingOrders() {
                     <div className="flex justify-between items-start mb-4">
                       <div>
                         <h3 className="text-xl font-semibold text-gray-800">
-                          Order #{order.order_number || order.id}
+                          {t("Order")} #{order.order_number || order.id}
                         </h3>
                         <p className="text-sm text-gray-500">
                           {formatDate(order.created_at || order.date)}
@@ -221,31 +223,31 @@ export default function PendingOrders() {
                     
                     <div className="space-y-2 mb-4">
                       <div className="flex justify-between text-sm">
-                        <span className="text-gray-600">Customer:</span>
+                        <span className="text-gray-600">{t("Customer")}:</span>
                         <span className="font-medium">{order.customer_name || order.name || "N/A"}</span>
                       </div>
                       {order.phone && (
                         <div className="flex justify-between text-sm">
-                          <span className="text-gray-600">Phone:</span>
+                          <span className="text-gray-600">{t("Phone")}:</span>
                           <span className="font-medium">{order.phone}</span>
                         </div>
                       )}
                       <div className="flex justify-between text-sm">
-                        <span className="text-gray-600">Total:</span>
+                        <span className="text-gray-600">{t("Total")}:</span>
                         <span className="font-bold text-green-600">
                           {parseFloat(order.amount || 0).toFixed(2)} EGP
                         </span>
                       </div>
                       {order.notes && (
                         <div className="text-xs text-gray-500">
-                          <span className="font-medium">Notes:</span> {order.notes}
+                          <span className="font-medium">{t("Notes")}:</span> {order.notes}
                         </div>
                       )}
                     </div>
                     
                     {order.order_details && (
                       <div className="border-t pt-3">
-                        <p className="text-xs text-gray-600 mb-1">Items:</p>
+                        <p className="text-xs text-gray-600 mb-1">{t("Items")}:</p>
                         <p className="text-sm text-gray-800 line-clamp-2">
                           {formatOrderItems(order.order_details)}
                         </p>
@@ -257,7 +259,7 @@ export default function PendingOrders() {
                       <div className="absolute inset-0 bg-white bg-opacity-90 flex items-center justify-center rounded-lg">
                         <div className="flex flex-col items-center gap-3">
                           <Loading />
-                          <span className="text-sm text-gray-600 font-medium">Loading order details...</span>
+                          <span className="text-sm text-gray-600 font-medium">{t("Loadingorderdetails")}</span>
                         </div>
                       </div>
                     )}

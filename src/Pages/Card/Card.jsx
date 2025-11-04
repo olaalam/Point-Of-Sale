@@ -1122,7 +1122,7 @@ t("BulkUpdateSuccess", {
             </p>
             <Input
               type="text"
-              placeholder="Enter Offer Code"
+              placeholder={t("EnterOfferCode")}
               value={offerCode}
               onChange={(e) => setOfferCode(e.target.value)}
               className="w-full p-2 border border-gray-300 rounded-md mb-4 focus:ring-bg-primary focus:border-bg-primary"
@@ -1198,7 +1198,7 @@ t("BulkUpdateSuccess", {
             </p>
             <Input
               type="text"
-              placeholder="Enter Deal Code"
+              placeholder={t("EnterDealCode")}
               value={dealCode}
               onChange={(e) => setDealCode(e.target.value)}
               className="w-full p-2 border border-gray-300 rounded-md mb-4 focus:ring-bg-primary focus:border-bg-primary"
@@ -1260,7 +1260,7 @@ t("BulkUpdateSuccess", {
                 className="bg-orange-600 text-white hover:bg-orange-700"
                 disabled={isLoading}
               >
-                {isLoading ? <Loading /> : "Approve and Add Deal"}
+                {isLoading ? <Loading /> : t("ApproveandAddDeal")}
               </Button>
             </div>
           </div>
