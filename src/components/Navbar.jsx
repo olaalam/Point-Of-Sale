@@ -1,5 +1,5 @@
 // Navbar.js (بعد التعديل)
-import React from "react";
+import React, { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { usePost } from "@/Hooks/usePost";
 import { useShift } from "@/context/ShiftContext";
@@ -7,7 +7,6 @@ import { toast } from "react-toastify";
 import { FaUserCircle, FaUsers } from "react-icons/fa";
 import { useTranslation } from "react-i18next";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useTranslation } from "react-i18next";
 
 export default function Navbar() {
   const navigate = useNavigate();
@@ -15,8 +14,8 @@ export default function Navbar() {
   const { postData } = usePost();
   const { isShiftOpen, shiftStartTime } = useShift();
   const [currentTime, setCurrentTime] = React.useState(new Date());
-  const { t } = useTranslation();
-
+  const { t ,i18n } = useTranslation();
+const [language, setLanguage] =useState(localStorage.getItem("language") || "en");
   const currentTab = sessionStorage.getItem("tab") || "take_away";
 
   React.useEffect(() => {
@@ -171,7 +170,7 @@ toast.success(t("LoggedOutSuccessfully"));
           {location.pathname !== "/shift" && location.pathname !== "/cashier" && (
             <>
               <div className="flex items-center text-xs md:text-sm font-medium text-gray-600">
-                <span className="text-gray-500 mr-1 hidden sm:inline">Shift:</span>
+                <span className="text-gray-500 mr-1 hidden sm:inline">{t("Shift")}:</span>
                 <span className="bg-gray-100 px-2 py-1 rounded-md text-gray-800 text-xs md:text-sm">
                   {formatElapsedTime()}
                 </span>
@@ -180,17 +179,38 @@ toast.success(t("LoggedOutSuccessfully"));
                 onClick={handleCloseShift}
                 className="bg-[#910000] text-white px-3 py-1 md:px-4 md:py-2 rounded-md text-xs md:text-sm font-semibold hover:bg-red-700"
               >
-                <span className="hidden md:inline">Close Shift</span>
-                <span className="md:hidden">Close</span>
+                <span className="hidden md:inline">{t("CloseShift")}</span>
+                <span className="md:hidden">{t("Close")}</span>
               </button>
             </>
           )}
+          <div className="flex items-center gap-2">
+      <span className="text-sm font-medium">EN</span>
+      <button
+        onClick={toggleLanguage}
+        className={`
+          relative inline-flex h-6 w-12 flex-shrink-0 cursor-pointer
+          rounded-full border-2 border-transparent transition-colors
+          duration-200 ease-in-out
+          ${language === "ar" ? "bg-bg-primary" : "bg-gray-300"}
+        `}
+      >
+        <span
+          className={`
+            pointer-events-none inline-block h-5 w-5 transform rounded-full
+            bg-white shadow ring-0 transition duration-200 ease-in-out
+            ${language === "ar" ? "translate-x-6" : "translate-x-0"}
+          `}
+        />
+      </button>
+      <span className="text-sm font-medium">AR</span>
+    </div>
           <button
             onClick={handleLogout}
             className="bg-gray-200 text-gray-800 px-3 py-1 md:px-4 md:py-2 rounded-md text-xs md:text-sm font-semibold hover:bg-gray-300"
           >
-            <span className="hidden sm:inline">Logout</span>
-            <span className="sm:hidden">Exit</span>
+            <span className="hidden sm:inline">{t("Logout")}</span>
+            <span className="sm:hidden">{t("Exit")}</span>
           </button>
         </div>
       </div>
