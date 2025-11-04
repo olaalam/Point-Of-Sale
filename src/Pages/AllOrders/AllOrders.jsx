@@ -1,5 +1,10 @@
 import React, { useState, useMemo } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { usePost } from "@/Hooks/usePost";
@@ -83,46 +88,54 @@ export default function AllOrders() {
             />
           </div>
 
-          {/* Orders Cards */}
-          {filteredOrders.length > 0 ? (
-            <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
-              {filteredOrders.map((order) => (
-                <div
-                  key={order.id}
-                  className="border rounded-2xl shadow-md p-4 hover:shadow-lg transition-all"
-                >
-                  <div className="flex justify-between items-center mb-2">
-                    <h2 className="font-bold text-lg">Order #{order.order_number}</h2>
-                    <span
-                      className={`px-3 py-1 text-xs rounded-full ${
-                        order.order_status === "completed"
-                          ? "bg-green-100 text-green-700"
-                          : order.order_status === "pending"
-                          ? "bg-yellow-100 text-yellow-700"
-                          : "bg-gray-100 text-gray-700"
-                      }`}
-                    >
-                      {order.order_status}
-                    </span>
-                  </div>
-                  <p className="text-sm text-gray-600 mb-1">
-                    <span className="font-semibold">Type:</span> {order.order_type}
-                  </p>
-                  <p className="text-sm text-gray-600 mb-1">
-                    <span className="font-semibold">Amount:</span> {order.amount}
-                  </p>
-                  <p className="text-sm text-gray-600 mb-1">
-                    <span className="font-semibold">Branch:</span>{" "}
-                    {order.branch?.name || "—"}
-                  </p>
-                  <p className="text-sm text-gray-600 mb-1">
-                    <span className="font-semibold">Date:</span>{" "}
-                    {new Date(order.created_at).toLocaleString()}
-                  </p>
-                </div>
-              ))}
-            </div>
-          ) : (
+          {/* Orders Table */}
+          <div className="overflow-x-auto rounded-lg shadow-md border">
+            <table className="min-w-full border-collapse">
+              <thead className="bg-gray-100 text-gray-700">
+                <tr>
+                  <th className="border p-3 text-left">Order #</th>
+                  <th className="border p-3 text-left">Type</th>
+                  <th className="border p-3 text-left">Amount</th>
+                  <th className="border p-3 text-left">Status</th>
+                  <th className="border p-3 text-left">Branch</th>
+                  <th className="border p-3 text-left">Date</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredOrders.map((order) => (
+                  <tr
+                    key={order.id}
+                    className="hover:bg-gray-50 transition-colors"
+                  >
+                    <td className="border p-3">{order.order_number}</td>
+                    <td className="border p-3 capitalize">{order.order_type}</td>
+                    <td className="border p-3">{order.amount}</td>
+                    <td className="border p-3">
+                      <span
+                        className={`px-3 py-1 text-xs rounded-full ${
+                          order.order_status === "completed"
+                            ? "bg-green-100 text-green-700"
+                            : order.order_status === "pending"
+                            ? "bg-yellow-100 text-yellow-700"
+                            : "bg-gray-100 text-gray-700"
+                        }`}
+                      >
+                        {order.order_status}
+                      </span>
+                    </td>
+                    <td className="border p-3">
+                      {order.branch?.name || "—"}
+                    </td>
+                    <td className="border p-3">
+                      {new Date(order.created_at).toLocaleString()}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {filteredOrders.length === 0 && (
             <p className="text-center text-gray-500 mt-6">
               No orders found for this date.
             </p>
