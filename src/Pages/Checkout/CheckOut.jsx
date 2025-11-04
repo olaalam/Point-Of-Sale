@@ -12,6 +12,9 @@ import { useNavigate } from "react-router-dom";
 import CustomerSelectionModal from "./CustomerSelectionModal";
 import DeliveryAssignmentModal from "./DeliveryAssignmentModal";
 import { buildFinancialsPayload, getOrderEndpoint, buildOrderPayload, buildDealPayload, validatePaymentSplits } from "./processProductItem";
+import { prepareReceiptData, printReceiptSilently } from "../utils/printReceipt";
+
+// استيراد الطباعة الصامتة
 
 const CheckOut = ({
   amountToPay,
@@ -33,7 +36,7 @@ const CheckOut = ({
   const { data: deliveryData, loading: deliveryLoading } = useGet("cashier/delivery_lists");
   const { postData, loading } = usePost();
 
-  // ✅ State for order notes
+  // State for order notes
   const [orderNotes, setOrderNotes] = useState("");
   
   const [paymentSplits, setPaymentSplits] = useState([]);
@@ -127,7 +130,7 @@ const CheckOut = ({
           id: "split-1",
           accountId: defaultAccountId,
           amount: requiredTotal || 0,
-          description: "",
+          checkout: "",
         },
       ]);
     }
@@ -164,8 +167,8 @@ const CheckOut = ({
         toast.success(`Discount of ${response.discount}% applied!`);
       } else {
         setAppliedDiscount(0);
-        setDiscountError("Invalid or expired discount code.");
-        toast.error("Invalid or expired discount code.");
+        setDiscountError("Invalid or Off discount code.");
+        toast.error("Invalid or Off discount code.");
       }
     } catch (e) {
       setAppliedDiscount(0);
@@ -207,7 +210,7 @@ const CheckOut = ({
     setPaymentSplits((prev) =>
       prev.map((split) =>
         split.id === id
-          ? { ...split, accountId: parseInt(accountId), description: "" }
+          ? { ...split, accountId: parseInt(accountId), checkout: "" }
           : split
       )
     );
@@ -216,7 +219,7 @@ const CheckOut = ({
   const handleDescriptionChange = (id, value) => {
     setPaymentSplits((prev) =>
       prev.map((split) =>
-        split.id === id ? { ...split, description: value } : split
+        split.id === id ? { ...split, checkout: value } : split
       )
     );
   };
@@ -230,7 +233,7 @@ const CheckOut = ({
         id: `split-${Date.now()}`,
         accountId: defaultAccountId,
         amount: remainingAmount > 0 ? remainingAmount : 0,
-        description: "",
+        checkout: "",
       },
     ]);
   };
@@ -249,7 +252,7 @@ const CheckOut = ({
     return acc?.description_status === 1;
   };
 
-  // === دالة مشتركة لإرسال الطلب ===
+  // دالة إرسال الطلب + الطباعة الصامتة
   const proceedWithOrderSubmission = async (due = 0, customer_id = undefined) => {
     const hasDealItems = orderItems.some((item) => item.is_deal);
     const endpoint = getOrderEndpoint(orderType, orderItems, totalDineInItems, hasDealItems);
@@ -269,7 +272,7 @@ const CheckOut = ({
           : discountData.module.includes(orderType)
             ? amountToPay * (discountData.discount / 100)
             : totalDiscount,
-        notes: orderNotes.trim() || "No special instructions", // ✅ Use dynamic notes
+        notes: orderNotes.trim() || "No special instructions",
         source,
         financialsPayload,
         cashierId,
@@ -288,22 +291,41 @@ const CheckOut = ({
 
       if (response?.success) {
         toast.success(due === 1 ? "Due order created successfully!" : "Order placed successfully!");
-        onClearCart();
-        sessionStorage.setItem("last_order_type", orderType);
 
-        if (orderType === "delivery") {
-          const newOrderId = response?.success?.id;
-          if (newOrderId) {
-            setOrderId(newOrderId);
-            setDeliveryModelOpen(true);
+        // تحضير بيانات الفاتورة
+        const receiptData = prepareReceiptData(
+          orderItems,
+          amountToPay,
+          totalTax,
+          totalDiscount,
+          appliedDiscount,
+          discountData,
+          orderType,
+          requiredTotal,
+          response.success
+        );
+
+        // طباعة صامتة (بدون واجهة)
+        printReceiptSilently(receiptData, () => {
+          console.log("PRINTING COMPLETED → Proceeding to navigation");
+          onClearCart();
+          sessionStorage.setItem("last_order_type", orderType);
+
+          if (orderType === "delivery") {
+            const newOrderId = response?.success?.id;
+            if (newOrderId) {
+              setOrderId(newOrderId);
+              setDeliveryModelOpen(true);
+            } else {
+              onClose();
+              navigate("/orders");
+            }
           } else {
             onClose();
-            navigate("/orders");
+            navigate(due === 1 ? "/due" : "/orders");
           }
-        } else {
-          onClose();
-          navigate(due === 1 ? "/due" : "/orders");
-        }
+        });
+
       } else {
         toast.error(response?.message || "Failed to process order.");
       }
@@ -313,7 +335,7 @@ const CheckOut = ({
     }
   };
 
-  // === اختيار العميل → إرسال الطلب فورًا ===
+  // اختيار العميل → إرسال الطلب فورًا
   const handleSelectCustomer = async (customer) => {
     if (requiredTotal > customer.can_debit) {
       toast.error(`Order amount (${requiredTotal.toFixed(2)} EGP) exceeds customer's debit limit.`);
@@ -323,11 +345,10 @@ const CheckOut = ({
     setSelectedCustomer(customer);
     setCustomerSelectionOpen(false);
 
-    // إرسال الطلب مع due: 1
     await proceedWithOrderSubmission(1, customer.id);
   };
 
-  // === الضغط على Confirm & Pay ===
+  // الضغط على Confirm & Pay
   const handleSubmitOrder = async () => {
     if (!isTotalMet || totalScheduled === 0) {
       return toast.error(`Total must equal ${requiredTotal.toFixed(2)} EGP.`);
@@ -338,7 +359,6 @@ const CheckOut = ({
       return toast.error(validation.error);
     }
 
-    // إذا كان Due Order
     if (isDueOrder) {
       if (!selectedCustomer) {
         setCustomerSelectionOpen(true);
@@ -348,7 +368,6 @@ const CheckOut = ({
       return;
     }
 
-    // دفع عادي
     await proceedWithOrderSubmission(0);
   };
 
@@ -449,7 +468,7 @@ const CheckOut = ({
               )}
             </div>
 
-            {/* ✅ Order Notes Section */}
+            {/* Order Notes Section */}
             <div className="mb-6">
               <label className="block text-sm font-medium mb-2">Order Notes (Optional)</label>
               <Textarea
@@ -528,7 +547,7 @@ const CheckOut = ({
                     <Input
                       type="text"
                       placeholder="Last 4 digits"
-                      value={split.description}
+                      value={split.checkout}
                       onChange={(e) => handleDescriptionChange(split.id, e.target.value)}
                       maxLength={4}
                       className="w-32"

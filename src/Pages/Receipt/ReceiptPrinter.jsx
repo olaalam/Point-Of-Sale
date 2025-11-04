@@ -1,16 +1,27 @@
 // src/components/ReceiptPrinter.jsx
-import React from 'react';
-import './ReceiptPrinter.css';
+import React, { useEffect } from "react";
+import "./ReceiptPrinter.css";
 
-const ReceiptPrinter = ({ receiptData, onClose }) => {
+const ReceiptPrinter = ({ receiptData, onClose, autoPrint = false }) => {
+  useEffect(() => {
+    if (autoPrint) {
+      console.log("ReceiptPrinter: autoPrint = true → starting print in 300ms");
+      const timer = setTimeout(() => {
+        console.log("ReceiptPrinter: EXECUTING window.print()");
+        window.print();
+        setTimeout(() => onClose?.(), 600);
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [autoPrint, onClose]);
+
   const handlePrint = () => {
     window.print();
-    setTimeout(() => onClose?.(), 500); 
+    setTimeout(() => onClose?.(), 600);
   };
 
   return (
-    <div>
-      {/* الفاتورة */}
+    <div className="receipt-wrapper">
       <div id="receipt" className="receipt-print">
         <div className="header">
           <h1>كاشير</h1>
@@ -39,7 +50,7 @@ const ReceiptPrinter = ({ receiptData, onClose }) => {
             {receiptData.items.map((item, i) => (
               <tr key={i}>
                 <td>{item.qty}</td>
-                <td style={{ textAlign: 'right' }}>{item.name}</td>
+                <td className="item-name">{item.name}</td>
                 <td>{item.price.toFixed(2)}</td>
                 <td>{item.total.toFixed(2)}</td>
               </tr>
@@ -51,7 +62,7 @@ const ReceiptPrinter = ({ receiptData, onClose }) => {
           <div><span>صافي المبيع:</span> <span>{receiptData.subtotal.toFixed(2)}</span></div>
           <div><span>الخصم:</span> <span>{receiptData.discount.toFixed(2)}</span></div>
           <div><span>ضريبة القيمة المضافة:</span> <span>{receiptData.tax.toFixed(2)}</span></div>
-          <div className="final"><span>الإجمالي:</span> <span>{receiptData.total.toFixed(2)}</span></div>
+          <div className="final"><span>الإجمالي:</span> <span>{receiptData.total.toFixed(2)} EGP</span></div>
         </div>
 
         <div className="footer">
@@ -59,10 +70,11 @@ const ReceiptPrinter = ({ receiptData, onClose }) => {
         </div>
       </div>
 
-      {/* زر طباعة (خارج الفاتورة) */}
-      <button className="print-btn no-print" onClick={handlePrint}>
-        طباعة الفاتورة
-      </button>
+      {!autoPrint && (
+        <button className="print-btn no-print" onClick={handlePrint}>
+          طباعة الفاتورة
+        </button>
+      )}
     </div>
   );
 };
