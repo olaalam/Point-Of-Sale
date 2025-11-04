@@ -20,6 +20,7 @@ import Profile from "./Pages/Profile";
 import DueUsers from "./Pages/Due/DueUsers";
 import InvoicePage from "./Pages/Receipt/InvoicePage";
 import AllOrders from "./Pages/AllOrders/AllOrders";
+import Dine from "./Pages/Dine";
 
 const router = createBrowserRouter(
   [
@@ -204,6 +205,14 @@ const router = createBrowserRouter(
           ,          element:(
             <ProtectedRoute>
               <AllOrders/>
+            </ProtectedRoute>
+          )
+        },
+                        {
+          path:"/tables"
+          ,          element:(
+            <ProtectedRoute>
+              <Dine/>
             </ProtectedRoute>
           )
         },

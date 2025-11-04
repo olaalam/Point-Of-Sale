@@ -1,10 +1,10 @@
-// Navbar.js (بعد التعديل مع أيقونة All Orders)
+// Navbar.js
 import React, { useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { usePost } from "@/Hooks/usePost";
 import { useShift } from "@/context/ShiftContext";
 import { toast } from "react-toastify";
-import { FaUserCircle, FaUsers, FaListAlt } from "react-icons/fa"; // ✅ أضفنا أيقونة الطلبات
+import { FaUserCircle, FaUsers, FaListAlt, FaTable } from "react-icons/fa";
 import { useTranslation } from "react-i18next";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -73,7 +73,12 @@ export default function Navbar() {
   };
 
   const handleAllOrders = () => {
-    navigate("/all-orders"); // ✅ يوديني لصفحة الطلبات
+    navigate("/all-orders"); // ✅ صفحة الطلبات
+  };
+
+  // ✅ تم التعديل هنا: يفتح Dine In داخل Home بدل /tables
+  const handleTables = () => {
+    navigate("/tables", { replace: true });
   };
 
   const formatElapsedTime = () => {
@@ -138,7 +143,7 @@ export default function Navbar() {
             <FaListAlt className="text-2xl md:text-3xl" />
           </button>
 
-          {/* التابات جمبهم */}
+          {/* ✅ Tabs مع أيقونة Tables بجانب dine-in */}
           <Tabs value={currentTab} onValueChange={handleTabChange}>
             <TabsList className="flex gap-2 bg-transparent p-0 ml-2">
               <TabsTrigger
@@ -159,15 +164,27 @@ export default function Navbar() {
               >
                 {t("Delivery")}
               </TabsTrigger>
-              <TabsTrigger
-                value="dine_in"
-                className="px-3 py-1 text-sm font-semibold 
-                  bg-white text-bg-primary border border-bg-primary
-                  data-[state=active]:bg-bg-primary data-[state=active]:text-white
-                  transition-colors duration-200"
-              >
-                {t("Dinein")}
-              </TabsTrigger>
+
+              <div className="flex items-center gap-1">
+                <TabsTrigger
+                  value="dine_in"
+                  className="px-3 py-1 text-sm font-semibold 
+                    bg-white text-bg-primary border border-bg-primary
+                    data-[state=active]:bg-bg-primary data-[state=active]:text-white
+                    transition-colors duration-200"
+                >
+                  {t("Dinein")}
+                </TabsTrigger>
+
+                {/* ✅ زر الطاولات يفتح Dine In */}
+                <button
+                  onClick={handleTables}
+                  className="p-2 border border-bg-primary rounded-lg hover:bg-bg-primary hover:text-white text-bg-primary transition"
+                  title={t("Tables")}
+                >
+                  <FaTable className="text-lg" />
+                </button>
+              </div>
             </TabsList>
           </Tabs>
         </div>
