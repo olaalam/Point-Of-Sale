@@ -286,7 +286,6 @@ export default function Card({
 
       toast.success(t("Ordersavedaspending"));
       clearCart();
-      navigate("/pending-orders");
     } catch (e) {
       console.error("Pending order error:", e);
       toast.error(e.response?.data?.message || t("Failedtosaveaspending"));

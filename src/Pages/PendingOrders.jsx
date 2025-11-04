@@ -121,6 +121,7 @@ export default function PendingOrders() {
       const date = new Date(dateString);
       return date.toLocaleDateString() + " " + date.toLocaleTimeString();
     } catch (err) {
+      toast.error("Invalid date format",err);
       return dateString;
     }
   };
