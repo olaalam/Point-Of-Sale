@@ -165,7 +165,6 @@ export default function Navbar() {
                 {t("Delivery")}
               </TabsTrigger>
 
-              <div className="flex items-center gap-1">
                 <TabsTrigger
                   value="dine_in"
                   className="px-3 py-1 text-sm font-semibold 
@@ -184,7 +183,6 @@ export default function Navbar() {
                 >
                   <FaTable className="text-lg" />
                 </button>
-              </div>
             </TabsList>
           </Tabs>
         </div>
