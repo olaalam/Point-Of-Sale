@@ -7,7 +7,7 @@ import { toast } from "react-toastify";
 import { FaUserCircle, FaUsers, FaListAlt, FaTable } from "react-icons/fa";
 import { useTranslation } from "react-i18next";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-
+import logo from "@/assets/logo.jpg";
 export default function Navbar() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -187,10 +187,20 @@ export default function Navbar() {
           </Tabs>
         </div>
 
-        {/* العنوان */}
-        <h1 className="text-lg md:text-xl font-bold text-[#910000] text-center">
-          Food2go
-        </h1>
+{/* العنوان */}
+<a
+  href="https://Food2go.online"
+  target="_blank"
+  rel="noopener noreferrer"
+  className="flex items-center justify-center"
+>
+  <img
+    src={logo}
+    alt="Food2go Logo"
+    className="h-18 w-18  object-contain cursor-pointer"
+  />
+</a>
+
 
         {/* القسم الأيمن */}
         <div className="flex items-center gap-2">
