@@ -16,7 +16,7 @@ export default function Shift() {
   const { openShift, closeShift, isShiftOpen } = useShift();
   const navigate = useNavigate();
   const location = useLocation();
-  const { t, i18n } = useTranslation()
+  const { t, i18n } = useTranslation();
 
   // 🧠 استرجاع بيانات المستخدم
   const userData = sessionStorage.getItem("user");
@@ -44,7 +44,7 @@ export default function Shift() {
       openShift();
       setShiftStatus("Shift is open.");
 
-toast.success(t("ShiftOpenedSuccessfully"));
+      toast.success(t("ShiftOpenedSuccessfully"));
 
       // تنظيف الـ URL من ?action
       const params = new URLSearchParams(location.search);
@@ -64,7 +64,7 @@ toast.success(t("ShiftOpenedSuccessfully"));
       }, 1000);
     } catch (err) {
       console.error("Open shift error:", err);
-      toast.error(err?.response?.data?.message || t("FailedToOpenShift"))
+      toast.error(err?.response?.data?.message || t("FailedToOpenShift"));
     } finally {
       setLoading(false);
     }
@@ -82,14 +82,21 @@ toast.success(t("ShiftOpenedSuccessfully"));
       // ✅ هنا GET لغلق الشيفت
       await axios.get(endpoint, { headers });
 
+      // ✅ تحديث الـ context
       closeShift();
+      
+      // ✅ مسح البيانات من sessionStorage
+      sessionStorage.removeItem("shift_start_time");
+      sessionStorage.removeItem("shift_data");
+      
       setShiftStatus("Shift is closed.");
-toast.success(t("ShiftClosedSuccessfully"));
+      toast.success(t("ShiftClosedSuccessfully"));
 
-      // تنظيف الـ URL من ?action
-      const params = new URLSearchParams(location.search);
-      params.delete("action");
-      navigate({ pathname: location.pathname, search: params.toString() }, { replace: true });
+      // ✅ الانتقال للـ home
+      setTimeout(() => {
+        navigate("/", { replace: true });
+      }, 1500);
+
     } catch (err) {
       console.error("Close shift error:", err);
       toast.error(err?.response?.data?.message || t("FailedToCloseShift"));
@@ -139,7 +146,7 @@ toast.success(t("ShiftClosedSuccessfully"));
           <div className="p-6 text-center">
             <h2 className="text-xl font-semibold text-gray-800 mb-2">{t("ShiftStatus")}</h2>
             <p className="text-gray-500 text-sm">
-{isShiftOpen ? t("CurrentlyOnShift") : t("UpForShift")}
+              {isShiftOpen ? t("CurrentlyOnShift") : t("UpForShift")}
             </p>
           </div>
 
@@ -165,7 +172,7 @@ toast.success(t("ShiftClosedSuccessfully"));
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                 >
-<span>{t("TakeYourShift")}</span>
+                  <span>{t("TakeYourShift")}</span>
                   <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform duration-200" />
                 </motion.button>
               </motion.div>
@@ -186,7 +193,7 @@ toast.success(t("ShiftClosedSuccessfully"));
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                 >
-<span>{t("BackToWork")}</span>
+                  <span>{t("BackToWork")}</span>
                   <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform duration-200" />
                 </motion.button>
               </motion.div>

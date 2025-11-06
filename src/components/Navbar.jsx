@@ -7,15 +7,18 @@ import { toast } from "react-toastify";
 import { FaUserCircle, FaUsers, FaListAlt, FaTable } from "react-icons/fa";
 import { useTranslation } from "react-i18next";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import axios from "axios";
 import logo from "@/assets/logo.jpg";
+
 export default function Navbar() {
   const navigate = useNavigate();
   const location = useLocation();
   const { postData } = usePost();
-  const { isShiftOpen, shiftStartTime } = useShift();
+  const { isShiftOpen, shiftStartTime, closeShift } = useShift();
   const [currentTime, setCurrentTime] = React.useState(new Date());
   const { t, i18n } = useTranslation();
   const [language, setLanguage] = useState(localStorage.getItem("language") || "en");
+  const [loading, setLoading] = useState(false);
   const currentTab = sessionStorage.getItem("tab") || "take_away";
   const isArabic = i18n.language === "ar";
 
@@ -51,10 +54,30 @@ export default function Navbar() {
 
   const handleLogout = async () => {
     const shiftIsOpen = checkShiftStatus();
+    
     if (shiftIsOpen) {
-      toast.error(t("YouMustCloseShiftBeforeLogout"));
-      return;
+      // ✅ نقفل الـ shift الأول
+      try {
+        const token = sessionStorage.getItem("token");
+        const endpoint = `${import.meta.env.VITE_API_BASE_URL}cashier/shift/close`;
+        await axios.get(endpoint, { 
+          headers: token ? { Authorization: `Bearer ${token}` } : {} 
+        });
+        
+        // // ✅ تحديث الـ context ومسح البيانات
+        // closeShift();
+        // // sessionStorage.removeItem("shift_start_time");
+        // // sessionStorage.removeItem("shift_data");
+        
+        toast.success(t("ShiftClosedSuccessfully"));
+      } catch (err) {
+        console.error("Error closing shift:", err);
+        toast.error(t("FailedToCloseShift"));
+        return; // ✅ لو فشل قفل الـ shift، ما نكملش logout
+      }
     }
+
+    // ✅ بعد قفل الـ shift (أو لو مش مفتوح أصلاً)، نعمل logout
     try {
       await postData("api/logout", {});
       sessionStorage.clear();
@@ -65,8 +88,40 @@ export default function Navbar() {
     }
   };
 
-  const handleCloseShift = () => {
-    navigate("/shift?action=close");
+  const handleCloseShift = async () => {
+    try {
+      setLoading(true);
+      
+      const token = sessionStorage.getItem("token");
+      const endpoint = `${import.meta.env.VITE_API_BASE_URL}cashier/shift/close`;
+      
+      // ✅ استدعاء API لقفل الـ shift
+      await axios.get(endpoint, { 
+        headers: token ? { Authorization: `Bearer ${token}` } : {} 
+      });
+      
+      // ✅ تحديث الـ context
+      closeShift();
+      
+      // ✅ مسح بيانات الـ shift من sessionStorage
+      sessionStorage.removeItem("shift_start_time");
+      sessionStorage.removeItem("shift_data");
+      sessionStorage.clear();
+      
+      // ✅ عرض رسالة النجاح
+      toast.success(t("ShiftClosedSuccessfully"));
+      
+      // ✅ الانتقال للـ home بعد ثانية
+      setTimeout(() => {
+        navigate("/", { replace: true });
+      }, 1000);
+      
+    } catch (err) {
+      console.error("Close shift error:", err);
+      toast.error(err?.response?.data?.message || t("FailedToCloseShift"));
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleDueUsers = () => {
@@ -74,10 +129,9 @@ export default function Navbar() {
   };
 
   const handleAllOrders = () => {
-    navigate("/all-orders"); // ✅ صفحة الطلبات
+    navigate("/all-orders");
   };
 
-  // ✅ تم التعديل هنا: يفتح Dine In داخل Home بدل /tables
   const handleTables = () => {
     navigate("/tables", { replace: true });
   };
@@ -110,7 +164,7 @@ export default function Navbar() {
 
   return (
     <div className="text-gray-800 px-4 py-5 md:px-6 mb-6 w-full z-50 bg-white shadow-md">
-      <div className={`flex items-center justify-between gap-4`}  >
+      <div className={`flex items-center justify-between gap-4`}>
         {/* القسم الأيسر */}
         <div className="flex items-center gap-2">
           {location.pathname !== "/shift" && location.pathname !== "/cashier" && (
@@ -166,42 +220,41 @@ export default function Navbar() {
                 {t("Delivery")}
               </TabsTrigger>
 
-                <TabsTrigger
-                  value="dine_in"
-                  className="px-3 py-1 text-sm font-semibold 
-                    bg-white text-bg-primary border border-bg-primary
-                    data-[state=active]:bg-bg-primary data-[state=active]:text-white
-                    transition-colors duration-200"
-                >
-                  {t("Dinein")}
-                </TabsTrigger>
+              <TabsTrigger
+                value="dine_in"
+                className="px-3 py-1 text-sm font-semibold 
+                  bg-white text-bg-primary border border-bg-primary
+                  data-[state=active]:bg-bg-primary data-[state=active]:text-white
+                  transition-colors duration-200"
+              >
+                {t("Dinein")}
+              </TabsTrigger>
 
-                {/* ✅ زر الطاولات يفتح Dine In */}
-                <button
-                  onClick={handleTables}
-                  className="p-2 border border-bg-primary rounded-lg hover:bg-bg-primary hover:text-white text-bg-primary transition"
-                  title={t("Tables")}
-                >
-                  <FaTable className="text-lg" />
-                </button>
+              {/* ✅ زر الطاولات يفتح Dine In */}
+              <button
+                onClick={handleTables}
+                className="p-2 border border-bg-primary rounded-lg hover:bg-bg-primary hover:text-white text-bg-primary transition"
+                title={t("Tables")}
+              >
+                <FaTable className="text-lg" />
+              </button>
             </TabsList>
           </Tabs>
         </div>
 
-{/* العنوان */}
-<a
-  href="https://Food2go.online"
-  target="_blank"
-  rel="noopener noreferrer"
-  className="flex items-center justify-center"
->
-  <img
-    src={logo}
-    alt="Food2go Logo"
-    className="h-18 w-18  object-contain cursor-pointer"
-  />
-</a>
-
+        {/* العنوان */}
+        <a
+          href="https://Food2go.online"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center justify-center"
+        >
+          <img
+            src={logo}
+            alt="Food2go Logo"
+            className="h-18 w-18 object-contain cursor-pointer"
+          />
+        </a>
 
         {/* القسم الأيمن */}
         <div className="flex items-center gap-2">
@@ -215,35 +268,42 @@ export default function Navbar() {
               </div>
               <button
                 onClick={handleCloseShift}
-                className="bg-[#910000] text-white px-3 py-1 md:px-4 md:py-2 rounded-md text-xs md:text-sm font-semibold hover:bg-red-700"
+                disabled={loading}
+                className="bg-[#910000] text-white px-3 py-1 md:px-4 md:py-2 rounded-md text-xs md:text-sm font-semibold hover:bg-red-700 disabled:opacity-50"
               >
-                <span className="hidden md:inline">{t("closeshift")}</span>
-                <span className="md:hidden">{t("Close")}</span>
+                {loading ? (
+                  <span>...</span>
+                ) : (
+                  <>
+                    <span className="hidden md:inline">{t("closeshift")}</span>
+                    <span className="md:hidden">{t("Close")}</span>
+                  </>
+                )}
               </button>
             </>
           )}
 
-         <div className="flex items-center gap-2">
-      <span className="text-sm font-medium">EN</span>
-      <button
-        onClick={toggleLanguage}
-        className={`
-          relative inline-flex h-6 w-12 flex-shrink-0 cursor-pointer
-          rounded-full border-2 border-transparent transition-colors
-          duration-200 ease-in-out
-          ${isArabic ? "bg-bg-primary" : "bg-gray-300"}
-        `}
-      >
-        <span
-          className={`
-            pointer-events-none inline-block h-5 w-5 transform rounded-full
-            bg-white shadow ring-0 transition duration-200 ease-in-out
-            ${!isArabic ? "translate-x-6" : "translate-x-0"}
-          `}
-        />
-      </button>
-      <span className="text-sm font-medium">AR</span>
-    </div>
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium">EN</span>
+            <button
+              onClick={toggleLanguage}
+              className={`
+                relative inline-flex h-6 w-12 flex-shrink-0 cursor-pointer
+                rounded-full border-2 border-transparent transition-colors
+                duration-200 ease-in-out
+                ${isArabic ? "bg-bg-primary" : "bg-gray-300"}
+              `}
+            >
+              <span
+                className={`
+                  pointer-events-none inline-block h-5 w-5 transform rounded-full
+                  bg-white shadow ring-0 transition duration-200 ease-in-out
+                  ${!isArabic ? "translate-x-6" : "translate-x-0"}
+                `}
+              />
+            </button>
+            <span className="text-sm font-medium">AR</span>
+          </div>
 
           <button
             onClick={handleLogout}
