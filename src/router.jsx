@@ -21,6 +21,8 @@ import DueUsers from "./Pages/Due/DueUsers";
 import InvoicePage from "./Pages/Receipt/InvoicePage";
 import AllOrders from "./Pages/AllOrders/AllOrders";
 import Dine from "./Pages/Dine";
+import OnlineOrders from "./Pages/OnlineOrders/OnlineOrders";
+import SinglePage from "./Pages/OnlineOrders/SinglePage";
 
 const router = createBrowserRouter(
   [
@@ -213,6 +215,22 @@ const router = createBrowserRouter(
           ,          element:(
             <ProtectedRoute>
               <Dine/>
+            </ProtectedRoute>
+          )
+        },
+        {
+          path:"/online-orders",
+          element:(
+            <ProtectedRoute>
+              <OnlineOrders/>
+            </ProtectedRoute>
+          )
+        },
+                {
+          path:"/online-orders/:id",
+          element:(
+            <ProtectedRoute>
+              <SinglePage/>
             </ProtectedRoute>
           )
         },

@@ -4,11 +4,13 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogClose,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { usePost } from "@/Hooks/usePost";
 import { toast } from "react-toastify";
+import { X } from "lucide-react";
 
 export default function AllOrders() {
   const [showModal, setShowModal] = useState(true);
@@ -33,7 +35,7 @@ export default function AllOrders() {
         toast.error("Incorrect password");
       }
     } catch (err) {
-      toast.error("An error occurred while connecting to the server",err);
+      toast.error("An error occurred while connecting to the server", err);
     }
   };
 
@@ -49,17 +51,30 @@ export default function AllOrders() {
   return (
     <div className="p-4">
       {/* Password Modal */}
-      <Dialog open={showModal}>
-        <DialogContent>
+      <Dialog open={showModal} onOpenChange={setShowModal}>
+        <DialogContent className="relative">
+          {/* زرار X */}
+          <DialogClose
+            asChild
+            onClick={() => setShowModal(false)}
+            className="absolute top-3 right-3 text-gray-500 hover:text-gray-700"
+          >
+            <button aria-label="Close">
+              <X className="w-5 h-5" />
+            </button>
+          </DialogClose>
+
           <DialogHeader>
             <DialogTitle>Enter Password</DialogTitle>
           </DialogHeader>
+
           <Input
             type="password"
             placeholder="Password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
+
           <Button
             onClick={handlePasswordSubmit}
             disabled={loading}

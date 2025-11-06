@@ -17,7 +17,9 @@ export default function Navbar() {
   const { isShiftOpen, shiftStartTime, closeShift } = useShift();
   const [currentTime, setCurrentTime] = React.useState(new Date());
   const { t, i18n } = useTranslation();
-  const [language, setLanguage] = useState(localStorage.getItem("language") || "en");
+  const [language, setLanguage] = useState(
+    localStorage.getItem("language") || "en"
+  );
   const [loading, setLoading] = useState(false);
   const currentTab = sessionStorage.getItem("tab") || "take_away";
   const isArabic = i18n.language === "ar";
@@ -54,21 +56,23 @@ export default function Navbar() {
 
   const handleLogout = async () => {
     const shiftIsOpen = checkShiftStatus();
-    
+
     if (shiftIsOpen) {
       // ✅ نقفل الـ shift الأول
       try {
         const token = sessionStorage.getItem("token");
-        const endpoint = `${import.meta.env.VITE_API_BASE_URL}cashier/shift/close`;
-        await axios.get(endpoint, { 
-          headers: token ? { Authorization: `Bearer ${token}` } : {} 
+        const endpoint = `${
+          import.meta.env.VITE_API_BASE_URL
+        }cashier/shift/close`;
+        await axios.get(endpoint, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
         });
-        
+
         // // ✅ تحديث الـ context ومسح البيانات
         // closeShift();
         // // sessionStorage.removeItem("shift_start_time");
         // // sessionStorage.removeItem("shift_data");
-        
+
         toast.success(t("ShiftClosedSuccessfully"));
       } catch (err) {
         console.error("Error closing shift:", err);
@@ -91,31 +95,30 @@ export default function Navbar() {
   const handleCloseShift = async () => {
     try {
       setLoading(true);
-      
+
       const token = sessionStorage.getItem("token");
-      const endpoint = `${import.meta.env.VITE_API_BASE_URL}cashier/shift/close`;
-      
+      const endpoint = `${
+        import.meta.env.VITE_API_BASE_URL
+      }cashier/shift/close`;
+
       // ✅ استدعاء API لقفل الـ shift
-      await axios.get(endpoint, { 
-        headers: token ? { Authorization: `Bearer ${token}` } : {} 
+      await axios.get(endpoint, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
-      
+
       // ✅ تحديث الـ context
       closeShift();
-      
+
       // ✅ مسح بيانات الـ shift من sessionStorage
       sessionStorage.removeItem("shift_start_time");
       sessionStorage.removeItem("shift_data");
       sessionStorage.clear();
-      
+
       // ✅ عرض رسالة النجاح
       toast.success(t("ShiftClosedSuccessfully"));
-      
+
       // ✅ الانتقال للـ home بعد ثانية
-      setTimeout(() => {
-        navigate("/", { replace: true });
-      }, 1000);
-      
+      navigate("/login");
     } catch (err) {
       console.error("Close shift error:", err);
       toast.error(err?.response?.data?.message || t("FailedToCloseShift"));
@@ -148,34 +151,43 @@ export default function Navbar() {
       .padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
   };
 
-  const handleTabChange = (value) => {
-    sessionStorage.setItem("tab", value);
-    sessionStorage.setItem("order_type", value);
-    if (value === "take_away") {
-      sessionStorage.removeItem("table_id");
-      sessionStorage.removeItem("delivery_user_id");
-    } else if (value === "dine_in") {
-      sessionStorage.removeItem("delivery_user_id");
-    } else if (value === "delivery") {
-      sessionStorage.removeItem("table_id");
-    }
+const handleTabChange = (value) => {
+  sessionStorage.setItem("tab", value);
+  sessionStorage.setItem("order_type", value);
+
+  if (value === "take_away") {
+    sessionStorage.removeItem("table_id");
+    sessionStorage.removeItem("delivery_user_id");
     navigate("/", { replace: true });
-  };
+  } else if (value === "dine_in") {
+    sessionStorage.removeItem("delivery_user_id");
+    navigate("/", { replace: true });
+  } else if (value === "delivery") {
+    sessionStorage.removeItem("table_id");
+    navigate("/", { replace: true });
+  } 
+  // ✅ الشرط الجديد لـ Online Orders
+  else if (value === "online-order") {
+    navigate("/online-orders", { replace: true });
+  }
+};
+
 
   return (
     <div className="text-gray-800 px-4 py-5 md:px-6 mb-6 w-full z-50 bg-white shadow-md">
       <div className={`flex items-center justify-between gap-4`}>
         {/* القسم الأيسر */}
         <div className="flex items-center gap-2">
-          {location.pathname !== "/shift" && location.pathname !== "/cashier" && (
-            <button
-              onClick={() => navigate(-1)}
-              className="font-bold text-center px-1 pb-1 hover:bg-red-200 cursor-pointer hover:text-gray-800 rounded bg-bg-primary text-3xl text-white transition-colors duration-200"
-              title="Go back"
-            >
-              ←
-            </button>
-          )}
+          {location.pathname !== "/shift" &&
+            location.pathname !== "/cashier" && (
+              <button
+                onClick={() => navigate(-1)}
+                className="font-bold text-center px-1 pb-1 hover:bg-red-200 cursor-pointer hover:text-gray-800 rounded bg-bg-primary text-3xl text-white transition-colors duration-200"
+                title="Go back"
+              >
+                ←
+              </button>
+            )}
           <button
             onClick={() => navigate("/profile")}
             className="text-gray-600 hover:text-[#910000]"
@@ -201,6 +213,15 @@ export default function Navbar() {
           {/* ✅ Tabs مع أيقونة Tables بجانب dine-in */}
           <Tabs value={currentTab} onValueChange={handleTabChange}>
             <TabsList className="flex gap-2 bg-transparent p-0 ml-2">
+                          <TabsTrigger
+              value="online-order"
+              className="px-3 py-1 text-sm font-semibold 
+                  bg-white text-bg-primary border border-bg-primary
+                  data-[state=active]:bg-bg-primary data-[state=active]:text-white
+                  transition-colors duration-200"
+            >
+              {t("OnlineOrders")}
+            </TabsTrigger>
               <TabsTrigger
                 value="take_away"
                 className="px-3 py-1 text-sm font-semibold 
@@ -239,6 +260,7 @@ export default function Navbar() {
                 <FaTable className="text-lg" />
               </button>
             </TabsList>
+
           </Tabs>
         </div>
 
@@ -258,30 +280,35 @@ export default function Navbar() {
 
         {/* القسم الأيمن */}
         <div className="flex items-center gap-2">
-          {location.pathname !== "/shift" && location.pathname !== "/cashier" && (
-            <>
-              <div className="flex items-center text-xs md:text-sm font-medium text-gray-600">
-                <span className="text-gray-500 mr-1 hidden sm:inline">{t("shift")}:</span>
-                <span className="bg-gray-100 px-2 py-1 rounded-md text-gray-800 text-xs md:text-sm">
-                  {formatElapsedTime()}
-                </span>
-              </div>
-              <button
-                onClick={handleCloseShift}
-                disabled={loading}
-                className="bg-[#910000] text-white px-3 py-1 md:px-4 md:py-2 rounded-md text-xs md:text-sm font-semibold hover:bg-red-700 disabled:opacity-50"
-              >
-                {loading ? (
-                  <span>...</span>
-                ) : (
-                  <>
-                    <span className="hidden md:inline">{t("closeshift")}</span>
-                    <span className="md:hidden">{t("Close")}</span>
-                  </>
-                )}
-              </button>
-            </>
-          )}
+          {location.pathname !== "/shift" &&
+            location.pathname !== "/cashier" && (
+              <>
+                <div className="flex items-center text-xs md:text-sm font-medium text-gray-600">
+                  <span className="text-gray-500 mr-1 hidden sm:inline">
+                    {t("shift")}:
+                  </span>
+                  <span className="bg-gray-100 px-2 py-1 rounded-md text-gray-800 text-xs md:text-sm">
+                    {formatElapsedTime()}
+                  </span>
+                </div>
+                <button
+                  onClick={handleCloseShift}
+                  disabled={loading}
+                  className="bg-[#910000] text-white px-3 py-1 md:px-4 md:py-2 rounded-md text-xs md:text-sm font-semibold hover:bg-red-700 disabled:opacity-50"
+                >
+                  {loading ? (
+                    <span>...</span>
+                  ) : (
+                    <>
+                      <span className="hidden md:inline">
+                        {t("closeshift")}
+                      </span>
+                      <span className="md:hidden">{t("Close")}</span>
+                    </>
+                  )}
+                </button>
+              </>
+            )}
 
           <div className="flex items-center gap-2">
             <span className="text-sm font-medium">EN</span>
