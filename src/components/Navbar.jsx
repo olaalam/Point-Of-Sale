@@ -17,6 +17,7 @@ export default function Navbar() {
   const { t, i18n } = useTranslation();
   const [language, setLanguage] = useState(localStorage.getItem("language") || "en");
   const currentTab = sessionStorage.getItem("tab") || "take_away";
+  const isArabic = i18n.language === "ar";
 
   React.useEffect(() => {
     if (isShiftOpen) {
@@ -109,7 +110,7 @@ export default function Navbar() {
 
   return (
     <div className="text-gray-800 px-4 py-5 md:px-6 mb-6 w-full z-50 bg-white shadow-md">
-      <div className="flex items-center justify-between gap-4">
+      <div className={`flex items-center justify-between gap-4`}  >
         {/* القسم الأيسر */}
         <div className="flex items-center gap-2">
           {location.pathname !== "/shift" && location.pathname !== "/cashier" && (
@@ -214,27 +215,27 @@ export default function Navbar() {
             </>
           )}
 
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-medium">EN</span>
-            <button
-              onClick={toggleLanguage}
-              className={`
-                relative inline-flex h-6 w-12 flex-shrink-0 cursor-pointer
-                rounded-full border-2 border-transparent transition-colors
-                duration-200 ease-in-out
-                ${language === "ar" ? "bg-bg-primary" : "bg-gray-300"}
-              `}
-            >
-              <span
-                className={`
-                  pointer-events-none inline-block h-5 w-5 transform rounded-full
-                  bg-white shadow ring-0 transition duration-200 ease-in-out
-                  ${language === "ar" ? "translate-x-6" : "translate-x-0"}
-                `}
-              />
-            </button>
-            <span className="text-sm font-medium">AR</span>
-          </div>
+         <div className="flex items-center gap-2">
+      <span className="text-sm font-medium">EN</span>
+      <button
+        onClick={toggleLanguage}
+        className={`
+          relative inline-flex h-6 w-12 flex-shrink-0 cursor-pointer
+          rounded-full border-2 border-transparent transition-colors
+          duration-200 ease-in-out
+          ${isArabic ? "bg-bg-primary" : "bg-gray-300"}
+        `}
+      >
+        <span
+          className={`
+            pointer-events-none inline-block h-5 w-5 transform rounded-full
+            bg-white shadow ring-0 transition duration-200 ease-in-out
+            ${!isArabic ? "translate-x-6" : "translate-x-0"}
+          `}
+        />
+      </button>
+      <span className="text-sm font-medium">AR</span>
+    </div>
 
           <button
             onClick={handleLogout}
