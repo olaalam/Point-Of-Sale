@@ -2,9 +2,9 @@ import React, { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { UserPlus, Phone, MapPin, User, Pencil } from "lucide-react";
+import { UserPlus, Phone, MapPin, User, Pencil, Clock, ShoppingBag, X } from "lucide-react";
 import { useGet } from "@/Hooks/useGet";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import Loading from "@/components/Loading";
 import { usePost } from "@/Hooks/usePost";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
@@ -13,34 +13,53 @@ import { useTranslation } from "react-i18next";
 export default function Delivery({ orderType: propOrderType }) {
   const [searchQuery, setSearchQuery] = useState("");
   const orderType = propOrderType || "delivery";
-  const { t ,i18n } = useTranslation();
+  const { t, i18n } = useTranslation();
   const isArabic = i18n.language === "ar";
 
   const [filteredusers, setFilteredusers] = useState([]);
   const navigate = useNavigate();
+  const location = useLocation();
+
+// 🟢 نجيب user_id من ال URL
+const queryParams = new URLSearchParams(location.search);
+const userIdFromUrl = queryParams.get("user_id");
   const [selecteduser, setSelecteduser] = useState(null);
   const [editData, setEditData] = useState({ name: "", phone: "" });
   const [openDialog, setOpenDialog] = useState(false);
   const [selectedAddressId, setSelectedAddressId] = useState(null);
   const [selectedUserId, setSelectedUserId] = useState(null);
-  
-  // إضافة state للـ submission في الـ dialog
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const { data, error, isLoading, refetch } = useGet("cashier/user");
-  const { postData, loading } = usePost(); // تأكد من أخذ loading من usePost
+  // States for Last Orders Modal
+  const [showOrdersModal, setShowOrdersModal] = useState(false);
+  const [userOrders, setUserOrders] = useState([]);
+  const [loadingOrders, setLoadingOrders] = useState(false);
+  const [selectedOrderUserId, setSelectedOrderUserId] = useState(null);
 
-  useEffect(() => {
-    console.log("Raw data from API:", data);
-    if (data?.users) {
-      console.log("users array:", data?.users);
-      data?.users.forEach((user, index) => {
-        console.log(`user ${index}:`, user);
-        console.log(`user ${index} address:`, user?.address);
-      });
-      setFilteredusers(data.users);
+const { data, error, isLoading, refetch } = useGet("cashier/user", { useCache: true });
+  const { postData, loading } = usePost();
+
+useEffect(() => {
+  if (data?.users) {
+    setFilteredusers(data.users);
+
+    // نحاول نجيب الـ user_id من الـ URL أو من sessionStorage
+    const savedUserId = userIdFromUrl || sessionStorage.getItem("last_selected_user_id");
+
+    if (savedUserId) {
+      setTimeout(() => {
+        const element = document.getElementById(`user-card-${savedUserId}`);
+        if (element) {
+          element.scrollIntoView({ behavior: "smooth", block: "center" });
+          element.classList.add("ring-2", "ring-bg-primary");
+          setTimeout(() => element.classList.remove("ring-2", "ring-bg-primary"), 1500);
+        }
+      }, 500);
     }
-  }, [data]);
+  }
+}, [data, userIdFromUrl]);
+
+
 
   const handleInstantSearch = (query) => {
     setSearchQuery(query);
@@ -70,41 +89,36 @@ export default function Delivery({ orderType: propOrderType }) {
     navigate("/add");
   };
 
-  const handleEditClick = (user) => {
-    setSelecteduser(user);
-    setEditData({
-      f_name: user.f_name,
-      l_name: user.l_name,
-      phone: user.phone,
-      phone_2: user.phone_2,
-    });
-    setOpenDialog(true);
-  };
+const handleEditClick = (user) => {
+  sessionStorage.setItem("last_selected_user_id", user.id); // 🟢 نحفظه
+  setSelecteduser(user);
+  setEditData({
+    f_name: user.f_name,
+    l_name: user.l_name,
+    phone: user.phone,
+    phone_2: user.phone_2,
+  });
+  setOpenDialog(true);
+};
 
-  // تعديل دالة handleSaveEdit لإضافة الـ disabled state
-  const handleSaveEdit = async () => {
-    if (!selecteduser) return;
-    
-    // منع الـ submission إذا كان هناك عملية قيد التنفيذ
-    if (isSubmitting || loading) {
-      return;
-    }
 
-    // تفعيل حالة الـ submission
-    setIsSubmitting(true);
+const handleSaveEdit = async () => {
+  if (!selecteduser) return;
+  if (isSubmitting || loading) return;
 
-    try {
-      await postData(`cashier/user/update/${selecteduser.id}`, editData);
-      setOpenDialog(false);
-      refetch();
-    } catch (error) {
-      console.error("Error updating user:", error);
-      // يمكنك إضافة toast error هنا
-    } finally {
-      // إلغاء تفعيل حالة الـ submission
-      setIsSubmitting(false);
-    }
-  };
+  setIsSubmitting(true);
+
+  try {
+    await postData(`cashier/user/update/${selecteduser.id}`, editData);
+    setOpenDialog(false);
+    await refetch(); // تحديث البيانات
+    // 🟢 متشيليش last_selected_user_id هنا
+  } catch (error) {
+    console.error("Error updating user:", error);
+  } finally {
+    setIsSubmitting(false);
+  }
+};
 
   const handleEditAddressClick = (address) => {
     navigate(`order-page/add/${address.id}`);
@@ -126,31 +140,134 @@ export default function Delivery({ orderType: propOrderType }) {
       selectedAddress: selectedAddress,
     };
     sessionStorage.setItem("selected_user_data", JSON.stringify(userData));
-    console.log("Attempting to navigate to /order-page with state:", {
-      orderType: "delivery",
-      userId: user.id,
-      addressId: addressId,
+    
+    navigate("/delivery-order", {
+      state: { orderType: "delivery", userId: user.id, addressId: addressId },
+      replace: true,
     });
-
-navigate("/delivery-order", {
-  state: { orderType: "delivery", userId: user.id, addressId: addressId },
-  replace: true,
-});
   };
 
-  // حساب حالة الـ disabled للـ form في الـ dialog
+  // Function to fetch user's last orders
+  const handleViewLastOrders = async (userId) => {
+    setSelectedOrderUserId(userId);
+    setShowOrdersModal(true);
+    setLoadingOrders(true);
+    setUserOrders([]);
+
+    const formData = new FormData();
+    formData.append("user_id", userId.toString());
+
+    try {
+      const response = await postData("cashier/view_user_order", formData);
+      console.log("Orders Response:", response);
+      
+      if (response?.orders && Array.isArray(response.orders)) {
+        setUserOrders(response.orders);
+      } else {
+        setUserOrders([]);
+      }
+    } catch (error) {
+      console.error("Error fetching orders:", error);
+      setUserOrders([]);
+    } finally {
+      setLoadingOrders(false);
+    }
+  };
+
+  // Function to repeat an order (navigate to take_away with order data)
+const handleRepeatOrder = (order) => {
+  console.log("🔄 Repeating order:", order);
+
+  // Map order details to cart format
+  const mappedItems = order.order_details.map((detail, index) => {
+    const product = detail.product && detail.product[0];
+    if (!product || !product.product) return null;
+
+    const productData = product.product;
+    const count = parseInt(product.count) || 1;
+    const notes = product.notes || "";
+
+    // Map addons
+    const addons = detail.addons && Array.isArray(detail.addons)
+      ? detail.addons.map((addon) => ({
+          id: addon.addon_id || addon.id,
+          name: addon.name || "Unknown Addon",
+          price: parseFloat(addon.price || 0),
+          originalPrice: parseFloat(addon.price || 0),
+          count: parseInt(addon.count || 1),
+          preparation_status: "pending",
+        }))
+      : [];
+
+    return {
+      id: productData.id,
+      temp_id: `repeat_${productData.id}_${Date.now()}_${index}`,
+      name: productData.name || "Unknown Product",
+      price: parseFloat(productData.price || 0),
+      originalPrice: parseFloat(productData.price || 0),
+      count: count,
+      notes: notes,
+      selectedVariation: detail.variations && detail.variations[0] ? detail.variations[0].name : null,
+      selectedExtras: detail.extras || [],
+      selectedAddons: addons,
+      selectedExcludes: detail.excludes || [],
+      preparation_status: "pending",
+      type: "main_item",
+      addons: addons,
+    };
+  }).filter(Boolean);
+
+  console.log("📦 Mapped Items for Cart:", mappedItems);
+
+  // Clear any existing order data first
+  sessionStorage.removeItem("selected_user_id");
+  sessionStorage.removeItem("selected_address_id");
+  sessionStorage.removeItem("order_type");
+  sessionStorage.removeItem("table_id");
+  sessionStorage.removeItem("delivery_user_id");
+  
+  // Set new order data
+  sessionStorage.setItem("cart", JSON.stringify(mappedItems));
+  sessionStorage.setItem("order_type", "take_away");
+  sessionStorage.setItem("tab", "take_away");
+
+  console.log("✅ SessionStorage updated:", {
+    cart: mappedItems,
+    order_type: "take_away",
+    tab: "take_away"
+  });
+
+  // Close modal first
+  setShowOrdersModal(false);
+
+  // Small delay to ensure state updates, then navigate
+  setTimeout(() => {
+    console.log("🚀 Navigating to home...");
+    navigate("/", {
+      state: { 
+        orderType: "take_away",
+        tabValue: "take_away",
+        repeatedOrder: true,
+        originalOrderNumber: order.order_number,
+        timestamp: Date.now()
+      },
+      replace: false
+    });
+  }, 100);
+};
+
   const isFormDisabled = loading || isSubmitting;
 
   console.log("Order Type:", orderType);
   
   return (
-    <div className={`bg-gray-100 min-h-screen ${
+    <div 
+      className={`bg-gray-100 min-h-screen w-full ${
         isArabic ? "text-right direction-rtl" : "text-left direction-ltr"
       } ${!searchQuery && filteredusers.length === 0 ? "flex items-center justify-center" : ""}`}
-            dir={isArabic ? "rtl" : "ltr"}
-
-      >
-      <div className="max-w-6xl mx-auto px-6 py-3">
+      dir={isArabic ? "rtl" : "ltr"}
+    >
+      <div className="max-full mx-auto px-6 py-3">
         {/* Search and Add User */}
         <div className="flex gap-2 items-center my-6">
           <Input
@@ -176,14 +293,16 @@ navigate("/delivery-order", {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {filteredusers.length === 0 && !isLoading && !error ? (
               <p className="text-gray-500 text-center col-span-2">
-              {t("Nousersfoundmatchingyoursearch")}
+                {t("Nousersfoundmatchingyoursearch")}
               </p>
             ) : (
               filteredusers.map((user) => (
-                <div
-                  key={user.id}
-                  className="bg-white rounded-xl shadow-md p-6 transition hover:shadow-lg border"
-                >
+<div
+  id={`user-card-${user.id}`} // 🟢 هنا
+  key={user.id}
+  className="bg-white rounded-xl shadow-md p-6 transition hover:shadow-lg border"
+>
+
                   {/* Header */}
                   <div className="flex justify-between items-start mb-4">
                     <div className="flex items-center gap-3">
@@ -253,15 +372,23 @@ navigate("/delivery-order", {
                   {/* Buttons */}
                   <div className="flex gap-4 mt-5">
                     <button
-                      className="w-1/2 bg-bg-primary hover:bg-red-700 text-white py-2 rounded-md"
+                      className="flex-1 bg-bg-primary hover:bg-red-700 text-white py-2 rounded-md"
                       onClick={() => navigate(`/add?user_id=${user.id}`)}
                     >
                       + {t("AddAddress")}
                     </button>
 
+                    <button
+                      className="flex-1 bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-md flex items-center justify-center gap-2"
+                      onClick={() => handleViewLastOrders(user.id)}
+                    >
+                      <Clock className="w-4 h-4" />
+                      {t("LastOrders")}
+                    </button>
+
                     {selectedAddressId && selectedUserId === user.id && (
                       <button
-                        className="w-1/2 bg-green-600 hover:bg-green-700 text-white py-2 rounded-md"
+                        className="flex-1 bg-green-600 hover:bg-green-700 text-white py-2 rounded-md"
                         onClick={() =>
                           handleConfirmDelivery(user, selectedAddressId)
                         }
@@ -283,14 +410,13 @@ navigate("/delivery-order", {
         )}
       </div>
 
-      {/* Dialog مع الـ disabled state */}
+      {/* Edit User Dialog */}
       <Dialog open={openDialog} onOpenChange={setOpenDialog}>
         <DialogContent className="space-y-4 bg-white">
           <h2 className="text-xl font-semibold text-center text-bg-primary">
             {t("Edituser")}
           </h2>
           
-          {/* Input Fields مع الـ disabled state */}
           <Input
             value={editData.f_name}
             onChange={(e) =>
@@ -339,7 +465,6 @@ navigate("/delivery-order", {
             disabled={isFormDisabled}
           />
           
-          {/* Button مع الـ disabled state والـ loading indicator */}
           <Button
             onClick={handleSaveEdit}
             disabled={isFormDisabled}
@@ -351,7 +476,6 @@ navigate("/delivery-order", {
           >
             {isFormDisabled ? (
               <div className="flex items-center justify-center gap-2">
-                {/* Spinner Icon */}
                 <svg 
                   className="animate-spin h-4 w-4 text-white" 
                   xmlns="http://www.w3.org/2000/svg" 
@@ -380,7 +504,119 @@ navigate("/delivery-order", {
           </Button>
         </DialogContent>
       </Dialog>
-      
+
+      {/* Last Orders Modal */}
+      <Dialog open={showOrdersModal} onOpenChange={setShowOrdersModal}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto bg-white">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-2xl font-semibold text-bg-primary">
+              {t("LastOrders")}
+            </h2>
+            <button
+              onClick={() => setShowOrdersModal(false)}
+              className="text-gray-500 hover:text-gray-700"
+            >
+              <X className="w-6 h-6" />
+            </button>
+          </div>
+
+          {loadingOrders ? (
+            <div className="flex justify-center items-center py-12">
+              <Loading />
+            </div>
+          ) : userOrders.length === 0 ? (
+            <div className="text-center py-12 text-gray-500">
+              <ShoppingBag className="w-16 h-16 mx-auto mb-4 text-gray-300" />
+              <p className="text-lg">{t("NoOrdersFound")}</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {userOrders.map((order) => (
+                <div
+                  key={order.id}
+                  className="border border-gray-200 rounded-lg p-4 hover:shadow-lg transition-shadow bg-white"
+                >
+                  {/* Order Header */}
+                  <div className="flex justify-between items-start mb-3 pb-3 border-b">
+                    <div>
+                      <p className="font-semibold text-lg text-gray-800">
+                        {t("Order")} #{order.order_number}
+                      </p>
+                      <p className="text-sm text-gray-500">
+                        {order.date} - {order.time}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-2xl font-bold text-green-600">
+                        {order.amount} {t("EGP")}
+                      </p>
+                      {order.total_discount > 0 && (
+                        <p className="text-sm text-gray-500">
+                          {t("Discount")}: {order.total_discount} {t("EGP")}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Order Items */}
+                  <div className="space-y-2 mb-4">
+                    {order.order_details.map((detail, idx) => {
+                      const product = detail.product && detail.product[0];
+                      if (!product || !product.product) return null;
+
+                      const productData = product.product;
+                      return (
+                        <div
+                          key={idx}
+                          className="flex items-start gap-3 p-2 bg-gray-50 rounded"
+                        >
+                          {productData.image_link && (
+                            <img
+                              src={productData.image_link}
+                              alt={productData.name}
+                              className="w-16 h-16 object-cover rounded"
+                            />
+                          )}
+                          <div className="flex-1">
+                            <p className="font-medium text-gray-800">
+                              {productData.name}
+                            </p>
+                            <p className="text-sm text-gray-600">
+                              {t("Quantity")}: {product.count} x {productData.price} {t("EGP")}
+                            </p>
+                            {product.notes && (
+                              <p className="text-xs text-gray-500 italic">
+                                {t("Note")}: {product.notes}
+                              </p>
+                            )}
+                            {detail.addons && detail.addons.length > 0 && (
+                              <p className="text-xs text-blue-600">
+                                + {detail.addons.length} {t("Addons")}
+                              </p>
+                            )}
+                          </div>
+                          <p className="font-semibold text-gray-800">
+                            {(productData.price * product.count).toFixed(2)} {t("EGP")}
+                          </p>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Repeat Order Button */}
+                  <Button
+                    onClick={() => handleRepeatOrder(order)}
+                    className="w-full bg-green-600 hover:bg-green-700 text-white"
+                  >
+                    <ShoppingBag className="w-4 h-4 mr-2" />
+                    {t("RepeatThisOrder")}
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

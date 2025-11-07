@@ -112,22 +112,30 @@ const onSubmit = async (values) => {
     console.log("Final Payload:", finalPayload);
 
     const response = await postData(apiEndpoint, finalPayload);
-
     if (response && response.success) {
-      toast.success(
-        `${isEditMode ? t("Addressupdated") : isAddAnotherAddress ? t("Addressadded") : t("Useradded")} ${t("successfully")}!`
-      );
+  toast.success(
+    `${isEditMode ? t("Addressupdated") : isAddAnotherAddress ? t("Addressadded") : t("Useradded")} ${t("successfully")}!`
+  );
 
-      if (!isEditMode && !isAddAnotherAddress) {
-        form.reset();
-      }
+  if (!isEditMode && !isAddAnotherAddress) {
+    form.reset();
+  }
 
-      setTimeout(() => {
-        navigate("/");
-      }, 1500);
+  setTimeout(() => {
+    if (isEditMode) {
+      // بعد التعديل يرجع لـ /delivery ويفتح على نفس اليوزر
+      navigate(`/?user_id=${editAddressData?.user_id}`);
+    } else if (isAddAnotherAddress) {
+      // بعد إضافة عنوان جديد لنفس المستخدم
+      navigate(`/?user_id=${userIdFromUrl}`);
     } else {
-      toast.error(response?.message || t("Operationfailed"));
+      // بعد إضافة مستخدم جديد
+      navigate("/");
     }
+  }, 1500);
+} else {
+  toast.error(response?.message || t("Operationfailed"));
+}
   } catch (err) {
     console.error("Submit Error:", err);
 

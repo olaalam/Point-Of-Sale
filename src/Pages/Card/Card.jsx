@@ -1002,6 +1002,8 @@ t("BulkUpdateSuccess", {
                   <ItemRow
                     key={item.temp_id || `${item.id}-${index}`}
                     item={item}
+                      updateOrderItems={updateOrderItems}
+  orderItems={orderItems}
                     orderType={orderType}
                     selectedItems={selectedItems}
                     toggleSelectItem={toggleSelectItem}
