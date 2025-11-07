@@ -26,6 +26,7 @@ import {
 } from "./constants";
 import { renderItemVariations } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
+import DineInformation from "../DineInformation";
 /**
  * @typedef {object} OrderItem
  * @property {string} temp_id - Temporary unique ID for the item.
@@ -817,6 +818,7 @@ t("BulkUpdateSuccess", {
         <h2 className="text-bg-primary text-3xl font-bold mb-6">
           {t("OrderDetails")}
         </h2>
+        <DineInformation/>
         <div className="!p-4 flex md:flex-row flex-col gap-4">
 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-grow">
   <Button

@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { 
-  Users, 
-  ChevronDown, 
-  Check, 
-  CheckCircle, 
-  Clock, 
-  ShoppingCart, 
+import {
+  Users,
+  ChevronDown,
+  Check,
+  CheckCircle,
+  Clock,
+  ShoppingCart,
   CreditCard,
   UserCheck,
   Link // Added for merged tables icon
@@ -58,9 +58,8 @@ const CustomStatusSelect = ({ table, statusOptions, onStatusChange }) => {
         </div>
         <ChevronDown
           size={16}
-          className={`text-gray-500 transition-transform duration-200 ${
-            isOpen ? "rotate-180" : ""
-          }`}
+          className={`text-gray-500 transition-transform duration-200 ${isOpen ? "rotate-180" : ""
+            }`}
         />
       </button>
 
@@ -79,7 +78,7 @@ const CustomStatusSelect = ({ table, statusOptions, onStatusChange }) => {
                   <option.icon size={16} className={option.iconColor} />
                   <span className="text-gray-700">{option.label}</span>
                 </div>
-                
+
                 {/* Check Mark for Selected Item */}
                 {table.current_status === option.value && (
                   <Check size={16} className="text-blue-500" />
@@ -96,7 +95,7 @@ const CustomStatusSelect = ({ table, statusOptions, onStatusChange }) => {
 const Dine = () => {
   const navigate = useNavigate();
   const branch_id = sessionStorage.getItem("branch_id");
-const { t , i18n } = useTranslation();
+  const { t, i18n } = useTranslation();
   const isArabic = i18n.language === "ar";
 
   const [selectedTable, setSelectedTable] = useState(null);
@@ -107,44 +106,44 @@ const { t , i18n } = useTranslation();
   const { data, isLoading, error } = useGet(
     `captain/lists?branch_id=${branch_id}`
   );
-  
+
   const { loading: transferLoading, postData } = usePost();
 
   const locations = data?.cafe_location || [];
 
   // All available status options
   const statusOptions = [
-    { 
-      label: t("Available"), 
-      value: "available", 
+    {
+      label: t("Available"),
+      value: "available",
       color: "bg-gray-100 text-gray-600",
       icon: CheckCircle,
       iconColor: "text-gray-500"
     },
-    { 
-      label: t("Preorder"), 
-      value: "not_available_pre_order", 
+    {
+      label: t("Preorder"),
+      value: "not_available_pre_order",
       color: "bg-orange-500 text-white",
       icon: Clock,
       iconColor: "text-orange-500"
     },
-    { 
-      label: t("Withorder"), 
-      value: "not_available_with_order", 
+    {
+      label: t("Withorder"),
+      value: "not_available_with_order",
       color: "bg-red-500 text-white",
       icon: ShoppingCart,
       iconColor: "text-red-500"
     },
-    { 
-      label: t("Reserved"), 
-      value: "reserved", 
+    {
+      label: t("Reserved"),
+      value: "reserved",
       color: "bg-blue-500 text-white",
       icon: UserCheck,
       iconColor: "text-blue-500"
     },
-    { 
-      label: t("Checkout"), 
-      value: "not_available_but_checkout", 
+    {
+      label: t("Checkout"),
+      value: "not_available_but_checkout",
       color: "bg-green-500 text-white",
       icon: CreditCard,
       iconColor: "text-green-500"
@@ -194,16 +193,16 @@ const { t , i18n } = useTranslation();
   useEffect(() => {
     const transferPending = sessionStorage.getItem("transfer_pending");
     if (transferPending === "true") {
-toast.info(t("SelectNewTableToTransferOrder"));
+      toast.info(t("SelectNewTableToTransferOrder"));
     }
   }, []);
 
   const selectedLocation = locations.find(loc => loc.id === selectedLocationId);
-  
+
   const rawTables = selectedLocation?.tables || [];
   const processedTables = processTablesWithMerge(rawTables);
   const tablesToDisplay = processedTables;
-  
+
   const totalPages = Math.ceil(tablesToDisplay.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
@@ -233,22 +232,22 @@ toast.info(t("SelectNewTableToTransferOrder"));
 
   const handleSelectTable = async (table) => {
     console.log("Table selected:", table.id);
-    
+
     const transferPending = sessionStorage.getItem("transfer_pending");
-    
+
     if (transferPending === "true") {
       const cartIds = JSON.parse(sessionStorage.getItem("transfer_cart_ids") || "[]");
       const sourceTableId = sessionStorage.getItem("transfer_source_table_id");
-      
+
       if (cartIds.length > 0 && sourceTableId) {
         if (sourceTableId === table.id.toString()) {
-toast.error(t("CannotTransferToSameTable"));
+          toast.error(t("CannotTransferToSameTable"));
           return;
         }
 
         const formData = new FormData();
         formData.append("table_id", table.id.toString());
-        
+
         cartIds.forEach((cart_id, index) => {
           formData.append(`cart_ids[${index}]`, cart_id.toString());
         });
@@ -256,17 +255,17 @@ toast.error(t("CannotTransferToSameTable"));
         try {
           await postData("cashier/transfer_order", formData);
           setTimeout(() => {
-toast.success(t("OrderTransferredSuccessfully"));
+            toast.success(t("OrderTransferredSuccessfully"));
           }, 200);
-          
+
           sessionStorage.removeItem("transfer_cart_ids");
           sessionStorage.removeItem("transfer_first_cart_id");
           sessionStorage.removeItem("transfer_source_table_id");
           sessionStorage.removeItem("transfer_pending");
-          
+
           setSelectedTable(table.id);
           sessionStorage.setItem("table_id", table.id);
-          
+
           navigate("/order-page", {
             state: {
               order_type: "dine_in",
@@ -278,9 +277,9 @@ toast.success(t("OrderTransferredSuccessfully"));
 
         } catch (err) {
           console.error("Failed to transfer order:", err);
-          const errorMessage = err.response?.data?.message || 
-                              err.response?.data?.exception ||
-                              t("FailedtotransfertablePleasetryagain");
+          const errorMessage = err.response?.data?.message ||
+            err.response?.data?.exception ||
+            t("FailedtotransfertablePleasetryagain");
           toast.error(errorMessage);
         }
       }
@@ -288,7 +287,8 @@ toast.success(t("OrderTransferredSuccessfully"));
       setSelectedTable(table.id);
       sessionStorage.setItem("table_id", table.id);
       sessionStorage.setItem("order_type", "dine_in");
-
+      sessionStorage.setItem("hall_name", selectedLocation?.name || "");
+      sessionStorage.setItem("table_number", table.table_number || "");
       navigate("/order-page", {
         state: {
           order_type: "dine_in",
@@ -459,11 +459,10 @@ toast.success(t("OrderTransferredSuccessfully"));
 
   if (error) {
     return (
-      <div className={`p-8 text-center text-red-600 bg-red-50 rounded-lg shadow-md mx-auto max-w-lg mt-10 ${
-        isArabic ? "text-right direction-rtl" : "text-left direction-ltr"
-      }`}
-            dir={isArabic ? "rtl" : "ltr"}
->
+      <div className={`p-8 text-center text-red-600 bg-red-50 rounded-lg shadow-md mx-auto max-w-lg mt-10 ${isArabic ? "text-right direction-rtl" : "text-left direction-ltr"
+        }`}
+        dir={isArabic ? "rtl" : "ltr"}
+      >
         <p className="text-lg font-semibold">{t("Failedtoloadtables")}</p>
         <p className="text-sm mt-2">{t("Pleasecheckyournetworkconnectionortryagainlater")}</p>
       </div>
@@ -474,16 +473,16 @@ toast.success(t("OrderTransferredSuccessfully"));
   const sourceTableId = sessionStorage.getItem("transfer_source_table_id");
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6"     dir={isArabic ? "rtl" : "ltr"}>
+    <div className="min-h-screen bg-gray-50 p-6" dir={isArabic ? "rtl" : "ltr"}>
       <div className="max-w-7xl mx-auto bg-white p-8 rounded-xl shadow-lg">
         <div className="mb-8 border-b pb-4">
           <h1 className="text-3xl font-bold text-gray-800">
-{transferPending ? t("SelectNewTableForTransfer") : t("DineInTables")}
+            {transferPending ? t("SelectNewTableForTransfer") : t("DineInTables")}
           </h1>
           <p className="text-gray-500 mt-2">
-          {transferPending
-  ? t("SelectTableToTransferFrom", { sourceTableId })
-  : t("SelectTableToStartOrder")}
+            {transferPending
+              ? t("SelectTableToTransferFrom", { sourceTableId })
+              : t("SelectTableToStartOrder")}
 
           </p>
         </div>
@@ -504,7 +503,7 @@ toast.success(t("OrderTransferredSuccessfully"));
                   value={loc.id.toString()}
                   className="flex-grow py-2 px-4 text-sm font-medium text-gray-700 data-[state=active]:bg-bg-primary data-[state=active]:text-white data-[state=active]:shadow-sm rounded-md transition-colors duration-200 hover:bg-gray-200"
                 >
-                  {loc.name==="Main Hall"?t("MainHall"):t("ReceptionHall") }
+                  {loc.name === "Main Hall" ? t("MainHall") : t("ReceptionHall")}
                 </TabsTrigger>
               ))}
             </TabsList>
@@ -520,8 +519,8 @@ toast.success(t("OrderTransferredSuccessfully"));
                     </div>
                   ) : (
                     <div className="text-center py-10 text-gray-500">
-                <p className="text-lg">{t("NoTablesFound")}</p>
-<p className="text-sm">{t("SelectAnotherLocationOrAddTables")}</p>
+                      <p className="text-lg">{t("NoTablesFound")}</p>
+                      <p className="text-sm">{t("SelectAnotherLocationOrAddTables")}</p>
 
                     </div>
                   )}
@@ -572,12 +571,12 @@ toast.success(t("OrderTransferredSuccessfully"));
           </Tabs>
         ) : (
           <div className="text-center p-10 bg-gray-50 rounded-lg shadow-inner">
-        <p className="text-lg text-gray-600 font-semibold">
-  {t("NoCafeLocationsFound")}
-</p>
-<p className="text-sm text-gray-500 mt-2">
-  {t("EnsureLocationsConfigured")}
-</p>
+            <p className="text-lg text-gray-600 font-semibold">
+              {t("NoCafeLocationsFound")}
+            </p>
+            <p className="text-sm text-gray-500 mt-2">
+              {t("EnsureLocationsConfigured")}
+            </p>
 
           </div>
         )}

@@ -269,38 +269,35 @@ const { t , i18n } = useTranslation();
                     )}
 
                     {/* Single-select variations */}
-                    {variation.type === "single" && variation.options && (
-                      <div className="space-y-2">
-                        {variation.options.map((option) => (
-                          <label
-                            key={option.id}
-                            className="flex items-center space-x-2 cursor-pointer hover:bg-gray-50 p-2 rounded"
-                          >
-                            <input
-                              type="radio"
-                              name={`variation-${variation.id}`}
-                              value={option.id}
-                              checked={
-                                selectedVariation[variation.id] === option.id
-                              }
-                              onChange={() =>
-                                onVariationChange(variation.id, option.id)
-                              }
-                              className="form-radio h-4 w-4 !text-red-600"
-                            />
-                            <span
-                              className={`text-sm capitalize flex-1 ${
-                                selectedVariation[variation.id] === option.id
-                                  ? "!text-red-600 font-semibold"
-                                  : "!text-gray-700"
-                              }`}
-                            >
-                              {getVariationOptionDisplay(option)}
-                            </span>
-                          </label>
-                        ))}
-                      </div>
-                    )}
+{/* Single-select variations - using button style like excludes */}
+{variation.type === "single" && variation.options && (
+  <div className="flex flex-wrap gap-2">
+    {variation.options.map((option) => {
+      const isSelected = selectedVariation[variation.id] === option.id;
+
+      return (
+        <button
+          key={option.id}
+          onClick={() => onVariationChange(variation.id, option.id)}
+          className={`flex flex-col items-center justify-center px-2 rounded-lg border-2 text-sm font-medium transition-all duration-200
+            ${
+              isSelected
+                ? "bg-red-600 text-white border-red-600 scale-105"
+                : "bg-gray-100 text-gray-700 border-gray-300 hover:border-red-400"
+            }`}
+        >
+          <span className="capitalize">{option.name}</span>
+          {parseFloat(option.price_after_tax || option.price || 0) > 0 && (
+            <span className="text-xs">
+              +{(option.price_after_tax || option.price).toFixed(2)} EGP
+            </span>
+          )}
+        </button>
+      );
+    })}
+  </div>
+)}
+
 
                     {/* Multi-select variations - with counters */}
                     {variation.type === "multiple" && variation.options && (
