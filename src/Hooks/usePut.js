@@ -1,5 +1,5 @@
+import axiosInstance from "@/Pages/utils/axiosInstance";
 import { useState } from "react";
-import axios from "axios";
 
 export function usePut() {
   const baseUrl = import.meta.env.VITE_API_BASE_URL;
@@ -21,7 +21,7 @@ export function usePut() {
       const token = sessionStorage.getItem("token");
       const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
-      const response = await axios.put(url, body, { headers });
+      const response = await axiosInstance.put(url, body, { headers });
       setData(response.data);
 
       setLoading(false);

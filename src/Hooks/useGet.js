@@ -1,5 +1,5 @@
+import axiosInstance from "@/Pages/utils/axiosInstance";
 import { useState, useEffect, useCallback } from "react";
-import axios from "axios";
 
 export function useGet(initialEndpoint) {
   const [data, setData] = useState(null);
@@ -19,7 +19,7 @@ export function useGet(initialEndpoint) {
     try {
       const token = sessionStorage.getItem('token');
       const headers = token ? { Authorization: `Bearer ${token}` } : {};
-      const response = await axios.get(`${baseUrl}${endpoint}`, { headers });
+      const response = await axiosInstance.get(`${baseUrl}${endpoint}`, { headers });
       setData(response.data);
       setLoading(false);
       return response.data; // return the data so it can be used

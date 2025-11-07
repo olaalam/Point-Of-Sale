@@ -1,5 +1,5 @@
+import axiosInstance from "@/Pages/utils/axiosInstance";
 import { useState } from "react";
-import axios from "axios";
 
 export function usePost() {
   const baseUrl = import.meta.env.VITE_API_BASE_URL;
@@ -13,7 +13,7 @@ export function usePost() {
     setError(null);
 
     try {
-      const response = await axios.post(`${baseUrl}${endpoint}`, body, {
+      const response = await axiosInstance.post(`${baseUrl}${endpoint}`, body, {
         headers: {
           Authorization: `Bearer ${token}`,
           Accept: "application/json",

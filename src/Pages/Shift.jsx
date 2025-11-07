@@ -44,7 +44,6 @@ export default function Shift() {
       openShift();
       setShiftStatus("Shift is open.");
 
-      toast.success(t("ShiftOpenedSuccessfully"));
 
       // تنظيف الـ URL من ?action
       const params = new URLSearchParams(location.search);
@@ -252,7 +251,6 @@ export default function Shift() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -20 }}
               >
-                <p className="text-gray-500 mb-2">{t("Redirectingtohomein")}:</p>
                 <motion.div
                   className="text-4xl font-bold text-bg-primary"
                   key={countdown}
