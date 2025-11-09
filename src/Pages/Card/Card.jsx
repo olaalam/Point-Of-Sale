@@ -1,6 +1,4 @@
-{
-  /* Card.jsx */
-}
+{/* Card.jsx */}
 import React, { useMemo, useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Loading from "@/components/Loading";
@@ -28,8 +26,7 @@ import {
 } from "./constants";
 import { renderItemVariations } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
-import DineInformation from "../DineInformation";
-import { useGet } from "@/Hooks/useGet";
+import { buildProductPayload } from "@/services/productProcessor";
 /**
  * @typedef {object} OrderItem
  * @property {string} temp_id - Temporary unique ID for the item.
@@ -73,7 +70,7 @@ export default function Card({
   const [managerId, setManagerId] = useState("");
   const [managerPassword, setManagerPassword] = useState("");
   const [showClearAllConfirm, setShowClearAllConfirm] = useState(false);
-  const { t, i18n } = useTranslation();
+  const { t, i18n } = useTranslation()
   const isArabic = i18n.language === "ar";
 
   // Offers States
@@ -91,54 +88,30 @@ export default function Card({
 
   const isLoading = apiLoading;
 
-  const { data: serviceFeesData, loading: feesLoading } = useGet(
-    orderType === "dine_in" ? "cashier/service_fees" : null
-  );
-
   // Memoize all cart IDs for transfer functionality
   const allCartIds = useMemo(() => {
     return orderItems.map((item) => item.cart_id).filter(Boolean);
   }, [orderItems]);
 
   // Memoize subtotal, tax, and total for performance
-const {
-  subTotal,
-  totalTax,
-  totalOtherCharge,
-  totalAmountDisplay,
-  calculatedSubTotal, // أضفناه هنا
-  calculatedServiceFees,   // أضفناه هنا
-  grandTotal               // أضفناه هنا
-} = useMemo(() => {
-  const sub = Array.isArray(orderItems)
-    ? orderItems.reduce((acc, item) => {
-        const itemPrice = item.price || 0;
-        const itemCount = item.count || 1;
-        return acc + itemPrice * itemCount;
-      }, 0)
-    : 0;
-
-  const tax = sub * TAX_RATE;
-  const other = OTHER_CHARGE;
-
-  const serviceFees = orderType === "dine_in" && serviceFeesData
-    ? serviceFeesData.type === "percentage"
-      ? sub * (serviceFeesData.amount / 100)
-      : serviceFeesData.amount || 0
-    : 0;
-
-  const grand = sub + tax + other + serviceFees;
-
-  return {
-    subTotal: sub,
-    totalTax: tax,
-    totalOtherCharge: other,
-    totalAmountDisplay: grand,
-    calculatedSubTotal: sub,
-    calculatedServiceFees: serviceFees,
-    grandTotal: grand,
-  };
-}, [orderItems, orderType, serviceFeesData]);
+  const { subTotal, totalTax, totalOtherCharge, totalAmountDisplay } =
+    useMemo(() => {
+      const calculatedSubTotal = Array.isArray(orderItems)
+        ? orderItems.reduce((acc, item) => {
+            const itemPrice = item.price || 0;
+            const itemCount = item.count || 1;
+            return acc + itemPrice * itemCount;
+          }, 0)
+        : 0;
+      const calculatedTax = calculatedSubTotal * TAX_RATE;
+      const calculatedTotal = calculatedSubTotal + calculatedTax + OTHER_CHARGE;
+      return {
+        subTotal: calculatedSubTotal,
+        totalTax: calculatedTax,
+        totalOtherCharge: OTHER_CHARGE,
+        totalAmountDisplay: calculatedTotal,
+      };
+    }, [orderItems]);
 
   // Memoize items with "done" status
   const doneItems = useMemo(() => {
@@ -211,114 +184,40 @@ const {
   };
 
   // Handle save as pending order
-  const handleSaveAsPending = async () => {
-    if (orderItems.length === 0) {
-      toast.warning(t("Noitemstosaveaspending"));
-      return;
-    }
+const handleSaveAsPending = async () => {
+  if (orderItems.length === 0) {
+    toast.warning(t("Noitemstosaveaspending"));
+    return;
+  }
 
-    const cashierId = sessionStorage.getItem("cashier_id");
-    const token = sessionStorage.getItem("access_token");
+  const productsToSend = orderItems.map(buildProductPayload);
 
-    const processProductItem = (item) => {
-      const groupedVariations =
-        item.allSelectedVariations?.reduce((acc, variation) => {
-          const existing = acc.find(
-            (v) => v.variation_id === variation.variation_id
-          );
-          if (existing) {
-            existing.option_id = Array.isArray(existing.option_id)
-              ? [...existing.option_id, variation.option_id.toString()]
-              : [existing.option_id.toString(), variation.option_id.toString()];
-          } else {
-            acc.push({
-              variation_id: variation.variation_id.toString(),
-              option_id: [variation.option_id.toString()],
-            });
-          }
-          return acc;
-        }, []) || [];
-
-      const realExtrasIds = [];
-      const addonItems = [];
-
-      if (item.selectedExtras && item.selectedExtras.length > 0) {
-        item.selectedExtras.forEach((extraId) => {
-          const isRealExtra = item.allExtras?.some(
-            (extra) => extra.id === extraId
-          );
-          if (isRealExtra) {
-            realExtrasIds.push(extraId.toString());
-          } else {
-            const addon = item.addons?.find((addon) => addon.id === extraId);
-            if (addon) {
-              addonItems.push({
-                addon_id: extraId.toString(),
-                count: "1",
-              });
-            }
-          }
-        });
-      }
-
-      if (item.selectedAddons && item.selectedAddons.length > 0) {
-        item.selectedAddons.forEach((addonData) => {
-          const alreadyExists = addonItems.some(
-            (existing) => existing.addon_id === addonData.addon_id.toString()
-          );
-          if (!alreadyExists) {
-            addonItems.push({
-              addon_id: addonData.addon_id.toString(),
-              count: (addonData.count || 1).toString(),
-            });
-          }
-        });
-      }
-
-      return {
-        product_id: item.id.toString(),
-        count: item.count.toString(),
-        note: (item.notes || "").trim() || t("Nospecialinstructions"), // ✅ تم التصحيح هنا
-        addons: addonItems,
-        variation: groupedVariations,
-        exclude_id: (item.selectedExcludes || []).map((id) => id.toString()),
-        extra_id: realExtrasIds,
-      };
-    };
-
-    const productsToSend = orderItems.map(processProductItem);
-
-    const payload = {
-      amount: amountToPay.toString(),
-      total_tax: totalTax.toString(),
-      total_discount: totalOtherCharge.toString(),
-      notes: "Customer requested no plastic bag.",
-      source: "web",
-      financials: [],
-      order_pending: 1,
-      cashier_id: cashierId.toString(),
-      products: productsToSend,
-    };
-
-    try {
-      const headers = {
-        "Content-Type": "application/json",
-      };
-      if (token) {
-        headers.Authorization = `Bearer ${token}`;
-      }
-
-      const response = await postData("cashier/take_away_order", payload, {
-        headers,
-      });
-
-      toast.success(t("Ordersavedaspending"));
-      clearCart();
-    } catch (e) {
-      console.error("Pending order error:", e);
-      toast.error(e.response?.data?.message || t("Failedtosaveaspending"));
-    }
+  const payload = {
+    amount: amountToPay.toString(),
+    total_tax: totalTax.toString(),
+    total_discount: totalOtherCharge.toString(),
+    notes: "Customer requested no plastic bag.",
+    source: "web",
+    financials: [],
+    order_pending: 1,
+    cashier_id: sessionStorage.getItem("cashier_id"),
+    products: productsToSend,
   };
+
+  try {
+    const response = await postData("cashier/take_away_order", payload, {
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${sessionStorage.getItem("access_token")}`,
+      },
+    });
+
+    toast.success(t("Ordersavedaspending"));
+    clearCart();
+  } catch (e) {
+    toast.error(e.response?.data?.message || t("Failedtosaveaspending"));
+  }
+};
 
   // Offers Functions
   const handleApplyOffer = async () => {
@@ -388,7 +287,9 @@ const {
     try {
       const response = await postData("cashier/offer/approve_offer", formData);
       if (response?.success) {
-        toast.success(t("RewardAdded", { product }));
+        toast.success(
+  t("RewardAdded", { product })
+        );
         const freeItem = {
           temp_id: `reward-${Date.now()}-${Math.random()
             .toString(36)
@@ -457,7 +358,7 @@ const {
 
     const { deal_id, user_id, deal_title, deal_price } = pendingDealApproval;
 
-    t("DealAdded", { deal_title });
+  t("DealAdded", { deal_title })
     const dealItem = {
       temp_id: `deal-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       id: deal_id,
@@ -499,119 +400,107 @@ const {
     });
   };
 
-  // في ملف Card.jsx، استبدل دالة handleUpdatePreparationStatus بهذه النسخة المحسّنة:
+const handleUpdatePreparationStatus = async (itemTempId) => {
+  const itemToUpdate = orderItems.find((item) => item.temp_id === itemTempId);
+  
+  if (!itemToUpdate) {
+    toast.error("المنتج غير موجود");
+    return;
+  }
 
-  const handleUpdatePreparationStatus = async (itemTempId) => {
-    console.log("🔄 Starting preparation status update for:", itemTempId);
+  // التحقق من وجود cart_id
+  if (!itemToUpdate.cart_id) {
+    console.warn("cart_id missing, attempting to fetch from server...", itemToUpdate);
 
-    if (!itemTempId) {
-      console.error("❌ itemTempId is undefined");
-      toast.error(t("Failedtoidentifytheitemtoupdate"));
+    // إذا ما كانش في cart_id → نجيبه من السيرفر
+    const tableId = sessionStorage.getItem("table_id");
+    if (!tableId) {
+      toast.error("رقم الطاولة مفقود");
       return;
     }
-
-    // البحث عن العنصر
-    const itemToUpdate = orderItems.find((item) => item.temp_id === itemTempId);
-
-    if (!itemToUpdate) {
-      console.error("❌ Item not found:", itemTempId);
-      toast.error(t("Itemnotfound"));
-      return;
-    }
-
-    // التحقق من البيانات المطلوبة
-    if (!itemToUpdate.cart_id || !tableId) {
-      console.error("❌ Missing required data:", {
-        cart_id: itemToUpdate.cart_id,
-        tableId,
-        itemName: itemToUpdate.name,
-      });
-      toast.error(t("Missingrequireddatatoupdateitemstatus"));
-      return;
-    }
-
-    // تحديد الحالة التالية
-    const currentStatus = itemToUpdate.preparation_status || "pending";
-    const nextStatus = PREPARATION_STATUSES[currentStatus]?.nextStatus;
-
-    if (!nextStatus || !PREPARATION_STATUSES[nextStatus]?.canSendToAPI) {
-      console.warn("⚠️ Cannot update to next status:", nextStatus);
-      toast.info(t("StatuscannotbeupdatedviaAPIatthistime"));
-      return;
-    }
-
-    console.log("📤 Preparing API request:", {
-      itemName: itemToUpdate.name,
-      cart_id: itemToUpdate.cart_id,
-      currentStatus,
-      nextStatus,
-      apiValue: PREPARATION_STATUSES[nextStatus]?.apiValue,
-      table_id: tableId,
-    });
-
-    // بدء Loading
-    setItemLoadingStates((prev) => ({ ...prev, [itemTempId]: true }));
 
     try {
-      // إعداد البيانات - هنا المفتاح!
-      const formData = new FormData();
-      formData.append("table_id", tableId.toString());
-
-      // إرسال cart_id بالشكل الصحيح (كـ array)
-      const cartIds = Array.isArray(itemToUpdate.cart_id)
-        ? itemToUpdate.cart_id
-        : [itemToUpdate.cart_id];
-
-      cartIds.forEach((id, index) => {
-        formData.append(`preparing[${index}][cart_id]`, id.toString());
-        formData.append(
-          `preparing[${index}][status]`,
-          PREPARATION_STATUSES[nextStatus]?.apiValue || nextStatus
-        );
-      });
-
-      // طباعة البيانات المرسلة للـ debugging
-      console.log("📋 FormData contents:");
-      for (let [key, value] of formData.entries()) {
-        console.log(`  ${key}: ${value}`);
+      // جلب آخر أوردر من السيرفر
+      const response = await apiFetcher(`cashier/table_orders/${tableId}`);
+      const serverOrder = response?.orders?.[0];
+      if (!serverOrder?.products) {
+        toast.error("فشل جلب بيانات الطلب من الخادم");
+        return;
       }
 
-      // إرسال الطلب
-      const response = await postData("cashier/preparing", formData);
-
-      console.log("✅ API response:", response);
-
-      // تحديث الـ UI
-      const updatedItems = orderItems.map((item) =>
-        item.temp_id === itemTempId
-          ? { ...item, preparation_status: nextStatus }
-          : item
+      // نطابق المنتج بالـ product_id + temp_id + count + price
+      const serverItem = serverOrder.products.find(p => 
+        p.product_id == itemToUpdate.id &&
+        parseInt(p.count) === itemToUpdate.count &&
+        parseFloat(p.price) === itemToUpdate.price &&
+        p.note === (itemToUpdate.notes || "")
       );
 
-      updateOrderItems(updatedItems);
+      if (serverItem?.cart_id) {
+        // نحدّث المنتج محليًا بالـ cart_id الصحيح
+        const updatedItems = orderItems.map(item =>
+          item.temp_id === itemTempId
+            ? { ...item, cart_id: serverItem.cart_id.toString() }
+            : item
+        );
+        updateOrderItems(updatedItems);
 
-      toast.success(
-        `${itemToUpdate.name} - Status updated to ${PREPARATION_STATUSES[nextStatus].label}`
-      );
+        toast.info("تم تحديث بيانات المنتج من الخادم");
+        
+        // نكمل التحديث بعد ما نضمن وجود cart_id
+        itemToUpdate.cart_id = serverItem.cart_id.toString();
+      } else {
+        toast.error("لا يمكن تحديث الحالة: المنتج غير موجود على الخادم");
+        return;
+      }
     } catch (err) {
-      console.error("❌ Error updating status:", err);
-      console.error("Error details:", {
-        status: err.response?.status,
-        message: err.response?.data?.message,
-        data: err.response?.data,
-      });
-
-      const errorMessage =
-        err.response?.data?.message ||
-        err.response?.data?.exception ||
-        t("Failedtoupdatestatus");
-      toast.error(errorMessage);
-    } finally {
-      // إنهاء Loading
-      setItemLoadingStates((prev) => ({ ...prev, [itemTempId]: false }));
+      console.error("Failed to fetch order from server:", err);
+      toast.error("فشل الاتصال بالخادم لتحديث الحالة");
+      return;
     }
-  };
+  }
 
+  // نكمل الآن بعد ما نتأكد إن cart_id موجود
+  const currentStatus = itemToUpdate.preparation_status || "pending";
+  const nextStatus = PREPARATION_STATUSES[currentStatus]?.nextStatus;
+  
+  if (!nextStatus || !PREPARATION_STATUSES[nextStatus]?.canSendToAPI) {
+    toast.info("لا يمكن تحديث هذه الحالة الآن");
+    return;
+  }
+
+  setItemLoadingStates((prev) => ({ ...prev, [itemTempId]: true }));
+
+  const formData = new FormData();
+  formData.append("table_id", tableId);
+
+  const cartIds = Array.isArray(itemToUpdate.cart_id)
+    ? itemToUpdate.cart_id
+    : [itemToUpdate.cart_id.toString()];
+
+  cartIds.forEach((id, index) => {
+    formData.append(`preparing[${index}][cart_id]`, id);
+    formData.append(`preparing[${index}][status]`, PREPARATION_STATUSES[nextStatus].apiValue || nextStatus);
+  });
+
+  try {
+    await postData("cashier/preparing", formData);
+    
+    const updatedItems = orderItems.map((item) =>
+      item.temp_id === itemTempId
+        ? { ...item, preparation_status: nextStatus }
+        : item
+    );
+    
+    updateOrderItems(updatedItems);
+    toast.success(`تم تحديث الحالة إلى ${PREPARATION_STATUSES[nextStatus].label}`);
+
+  } catch (err) {
+    toast.error(err.response?.data?.message || "فشل تحديث الحالة");
+  } finally {
+    setItemLoadingStates((prev) => ({ ...prev, [itemTempId]: false }));
+  }
+};
   const handleVoidItem = (itemTempId) => {
     setVoidItemId(itemTempId);
     setShowVoidModal(true);
@@ -622,7 +511,8 @@ const {
     const itemToVoid = orderItems.find((item) => item.temp_id === voidItemId);
     if (!itemToVoid?.cart_id || !tableId || !managerId || !managerPassword) {
       setTimeout(() => {
-        toast.error(t("PleasefillinallrequiredfieldsManagerIDandPassword"));
+        toast.error(
+t("PleasefillinallrequiredfieldsManagerIDandPassword")        );
       }, 100);
       return;
     }
@@ -688,7 +578,8 @@ const {
           errorMessage = `Server error (${status})`;
         }
       } else if (err.request) {
-        errorMessage = t("NoresponsefromserverCheckyourinternetconnection");
+        errorMessage =
+          t("NoresponsefromserverCheckyourinternetconnection");
       } else {
         errorMessage = err.message || t("Anunexpectederroroccurred");
       }
@@ -760,7 +651,6 @@ const {
     );
   };
 
-
   const handleSelectAllPaymentItems = () => {
     const allDoneTempIds = doneItems.map((item) => item.temp_id);
     setSelectedPaymentItems((prev) =>
@@ -770,7 +660,9 @@ const {
 
   const applyBulkStatus = async () => {
     if (!bulkStatus || selectedItems.length === 0 || !tableId) {
-      toast.warning(t("PleaseselectitemschooseastatusandensureaTableIDisset"));
+      toast.warning(
+        t('PleaseselectitemschooseastatusandensureaTableIDisset')
+      );
       return;
     }
 
@@ -821,11 +713,10 @@ const {
     } else {
       console.warn("No items sent to API, updating locally");
       toast.info(
-        t("BulkUpdateSuccess", {
-          count: itemsForApi.length,
-          status: PREPARATION_STATUSES[bulkStatus].label,
-        })
-      );
+t("BulkUpdateSuccess", {
+    count: itemsForApi.length,
+    status: PREPARATION_STATUSES[bulkStatus].label
+  })      );
     }
 
     const updatedItems = orderItems.map((item) =>
@@ -861,55 +752,52 @@ const {
   const handleViewPendingOrders = () => navigate("/pending-orders");
 
   return (
-    <div
+  <div
       className={`flex flex-col h-full ${
         isArabic ? "text-right direction-rtl" : "text-left direction-ltr"
       }`}
       dir={isArabic ? "rtl" : "ltr"}
-    >
-      {" "}
-      <div className="flex-shrink-0">
+    >      <div className="flex-shrink-0">
         <h2 className="text-bg-primary text-3xl font-bold mb-6">
           {t("OrderDetails")}
         </h2>
-        <DineInformation />
         <div className="!p-4 flex md:flex-row flex-col gap-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-grow">
-            <Button
-              onClick={handleClearAllItems}
-              className="bg-bg-primary text-white hover:bg-red-700 text-sm flex items-center justify-center gap-2 py-4"
-              disabled={isLoading || orderItems.length === 0}
-            >
-              {t("ClearAllItems")} ({orderItems.length || 0})
-            </Button>
-            <Button
-              onClick={handleViewOrders}
-              className="bg-gray-500 text-white hover:bg-gray-600 text-sm py-4"
-              disabled={isLoading}
-            >
-              {t("ViewOrders")}
-            </Button>
+<div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-grow">
+  <Button
+    onClick={handleClearAllItems}
+    className="bg-bg-primary text-white hover:bg-red-700 text-sm flex items-center justify-center gap-2 py-4"
+    disabled={isLoading || orderItems.length === 0}
+  >
+    {t("ClearAllItems")} ({orderItems.length || 0})
+  </Button>
+  <Button
+    onClick={handleViewOrders}
+    className="bg-gray-500 text-white hover:bg-gray-600 text-sm py-4"
+    disabled={isLoading}
+  >
+    {t("ViewOrders")}
+  </Button>
 
-            {/* Show Offer & Deal buttons only if NOT delivery */}
-            {orderType !== "delivery" && (
-              <>
-                <Button
-                  onClick={() => setShowOfferModal(true)}
-                  className="bg-green-600 text-white hover:bg-green-700 text-sm py-4"
-                  disabled={isLoading}
-                >
-                  {t("ApplyOffer")}
-                </Button>
-                <Button
-                  onClick={() => setShowDealModal(true)}
-                  className="bg-orange-600 text-white hover:bg-orange-700 text-sm py-4"
-                  disabled={isLoading}
-                >
-                  {t("ApplyDeal")}
-                </Button>
-              </>
-            )}
-          </div>
+  {/* Show Offer & Deal buttons only if NOT delivery */}
+  {orderType !== "delivery" && (
+    <>
+      <Button
+        onClick={() => setShowOfferModal(true)}
+        className="bg-green-600 text-white hover:bg-green-700 text-sm py-4"
+        disabled={isLoading}
+      >
+        {t("ApplyOffer")}
+      </Button>
+      <Button
+        onClick={() => setShowDealModal(true)}
+        className="bg-orange-600 text-white hover:bg-orange-700 text-sm py-4"
+        disabled={isLoading}
+      >
+        {t("ApplyDeal")}
+      </Button>
+    </>
+  )}
+</div>
           {orderType === "take_away" && (
             <div className="flex md:flex-col flex-row items-stretch justify-center">
               <Button
@@ -954,7 +842,7 @@ const {
               className="bg-bg-primary text-white hover:bg-red-700 text-sm"
               disabled={selectedItems.length === 0 || !bulkStatus || isLoading}
             >
-              {t("ApplyStatus", { count: selectedItems.length })}
+  {t("ApplyStatus", { count: selectedItems.length })}
             </Button>
             <Button
               onClick={handleTransferOrder}
@@ -966,6 +854,7 @@ const {
           </div>
         )}
       </div>
+
       <div className="flex-1 overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
         {isLoading && (
           <div className="flex justify-center items-center h-40">
@@ -979,7 +868,8 @@ const {
                 {t("ConfirmClearAllItems")}
               </h3>
               <p className="text-gray-600 mb-6">
-                {t("ConfirmRemoveAll", { count: orderItems?.length || 0 })}
+           {t("ConfirmRemoveAll", { count: orderItems?.length || 0 })}
+
               </p>
               <div className="flex justify-end gap-3">
                 <Button
@@ -1048,7 +938,7 @@ const {
                     colSpan={orderType === "dine_in" ? 8 : 6}
                     className="text-center py-4 text-gray-500"
                   >
-                    <p>{t("NoItemsFound")}</p>
+<p>{t("NoItemsFound")}</p>
                   </td>
                 </tr>
               ) : (
@@ -1056,8 +946,6 @@ const {
                   <ItemRow
                     key={item.temp_id || `${item.id}-${index}`}
                     item={item}
-                    updateOrderItems={updateOrderItems}
-                    orderItems={orderItems}
                     orderType={orderType}
                     selectedItems={selectedItems}
                     toggleSelectItem={toggleSelectItem}
@@ -1090,56 +978,37 @@ const {
           </div>
         )}
       </div>
+
       <div className="flex-shrink-0 bg-white border-t-2 border-gray-200 pt-6 mt-4">
         <div className="bg-gray-50 p-6 rounded-lg shadow-inner mb-6">
           <SummaryRow label={t("SubTotal")} value={subTotal} />
           <SummaryRow label={t("Tax")} value={totalTax} />
           <SummaryRow label={t("OtherCharge")} value={totalOtherCharge} />
-{orderType === "dine_in" && calculatedServiceFees > 0 && (
-  <SummaryRow 
-    label={
-      serviceFeesData?.type === "percentage"
-        ? `${t("ServiceFees")} (${serviceFeesData.amount}%)`
-        : t("ServiceFees")
-    } 
-    value={calculatedServiceFees.toFixed(2)}
-  />
-)}
         </div>
         {orderType === "dine_in" && (
           <>
             <div className="grid grid-cols-2 gap-4 items-center mb-4">
               <p className="text-gray-600">{t("TotalOrderAmount")}:</p>
               <p className="text-right text-lg font-semibold">
-                {totalAmountDisplay.toFixed(2)} {t("EGP")}
+                {totalAmountDisplay.toFixed(2)} {t('EGP')}
               </p>
             </div>
             <div className="grid grid-cols-2 gap-4 items-center mb-4">
               <p className="text-gray-600">
-                <p>
-                  {t("SelectedItems", { count: selectedPaymentItems.length })}
-                </p>
+<p>{t("SelectedItems", { count: selectedPaymentItems.length })}</p>
               </p>
-<p className="text-right text-2xl font-bold text-green-700">
-  {orderType === "dine_in" 
-    ? amountToPay.toFixed(2) 
-    : grandTotal.toFixed(2)
-  } {t("EGP")}
-</p>
+              <p className="text-right text-lg font-semibold text-green-600">
+                {amountToPay.toFixed(2)} {t("EGP")}
+              </p>
             </div>
             <hr className="my-4 border-t border-gray-300" />
           </>
         )}
         <div className="grid grid-cols-2 gap-4 items-center mb-6">
-          <p className="text-bg-primary text-xl font-bold">
-            {t("AmountToPay")}
+          <p className="text-bg-primary text-xl font-bold">{t("AmountToPay")}</p>
+          <p className="text-right text-2xl font-bold text-green-700">
+            {amountToPay.toFixed(2)} {t("EGP")}
           </p>
-<p className="text-right text-2xl font-bold text-green-700">
-  {orderType === "dine_in" 
-    ? amountToPay.toFixed(2) 
-    : grandTotal.toFixed(2)
-  } {t("EGP")}
-</p>
         </div>
         <div className="flex justify-center gap-4">
           <Button
@@ -1188,17 +1057,17 @@ const {
           orderType={orderType}
           tableId={tableId}
           onClearCart={clearCart}
-          serviceFees={calculatedServiceFees}
         />
       )}
       {showOfferModal && (
         <div className="fixed inset-0 bg-gray-500/50 flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full mx-4">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">
-              {t("ApplyOfferUsePoints")}
+  {t("ApplyOfferUsePoints")}
+
             </h3>
             <p className="text-gray-600 mb-6">
-              {t("EnterLoyaltyOrRewardCode")}
+{t("EnterLoyaltyOrRewardCode")}
             </p>
             <Input
               type="text"
@@ -1240,10 +1109,10 @@ const {
               {t("UserID")}: **{pendingOfferApproval.user_id}**
             </p>
             <p className="text-gray-700 mb-6">
-              {t("ConfirmAddOffer", {
-                product: pendingOfferApproval.product,
-                points: pendingOfferApproval.points,
-              })}
+               {t("ConfirmAddOffer", {
+    product: pendingOfferApproval.product,
+    points: pendingOfferApproval.points,
+  })}
             </p>
             <div className="flex justify-end gap-3">
               <Button
@@ -1274,7 +1143,7 @@ const {
               {t("ApplyDealCode")}
             </h3>
             <p className="text-gray-600 mb-6">
-              <p>{t("EnterDealCode")}</p>
+<p>{t("EnterDealCode")}</p>
             </p>
             <Input
               type="text"
@@ -1293,7 +1162,7 @@ const {
                 variant="outline"
                 disabled={isLoading}
               >
-                {t("Cancel")}
+                {t('Cancel')}
               </Button>
               <Button
                 onClick={handleApplyDeal}
@@ -1313,13 +1182,13 @@ const {
               {t("ConfirmDealAcceptance")}
             </h3>
             <p className="text-gray-700 mb-2 font-medium">
-              {t("CustomerUserId", { user_id: pendingDealApproval.user_id })}
+  {t("CustomerUserId", { user_id: pendingDealApproval.user_id })}
             </p>
             <p className="text-gray-700 mb-6">
-              {t("ConfirmAddDeal", {
-                deal_title: pendingDealApproval.deal_title,
-                deal_price: pendingDealApproval.deal_price.toFixed(2),
-              })}
+ {t("ConfirmAddDeal", {
+    deal_title: pendingDealApproval.deal_title,
+    deal_price: pendingDealApproval.deal_price.toFixed(2),
+  })}
             </p>
             <p className="text-gray-700 mb-6">
               {pendingDealApproval.description || "No description available."}

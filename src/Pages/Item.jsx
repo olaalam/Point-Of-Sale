@@ -12,6 +12,7 @@ import CategorySelector from "./CategorySelector";
 import ProductCard from "./ProductCard";
 import ProductModal, { areProductsEqual } from "./ProductModal";
 import { useTranslation } from "react-i18next";
+import { buildProductPayload } from "@/services/productProcessor";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "https://bcknd.food2go.online/";
 
@@ -223,134 +224,92 @@ export default function Item({
   const createTempId = (productId) =>
     `${productId}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-  const handleAddToOrder = useCallback(
-    async (product, customQuantity = 1, options = {}) => {
-      let productBasePrice = product.price_after_discount ?? product.price ?? 0;
-      const allSelectedVariationsData = [];
-      const selectedVariations = product.selectedVariation || selectedVariation || {};
-      const productSelectedExtras = product.selectedExtras || selectedExtras || [];
-      const productSelectedExcludes = product.selectedExcludes || selectedExcludes || [];
+// داخل handleAddToOrder (قسم dine_in فقط)
+const handleAddToOrder = useCallback(async (product, customQuantity = 1) => {
+  if (orderType !== "dine_in") {
+    // كود الـ take_away القديم
+    return;
+  }
 
-      // Variations
-      if (product.variations && Object.keys(selectedVariations).length > 0) {
-        product.variations.forEach((variation) => {
-          if (variation.type === "single" && selectedVariations[variation.id]) {
-            const opt = variation.options.find(
-              (o) => o.id === selectedVariations[variation.id]
-            );
-            if (opt) {
-              productBasePrice = opt.price_after_tax ?? opt.price;
-              allSelectedVariationsData.push({
-                variation_id: variation.id,
-                option_id: opt.id,
-                variation_name: variation.name,
-                option_name: opt.name,
-                price: opt.price_after_tax ?? opt.price,
-              });
-            }
-          } else if (variation.type === "multiple" && Array.isArray(selectedVariations[variation.id])) {
-            selectedVariations[variation.id].forEach((optId) => {
-              const opt = variation.options.find((o) => o.id === optId);
-              if (opt) {
-                productBasePrice += opt.price_after_tax ?? opt.price;
-                allSelectedVariationsData.push({
-                  variation_id: variation.id,
-                  option_id: opt.id,
-                  variation_name: variation.name,
-                  option_name: opt.name,
-                  price: opt.price_after_tax ?? opt.price,
-                });
-              }
-            });
-          }
-        });
-      }
+  const tableId = sessionStorage.getItem("table_id");
+  if (!tableId) {
+    toast.error(t("PleaseSelectTableFirst"));
+    return;
+  }
 
-      // Extras
-      const groupedExtras = () => {
-        if (!productSelectedExtras.length) return [];
-        const counts = {};
-        productSelectedExtras.forEach((id) => (counts[id] = (counts[id] || 0) + 1));
-        return Object.entries(counts).map(([id, count]) => ({
-          addon_id: id,
-          count: count.toString(),
-        }));
-      };
+  const itemPrice = product.price_after_discount || product.price || 0;
+  const itemTotal = itemPrice * customQuantity;
 
-      let addonsTotalPrice = 0;
-      if (productSelectedExtras.length > 0) {
-        const counts = {};
-        productSelectedExtras.forEach((id) => (counts[id] = (counts[id] || 0) + 1));
-        Object.keys(counts).forEach((id) => {
-          const addon =
-            (product.addons || []).find((a) => a.id === parseInt(id)) ||
-            (product.allExtras || []).find((e) => e.id === parseInt(id));
-          if (addon) {
-            const price = addon.price_after_discount ?? addon.price ?? 0;
-            addonsTotalPrice += price * counts[id];
-          }
-        });
-      }
+  const processedItem = buildProductPayload({
+    ...product,
+    count: customQuantity,
+  });
 
-      const pricePerUnit = productBasePrice + addonsTotalPrice;
-      const finalTotalPrice = pricePerUnit * customQuantity;
+  const payload = {
+    table_id: tableId,
+    cashier_id: sessionStorage.getItem("cashier_id"),
+    amount: itemTotal.toFixed(2),
+    total_tax: (itemTotal * 0.14).toFixed(2),
+    total_discount: "0.00",
+    notes: "Added from POS",
+    source: "web",
+    products: [processedItem],
+  };
 
-      const orderItem = {
-        ...product,
-        id: product.id,
-        temp_id: createTempId(product.id),
-        count: customQuantity,
-        price: pricePerUnit,
-        originalPrice: product.price,
-        discountedPrice: product.price_after_discount,
-        totalPrice: finalTotalPrice,
-        allSelectedVariations: allSelectedVariationsData,
-        selectedVariation: selectedVariations,
-        selectedAddons: groupedExtras(),
-        selectedExtras: groupedExtras(),
-        selectedExcludes: productSelectedExcludes,
-        productType,
-        notes: product.notes || "",
-        ...(orderType === "dine_in" && { preparation_status: "pending" }),
-      };
+  try {
+    const response = await postOrder("cashier/dine_in_order", payload, {
+      headers: {
+        Authorization: `Bearer ${sessionStorage.getItem("access_token")}`,
+        "Content-Type": "application/json",
+      },
+    });
 
-      // check duplicate
-      if (options.checkDuplicate && orderItems && Array.isArray(orderItems)) {
-        const existingProductIndex = orderItems.findIndex((item) =>
-          areProductsEqual(item, orderItem)
-        );
-        if (existingProductIndex !== -1) {
-          const existingItem = orderItems[existingProductIndex];
-          const newQuantity = existingItem.count + customQuantity;
-          onAddToOrder(
-            {
-              ...existingItem,
-              count: newQuantity,
-              totalPrice: existingItem.price * newQuantity,
-            },
-            { updateExisting: true, index: existingProductIndex }
-          );
-          toast.success(t("QuantityIncreased", { name: product.name, quantity: newQuantity }));
-          return;
-        }
-      }
+    // أهم جزء: استخرج cart_id بكل الطرق الممكنة
+    let cartId = null;
 
-      onAddToOrder(orderItem);
-      toast.success(t("ProductAdded", { name: product.name }));
-    },
-    [
-      selectedVariation,
-      selectedExtras,
-      selectedExcludes,
-      orderType,
-      onAddToOrder,
-      productType,
-      postOrder,
-      refreshCartData,
-      orderItems,
-      t,
-    ]
-  );
+    if (response?.cart_id) {
+      cartId = response.cart_id;
+    } else if (response?.id) {
+      cartId = response.id;
+    } else if (response?.success?.cart_id) {
+      cartId = response.success.cart_id;
+    } else if (response?.data?.cart_id) {
+      cartId = response.data.cart_id;
+    } else if (Array.isArray(response?.products) && response.products[0]?.cart_id) {
+      cartId = response.products[0].cart_id;
+    }
+
+    if (!cartId) {
+      console.error("cart_id not found in response:", response);
+      toast.error("تم إضافة المنتج لكن بدون cart_id - سيتم إعادة تحميل الطلب");
+      // اختياري: اعمل refresh للطلبات من السيرفر
+      // refreshCartData?.();
+      return;
+    }
+
+    const newItem = {
+      ...product,
+      temp_id: createTempId(product.id),
+      count: customQuantity,
+      price: itemPrice,
+      totalPrice: itemTotal,
+      cart_id: cartId.toString(), // مضمون string
+      preparation_status: "pending",
+      notes: product.notes || "",
+      allSelectedVariations: product.allSelectedVariations || [],
+      selectedExtras: product.selectedExtras || [],
+      selectedExcludes: product.selectedExcludes || [],
+      selectedAddons: product.selectedAddons || [],
+    };
+
+    onAddToOrder(newItem);
+    toast.success(t("ProductAddedToTable", { table: tableId }));
+
+  } catch (err) {
+    console.error("Dine-in order error:", err);
+    toast.error(err.response?.data?.message || t("FailedToAddToTable"));
+  }
+}, [orderType, onAddToOrder, postOrder, t, refreshCartData]);
 
   const handleAddFromModal = (enhancedProduct, options = {}) => {
     handleAddToOrder(enhancedProduct, enhancedProduct.quantity, options);
@@ -498,7 +457,7 @@ export default function Item({
       />
 
       {orderLoading && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <Loading />
         </div>
       )}
