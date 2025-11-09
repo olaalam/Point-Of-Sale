@@ -98,6 +98,8 @@ export default function OrderPage({
             temp_id: item.temp_id || `dinein_${item.id}_${Date.now()}`,
             count: parseInt(item.count || 1),
             price: parseFloat(item.price || 0),
+                      preparation_status: item.prepration || item.preparation_status || "pending", // ✅ أضف هذا السطر
+
           }))
         : [];
 
@@ -109,17 +111,18 @@ export default function OrderPage({
   }, [isDineIn, currentTableId, dineInData]);
 
   // delivery: أضف originalPrice و temp_id
-  useEffect(() => {
-    if (isDelivery && currentUserId && deliveryData?.success) {
-      const mappedItems = Array.isArray(deliveryData.success)
-        ? deliveryData.success.map((item) => ({
-            ...item,
-            originalPrice: item.originalPrice ?? item.price ?? 0,
-            temp_id: item.temp_id || `delivery_${item.id}_${Date.now()}`,
-            count: parseInt(item.count || 1),
-            price: parseFloat(item.price || 0),
-          }))
-        : [];
+useEffect(() => {
+  if (isDineIn && currentTableId && dineInData?.success) {
+    const mappedItems = Array.isArray(dineInData.success)
+      ? dineInData.success.map((item) => ({
+          ...item,
+          originalPrice: item.originalPrice ?? item.price ?? 0,
+          temp_id: item.temp_id || `dinein_${item.id}_${Date.now()}`,
+          count: parseInt(item.count || 1),
+          price: parseFloat(item.price || 0),
+          preparation_status: item.prepration || item.preparation_status || "pending", // ✅ أضف هذا السطر
+        }))
+      : [];
 
       setOrdersByUser((prev) => ({
         ...prev,

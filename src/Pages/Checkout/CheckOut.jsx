@@ -26,6 +26,7 @@ const CheckOut = ({
   totalDineInItems,
   orderType,
   onClearCart,
+   serviceFees,
 }) => {
   const branch_id = sessionStorage.getItem("branch_id");
   const cashierId = sessionStorage.getItem("cashier_id");

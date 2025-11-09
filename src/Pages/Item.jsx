@@ -393,7 +393,7 @@ export default function Item({
           disabled={groupLoading || !branchIdState}
           className="px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-bg-primary bg-white text-gray-700 font-medium"
         >
-          <option value="all">{t("AllModules") || "All Modules"}</option>
+          <option value="all">{t("NormalPrices") || "All Modules"}</option>
           {groupProducts.map((group) => (
             <option key={group.id} value={group.id}>
               {group.name}

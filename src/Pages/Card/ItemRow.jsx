@@ -141,7 +141,7 @@ const ItemRow = ({
         {/* حالة التحضير (لـ dine_in) */}
         {orderType === "dine_in" && (
           <td className="py-3 px-4 text-center align-top">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center justify-center gap-2">
               <button
                 onClick={() => {
                   if (!item?.temp_id) {
