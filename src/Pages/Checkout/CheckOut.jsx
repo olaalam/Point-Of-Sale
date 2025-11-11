@@ -13,6 +13,7 @@ import CustomerSelectionModal from "./CustomerSelectionModal";
 import DeliveryAssignmentModal from "./DeliveryAssignmentModal";
 import { buildFinancialsPayload, getOrderEndpoint, buildOrderPayload, buildDealPayload, validatePaymentSplits } from "./processProductItem";
 import { prepareReceiptData, printReceiptSilently } from "../utils/printReceipt";
+import { useRef } from "react";
 
 // استيراد الطباعة الصامتة
 
@@ -225,6 +226,34 @@ const CheckOut = ({
     );
   };
 
+
+// WebSocket connection setup
+const socketRef = useRef(null);
+
+useEffect(() => {
+  // اتصل بسيرفر الـ WebSocket المحلي
+  socketRef.current = new WebSocket("ws://localhost:8080");
+
+  socketRef.current.onopen = () => {
+    console.log("✅ Connected to WebSocket Printer Server");
+  };
+
+  socketRef.current.onerror = (error) => {
+    console.error("❌ WebSocket Error:", error);
+  };
+
+  socketRef.current.onclose = () => {
+    console.warn("⚠️ WebSocket connection closed");
+  };
+
+  // تنظيف الاتصال عند الخروج من الصفحة
+  return () => {
+    if (socketRef.current) socketRef.current.close();
+  };
+}, []);
+
+
+
   const handleAddSplit = () => {
     const defaultAccountId = data.financial_account[0]?.id;
     if (!defaultAccountId) return toast.error("No accounts available.");
@@ -292,19 +321,30 @@ const CheckOut = ({
 
       if (response?.success) {
         toast.success(due === 1 ? "Due order created successfully!" : "Order placed successfully!");
+// تحضير بيانات الفاتورة
+const receiptData = prepareReceiptData(
+  orderItems,
+  amountToPay,
+  totalTax,
+  totalDiscount,
+  appliedDiscount,
+  discountData,
+  orderType,
+  requiredTotal,
+  response.success
+);
 
-        // تحضير بيانات الفاتورة
-        const receiptData = prepareReceiptData(
-          orderItems,
-          amountToPay,
-          totalTax,
-          totalDiscount,
-          appliedDiscount,
-          discountData,
-          orderType,
-          requiredTotal,
-          response.success
-        );
+// إرسال بيانات الفاتورة إلى WebSocket
+if (socketRef.current && socketRef.current.readyState === WebSocket.OPEN) {
+  socketRef.current.send(JSON.stringify({
+    type: "PRINT_RECEIPT",
+    data: receiptData,
+  }));
+  console.log("🧾 Receipt data sent to WebSocket printer.");
+} else {
+  console.warn("⚠️ WebSocket not connected, fallback to local print.");
+  printReceiptSilently(receiptData);
+}
 
         // طباعة صامتة (بدون واجهة)
         printReceiptSilently(receiptData, () => {

@@ -226,74 +226,41 @@ export default function Item({
 
 // داخل handleAddToOrder (قسم dine_in فقط)
 const handleAddToOrder = useCallback(async (product, customQuantity = 1) => {
-  if (orderType !== "dine_in") {
-    // كود الـ take_away القديم
+  // ✅ Calculate correct price (with discount priority)
+  const itemPrice = parseFloat(
+    product.price_after_discount || 
+    product.price || 
+    product.originalPrice || 
+    0
+  );
+
+  // ❌ Block if price is 0 or invalid
+  if (itemPrice <= 0) {
+    console.error("❌ Invalid product price:", product);
+    toast.error(t("InvalidProductPrice"));
     return;
   }
 
-  const tableId = sessionStorage.getItem("table_id");
-  if (!tableId) {
-    toast.error(t("PleaseSelectTableFirst"));
-    return;
-  }
+  const quantity = parseInt(customQuantity) || 1;
+  const itemTotal = itemPrice * quantity;
 
-  const itemPrice = product.price_after_discount || product.price || 0;
-  const itemTotal = itemPrice * customQuantity;
-
-  const processedItem = buildProductPayload({
-    ...product,
-    count: customQuantity,
+  console.log("🛒 Adding product:", {
+    name: product.name,
+    itemPrice,
+    quantity,
+    itemTotal,
+    orderType
   });
 
-  const payload = {
-    table_id: tableId,
-    cashier_id: sessionStorage.getItem("cashier_id"),
-    amount: itemTotal.toFixed(2),
-    total_tax: (itemTotal * 0.14).toFixed(2),
-    total_discount: "0.00",
-    notes: "Added from POS",
-    source: "web",
-    products: [processedItem],
-  };
-
-  try {
-    const response = await postOrder("cashier/dine_in_order", payload, {
-      headers: {
-        Authorization: `Bearer ${sessionStorage.getItem("access_token")}`,
-        "Content-Type": "application/json",
-      },
-    });
-
-    // أهم جزء: استخرج cart_id بكل الطرق الممكنة
-    let cartId = null;
-
-    if (response?.cart_id) {
-      cartId = response.cart_id;
-    } else if (response?.id) {
-      cartId = response.id;
-    } else if (response?.success?.cart_id) {
-      cartId = response.success.cart_id;
-    } else if (response?.data?.cart_id) {
-      cartId = response.data.cart_id;
-    } else if (Array.isArray(response?.products) && response.products[0]?.cart_id) {
-      cartId = response.products[0].cart_id;
-    }
-
-    if (!cartId) {
-      console.error("cart_id not found in response:", response);
-      toast.error("تم إضافة المنتج لكن بدون cart_id - سيتم إعادة تحميل الطلب");
-      // اختياري: اعمل refresh للطلبات من السيرفر
-      // refreshCartData?.();
-      return;
-    }
-
+  // ✅ Handle take_away (no API call)
+  if (orderType === "take_away") {
     const newItem = {
       ...product,
       temp_id: createTempId(product.id),
-      count: customQuantity,
+      count: quantity,
       price: itemPrice,
+      originalPrice: itemPrice,
       totalPrice: itemTotal,
-      cart_id: cartId.toString(), // مضمون string
       preparation_status: "pending",
       notes: product.notes || "",
       allSelectedVariations: product.allSelectedVariations || [],
@@ -301,15 +268,98 @@ const handleAddToOrder = useCallback(async (product, customQuantity = 1) => {
       selectedExcludes: product.selectedExcludes || [],
       selectedAddons: product.selectedAddons || [],
     };
-
     onAddToOrder(newItem);
-    toast.success(t("ProductAddedToTable", { table: tableId }));
-
-  } catch (err) {
-    console.error("Dine-in order error:", err);
-    toast.error(err.response?.data?.message || t("FailedToAddToTable"));
+    toast.success(t("ProductAddedToCart"));
+    return;
   }
-}, [orderType, onAddToOrder, postOrder, t, refreshCartData]);
+
+  // ✅ Handle dine_in (requires API)
+  if (orderType === "dine_in") {
+    const tableId = sessionStorage.getItem("table_id");
+    if (!tableId) {
+      toast.error(t("PleaseSelectTableFirst"));
+      return;
+    }
+
+    const processedItem = buildProductPayload({
+      ...product,
+      price: itemPrice,
+      count: quantity,
+    });
+
+    const payload = {
+      table_id: tableId,
+      cashier_id: sessionStorage.getItem("cashier_id"),
+      amount: itemTotal.toFixed(2),
+      total_tax: (itemTotal * 0.14).toFixed(2),
+      total_discount: "0.00",
+      notes: "Added from POS",
+      source: "web",
+      products: [processedItem],
+    };
+
+    try {
+      const response = await postOrder("cashier/dine_in_order", payload, {
+        headers: {
+          Authorization: `Bearer ${sessionStorage.getItem("access_token")}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      console.log("✅ API Response:", response);
+
+      // ✅ Extract cart_id from all possible locations
+      let cartId = null;
+
+      if (response?.cart_id) cartId = response.cart_id;
+      else if (response?.id) cartId = response.id;
+      else if (response?.success?.cart_id) cartId = response.success.cart_id;
+      else if (response?.data?.cart_id) cartId = response.data.cart_id;
+      else if (response?.data?.id) cartId = response.data.id;
+      else if (Array.isArray(response?.products) && response.products[0]?.cart_id) {
+        cartId = response.products[0].cart_id;
+      }
+      else if (Array.isArray(response?.data?.products) && response.data.products[0]?.cart_id) {
+        cartId = response.data.products[0].cart_id;
+      }
+
+      // ✅ If cart_id not found, refresh from server
+      if (!cartId) {
+        console.error("❌ cart_id not found in response:", response);
+        toast.warning("تم إضافة المنتج - جاري التحديث من السيرفر...");
+        
+        setTimeout(() => {
+          refreshCartData?.();
+        }, 500);
+        return;
+      }
+
+      // ✅ Create item with cart_id
+      const newItem = {
+        ...product,
+        temp_id: createTempId(product.id),
+        count: quantity,
+        price: itemPrice,
+        originalPrice: itemPrice,
+        totalPrice: itemTotal,
+        cart_id: cartId.toString(),
+        preparation_status: "pending",
+        notes: product.notes || "",
+        allSelectedVariations: product.allSelectedVariations || [],
+        selectedExtras: product.selectedExtras || [],
+        selectedExcludes: product.selectedExcludes || [],
+        selectedAddons: product.selectedAddons || [],
+      };
+
+      onAddToOrder(newItem);
+      toast.success(t("ProductAddedToTable", { table: tableId }));
+
+    } catch (err) {
+      console.error("❌ Dine-in order error:", err);
+      toast.error(err.response?.data?.message || t("FailedToAddToTable"));
+    }
+  }
+}, [orderType, onAddToOrder, postOrder, t, refreshCartData, createTempId]);
 
   const handleAddFromModal = (enhancedProduct, options = {}) => {
     handleAddToOrder(enhancedProduct, enhancedProduct.quantity, options);
