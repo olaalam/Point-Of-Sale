@@ -83,7 +83,12 @@ toast.success(t("LoggedInSuccessfully"));
 sessionStorage.setItem("token", res.data.token);
 sessionStorage.setItem("user", JSON.stringify(res.data.cashier));
 sessionStorage.setItem("branch_id", res.data.cashier.branch_id);
-
+if (res.data.financial_account) {
+  sessionStorage.setItem(
+    "financial_account",
+    JSON.stringify(res.data.financial_account)
+  );
+}
 if (res.data.cashier?.id) {
   sessionStorage.setItem("cashier_id", res.data.cashier.id);
 }
