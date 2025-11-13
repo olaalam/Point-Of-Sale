@@ -18,7 +18,7 @@ import { prepareReceiptData, printReceiptSilently } from "../utils/printReceipt"
 
 
 const CheckOut = ({
-  amountToPay,
+  amountToPay,  
   orderItems,
   onClose,
   totalTax,
@@ -32,7 +32,41 @@ const CheckOut = ({
   const tableId = sessionStorage.getItem("table_id") || null;
   const navigate = useNavigate();
     // === QZ Tray Connection ===
+// الكود الجديد (كامل وسليم)
   useEffect(() => {
+    // =================== QZ TRAY AUTH CONFIG ===================
+    // 1. بنعرف QZ "البطاقة" بتاعتنا فين
+    //    (لازم تكون حاطط digital-certificate.txt في فولدر public)
+    qz.security.setCertificatePromise(function(resolve, reject) {
+        fetch("/point-of-sale/digital-certificate.txt") 
+            .then(response => response.text())
+            .then(resolve)
+            .catch(reject);
+    });
+
+    // 2. بنعرف QZ الـ "Algorithm" (ده اللي بيصلح زرار Remember)
+    qz.security.setSignatureAlgorithm("SHA512"); // لازم SHA512
+
+    // 3. بنقول لـ QZ إزاي يجيب "التوقيع" (من اللارافيل)
+    qz.security.setSignaturePromise(function(toSign) {
+        return function(resolve, reject) {
+            // اتأكد إن اللينك ده هو اللينك الصح بتاع اللارافيل سيرفر بتاعك
+            const apiUrl = `https://bcknd.food2go.online/api/sign-qz-request?request=${toSign}`;
+            
+            fetch(apiUrl)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`Server returned ${response.status}`);
+                    }
+                    return response.text(); 
+                })
+                .then(resolve) // بنرجع التوقيع لـ QZ
+                .catch(reject);
+        };
+    });
+    // =============================================================
+
+    // 4. بعد ما ظبطنا التوثيق، بنعمل connect
     qz.websocket.connect().then(() => {
       console.log("✅ Connected to QZ Tray");
     }).catch((err) => {
@@ -43,7 +77,7 @@ const CheckOut = ({
     return () => {
       qz.websocket.disconnect();
     };
-  }, []);
+  }, []); // القوس ده معناه إن الكود ده هيشتغل مرة واحدة بس
 
   const { data: deliveryData } = useGet("cashier/delivery_lists");
   const { postData, loading } = usePost();

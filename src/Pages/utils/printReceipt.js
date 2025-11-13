@@ -1,13 +1,11 @@
 // src/utils/printReceipt.js
+// النسخة دي بتستخدم HTML printing (وبتصلح hunters)
 
 import qz from "qz-tray";
 import { toast } from "react-toastify";
 
-// يجب تعديل هذا الاسم ليتناسب مع الاسم الفعلي للطابعة على جهاز POS
-const PRINTER_NAME = "xp-80"; 
-
 // -----------------------------------------------------------
-// 1. دالة تهيئة بيانات الفاتورة
+// 1. دالة تهيئة بيانات الفاتورة (زي ما هي)
 // -----------------------------------------------------------
 export const prepareReceiptData = (
   orderItems,
@@ -18,9 +16,8 @@ export const prepareReceiptData = (
   discountData,
   orderType,
   requiredTotal,
-  responseSuccess // بيانات الرد من السيرفر
+  responseSuccess
 ) => {
-  // حساب الخصم الكلي
   const finalDiscountValue = appliedDiscount > 0
     ? amountToPay * (appliedDiscount / 100)
     : discountData.module.includes(orderType)
@@ -28,7 +25,6 @@ export const prepareReceiptData = (
       : totalDiscount;
 
   return {
-    // بيانات أساسية
     invoiceNumber: responseSuccess?.invoice_number || "N/A",
     cashier: sessionStorage.getItem("cashier_name") || "Cashier",
     date: new Date().toLocaleString("ar-EG", {
@@ -36,8 +32,6 @@ export const prepareReceiptData = (
       hour: '2-digit', minute: '2-digit', hour12: false
     }),
     table: sessionStorage.getItem("table_id") || "N/A",
-    
-    // تفاصيل الحساب
     items: orderItems.map(item => ({
         qty: item.count,
         name: item.name,
@@ -52,108 +46,127 @@ export const prepareReceiptData = (
 };
 
 // -----------------------------------------------------------
-// 2. دالة تحويل بيانات الفاتورة إلى تنسيق HTML جاهز للطباعة
-// ملاحظة: يُفضل استخدام ESC/POS Raw Data للحصول على أقصى سرعة
+// 2. دالة تحويل البيانات إلى كود HTML
 // -----------------------------------------------------------
-const formatReceiptToQZ = (receiptData) => {
-    // تنسيق HTML لطابعة 80mm
-    let htmlContent = `
+const formatReceiptToHTML = (receiptData) => {
+    return `
     <html>
         <head>
             <style>
-                @page { size: 80mm; margin: 0; padding: 0;}
-                body { font-family: 'Tahoma', monospace; font-size: 10pt; width: 80mm; margin: 0; padding: 10px; box-sizing: border-box; direction: rtl;}
+                body, html { 
+                    width: 80mm; 
+                    margin: 0; 
+                    padding: 5px; 
+                    font-family: Tahoma, sans-serif; 
+                    font-size: 12px;
+                    direction: rtl;
+                }
                 .center { text-align: center; }
                 .right { text-align: right; }
                 .left { text-align: left; }
-                .line { border-top: 1px dashed black; margin: 5px 0; }
-                table { width: 100%; border-collapse: collapse; font-size: 9pt; }
-                th, td { padding: 2px 0; border: none; }
-                .total-line { border-top: 2px solid black; padding-top: 5px; margin-top: 5px; font-size: 12pt; font-weight: bold; }
+                .ticket { width: 100%; }
+                table { width: 100%; border-collapse: collapse; }
+                th, td { padding: 2px; }
+                .line { border-top: 1px dashed black; margin: 4px 0; }
             </style>
         </head>
         <body>
-            <div class="center">
-                <h3>اسم المطعم/المتجر</h3>
-                <p style="font-size: 9pt; margin: 2px 0;">الاسكندرية - سيدي جابر</p>
-            </div>
-            <div class="line"></div>
-            <div class="right" style="font-size: 9pt;">
-                <p style="margin: 2px 0;"><strong>رقم الفاتورة:</strong> ${receiptData.invoiceNumber}</p>
-                <p style="margin: 2px 0;"><strong>الكاشير:</strong> ${receiptData.cashier}</p>
-                <p style="margin: 2px 0;"><strong>التاريخ:</strong> ${receiptData.date}</p>
-                <p style="margin: 2px 0;"><strong>الطاولة:</strong> ${receiptData.table}</p>
-            </div>
-            <div class="line"></div>
-            <table>
-                <thead>
-                    <tr>
-                        <th class="right" style="width: 50%;">الصنف</th>
-                        <th class="center" style="width: 15%;">الكمية</th>
-                        <th class="left" style="width: 35%;">الإجمالي</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${receiptData.items.map(item => `
+            <div class="ticket">
+                <div class="center">
+                    <strong>اسم المطعم/المتجر</strong><br>
+                    الاسكندرية - سيدي جابر
+                </div>
+                <div class="line"></div>
+                <div class="right">
+                    رقم الفاتورة: ${receiptData.invoiceNumber}<br>
+                    الكاشير: ${receiptData.cashier}<br>
+                    التاريخ: ${receiptData.date}<br>
+                    الطاولة: ${receiptData.table}
+                </div>
+                <div class="line"></div>
+                <table>
+                    <thead>
                         <tr>
-                            <td class="right">${item.name}</td>
-                            <td class="center">${item.qty}</td>
-                            <td class="left">${item.total.toFixed(2)}</td>
+                            <th class="right">الصنف</th>
+                            <th class="center">الكمية</th>
+                            <th class="left">الإجمالي</th>
                         </tr>
-                    `).join('')}
-                </tbody>
-            </table>
-            <div class="line"></div>
-            <div class="right" style="font-size: 10pt;">
-                <p style="margin: 2px 0;">الإجمالي الفرعي: ${receiptData.subtotal.toFixed(2)} EGP</p>
-                <p style="margin: 2px 0;">الخصم: -${receiptData.discount.toFixed(2)} EGP</p>
-                <p style="margin: 2px 0;">الضريبة: ${receiptData.tax.toFixed(2)} EGP</p>
-            </div>
-            <div class="total-line center">
-                الإجمالي النهائي: ${receiptData.total.toFixed(2)} EGP
-            </div>
-            <div class="center" style="margin-top: 15px;">
-                <p>شكراً لزيارتكم</p>
+                    </thead>
+                    <tbody>
+                        ${receiptData.items.map(item => `
+                            <tr>
+                                <td class="right">${item.name}</td>
+                                <td class="center">${item.qty}</td>
+                                <td class="left">${item.total.toFixed(2)}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+                <div class="line"></div>
+                <div class="right">
+                    الإجمالي الفرعي: ${receiptData.subtotal.toFixed(2)} EGP<br>
+                    الخصم: -${receiptData.discount.toFixed(2)} EGP<br>
+                    الضريبة: ${receiptData.tax.toFixed(2)} EGP<br>
+                </div>
+                <div class="line"></div>
+                <div class="right">
+                    <strong>الإجمالي النهائي: ${receiptData.total.toFixed(2)} EGP</strong>
+                </div>
+                <div class="line"></div>
+                <div class="center">
+                    <strong>شكراً لزيارتكم</strong>
+                </div>
             </div>
         </body>
     </html>
     `;
-
-    // QZ Tray يفضل تمرير البيانات كآرّي (array)
-    // نحدد نوع البيانات 'html'
-    return [{ type: 'html', format: 'plain', data: htmlContent }];
 };
 
 
 // -----------------------------------------------------------
-// 3. دالة الطباعة الصامتة
+// 3. دالة الطباعة الصامتة (النسخة المعدلة لطباعة HTML)
 // -----------------------------------------------------------
 export const printReceiptSilently = async (receiptData, callback) => {
   try {
     const isConnected = qz.websocket.isActive();
     if (!isConnected) {
-      toast.error("❌ QZ Tray is not connected. Please ensure the service is running and connected.");
-      // تنفيذ الكولباك حتى لو فشلت الطباعة للسماح بالانتقال
+      toast.error("❌ QZ Tray is not connected.");
       callback(); 
       return;
     }
 
-    // 1. تجهيز البيانات للطباعة
-    const data = formatReceiptToQZ(receiptData);
+    // ************************************************
+    // ******** التصليح هنا    ********
+    // ************************************************
+    const printerName = await qz.printers.getDefault(); // <-- printers
+    if (!printerName) {
+        toast.error("❌ No default printer found.");
+        callback();
+        return;
+    }
 
-    // 2. إعداد و إرسال أمر الطباعة
-    const config = qz.configs.create(PRINTER_NAME);
-    await qz.print(config, data);
+    const config = qz.configs.create(printerName);
+    const htmlData = formatReceiptToHTML(receiptData);
 
+    const dataToPrint = [
+        {
+            type: 'html',       
+            format: 'plain',
+            data: htmlData
+        }
+    ];
+
+    await qz.print(config, dataToPrint);
+    
+    // ************************************************
+    
     toast.success("✅ Receipt printed successfully!");
     
-    // استدعاء الكولباك بعد الانتهاء من أمر الطباعة
     callback();
 
   } catch (err) {
     console.error("QZ Tray Printing Error:", err);
-    toast.error(`❌ Printing failed: ${err.message || "Check QZ Tray console and printer name."}`);
-    // تنفيذ الكولباك حتى بعد الفشل للسماح للعملية بالاستمرار
+    toast.error(`❌ Printing failed: ${err.message || "Check QZ Tray console."}`);
     callback();
   }
-}; 
+};
