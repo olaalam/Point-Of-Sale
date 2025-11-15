@@ -27,32 +27,6 @@ import {
 import { renderItemVariations } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
 import { buildProductPayload } from "@/services/productProcessor";
-/**
- * @typedef {object} OrderItem
- * @property {string} temp_id - Temporary unique ID for the item.
- * @property {string | number} id - Product ID.
- * @property {string} name - Product name.
- * @property {number} price - Price of a single item.
- * @property {number} count - Quantity of the item.
- * @property {string} [preparation_status] - Current preparation status.
- * @property {string | number | string[]} [cart_id] - Cart ID(s) from the backend.
- * @property {object[]} [addons] - Array of addon objects.
- * @property {string} [selectedVariation] - Selected variation name.
- * @property {boolean} [is_reward=false] - Indicates if the item was obtained via a reward/points system.
- * @property {boolean} [is_deal=false] - Indicates if the item was obtained via a deal.
- * @property {number} [applied_discount=0] - The discount applied to this specific item.
- * @property {string} [notes] - Special instructions for the item.
- */
-
-/**
- * Card component to display and manage a customer's order.
- * @param {object} props
- * @param {OrderItem[]} props.orderItems - Array of order items to display.
- * @param {function(OrderItem[]): void} props.updateOrderItems - Function to update the parent component's order state.
- * @param {boolean} [props.allowQuantityEdit=true] - Whether to allow editing item quantities.
- * @param {string} props.orderType - The type of order (e.g., "dine_in", "take_away").
- * @param {string} [props.tableId] - The ID of the table for dine-in orders.
- */
 export default function Card({
   orderItems,
   updateOrderItems,
@@ -161,18 +135,22 @@ export default function Card({
     return statusOrder[lowestStatusIndex];
   }, [selectedItems, orderItems]);
 
-  // Add temp_id to items if missing
-  useEffect(() => {
+// Add temp_id to items if missing and ensure UI updates
+useEffect(() => {
+  console.log("🔄 Card.jsx → orderItems changed:", orderItems.length, orderItems);
+  
+  // Check if any item is missing temp_id
+  const needsUpdate = orderItems.some(item => !item.temp_id);
+  
+  if (needsUpdate) {
+    console.log("⚠️ Some items missing temp_id, updating...");
     const updatedItemsWithTempId = orderItems.map((item) => ({
       ...item,
-      temp_id:
-        item.temp_id ||
-        `item-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      temp_id: item.temp_id || `item-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
     }));
-    if (JSON.stringify(updatedItemsWithTempId) !== JSON.stringify(orderItems)) {
-      updateOrderItems(updatedItemsWithTempId);
-    }
-  }, [orderItems, updateOrderItems]);
+    updateOrderItems(updatedItemsWithTempId);
+  }
+}, [orderItems]);
 
   // Clear cart function
   const clearCart = () => {
