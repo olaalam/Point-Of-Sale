@@ -9,11 +9,15 @@ import { useTranslation } from "react-i18next";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import axios from "axios";
 import logo from "@/assets/logo.jpg";
-
+import { FaDollarSign } from "react-icons/fa";
+import ExpensesModal from "@/Pages/ExpensesModal";
 export default function Navbar() {
   const navigate = useNavigate();
   const location = useLocation();
   const { postData } = usePost();
+  const [showExpensesModal, setShowExpensesModal] = useState(false);
+  const handleExpenses = () => setShowExpensesModal(true);
+
   const { isShiftOpen, shiftStartTime, closeShift } = useShift();
   const [currentTime, setCurrentTime] = React.useState(new Date());
   const { t, i18n } = useTranslation();
@@ -61,9 +65,8 @@ export default function Navbar() {
       // ✅ نقفل الـ shift الأول
       try {
         const token = sessionStorage.getItem("token");
-        const endpoint = `${
-          import.meta.env.VITE_API_BASE_URL
-        }cashier/shift/close`;
+        const endpoint = `${import.meta.env.VITE_API_BASE_URL
+          }cashier/shift/close`;
         await axios.get(endpoint, {
           headers: token ? { Authorization: `Bearer ${token}` } : {},
         });
@@ -97,9 +100,8 @@ export default function Navbar() {
       setLoading(true);
 
       const token = sessionStorage.getItem("token");
-      const endpoint = `${
-        import.meta.env.VITE_API_BASE_URL
-      }cashier/shift/close`;
+      const endpoint = `${import.meta.env.VITE_API_BASE_URL
+        }cashier/shift/close`;
 
       // ✅ استدعاء API لقفل الـ shift
       await axios.get(endpoint, {
@@ -151,26 +153,26 @@ export default function Navbar() {
       .padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
   };
 
-const handleTabChange = (value) => {
-  sessionStorage.setItem("tab", value);
-  sessionStorage.setItem("order_type", value);
+  const handleTabChange = (value) => {
+    sessionStorage.setItem("tab", value);
+    sessionStorage.setItem("order_type", value);
 
-  if (value === "take_away") {
-    sessionStorage.removeItem("table_id");
-    sessionStorage.removeItem("delivery_user_id");
-    navigate("/", { replace: true });
-  } else if (value === "dine_in") {
-    sessionStorage.removeItem("delivery_user_id");
-    navigate("/", { replace: true });
-  } else if (value === "delivery") {
-    sessionStorage.removeItem("table_id");
-    navigate("/", { replace: true });
-  } 
-  // ✅ الشرط الجديد لـ Online Orders
-  else if (value === "online-order") {
-    navigate("/online-orders", { replace: true });
-  }
-};
+    if (value === "take_away") {
+      sessionStorage.removeItem("table_id");
+      sessionStorage.removeItem("delivery_user_id");
+      navigate("/", { replace: true });
+    } else if (value === "dine_in") {
+      sessionStorage.removeItem("delivery_user_id");
+      navigate("/", { replace: true });
+    } else if (value === "delivery") {
+      sessionStorage.removeItem("table_id");
+      navigate("/", { replace: true });
+    }
+    // ✅ الشرط الجديد لـ Online Orders
+    else if (value === "online-order") {
+      navigate("/online-orders", { replace: true });
+    }
+  };
 
 
   return (
@@ -201,6 +203,7 @@ const handleTabChange = (value) => {
             <FaUsers className="text-2xl md:text-3xl" />
           </button>
 
+
           {/* ✅ أيقونة صفحة All Orders */}
           <button
             onClick={handleAllOrders}
@@ -209,19 +212,26 @@ const handleTabChange = (value) => {
           >
             <FaListAlt className="text-2xl md:text-3xl" />
           </button>
-
+          {/*  ✅ زرار المصروفات الجديد */}
+          <button
+            onClick={handleExpenses}
+            className="text-green-600 hover:text-green-800"
+            title="Add Expense"
+          >
+            <FaDollarSign className="text-2xl md:text-3xl" />
+          </button>
           {/* ✅ Tabs مع أيقونة Tables بجانب dine-in */}
           <Tabs value={currentTab} onValueChange={handleTabChange}>
             <TabsList className="flex gap-2 bg-transparent p-0 ml-2">
-                          <TabsTrigger
-              value="online-order"
-              className="px-3 py-1 text-sm font-semibold 
+              <TabsTrigger
+                value="online-order"
+                className="px-3 py-1 text-sm font-semibold 
                   bg-white text-bg-primary border border-bg-primary
                   data-[state=active]:bg-bg-primary data-[state=active]:text-white
                   transition-colors duration-200"
-            >
-              {t("OnlineOrders")}
-            </TabsTrigger>
+              >
+                {t("OnlineOrders")}
+              </TabsTrigger>
               <TabsTrigger
                 value="take_away"
                 className="px-3 py-1 text-sm font-semibold 
@@ -341,6 +351,10 @@ const handleTabChange = (value) => {
           </button>
         </div>
       </div>
+      {showExpensesModal && (
+        <ExpensesModal onClose={() => setShowExpensesModal(false)} />
+      )}
+
     </div>
   );
 }
