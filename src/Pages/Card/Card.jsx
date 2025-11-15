@@ -67,7 +67,7 @@ export default function Card({
     return orderItems.map((item) => item.cart_id).filter(Boolean);
   }, [orderItems]);
 
-  // Memoize subtotal, tax, and total for performance
+// Memoize subtotal, tax, and total for performance
   const { subTotal, totalTax, totalOtherCharge, totalAmountDisplay } =
     useMemo(() => {
       const calculatedSubTotal = Array.isArray(orderItems)
@@ -77,7 +77,16 @@ export default function Card({
             return acc + itemPrice * itemCount;
           }, 0)
         : 0;
-      const calculatedTax = calculatedSubTotal * TAX_RATE;
+      
+      // ✅ Calculate tax from item.tax_val instead of fixed TAX_RATE
+      const calculatedTax = Array.isArray(orderItems)
+        ? orderItems.reduce((acc, item) => {
+            const itemTax = item.tax_val || 0;
+            const itemCount = item.count || 1;
+            return acc + itemTax * itemCount;
+          }, 0)
+        : 0;
+      
       const calculatedTotal = calculatedSubTotal + calculatedTax + OTHER_CHARGE;
       return {
         subTotal: calculatedSubTotal,

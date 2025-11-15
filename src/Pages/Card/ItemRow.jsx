@@ -109,6 +109,7 @@ const ItemRow = ({
 
 
   {/* السعر للوحدة */}
+{/* السعر للوحدة */}
   <td className="py-3 px-4 text-center align-top">
     <div>
       <span className={hasDiscount ? "text-green-600 font-semibold" : "font-medium"}>
@@ -119,6 +120,13 @@ const ItemRow = ({
           <span className="text-xs text-gray-500 line-through">
             {safeOriginalPrice.toFixed(2)}
           </span>
+        </div>
+      )}
+      {/* ✅ عرض الـ Tax Info */}
+      {item.tax_obj && (
+        <div className="text-xs text-blue-600 mt-1">
+          {item.taxes === "excluded" ? "Tax Excluded" : "Tax Included"}
+          {item.tax_val > 0 && ` (+${item.tax_val.toFixed(2)})`}
         </div>
       )}
     </div>
