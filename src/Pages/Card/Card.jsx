@@ -27,6 +27,7 @@ import {
 import { renderItemVariations } from "@/lib/utils";
 import { useTranslation } from "react-i18next";
 import { buildProductPayload } from "@/services/productProcessor";
+
 export default function Card({
   orderItems,
   updateOrderItems,
@@ -67,8 +68,8 @@ export default function Card({
     return orderItems.map((item) => item.cart_id).filter(Boolean);
   }, [orderItems]);
 
-// Memoize subtotal, tax, and total for performance
-  const { subTotal, totalTax, totalOtherCharge, totalAmountDisplay } =
+  // ✅ Memoize subtotal, tax, and total with tax details
+  const { subTotal, totalTax, totalOtherCharge, totalAmountDisplay, taxDetails } =
     useMemo(() => {
       const calculatedSubTotal = Array.isArray(orderItems)
         ? orderItems.reduce((acc, item) => {
@@ -78,14 +79,31 @@ export default function Card({
           }, 0)
         : 0;
       
-      // ✅ Calculate tax from item.tax_val instead of fixed TAX_RATE
-      const calculatedTax = Array.isArray(orderItems)
-        ? orderItems.reduce((acc, item) => {
-            const itemTax = item.tax_val || 0;
-            const itemCount = item.count || 1;
-            return acc + itemTax * itemCount;
-          }, 0)
-        : 0;
+      // ✅ Calculate tax from item.tax_val and collect tax details
+      let calculatedTax = 0;
+      const taxInfo = {}; // {tax_id: {name, amount, type, total}}
+      
+      if (Array.isArray(orderItems)) {
+        orderItems.forEach(item => {
+          const itemTax = item.tax_val || 0;
+          const itemCount = item.count || 1;
+          calculatedTax += itemTax * itemCount;
+          
+          // Collect tax details for display
+          if (item.tax_obj && itemTax > 0) {
+            const taxId = item.tax_obj.id;
+            if (!taxInfo[taxId]) {
+              taxInfo[taxId] = {
+                name: item.tax_obj.name,
+                amount: item.tax_obj.amount,
+                type: item.tax_obj.type,
+                total: 0
+              };
+            }
+            taxInfo[taxId].total += itemTax * itemCount;
+          }
+        });
+      }
       
       const calculatedTotal = calculatedSubTotal + calculatedTax + OTHER_CHARGE;
       return {
@@ -93,6 +111,7 @@ export default function Card({
         totalTax: calculatedTax,
         totalOtherCharge: OTHER_CHARGE,
         totalAmountDisplay: calculatedTotal,
+        taxDetails: Object.values(taxInfo)
       };
     }, [orderItems]);
 
@@ -103,7 +122,7 @@ export default function Card({
       : [];
   }, [orderItems]);
 
-  // Memoize items and total amount for checkout
+  // ✅ Memoize items and total amount for checkout with correct tax calculation
   const { checkoutItems, amountToPay } = useMemo(() => {
     if (orderType === "dine_in") {
       const itemsToPayFor = doneItems.filter((item) =>
@@ -113,7 +132,11 @@ export default function Card({
         (acc, item) => acc + (item.price || 0) * (item.count || 1),
         0
       );
-      const selectedTax = selectedSubTotal * TAX_RATE;
+      // ✅ Calculate tax from selected items' tax_val
+      const selectedTax = itemsToPayFor.reduce(
+        (acc, item) => acc + (item.tax_val || 0) * (item.count || 1),
+        0
+      );
       const selectedTotal = selectedSubTotal + selectedTax + OTHER_CHARGE;
       return {
         checkoutItems: itemsToPayFor,
@@ -144,22 +167,21 @@ export default function Card({
     return statusOrder[lowestStatusIndex];
   }, [selectedItems, orderItems]);
 
-// Add temp_id to items if missing and ensure UI updates
-useEffect(() => {
-  console.log("🔄 Card.jsx → orderItems changed:", orderItems.length, orderItems);
-  
-  // Check if any item is missing temp_id
-  const needsUpdate = orderItems.some(item => !item.temp_id);
-  
-  if (needsUpdate) {
-    console.log("⚠️ Some items missing temp_id, updating...");
-    const updatedItemsWithTempId = orderItems.map((item) => ({
-      ...item,
-      temp_id: item.temp_id || `item-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-    }));
-    updateOrderItems(updatedItemsWithTempId);
-  }
-}, [orderItems]);
+  // Add temp_id to items if missing and ensure UI updates
+  useEffect(() => {
+    console.log("🔄 Card.jsx → orderItems changed:", orderItems.length, orderItems);
+    
+    const needsUpdate = orderItems.some(item => !item.temp_id);
+    
+    if (needsUpdate) {
+      console.log("⚠️ Some items missing temp_id, updating...");
+      const updatedItemsWithTempId = orderItems.map((item) => ({
+        ...item,
+        temp_id: item.temp_id || `item-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      }));
+      updateOrderItems(updatedItemsWithTempId);
+    }
+  }, [orderItems]);
 
   // Clear cart function
   const clearCart = () => {
@@ -171,40 +193,40 @@ useEffect(() => {
   };
 
   // Handle save as pending order
-const handleSaveAsPending = async () => {
-  if (orderItems.length === 0) {
-    toast.warning(t("Noitemstosaveaspending"));
-    return;
-  }
+  const handleSaveAsPending = async () => {
+    if (orderItems.length === 0) {
+      toast.warning(t("Noitemstosaveaspending"));
+      return;
+    }
 
-  const productsToSend = orderItems.map(buildProductPayload);
+    const productsToSend = orderItems.map(buildProductPayload);
 
-  const payload = {
-    amount: amountToPay.toString(),
-    total_tax: totalTax.toString(),
-    total_discount: totalOtherCharge.toString(),
-    notes: "Customer requested no plastic bag.",
-    source: "web",
-    financials: [],
-    order_pending: 1,
-    cashier_id: sessionStorage.getItem("cashier_id"),
-    products: productsToSend,
+    const payload = {
+      amount: amountToPay.toString(),
+      total_tax: totalTax.toString(),
+      total_discount: totalOtherCharge.toString(),
+      notes: "Customer requested no plastic bag.",
+      source: "web",
+      financials: [],
+      order_pending: 1,
+      cashier_id: sessionStorage.getItem("cashier_id"),
+      products: productsToSend,
+    };
+
+    try {
+      const response = await postData("cashier/take_away_order", payload, {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${sessionStorage.getItem("access_token")}`,
+        },
+      });
+
+      toast.success(t("Ordersavedaspending"));
+      clearCart();
+    } catch (e) {
+      toast.error(e.response?.data?.message || t("Failedtosaveaspending"));
+    }
   };
-
-  try {
-    const response = await postData("cashier/take_away_order", payload, {
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${sessionStorage.getItem("access_token")}`,
-      },
-    });
-
-    toast.success(t("Ordersavedaspending"));
-    clearCart();
-  } catch (e) {
-    toast.error(e.response?.data?.message || t("Failedtosaveaspending"));
-  }
-};
 
   // Offers Functions
   const handleApplyOffer = async () => {
@@ -274,9 +296,7 @@ const handleSaveAsPending = async () => {
     try {
       const response = await postData("cashier/offer/approve_offer", formData);
       if (response?.success) {
-        toast.success(
-  t("RewardAdded", { product })
-        );
+        toast.success(t("RewardAdded", { product }));
         const freeItem = {
           temp_id: `reward-${Date.now()}-${Math.random()
             .toString(36)
@@ -345,7 +365,7 @@ const handleSaveAsPending = async () => {
 
     const { deal_id, user_id, deal_title, deal_price } = pendingDealApproval;
 
-  t("DealAdded", { deal_title })
+    toast.success(t("DealAdded", { deal_title }));
     const dealItem = {
       temp_id: `deal-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       id: deal_id,
@@ -368,143 +388,132 @@ const handleSaveAsPending = async () => {
       return;
     }
 
-    // حفظ البيانات في sessionStorage
     sessionStorage.setItem("transfer_cart_ids", JSON.stringify(allCartIds));
     sessionStorage.setItem("transfer_source_table_id", tableId.toString());
     sessionStorage.setItem("transfer_pending", "true");
 
     toast.info(t("Pleaseselectanewtabletotransfertheorder"));
 
-    // Navigate مع state واضح
     navigate("/", {
       state: {
         initiateTransfer: true,
         sourceTableId: tableId,
         cartIds: allCartIds,
-        timestamp: Date.now(), // عشان نضمن إن الـ state يتغير
+        timestamp: Date.now(),
       },
       replace: false,
     });
   };
 
-const handleUpdatePreparationStatus = async (itemTempId) => {
-  const itemToUpdate = orderItems.find((item) => item.temp_id === itemTempId);
-  
-  if (!itemToUpdate) {
-    toast.error("المنتج غير موجود");
-    return;
-  }
-
-  // التحقق من وجود cart_id
-  if (!itemToUpdate.cart_id) {
-    console.warn("cart_id missing, attempting to fetch from server...", itemToUpdate);
-
-    // إذا ما كانش في cart_id → نجيبه من السيرفر
-    const tableId = sessionStorage.getItem("table_id");
-    if (!tableId) {
-      toast.error("رقم الطاولة مفقود");
+  const handleUpdatePreparationStatus = async (itemTempId) => {
+    const itemToUpdate = orderItems.find((item) => item.temp_id === itemTempId);
+    
+    if (!itemToUpdate) {
+      toast.error("المنتج غير موجود");
       return;
     }
+
+    if (!itemToUpdate.cart_id) {
+      console.warn("cart_id missing, attempting to fetch from server...", itemToUpdate);
+
+      const tableId = sessionStorage.getItem("table_id");
+      if (!tableId) {
+        toast.error("رقم الطاولة مفقود");
+        return;
+      }
+
+      try {
+        const response = await apiFetcher(`cashier/table_orders/${tableId}`);
+        const serverOrder = response?.orders?.[0];
+        if (!serverOrder?.products) {
+          toast.error("فشل جلب بيانات الطلب من الخادم");
+          return;
+        }
+
+        const serverItem = serverOrder.products.find(p => 
+          p.product_id == itemToUpdate.id &&
+          parseInt(p.count) === itemToUpdate.count &&
+          parseFloat(p.price) === itemToUpdate.price &&
+          p.note === (itemToUpdate.notes || "")
+        );
+
+        if (serverItem?.cart_id) {
+          const updatedItems = orderItems.map(item =>
+            item.temp_id === itemTempId
+              ? { ...item, cart_id: serverItem.cart_id.toString() }
+              : item
+          );
+          updateOrderItems(updatedItems);
+
+          toast.info("تم تحديث بيانات المنتج من الخادم");
+          
+          itemToUpdate.cart_id = serverItem.cart_id.toString();
+        } else {
+          toast.error("لا يمكن تحديث الحالة: المنتج غير موجود على الخادم");
+          return;
+        }
+      } catch (err) {
+        console.error("Failed to fetch order from server:", err);
+        toast.error("فشل الاتصال بالخادم لتحديث الحالة");
+        return;
+      }
+    }
+
+    const currentStatus = itemToUpdate.preparation_status || "pending";
+    const nextStatus = PREPARATION_STATUSES[currentStatus]?.nextStatus;
+    
+    if (!nextStatus || !PREPARATION_STATUSES[nextStatus]?.canSendToAPI) {
+      toast.info("لا يمكن تحديث هذه الحالة الآن");
+      return;
+    }
+
+    setItemLoadingStates((prev) => ({ ...prev, [itemTempId]: true }));
+
+    const formData = new FormData();
+    formData.append("table_id", tableId);
+
+    const cartIds = Array.isArray(itemToUpdate.cart_id)
+      ? itemToUpdate.cart_id
+      : [itemToUpdate.cart_id.toString()];
+
+    cartIds.forEach((id, index) => {
+      formData.append(`preparing[${index}][cart_id]`, id);
+      formData.append(`preparing[${index}][status]`, PREPARATION_STATUSES[nextStatus].apiValue || nextStatus);
+    });
 
     try {
-      // جلب آخر أوردر من السيرفر
-      const response = await apiFetcher(`cashier/table_orders/${tableId}`);
-      const serverOrder = response?.orders?.[0];
-      if (!serverOrder?.products) {
-        toast.error("فشل جلب بيانات الطلب من الخادم");
-        return;
-      }
-
-      // نطابق المنتج بالـ product_id + temp_id + count + price
-      const serverItem = serverOrder.products.find(p => 
-        p.product_id == itemToUpdate.id &&
-        parseInt(p.count) === itemToUpdate.count &&
-        parseFloat(p.price) === itemToUpdate.price &&
-        p.note === (itemToUpdate.notes || "")
+      await postData("cashier/preparing", formData);
+      
+      const updatedItems = orderItems.map((item) =>
+        item.temp_id === itemTempId
+          ? { ...item, preparation_status: nextStatus }
+          : item
       );
+      
+      updateOrderItems(updatedItems);
+      toast.success(`تم تحديث الحالة إلى ${PREPARATION_STATUSES[nextStatus].label}`);
 
-      if (serverItem?.cart_id) {
-        // نحدّث المنتج محليًا بالـ cart_id الصحيح
-        const updatedItems = orderItems.map(item =>
-          item.temp_id === itemTempId
-            ? { ...item, cart_id: serverItem.cart_id.toString() }
-            : item
-        );
-        updateOrderItems(updatedItems);
-
-        toast.info("تم تحديث بيانات المنتج من الخادم");
-        
-        // نكمل التحديث بعد ما نضمن وجود cart_id
-        itemToUpdate.cart_id = serverItem.cart_id.toString();
-      } else {
-        toast.error("لا يمكن تحديث الحالة: المنتج غير موجود على الخادم");
-        return;
-      }
     } catch (err) {
-      console.error("Failed to fetch order from server:", err);
-      toast.error("فشل الاتصال بالخادم لتحديث الحالة");
-      return;
+      toast.error(err.response?.data?.message || "فشل تحديث الحالة");
+    } finally {
+      setItemLoadingStates((prev) => ({ ...prev, [itemTempId]: false }));
     }
-  }
+  };
 
-  // نكمل الآن بعد ما نتأكد إن cart_id موجود
-  const currentStatus = itemToUpdate.preparation_status || "pending";
-  const nextStatus = PREPARATION_STATUSES[currentStatus]?.nextStatus;
-  
-  if (!nextStatus || !PREPARATION_STATUSES[nextStatus]?.canSendToAPI) {
-    toast.info("لا يمكن تحديث هذه الحالة الآن");
-    return;
-  }
-
-  setItemLoadingStates((prev) => ({ ...prev, [itemTempId]: true }));
-
-  const formData = new FormData();
-  formData.append("table_id", tableId);
-
-  const cartIds = Array.isArray(itemToUpdate.cart_id)
-    ? itemToUpdate.cart_id
-    : [itemToUpdate.cart_id.toString()];
-
-  cartIds.forEach((id, index) => {
-    formData.append(`preparing[${index}][cart_id]`, id);
-    formData.append(`preparing[${index}][status]`, PREPARATION_STATUSES[nextStatus].apiValue || nextStatus);
-  });
-
-  try {
-    await postData("cashier/preparing", formData);
-    
-    const updatedItems = orderItems.map((item) =>
-      item.temp_id === itemTempId
-        ? { ...item, preparation_status: nextStatus }
-        : item
-    );
-    
-    updateOrderItems(updatedItems);
-    toast.success(`تم تحديث الحالة إلى ${PREPARATION_STATUSES[nextStatus].label}`);
-
-  } catch (err) {
-    toast.error(err.response?.data?.message || "فشل تحديث الحالة");
-  } finally {
-    setItemLoadingStates((prev) => ({ ...prev, [itemTempId]: false }));
-  }
-};
   const handleVoidItem = (itemTempId) => {
     setVoidItemId(itemTempId);
     setShowVoidModal(true);
   };
 
   const confirmVoidItem = async () => {
-    // تحقق من البيانات الأساسية
     const itemToVoid = orderItems.find((item) => item.temp_id === voidItemId);
     if (!itemToVoid?.cart_id || !tableId || !managerId || !managerPassword) {
       setTimeout(() => {
-        toast.error(
-t("PleasefillinallrequiredfieldsManagerIDandPassword")        );
+        toast.error(t("PleasefillinallrequiredfieldsManagerIDandPassword"));
       }, 100);
       return;
     }
 
-    // بدء الـ loading
     setItemLoadingStates((prev) => ({ ...prev, [voidItemId]: true }));
 
     const formData = new FormData();
@@ -520,7 +529,6 @@ t("PleasefillinallrequiredfieldsManagerIDandPassword")        );
     formData.append("table_id", tableId.toString());
 
     try {
-      // نجاح الـ API
       const response = await postData("cashier/order_void", formData);
 
       const updatedItems = orderItems.filter(
@@ -528,33 +536,24 @@ t("PleasefillinallrequiredfieldsManagerIDandPassword")        );
       );
       updateOrderItems(updatedItems);
 
-      // إظهار toast نجاح
       setTimeout(() => {
         toast.success(t("Itemvoidedsuccessfully"));
       }, 100);
 
-      // إغلاق المودال فقط عند النجاح
       setShowVoidModal(false);
       setManagerId("");
       setManagerPassword("");
       setVoidItemId(null);
     } catch (err) {
-      // طباعة الخطأ للـ debug
       console.error("Void Item Error:", err);
-      if (err.response) {
-        console.error("Status:", err.response.status);
-        console.error("Response data:", err.response.data);
-      }
-
-      // استخراج الرسالة
+      
       let errorMessage = "Failed to void item.";
 
       if (err.response) {
         const { status, data } = err.response;
 
-        // الأولوية: errors → message → error → حالة خاصة
         if (data?.errors) {
-          errorMessage = data.errors; // مثل: "id or password is wrong"
+          errorMessage = data.errors;
         } else if (data?.message) {
           errorMessage = data.message;
         } else if (data?.error) {
@@ -565,20 +564,15 @@ t("PleasefillinallrequiredfieldsManagerIDandPassword")        );
           errorMessage = `Server error (${status})`;
         }
       } else if (err.request) {
-        errorMessage =
-          t("NoresponsefromserverCheckyourinternetconnection");
+        errorMessage = t("NoresponsefromserverCheckyourinternetconnection");
       } else {
         errorMessage = err.message || t("Anunexpectederroroccurred");
       }
 
-      // إظهار الـ toast مهما كان (حتى لو الـ container اتحمل متأخر)
       setTimeout(() => {
         toast.error(errorMessage);
       }, 100);
-
-      // لا تحذف العنصر، لا تغلق المودال
     } finally {
-      // إنهاء الـ loading
       setItemLoadingStates((prev) => ({ ...prev, [voidItemId]: false }));
     }
   };
@@ -647,24 +641,15 @@ t("PleasefillinallrequiredfieldsManagerIDandPassword")        );
 
   const applyBulkStatus = async () => {
     if (!bulkStatus || selectedItems.length === 0 || !tableId) {
-      toast.warning(
-        t('PleaseselectitemschooseastatusandensureaTableIDisset')
-      );
+      toast.warning(t('PleaseselectitemschooseastatusandensureaTableIDisset'));
       return;
     }
 
-    console.log(
-      "Applying bulk status:",
-      bulkStatus,
-      "to items:",
-      selectedItems
-    );
     const itemsToUpdate = orderItems.filter((item) =>
       selectedItems.includes(item.temp_id)
     );
 
     if (itemsToUpdate.length === 0) {
-      console.warn("No valid items to update");
       toast.warning(t("Novaliditemstoupdate"));
       return;
     }
@@ -688,22 +673,18 @@ t("PleasefillinallrequiredfieldsManagerIDandPassword")        );
       });
       try {
         const response = await postData("cashier/preparing", formData);
-        console.log("Bulk update API response:", response);
         toast.success(
           `Successfully updated ${itemsForApi.length} items to ${PREPARATION_STATUSES[bulkStatus].label}`
         );
       } catch (err) {
-        console.error("Bulk update error:", err);
         toast.error(err.response?.data?.message || t("Failedtoupdatestatus"));
         return;
       }
     } else {
-      console.warn("No items sent to API, updating locally");
-      toast.info(
-t("BulkUpdateSuccess", {
-    count: itemsForApi.length,
-    status: PREPARATION_STATUSES[bulkStatus].label
-  })      );
+      toast.info(t("BulkUpdateSuccess", {
+        count: itemsForApi.length,
+        status: PREPARATION_STATUSES[bulkStatus].label
+      }));
     }
 
     const updatedItems = orderItems.map((item) =>
@@ -739,52 +720,52 @@ t("BulkUpdateSuccess", {
   const handleViewPendingOrders = () => navigate("/pending-orders");
 
   return (
-  <div
+    <div
       className={`flex flex-col h-full ${
         isArabic ? "text-right direction-rtl" : "text-left direction-ltr"
       }`}
       dir={isArabic ? "rtl" : "ltr"}
-    >      <div className="flex-shrink-0">
+    >
+      <div className="flex-shrink-0">
         <h2 className="text-bg-primary text-3xl font-bold mb-6">
           {t("OrderDetails")}
         </h2>
         <div className="!p-4 flex md:flex-row flex-col gap-4">
-<div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-grow">
-  <Button
-    onClick={handleClearAllItems}
-    className="bg-bg-primary text-white hover:bg-red-700 text-sm flex items-center justify-center gap-2 py-4"
-    disabled={isLoading || orderItems.length === 0}
-  >
-    {t("ClearAllItems")} ({orderItems.length || 0})
-  </Button>
-  <Button
-    onClick={handleViewOrders}
-    className="bg-gray-500 text-white hover:bg-gray-600 text-sm py-4"
-    disabled={isLoading}
-  >
-    {t("ViewOrders")}
-  </Button>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-grow">
+            <Button
+              onClick={handleClearAllItems}
+              className="bg-bg-primary text-white hover:bg-red-700 text-sm flex items-center justify-center gap-2 py-4"
+              disabled={isLoading || orderItems.length === 0}
+            >
+              {t("ClearAllItems")} ({orderItems.length || 0})
+            </Button>
+            <Button
+              onClick={handleViewOrders}
+              className="bg-gray-500 text-white hover:bg-gray-600 text-sm py-4"
+              disabled={isLoading}
+            >
+              {t("ViewOrders")}
+            </Button>
 
-  {/* Show Offer & Deal buttons only if NOT delivery */}
-  {orderType !== "delivery" && (
-    <>
-      <Button
-        onClick={() => setShowOfferModal(true)}
-        className="bg-green-600 text-white hover:bg-green-700 text-sm py-4"
-        disabled={isLoading}
-      >
-        {t("ApplyOffer")}
-      </Button>
-      <Button
-        onClick={() => setShowDealModal(true)}
-        className="bg-orange-600 text-white hover:bg-orange-700 text-sm py-4"
-        disabled={isLoading}
-      >
-        {t("ApplyDeal")}
-      </Button>
-    </>
-  )}
-</div>
+            {orderType !== "delivery" && (
+              <>
+                <Button
+                  onClick={() => setShowOfferModal(true)}
+                  className="bg-green-600 text-white hover:bg-green-700 text-sm py-4"
+                  disabled={isLoading}
+                >
+                  {t("ApplyOffer")}
+                </Button>
+                <Button
+                  onClick={() => setShowDealModal(true)}
+                  className="bg-orange-600 text-white hover:bg-orange-700 text-sm py-4"
+                  disabled={isLoading}
+                >
+                  {t("ApplyDeal")}
+                </Button>
+              </>
+            )}
+          </div>
           {orderType === "take_away" && (
             <div className="flex md:flex-col flex-row items-stretch justify-center">
               <Button
@@ -829,7 +810,7 @@ t("BulkUpdateSuccess", {
               className="bg-bg-primary text-white hover:bg-red-700 text-sm"
               disabled={selectedItems.length === 0 || !bulkStatus || isLoading}
             >
-  {t("ApplyStatus", { count: selectedItems.length })}
+              {t("ApplyStatus", { count: selectedItems.length })}
             </Button>
             <Button
               onClick={handleTransferOrder}
@@ -855,8 +836,7 @@ t("BulkUpdateSuccess", {
                 {t("ConfirmClearAllItems")}
               </h3>
               <p className="text-gray-600 mb-6">
-           {t("ConfirmRemoveAll", { count: orderItems?.length || 0 })}
-
+                {t("ConfirmRemoveAll", { count: orderItems?.length || 0 })}
               </p>
               <div className="flex justify-end gap-3">
                 <Button
@@ -925,7 +905,7 @@ t("BulkUpdateSuccess", {
                     colSpan={orderType === "dine_in" ? 8 : 6}
                     className="text-center py-4 text-gray-500"
                   >
-<p>{t("NoItemsFound")}</p>
+                    <p>{t("NoItemsFound")}</p>
                   </td>
                 </tr>
               ) : (
@@ -942,12 +922,11 @@ t("BulkUpdateSuccess", {
                     handleDecrease={handleDecrease}
                     allowQuantityEdit={allowQuantityEdit}
                     itemLoadingStates={itemLoadingStates}
-                    handleUpdatePreparationStatus={
-                      handleUpdatePreparationStatus
-                    }
+                    handleUpdatePreparationStatus={handleUpdatePreparationStatus}
                     handleVoidItem={handleVoidItem}
-                    renderItemVariations={renderItemVariations}
                     handleRemoveFrontOnly={handleRemoveFrontOnly}
+                    updateOrderItems={updateOrderItems}
+                    orderItems={orderItems}
                   />
                 ))
               )}
@@ -967,11 +946,26 @@ t("BulkUpdateSuccess", {
       </div>
 
       <div className="flex-shrink-0 bg-white border-t-2 border-gray-200 pt-6 mt-4">
+        {/* ✅ Tax Details Section */}
         <div className="bg-gray-50 p-6 rounded-lg shadow-inner mb-6">
           <SummaryRow label={t("SubTotal")} value={subTotal} />
-          <SummaryRow label={t("Tax")} value={totalTax} />
+          
+          {/* ✅ عرض تفاصيل كل ضريبة */}
+          {taxDetails && taxDetails.length > 0 ? (
+            taxDetails.map((tax, index) => (
+              <SummaryRow 
+                key={index}
+                label={`${tax.name} (${tax.amount}${tax.type === 'precentage' ? '%' : ' EGP'})`}
+                value={tax.total}
+              />
+            ))
+          ) : (
+            <SummaryRow label={t("Tax")} value={totalTax} />
+          )}
+          
           <SummaryRow label={t("OtherCharge")} value={totalOtherCharge} />
         </div>
+
         {orderType === "dine_in" && (
           <>
             <div className="grid grid-cols-2 gap-4 items-center mb-4">
@@ -982,7 +976,7 @@ t("BulkUpdateSuccess", {
             </div>
             <div className="grid grid-cols-2 gap-4 items-center mb-4">
               <p className="text-gray-600">
-<p>{t("SelectedItems", { count: selectedPaymentItems.length })}</p>
+                <p>{t("SelectedItems", { count: selectedPaymentItems.length })}</p>
               </p>
               <p className="text-right text-lg font-semibold text-green-600">
                 {amountToPay.toFixed(2)} {t("EGP")}
@@ -1020,6 +1014,7 @@ t("BulkUpdateSuccess", {
           )}
         </div>
       </div>
+
       <VoidItemModal
         open={showVoidModal}
         onOpenChange={setShowVoidModal}
@@ -1030,6 +1025,7 @@ t("BulkUpdateSuccess", {
         confirmVoidItem={confirmVoidItem}
         isLoading={isLoading}
       />
+
       {showModal && (
         <CheckOut
           totalDineInItems={orderItems.length}
@@ -1046,15 +1042,16 @@ t("BulkUpdateSuccess", {
           onClearCart={clearCart}
         />
       )}
+
+      {/* Offer Modal */}
       {showOfferModal && (
         <div className="fixed inset-0 bg-gray-500/50 flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full mx-4">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">
-  {t("ApplyOfferUsePoints")}
-
+              {t("ApplyOfferUsePoints")}
             </h3>
             <p className="text-gray-600 mb-6">
-{t("EnterLoyaltyOrRewardCode")}
+              {t("EnterLoyaltyOrRewardCode")}
             </p>
             <Input
               type="text"
@@ -1086,6 +1083,8 @@ t("BulkUpdateSuccess", {
           </div>
         </div>
       )}
+
+      {/* Pending Offer Approval Modal */}
       {pendingOfferApproval && (
         <div className="fixed inset-0 bg-gray-500/50 flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full mx-4">
@@ -1096,10 +1095,10 @@ t("BulkUpdateSuccess", {
               {t("UserID")}: **{pendingOfferApproval.user_id}**
             </p>
             <p className="text-gray-700 mb-6">
-               {t("ConfirmAddOffer", {
-    product: pendingOfferApproval.product,
-    points: pendingOfferApproval.points,
-  })}
+              {t("ConfirmAddOffer", {
+                product: pendingOfferApproval.product,
+                points: pendingOfferApproval.points,
+              })}
             </p>
             <div className="flex justify-end gap-3">
               <Button
@@ -1123,6 +1122,8 @@ t("BulkUpdateSuccess", {
           </div>
         </div>
       )}
+
+      {/* Deal Modal */}
       {showDealModal && (
         <div className="fixed inset-0 bg-gray-500/50 flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full mx-4">
@@ -1130,7 +1131,7 @@ t("BulkUpdateSuccess", {
               {t("ApplyDealCode")}
             </h3>
             <p className="text-gray-600 mb-6">
-<p>{t("EnterDealCode")}</p>
+              <p>{t("EnterDealCode")}</p>
             </p>
             <Input
               type="text"
@@ -1162,6 +1163,8 @@ t("BulkUpdateSuccess", {
           </div>
         </div>
       )}
+
+      {/* Pending Deal Approval Modal */}
       {pendingDealApproval && (
         <div className="fixed inset-0 bg-gray-500/50 flex items-center justify-center z-50">
           <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full mx-4">
@@ -1169,13 +1172,13 @@ t("BulkUpdateSuccess", {
               {t("ConfirmDealAcceptance")}
             </h3>
             <p className="text-gray-700 mb-2 font-medium">
-  {t("CustomerUserId", { user_id: pendingDealApproval.user_id })}
+              {t("CustomerUserId", { user_id: pendingDealApproval.user_id })}
             </p>
             <p className="text-gray-700 mb-6">
- {t("ConfirmAddDeal", {
-    deal_title: pendingDealApproval.deal_title,
-    deal_price: pendingDealApproval.deal_price.toFixed(2),
-  })}
+              {t("ConfirmAddDeal", {
+                deal_title: pendingDealApproval.deal_title,
+                deal_price: pendingDealApproval.deal_price.toFixed(2),
+              })}
             </p>
             <p className="text-gray-700 mb-6">
               {pendingDealApproval.description || "No description available."}
