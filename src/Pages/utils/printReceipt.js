@@ -42,9 +42,19 @@ export const prepareReceiptData = (
     discount: finalDiscountValue,
     tax: totalTax,
     total: requiredTotal,
+    
+    // 💡 الإضافة الجديدة لاسترداد بيانات المطعم
+    restaurantName: sessionStorage.getItem("restaurant_name") || "اسم المطعم",
+    restaurantAddress: sessionStorage.getItem("restaurant_address") || "العنوان",
+    restaurantPhone: sessionStorage.getItem("restaurant_phone") || "التليفون",
+    receiptFooter: sessionStorage.getItem("receipt_footer") || "شكراً لزيارتكم",
+    // -----------------------------------------------------------
   };
 };
 
+// -----------------------------------------------------------
+// 2. دالة تحويل البيانات إلى كود HTML
+// -----------------------------------------------------------
 // -----------------------------------------------------------
 // 2. دالة تحويل البيانات إلى كود HTML
 // -----------------------------------------------------------
@@ -73,8 +83,9 @@ const formatReceiptToHTML = (receiptData) => {
         <body>
             <div class="ticket">
                 <div class="center">
-                    <strong>اسم المطعم/المتجر</strong><br>
-                    الاسكندرية - سيدي جابر
+                    <strong>${receiptData.restaurantName}</strong><br>
+                    ${receiptData.restaurantAddress}<br>
+                    ${receiptData.restaurantPhone ? 'تليفون: ' + receiptData.restaurantPhone : ''}
                 </div>
                 <div class="line"></div>
                 <div class="right">
@@ -114,14 +125,13 @@ const formatReceiptToHTML = (receiptData) => {
                 </div>
                 <div class="line"></div>
                 <div class="center">
-                    <strong>شكراً لزيارتكم</strong>
+                    <strong>${receiptData.receiptFooter}</strong>
                 </div>
             </div>
         </body>
     </html>
     `;
 };
-
 
 // -----------------------------------------------------------
 // 3. دالة الطباعة الصامتة (النسخة المعدلة لطباعة HTML)
