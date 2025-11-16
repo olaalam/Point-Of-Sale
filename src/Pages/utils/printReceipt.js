@@ -25,7 +25,7 @@ export const prepareReceiptData = (
       : totalDiscount;
 
   return {
-    invoiceNumber: responseSuccess?.invoice_number || "N/A",
+    invoiceNumber: responseSuccess?.id || "N/A",
     cashier: sessionStorage.getItem("cashier_name") || "Cashier",
     date: new Date().toLocaleString("ar-EG", {
       year: 'numeric', month: 'numeric', day: 'numeric', 
