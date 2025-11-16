@@ -68,18 +68,27 @@ export default function Card({
   }, [orderItems]);
 
   // ✅ Memoize subtotal, tax, and total with correct weight calculation
-  const { subTotal, totalTax, totalOtherCharge, totalAmountDisplay, taxDetails } =
-    useMemo(() => {
-      const calculatedSubTotal = Array.isArray(orderItems)
-        ? orderItems.reduce((acc, item) => {
-            const price = Number(item.price_after_discount ?? item.price ?? 0);
-            const qty = item.weight_status === 1
-              ? Number(item.quantity ?? 1)   // وزن (kg)
-              : Number(item.count ?? 1);     // عدد القطع
-            return acc + price * qty;
-          }, 0)
-        : 0;
+const { subTotal, totalTax, totalOtherCharge, totalAmountDisplay, taxDetails } =
+  useMemo(() => {
+    const calculatedSubTotal = Array.isArray(orderItems)
+      ? orderItems.reduce((acc, item) => {
+          // ✅ استخدم item.price فقط (السعر النهائي بعد كل الإضافات)
+          const price = Number(item.price ?? 0);
 
+          const qty = item.weight_status === 1
+            ? Number(item.quantity ?? 1)
+            : Number(item.count ?? 1);
+
+          console.log("SubTotal calc:", { 
+            name: item.name, 
+            price, 
+            qty, 
+            total: price * qty 
+          });
+
+          return acc + (price * qty);
+        }, 0)
+      : 0;
       let calculatedTax = 0;
       const taxInfo = {};
 
@@ -130,13 +139,18 @@ export default function Card({
         selectedPaymentItems.includes(item.temp_id)
       );
 
-      const selectedSubTotal = itemsToPayFor.reduce((acc, item) => {
-        const price = Number(item.price_after_discount ?? item.price ?? 0);
-        const qty = item.weight_status === 1
-          ? Number(item.quantity ?? 1)
-          : Number(item.count ?? 1);
-        return acc + price * qty;
-      }, 0);
+const selectedSubTotal = itemsToPayFor.reduce((acc, item) => {
+  const price = Number(
+    item.itemPrice ?? 
+    item.itemTotal ?? 
+    item.price_after_discount ?? 
+    item.price ?? 0
+  );
+  const qty = item.weight_status === 1
+    ? Number(item.quantity ?? 1)
+    : Number(item.count ?? 1);
+  return acc + price * qty;
+}, 0);
 
       const selectedTax = itemsToPayFor.reduce((acc, item) => {
         const taxPerUnit = Number(item.tax_val ?? 0);
@@ -775,11 +789,14 @@ const mergeWeightProducts = (existingItems, newItem) => {
 
   const existing = existingItems[existingIndex];
   const totalQty = (Number(existing.quantity) || 0) + (Number(newItem.quantity) || 0);
-  const unitPrice = Number(existing.price_after_discount || existing.price);
+  const unitPrice = Number(existing.itemPrice || existing.price_after_discount || existing.price);
 
   const merged = {
     ...existing,
     quantity: totalQty,
+    count: totalQty,
+    itemPrice: unitPrice,
+    itemTotal: unitPrice * totalQty,
     totalPrice: unitPrice * totalQty,
     temp_id: `merged-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
   };
