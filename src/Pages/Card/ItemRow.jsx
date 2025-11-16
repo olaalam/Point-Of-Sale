@@ -1,4 +1,4 @@
-// ItemRow.jsx
+// ItemRow.jsx - ✅ Fixed: Now uses item.price (with addons) instead of originalPrice
 import { toast } from "react-toastify";
 import { PREPARATION_STATUSES } from "./constants";
 import { Trash2, FileText } from "lucide-react";
@@ -31,195 +31,225 @@ const ItemRow = ({
 
   if (!item) return null;
 
-  // السعر الكلي للوحدة (من ProductModal)
-  const safePrice = Number(item.originalPrice) || 0;
-  const addonsTotal = (item.addons || []).reduce((sum, addon) => {
-    return sum + (Number(addon.price_after_discount) || 0);
-  }, 0);
-  console.log("ItemRow → addonsTotal:", addonsTotal);
-  const extrasTotal = (item.selectedExtras || []).reduce((sum, extra) => {
-    return sum + (Number(extra.price_after_discount) || 0);
-  }, 0);
-  console.log("ItemRow → extrasTotal:", extrasTotal);
+  // ✅ استخدام item.price (السعر الفعلي بعد الإضافات)
+  const safePrice = Number(item.price) || 0;
+  
+  // السعر الأصلي (قبل الإضافات) للاستخدام في عرض الخصم فقط
+  const safeOriginalPrice = Number(item.originalPrice) || 0;
 
-  // السعر قبل الخصم = السعر الأصلي + الإضافات
-  const safeOriginalPrice = Number(item.price) + addonsTotal + extrasTotal;
+  // ✅ For weight products: quantity is weight (e.g., 0.75 kg)
+  const displayQuantity = item.weight_status === 1 
+    ? `${item.count} kg` 
+    : item.count;
 
   return (
+    <tr className={`border-b last:border-b-0 hover:bg-gray-50 ${item.type === "addon" ? "bg-blue-50" : ""} ${selectedPaymentItems.includes(item.temp_id) ? "bg-green-50" : ""}`}>
+      {orderType === "dine_in" && (
+        <td className="py-3 px-4 text-center align-top">
+          <input
+            type="checkbox"
+            checked={selectedItems.includes(item.temp_id)}
+            onChange={() => toggleSelectItem(item.temp_id)}
+            className="w-4 h-4 accent-bg-primary"
+          />
+        </td>
+      )}
 
-<tr className={`border-b last:border-b-0 hover:bg-gray-50 ${item.type === "addon" ? "bg-blue-50" : ""} ${selectedPaymentItems.includes(item.temp_id) ? "bg-green-50" : ""}`}>
-  {orderType === "dine_in" && (
-    <td className="py-3 px-4 text-center align-top">
-      <input
-        type="checkbox"
-        checked={selectedItems.includes(item.temp_id)}
-        onChange={() => toggleSelectItem(item.temp_id)}
-        className="w-4 h-4 accent-bg-primary"
-      />
-    </td>
-  )}
-
-  {/* =================================
-    ✅ التعديل تم هنا 
-    =================================
-    الـ <td> بقت هي اللي بره، والـ Wrapper بقى جوه
-  */}
-  <td className="py-3 px-4 text-left align-top">
-    <ProductDetailModalWrapper
-      product={item}
-      updateOrderItems={updateOrderItems}
-      orderItems={orderItems}
-    >
-      {/* عمود الاسم + الـ Variations + الـ Notes */}
-      <div className="flex flex-col gap-1">
-        {/* اسم المنتج */}
-        <span
-          className="text-gray-800 font-medium hover:underline hover:text-red-600 cursor-pointer transition-colors"
+      {/* Product Name + Variations + Notes */}
+      <td className="py-3 px-4 text-left align-top">
+        <ProductDetailModalWrapper
+          product={item}
+          updateOrderItems={updateOrderItems}
+          orderItems={orderItems}
         >
-          {item.name}
-        </span>
-
-        {/* الـ Variations */}
-        {item.variations?.map((group, i) => {
-          const selected = Array.isArray(group.selected_option_id)
-            ? group.options?.find(opt => group.selected_option_id.includes(opt.id))
-            : group.options?.find(opt => opt.id === group.selected_option_id);
-          return selected ? (
-            <div key={i} className="text-xs text-gray-600">
-              {group.name}: <span className="font-medium">{selected.name}</span>
-            </div>
-          ) : null;
-        })}
-
-        {/* الـ Notes (إذا وُجدت) */}
-        {item.notes && item.notes.trim() !== "" && (
-          <div className="mt-2 p-2 bg-orange-50 border border-orange-200 rounded-lg text-xs italic text-orange-700 flex items-start gap-1.5">
-            <FileText size={14} className="mt-0.5 flex-shrink-0" />
-            <span>
-              <strong className="font-semibold">Note:</strong> {item.notes}
+          <div className="flex flex-col gap-1">
+            <span className="text-gray-800 font-medium hover:underline hover:text-red-600 cursor-pointer transition-colors">
+              {item.name}
             </span>
+
+            {/* Variations */}
+            {item.variations?.map((group, i) => {
+              const selected = Array.isArray(group.selected_option_id)
+                ? group.options?.find(opt => group.selected_option_id.includes(opt.id))
+                : group.options?.find(opt => opt.id === group.selected_option_id);
+              return selected ? (
+                <div key={i} className="text-xs text-gray-600">
+                  {group.name}: <span className="font-medium">{selected.name}</span>
+                </div>
+              ) : null;
+            })}
+
+            {/* Notes */}
+            {item.notes && item.notes.trim() !== "" && (
+              <div className="mt-2 p-2 bg-orange-50 border border-orange-200 rounded-lg text-xs italic text-orange-700 flex items-start gap-1.5">
+                <FileText size={14} className="mt-0.5 flex-shrink-0" />
+                <span>
+                  <strong className="font-semibold">Note:</strong> {item.notes}
+                </span>
+              </div>
+            )}
           </div>
-        )}
-      </div>
-    </ProductDetailModalWrapper>
-  </td>
-  {/* =================================
-    ✅ نهاية التعديل
-    ================================= */}
+        </ProductDetailModalWrapper>
+      </td>
 
-
-  {/* السعر للوحدة */}
-{/* السعر للوحدة */}
-  <td className="py-3 px-4 text-center align-top">
-    <div>
-      <span className={hasDiscount ? "text-green-600 font-semibold" : "font-medium"}>
-        {safePrice.toFixed(2)}
-      </span>
-      {hasDiscount && (
+      {/* Price per Unit - ✅ Now shows item.price (with addons) */}
+      <td className="py-3 px-4 text-center align-top">
         <div>
-          <span className="text-xs text-gray-500 line-through">
-            {safeOriginalPrice.toFixed(2)}
+          <span className={hasDiscount ? "text-green-600 font-semibold" : "font-medium"}>
+            {safePrice.toFixed(2)}
           </span>
-        </div>
-      )}
-      {/* ✅ عرض الـ Tax Info */}
-      {item.tax_obj && (
-        <div className="text-xs text-blue-600 mt-1">
-          {item.taxes === "excluded" ? "Tax Excluded" : "Tax Included"}
-          {item.tax_val > 0 && ` (+${item.tax_val.toFixed(2)})`}
-        </div>
-      )}
-    </div>
-  </td>
-
-  {/* الكمية */}
-  <td className="py-3 px-4 text-center align-top">
-    {!(item.is_reward || item.is_deal) && allowQuantityEdit ? (
-      <div className="flex items-center justify-center gap-1">
-        <button
-          onClick={() => handleDecrease(item.temp_id)}
-          disabled={!allowQuantityEdit}
-          className={`px-2 py-1 rounded ${allowQuantityEdit ? "bg-gray-200 hover:bg-gray-300" : "bg-gray-100 cursor-not-allowed"}`}
-        >
-          −
-        </button>
-        <span className="min-w-[24px] text-center font-medium">{item.count}</span>
-        <button
-          onClick={() => handleIncrease(item.temp_id)}
-          className="px-2 py-1 bg-gray-200 rounded hover:bg-gray-300"
-        >
-          +
-        </button>
-      </div>
-    ) : (
-      <span className="min-w-[24px] text-center font-medium">1 (ثابت)</span>
-    )}
-  </td>
-
-  {/* حالة التحضير (لـ dine_in) */}
-  {orderType === "dine_in" && (
-    <td className="py-3 px-4 text-center align-top">
-      <div className="flex items-center justify-center gap-2">
-        <button
-          onClick={() => {
-            if (!item?.temp_id) {
-              toast.error("Item ID is missing.");
-              return;
-            }
-            handleUpdatePreparationStatus(item.temp_id);
-          }}
-          title={`Change status to ${PREPARATION_STATUSES[statusInfo.nextStatus]?.label || "Pending"}`}
-          className={`p-2 rounded-full ${statusInfo.color} hover:bg-gray-200 transition-colors ${isItemLoading ? "opacity-50 cursor-not-allowed" : ""}`}
-          disabled={isItemLoading}
-        >
-          {isItemLoading ? (
-            <div className="w-5 h-5 border-2 border-gray-300 border-t-current rounded-full animate-spin"></div>
-          ) : (
-            <StatusIcon size={20} />
+          {hasDiscount && (
+            <div>
+              <span className="text-xs text-gray-500 line-through">
+                {safeOriginalPrice.toFixed(2)}
+              </span>
+            </div>
           )}
-        </button>
-      </div>
-    </td>
-  )}
+          {/* Tax Info */}
+          {item.tax_obj && (
+            <div className="text-xs text-blue-600 mt-1">
+              {item.taxes === "excluded" ? "Tax Excluded" : "Tax Included"}
+              {item.tax_val > 0 && ` (+${item.tax_val.toFixed(2)})`}
+            </div>
+          )}
+        </div>
+      </td>
 
-  {/* تحديد الدفع (لـ dine_in) */}
-  {orderType === "dine_in" && (
-    <td className="py-3 px-4 text-center align-top">
-      {isDoneItem && (
-        <input
-          type="checkbox"
-          checked={selectedPaymentItems.includes(item.temp_id)}
-          onChange={() => toggleSelectPaymentItem(item.temp_id)}
-          className="w-4 h-4 accent-green-500"
-        />
+      {/* Quantity - with weight support */}
+      <td className="py-3 px-4 text-center align-top">
+        {item.weight_status === 1 ? (
+          <div className="flex items-center justify-center gap-1">
+            <button
+              onClick={() => {
+                const newQty = Math.max(0.25, (Number(item.quantity) || 0) - 0.25);
+                const updatedItems = orderItems.map((i) =>
+                  i.temp_id === item.temp_id ? { ...i, quantity: newQty } : i
+                );
+                updateOrderItems(updatedItems);
+              }}
+              className="px-2 py-1 bg-gray-200 rounded hover:bg-gray-300 transition-colors"
+            >
+              −
+            </button>
+            <input
+              type="text"
+              value={Number(item.quantity || 0).toFixed(2)}
+              onChange={(e) => {
+                const val = e.target.value;
+                if (/^\d*\.?\d*$/.test(val)) {
+                  const numVal = val === "" ? 0 : Number(val);
+                  if (numVal >= 0.25) {
+                    const updatedItems = orderItems.map((i) =>
+                      i.temp_id === item.temp_id ? { ...i, quantity: numVal } : i
+                    );
+                    updateOrderItems(updatedItems);
+                  }
+                }
+              }}
+              className="w-16 text-center font-medium border border-gray-300 rounded px-1 py-0.5 focus:outline-none focus:ring-2 focus:ring-bg-primary"
+            />
+            <span className="text-xs text-gray-600">kg</span>
+            <button
+              onClick={() => {
+                const newQty = (Number(item.quantity) || 0) + 0.25;
+                const updatedItems = orderItems.map((i) =>
+                  i.temp_id === item.temp_id ? { ...i, quantity: newQty } : i
+                );
+                updateOrderItems(updatedItems);
+              }}
+              className="px-2 py-1 bg-gray-200 rounded hover:bg-gray-300 transition-colors"
+            >
+              +
+            </button>
+          </div>
+        ) : !(item.is_reward || item.is_deal) && allowQuantityEdit ? (
+          <div className="flex items-center justify-center gap-1">
+            <button
+              onClick={() => handleDecrease(item.temp_id)}
+              disabled={!allowQuantityEdit}
+              className={`px-2 py-1 rounded ${allowQuantityEdit ? "bg-gray-200 hover:bg-gray-300" : "bg-gray-100 cursor-not-allowed"}`}
+            >
+              −
+            </button>
+            <span className="min-w-[24px] text-center font-medium">{item.count}</span>
+            <button
+              onClick={() => handleIncrease(item.temp_id)}
+              className="px-2 py-1 bg-gray-200 rounded hover:bg-gray-300"
+            >
+              +
+            </button>
+          </div>
+        ) : (
+          <span className="min-w-[24px] text-center font-medium">1 (ثابت)</span>
+        )}
+      </td>
+
+      {/* Preparation Status (dine_in) */}
+      {orderType === "dine_in" && (
+        <td className="py-3 px-4 text-center align-top">
+          <div className="flex items-center justify-center gap-2">
+            <button
+              onClick={() => {
+                if (!item?.temp_id) {
+                  toast.error("Item ID is missing.");
+                  return;
+                }
+                handleUpdatePreparationStatus(item.temp_id);
+              }}
+              title={`Change status to ${PREPARATION_STATUSES[statusInfo.nextStatus]?.label || "Pending"}`}
+              className={`p-2 rounded-full ${statusInfo.color} hover:bg-gray-200 transition-colors ${isItemLoading ? "opacity-50 cursor-not-allowed" : ""}`}
+              disabled={isItemLoading}
+            >
+              {isItemLoading ? (
+                <div className="w-5 h-5 border-2 border-gray-300 border-t-current rounded-full animate-spin"></div>
+              ) : (
+                <StatusIcon size={20} />
+              )}
+            </button>
+          </div>
+        </td>
       )}
-    </td>
+
+      {/* Payment Selection (dine_in) */}
+      {orderType === "dine_in" && (
+        <td className="py-3 px-4 text-center align-top">
+          {isDoneItem && (
+            <input
+              type="checkbox"
+              checked={selectedPaymentItems.includes(item.temp_id)}
+              onChange={() => toggleSelectPaymentItem(item.temp_id)}
+              className="w-4 h-4 accent-green-500"
+            />
+          )}
+        </td>
+      )}
+
+{/* Total - Use pre-calculated item.totalPrice */}
+<td className="py-3 px-4 text-center align-top">
+  <span className="font-semibold">
+    {Number(item.totalPrice || 0).toFixed(2)}
+  </span>
+  {hasDiscount && (
+    <div className="text-xs text-gray-500 line-through">
+      {item.weight_status === 1
+        ? (Number(item.quantity) * safeOriginalPrice).toFixed(2)
+        : (safeOriginalPrice * item.count).toFixed(2)
+      }
+    </div>
   )}
+</td>
 
-  {/* المجموع */}
-  <td className="py-3 px-4 text-center align-top">
-    <span className="font-semibold">
-      {(safePrice * item.count).toFixed(2)}
-    </span>
-    {hasDiscount && (
-      <div className="text-xs text-gray-500 line-through">
-        {(safeOriginalPrice * item.count).toFixed(2)}
-      </div>
-    )}
-  </td>
-
-  {/* حذف العنصر */}
-  <td className="py-3 px-4 text-center align-top">
-    <button
-      onClick={() => orderType === "dine_in" ? handleVoidItem(item.temp_id) : handleRemoveFrontOnly(item.temp_id)}
-      className={`p-2 rounded-full text-red-500 hover:bg-red-100 transition-colors ${isItemLoading && orderType === "dine_in" ? "opacity-50 cursor-not-allowed" : ""}`}
-      disabled={isItemLoading && orderType === "dine_in"}
-    >
-      <Trash2 size={20} />
-    </button>
-  </td>
-</tr>
-  
+      {/* Delete Item */}
+      <td className="py-3 px-4 text-center align-top">
+        <button
+          onClick={() => orderType === "dine_in" ? handleVoidItem(item.temp_id) : handleRemoveFrontOnly(item.temp_id)}
+          className={`p-2 rounded-full text-red-500 hover:bg-red-100 transition-colors ${isItemLoading && orderType === "dine_in" ? "opacity-50 cursor-not-allowed" : ""}`}
+          disabled={isItemLoading && orderType === "dine_in"}
+        >
+          <Trash2 size={20} />
+        </button>
+      </td>
+    </tr>
   );
 };
 
