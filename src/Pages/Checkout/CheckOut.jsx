@@ -364,7 +364,8 @@ const handleAddSplit = () => {
           discountData,
           orderType,
           requiredTotal,
-          response.success // تمرير الرد من السيرفر للحصول على رقم الفاتورة/المعرف
+          response.success ,
+          response
         );
 
         // 2. طباعة صامتة (بدون واجهة) واستخدام الكولباك للانتقال

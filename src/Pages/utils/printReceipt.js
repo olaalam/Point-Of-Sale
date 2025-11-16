@@ -16,7 +16,8 @@ export const prepareReceiptData = (
   discountData,
   orderType,
   requiredTotal,
-  responseSuccess
+  responseSuccess ,
+  response
 ) => {
   const finalDiscountValue = appliedDiscount > 0
     ? amountToPay * (appliedDiscount / 100)
@@ -25,7 +26,7 @@ export const prepareReceiptData = (
       : totalDiscount;
 
   return {
-    invoiceNumber: responseSuccess?.order_number || "N/A",
+    invoiceNumber: response?.order_number || "N/A",
     cashier: sessionStorage.getItem("cashier_name") || "Cashier",
     date: new Date().toLocaleString("ar-EG", {
       year: 'numeric', month: 'numeric', day: 'numeric', 
@@ -44,7 +45,7 @@ export const prepareReceiptData = (
     total: requiredTotal,
     
     // 💡 الإضافة الجديدة لاسترداد بيانات المطعم
-    restaurantName: sessionStorage.getItem("restaurant_name") || "اسم المطعم",
+    restaurantName: sessionStorage.getItem("resturant_name") || "اسم المطعم",
     restaurantAddress: sessionStorage.getItem("restaurant_address") || "العنوان",
     restaurantPhone: sessionStorage.getItem("restaurant_phone") || "التليفون",
     receiptFooter: sessionStorage.getItem("receipt_footer") || "شكراً لزيارتكم",
