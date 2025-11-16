@@ -30,6 +30,7 @@ const CheckOut = ({
 }) => {
   const cashierId = sessionStorage.getItem("cashier_id");
   const tableId = sessionStorage.getItem("table_id") || null;
+ const baseUrl = import.meta.env.VITE_API_BASE_URL;
   const navigate = useNavigate();
     // === QZ Tray Connection ===
 // الكود الجديد (كامل وسليم)
@@ -51,7 +52,7 @@ const CheckOut = ({
     qz.security.setSignaturePromise(function(toSign) {
         return function(resolve, reject) {
             // اتأكد إن اللينك ده هو اللينك الصح بتاع اللارافيل سيرفر بتاعك
-            const apiUrl = `https://bcknd.food2go.online/api/sign-qz-request?request=${toSign}`;
+            const apiUrl = `${baseUrl}api/sign-qz-request?request=${toSign}`;
             
             fetch(apiUrl)
                 .then(response => {
