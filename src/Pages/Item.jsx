@@ -253,7 +253,7 @@ const handleAddToOrder = useCallback(async (product, customQuantity = 1) => {
   });
 
   // ✅ Handle take_away (no API call)
-  if (orderType === "take_away") {
+ if (orderType === "take_away" || orderType === "delivery") {
     const newItem = {
       ...product,
       temp_id: createTempId(product.id),
