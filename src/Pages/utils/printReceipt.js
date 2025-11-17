@@ -137,47 +137,106 @@ const formatReceiptToHTML = (receiptData) => {
 // -----------------------------------------------------------
 // 3. دالة الطباعة الصامتة (النسخة المعدلة لطباعة HTML)
 // -----------------------------------------------------------
-export const printReceiptSilently = async (receiptData, callback) => {
+// export const printReceiptSilently = async (receiptData, callback) => {
+//   try {
+//     const isConnected = qz.websocket.isActive();
+//     if (!isConnected) {
+//       toast.error("❌ QZ Tray is not connected.");
+//       callback(); 
+//       return;
+//     }
+
+//     // ************************************************
+//     // ******** التصليح هنا    ********
+//     // ************************************************
+//     const printer1_Default ="XP-58C";
+//     const printer2_Kitchen = "POS-80C (copy 1)"; // <--- 🚨 عدل الاسم ده
+// //XP-58C
+//     const printersToPrint = [printer1_Default, printer2_Kitchen].filter(Boolean);
+
+//     if (printersToPrint.length === 0) {
+//       toast.error("❌ No printers found to print.");
+//       callback();
+//       return;
+//     }
+//     // const printerName = await qz.printers.getDefault(); // <-- printers
+//     // if (!printerName) {
+//     //     toast.error("❌ No default printer found.");
+//     //     callback();
+//     //     return;
+//     // }
+//     const configsArray = printersToPrint.map(printerName => {
+//       return qz.configs.create(printerName);
+//     });
+//     // const config = qz.configs.create(printerName);
+//     const htmlData = formatReceiptToHTML(receiptData);
+
+//     const dataToPrint = [
+//         {
+//             type: 'html',       
+//             format: 'plain',
+//             data: htmlData
+//         }
+//     ];
+    
+//     await qz.print(configsArray, dataToPrint);
+    
+//     // ************************************************
+    
+//     toast.success("✅ Receipt printed successfully!");
+    
+//     callback();
+
+//   } catch (err) {
+//     console.error("QZ Tray Printing Error:", err);
+//     toast.error(`❌ Printing failed: ${err.message || "Check QZ Tray console."}`);
+//     callback();
+//   }
+// };
+export const printReceiptSilently = async function (receiptData, callback) {
   try {
     const isConnected = qz.websocket.isActive();
     if (!isConnected) {
       toast.error("❌ QZ Tray is not connected.");
-      callback(); 
+      callback();
       return;
     }
 
-    // ************************************************
-    // ******** التصليح هنا    ********
-    // ************************************************
-    const printerName = await qz.printers.getDefault(); // <-- printers
-    if (!printerName) {
-        toast.error("❌ No default printer found.");
-        callback();
-        return;
+    const printer1_Default = "XP-58C";
+    const printer2_Kitchen = "POS-80C (copy 1)";
+
+    const printersToPrint = [printer1_Default, printer2_Kitchen].filter(Boolean);
+
+    if (printersToPrint.length === 0) {
+      toast.error("❌ No printers found to print.");
+      callback();
+      return;
     }
 
-    const config = qz.configs.create(printerName);
     const htmlData = formatReceiptToHTML(receiptData);
 
     const dataToPrint = [
-        {
-            type: 'html',       
-            format: 'plain',
-            data: htmlData
-        }
+      {
+        type: "html",
+        format: "plain",
+        data: htmlData
+      }
     ];
 
-    await qz.print(config, dataToPrint);
-    
-    // ************************************************
-    
-    toast.success("✅ Receipt printed successfully!");
-    
+    // 🔥 طباعة متزامنة على كل الطابعات
+    const printJobs = printersToPrint.map(function (printerName) {
+      const config = qz.configs.create(printerName);
+      return qz.print(config, dataToPrint);
+    });
+
+    await Promise.all(printJobs); // ← الاتنين يطبعوا مع بعض
+
+    toast.success("✅ Printed on all printers!");
     callback();
 
   } catch (err) {
     console.error("QZ Tray Printing Error:", err);
-    toast.error(`❌ Printing failed: ${err.message || "Check QZ Tray console."}`);
+    toast.error("❌ Printing failed: " + (err.message || "Check QZ Tray console."));
     callback();
   }
 };
