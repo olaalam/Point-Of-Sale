@@ -35,9 +35,9 @@ export default function OrderPage({
     isDineIn && currentTableId ? `cashier/dine_in_table_order/${currentTableId}` : null
   );
 
-  const { data: deliveryData, loading: deliveryLoading, refetch: refetchDelivery } = useGet(
-    isDelivery && currentUserId ? `cashier/delivery_order/${currentUserId}` : null
-  );
+  // const { data: deliveryData, loading: deliveryLoading, refetch: refetchDelivery } = useGet(
+  //   isDelivery && currentUserId ? `cashier/delivery_order/${currentUserId}` : null
+  // );
 
   // تحميل الطلب المؤقت (take-away)
   useEffect(() => {
@@ -129,7 +129,7 @@ useEffect(() => {
         [currentUserId]: mappedItems,
       }));
     }
-  }, [isDelivery, currentUserId, deliveryData]);
+  }, [isDelivery, currentUserId]);
 
   const clearOrderData = () => {
     if (currentOrderType === "take_away") {
@@ -246,7 +246,7 @@ useEffect(() => {
           clearOrderData={clearOrderData}
           tableId={currentTableId}
           userId={currentUserId}
-          isLoading={dineInLoading || deliveryLoading || isLoading}
+          isLoading={dineInLoading ||  isLoading}
           discountData={discountData}
         />
       </div>

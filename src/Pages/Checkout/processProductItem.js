@@ -58,6 +58,7 @@ export const processProductItem = (item) => {
     product_id: item.id.toString(),
     count: item.count.toString(),
     note: item.notes || "Product Note",
+    price: item.price.toString(),
     addons: addonItems,
     variation: groupedVariations,
     exclude_id: (item.selectedExcludes || []).map((id) => id.toString()),
