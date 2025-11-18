@@ -7,6 +7,7 @@ import { usePost } from "@/Hooks/usePost";
 import { useLocation } from "react-router-dom";
 import { toast } from "react-toastify";
 import { useTranslation } from "react-i18next"; 
+
 const getInitialState = () => {
   const storedOrderType = sessionStorage.getItem("order_type") || "take_away";
   const storedTab = sessionStorage.getItem("tab") || storedOrderType;
@@ -34,12 +35,13 @@ const clearTransferData = () => {
 };
 
 export default function Home() {
-const { t , i18n } = useTranslation();
+  const { t, i18n } = useTranslation();
   const isArabic = i18n.language === "ar";
-    const location = useLocation();
+  const location = useLocation();
   const [state, setState] = useState(getInitialState);
 
   const initialState = useMemo(() => getInitialState(), [location.key]);
+  
   useEffect(() => {
     setState((prevState) => {
       const newState = { ...prevState, ...initialState };
@@ -47,8 +49,26 @@ const { t , i18n } = useTranslation();
     });
   }, [initialState]);
 
+  // ✅ FIXED: Handle repeated orders from SinglePage and Delivery
   useEffect(() => {
     const { state: locationState } = location;
+    
+    // إذا جاي من repeated order (من SinglePage أو Delivery)
+    if (locationState?.repeatedOrder && locationState?.tabValue === "take_away") {
+      const storedCart = sessionStorage.getItem("cart");
+      if (storedCart) {
+        console.log("🔄 Loading repeated order cart:", JSON.parse(storedCart));
+      }
+      
+      setState((prevState) => ({
+        ...prevState,
+        orderType: "take_away",
+        tabValue: "take_away",
+      }));
+      return;
+    }
+    
+    // Handle delivery user selection
     if (locationState && locationState.userId) {
       setState((prevState) => ({
         ...prevState,
@@ -82,7 +102,7 @@ const { t , i18n } = useTranslation();
       toast.error(t("Failedtofetchdiscountdata"));
       sessionStorage.setItem("discount_data", JSON.stringify({ discount: 0, module: [] }));
     }
-  }, [postData]);
+  }, [postData, t]);
 
   useEffect(() => {
     fetchDiscount();
@@ -106,12 +126,12 @@ const { t , i18n } = useTranslation();
       try {
         console.log("Starting Transfer API call...", { sourceTableId, newTableId, cartIds });
         await postData("cashier/complete_transfer_order", formData);
-toast.success(
-  t("Order transferred successfully from table {{sourceTableId}} to table {{newTableId}}.", {
-    sourceTableId,
-    newTableId
-  })
-);
+        toast.success(
+          t("Order transferred successfully from table {{sourceTableId}} to table {{newTableId}}.", {
+            sourceTableId,
+            newTableId
+          })
+        );
         clearTransferData();
         setState((prevState) => ({
           ...prevState,
@@ -138,10 +158,8 @@ toast.success(
         }));
       }
     },
-    [postData]
+    [postData, t]
   );
-
-
 
   const handleTableSelect = useCallback((newTableId) => {
     const { isTransferring, transferSourceTableId, transferCartIds } = state;
@@ -178,7 +196,12 @@ toast.success(
     sessionStorage.removeItem("selected_user_id");
     sessionStorage.removeItem("selected_address_id");
     sessionStorage.removeItem("order_type");
-    setState((prevState) => ({ ...prevState, deliveryUserId: null, orderType: "delivery", tabValue: "delivery" }));
+    setState((prevState) => ({ 
+      ...prevState, 
+      deliveryUserId: null, 
+      orderType: "delivery", 
+      tabValue: "delivery" 
+    }));
   }, []);
 
   console.log("Home Component State:", state);
@@ -190,26 +213,24 @@ toast.success(
     return <OrderPage propOrderType="dine_in" propTableId={state.tableId} />;
   }, [state.isTransferring, state.tableId, handleTableSelect]);
 
-return (
-  <div className="min-h-screen bg-white flex flex-col items-center ">
-    {/* إزالة الـ Tabs من هنا */}
+  return (
+    <div className="min-h-screen bg-white flex flex-col items-center">
+      {/* عرض المحتوى بناءً على الـ tab الحالي */}
+      {state.tabValue === "take_away" && (
+        <TakeAway orderType={state.orderType} />
+      )}
 
-    {/* عرض المحتوى بناءً على الـ tab الحالي */}
-    {state.tabValue === "take_away" && (
-      <TakeAway orderType={state.orderType} />
-    )}
+      {state.tabValue === "delivery" && (
+        <>
+          {state.deliveryUserId ? (
+            <OrderPage propOrderType="delivery" propUserId={state.deliveryUserId} onClose={handleClose} />
+          ) : (
+            <Delivery onCustomerSelect={handleDeliveryUserSelect} />
+          )}
+        </>
+      )}
 
-    {state.tabValue === "delivery" && (
-      <>
-        {state.deliveryUserId ? (
-          <OrderPage propOrderType="delivery" propUserId={state.deliveryUserId} onClose={handleClose} />
-        ) : (
-          <Delivery onCustomerSelect={handleDeliveryUserSelect} />
-        )}
-      </>
-    )}
-
-    {state.tabValue === "dine_in" && dineInContent}
-  </div>
-);
+      {state.tabValue === "dine_in" && dineInContent}
+    </div>
+  );
 }

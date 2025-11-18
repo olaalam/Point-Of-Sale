@@ -381,11 +381,11 @@ const CheckOut = ({
               setDeliveryModelOpen(true);
             } else {
               onClose();
-              navigate("/orders");
+              // navigate("/orders");
             }
           } else {
             onClose();
-            navigate(due === 1 ? "/due" : "/orders");
+            // navigate(due === 1 ? "/due" : "/orders");
           }
         });
 
@@ -445,7 +445,7 @@ const CheckOut = ({
       toast.success("Delivery person assigned successfully!");
       setDeliveryModelOpen(false);
       onClose();
-      navigate("/orders");
+      // navigate("/orders");
     } catch (e) {
       toast.error(e.message || "Failed to assign delivery person.");
     }
@@ -454,7 +454,7 @@ const CheckOut = ({
   const handleSkip = () => {
     setDeliveryModelOpen(false);
     onClose();
-    navigate("/orders");
+    // navigate("/orders");
   };
 
 

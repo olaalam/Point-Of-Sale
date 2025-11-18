@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { useGet } from "@/Hooks/useGet";
 import { usePost } from "@/Hooks/usePost";
 import { toast } from "react-toastify";
@@ -28,7 +28,9 @@ export default function ExpensesModal({ onClose }) {
         else if (parsed?.id) {
             initialFinancialId = parsed.id;
         }
-    } catch { }
+    } catch { 
+        // Ignore JSON parse errors
+    }
 
     const [financial_account_id, setFinancialAccountId] = useState(initialFinancialId);
 
@@ -81,19 +83,15 @@ export default function ExpensesModal({ onClose }) {
                 </div>
 
                 {/* Expense */}
-                <label className="block font-semibold mb-1">Expense</label>
-                <select
-                    value={expense_id}
-                    onChange={(e) => setExpenseId(e.target.value)}
-                    className="w-full p-2 border rounded mb-3"
-                >
-                    <option value="">Select Expense</option>
-                    {data?.expenses?.map((exp) => (
-                        <option key={exp.id} value={exp.id}>
-                            {exp.name}
-                        </option>
-                    ))}
-                </select>
+<label className="block font-semibold mb-1">Expense</label>
+<input
+    type="text"
+    value={expense_id}
+    onChange={(e) => setExpenseId(e.target.value)}
+    placeholder="Enter Expense"
+    className="w-full p-2 border rounded mb-3"
+/>
+
 
                 {/* Category */}
                 <label className="block font-semibold mb-1">Category</label>
