@@ -223,11 +223,13 @@ const ItemRow = ({
           )}
         </td>
       )}
-
-{/* Total - Use pre-calculated item.totalPrice */}
+{/* Total - Calculate dynamically based on current quantity */}
 <td className="py-3 px-4 text-center align-top">
   <span className="font-semibold">
-    {Number(item.totalPrice || 0).toFixed(2)}
+    {item.weight_status === 1
+      ? (safePrice * Number(item.quantity || 0)).toFixed(2)
+      : (safePrice * Number(item.count || 0)).toFixed(2)
+    }
   </span>
   {hasDiscount && (
     <div className="text-xs text-gray-500 line-through">
