@@ -104,177 +104,279 @@ const filterItemsByKitchenId = (orderDetailsData, kitchenId) => {
 // 4. تصميم إيصال الكاشير الكامل (HTML)
 // ===================================================================
 const formatCashierReceipt = (receiptData) => {
-  return `
-  <html>
-    <head>
-      <style>
-        /* [!] الحل 1: لضمان أن البادنج لا يتجاوز عرض الورقة */
-        * {
-          box-sizing: border-box;
-        }
-        body, html { 
-          width: 80mm; 
-          margin: 0; 
-          padding: 3px; /* [!] الحل 2: تقليل البادنج الخارجي */
-          font-family: Tahoma, sans-serif; 
-          font-size: 12px;
-          direction: rtl;
-        }
-        .center { text-align: center; }
-        .right { text-align: right; }
-        .left { text-align: left; }
-        .ticket { 
+  // 1. التحقق من إعدادات اللغة
+  const isArabic = localStorage.getItem('language') === 'ar';
+
+  // 2. التحقق من نوع الطلب
+  const storedOrderType = sessionStorage.getItem('order_type') || receiptData.orderType || '';
+  
+  // تحديد النصوص بناءً على النوع
+  let orderTypeLabel = isArabic ? 'تيك اواي' : 'Takeaway';
+  let isDineIn = false;
+
+  if (storedOrderType.toLowerCase() === 'dine_in') {
+    orderTypeLabel = isArabic ? 'صالة' : 'Dine In';
+    isDineIn = true;
+  } else if (storedOrderType.toLowerCase() === 'delivery') {
+    orderTypeLabel = isArabic ? 'توصيل' : 'Delivery';
+  } else if (storedOrderType.toLowerCase() === 'take_away') {
+    orderTypeLabel = isArabic ? 'تيك أواي' : 'Takeaway';
+  }
+
+  return `
+  <html>
+    <head>
+      <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body, html { 
           width: 100%;
-          /* [!] الحل 3: السماح للكلمات بالانقسام */
-          word-wrap: break-word; 
-          overflow-wrap: break-word;
+          max-width: 76mm; 
+          margin: 0 auto; 
+          padding: 2px;
+          font-family: 'Arial', 'Tahoma', sans-serif; 
+          font-size: 12px;
+          direction: ${isArabic ? 'rtl' : 'ltr'}; /* اتجاه النص حسب اللغة */
+          color: #000;
         }
-        table { width: 100%; border-collapse: collapse; }
-        th, td { 
-          padding: 2px; /* <-- البادنج القديم */
-          /* [!] الحل 3 (مكرر): لضمان انقسام الكلام داخل الخلية */
-          word-wrap: break-word; 
-          overflow-wrap: break-word;
+        .header { text-align: center; margin-bottom: 5px; }
+        .header h1 { font-size: 16px; font-weight: bold; margin-bottom: 2px; }
+        .header p { font-size: 10px; margin: 1px 0; }
+        
+        .info-grid {
+          margin-bottom: 5px; padding-bottom: 5px; border-bottom: 1px solid #000;
         }
-        .line { border-top: 1px dashed black; margin: 4px 0; }
-        .bold { font-weight: bold; }
-      </style>
-    </head>
-    <body>
-      <div class="ticket">
-        <div class="center">
-          <strong>${receiptData.restaurantName}</strong><br>
-          ${receiptData.restaurantAddress}<br>
-          ${receiptData.restaurantPhone ? 'تليفون: ' + receiptData.restaurantPhone : ''}
-        </div>
-        <div class="line"></div>
-        <div class="right">
-          رقم الفاتورة: ${receiptData.invoiceNumber}<br>
-          الكاشير: ${receiptData.cashier}<br>
-          التاريخ: ${receiptData.date}<br>
-          الطاولة: ${receiptData.table}
-        </div>
-        <div class="line"></div>
-        <table>
-          <thead>
-            <tr>
-              <th class="right">الصنف</th>
-              <th class="center">الكمية</th>
-              <th class="left">الإجمالي</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${receiptData.items.map(item => `
-              <tr>
-                <td class="right">${item.name}</td>
-                <td class="center">${item.qty}</td>
-                <td class="left">${item.total.toFixed(2)}</td>
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
-        <div class="line"></div>
-        <div class="right">
-          الإجمالي الفرعي: ${receiptData.subtotal.toFixed(2)} EGP<br>
-          الخصم: -${receiptData.discount.toFixed(2)} EGP<br>
-          الضريبة: ${receiptData.tax.toFixed(2)} EGP<br>
-        </div>
-        <div class="line"></div>
-        <div class="right">
-          <strong>الإجمالي النهائي: ${receiptData.total.toFixed(2)} EGP</strong>
-        </div>
-        <div class="line"></div>
-        <div class="center">
-          <strong>${receiptData.receiptFooter}</strong>
-        </div>
-      </div>
-    </body>
-  </html>
-  `;
+        .info-row {
+          display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px;
+        }
+        .info-label { font-size: 11px; font-weight: bold; white-space: nowrap; }
+        .info-value { font-weight: bold; font-size: 12px; text-align: ${isArabic ? 'left' : 'right'}; }
+        .big-number { font-size: 16px; font-weight: bold; }
+
+        .staff-row {
+          display: flex; justify-content: space-between; font-size: 10px; margin: 5px 0; font-weight: bold;
+        }
+
+        table { width: 100%; border-collapse: collapse; margin-bottom: 5px; font-size: 10px; }
+        th { background-color: #eee; border: 1px solid #000; padding: 3px 1px; text-align: center; }
+        td { border: 1px solid #000; padding: 2px 1px; text-align: center; vertical-align: middle; }
+        
+        .col-item { text-align: ${isArabic ? 'right' : 'left'}; padding: 0 2px; }
+
+        .totals-section { margin-top: 5px; padding-top: 2px; }
+        .total-row { display: flex; justify-content: space-between; margin-bottom: 2px; font-size: 11px; }
+        .grand-total { font-size: 16px; font-weight: bold; margin-top: 5px; border-top: 1px dashed #000; padding-top: 5px; }
+        .footer { text-align: center; margin-top: 10px; font-size: 10px; }
+      </style>
+    </head>
+    <body>
+      <div class="header">
+        <h1>${receiptData.restaurantName}</h1>
+        <p>${receiptData.restaurantAddress}</p>
+        <p>${isArabic ? 'نسخة' : 'Copy'}</p>
+      </div>
+
+      <div class="info-grid">
+        ${isDineIn ? `
+        <div class="info-row">
+          <span class="info-label">${isArabic ? 'الطاولة' : 'Table'}</span>
+          <span class="info-value big-number">${receiptData.table}</span>
+        </div>
+        ` : ''}
+        
+        <div class="info-row">
+          <span class="info-label">${isArabic ? 'نوع الطلب' : 'Order Type'}</span>
+          <span class="info-value">${orderTypeLabel}</span>
+        </div>
+
+        <div class="info-row">
+          <span class="info-label">${isArabic ? 'طريقة الدفع' : 'Payment'}</span>
+          <span class="info-value">${isArabic ? 'نقدي' : 'Cash'}</span>
+        </div>
+
+        <div class="info-row">
+          <span class="info-label">${isArabic ? 'التاريخ' : 'Date'}</span>
+          <span class="info-value" style="direction: ltr;">${receiptData.date}</span>
+        </div>
+
+        <div class="info-row" style="margin-top: 5px;">
+          <span class="info-label">${isArabic ? 'رقم الفاتورة' : 'Invoice #'}</span>
+          <span class="info-value big-number">${receiptData.invoiceNumber}</span>
+        </div>
+      </div>
+
+      <div class="staff-row">
+        <span>${isArabic ? 'الكاشير' : 'Cashier'}: ${receiptData.cashier}</span>
+        <span>${receiptData.waiterName ? (isArabic ? 'الويتر: ' : 'Waiter: ') + receiptData.waiterName : ''}</span>
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 15%">${isArabic ? 'الكمية' : 'Qty'}</th>
+            <th style="width: 45%">${isArabic ? 'الوجبة' : 'Item'}</th>
+            <th style="width: 20%">${isArabic ? 'سعر' : 'Price'}</th>
+            <th style="width: 20%">${isArabic ? 'الاجمالي' : 'Total'}</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${receiptData.items.map(item => {
+            // ** منطق اختيار اللغة للمنتج **
+            const productName = isArabic 
+              ? (item.nameAr || item.name_ar || item.name) 
+              : (item.nameEn || item.name_en || item.name);
+
+            return `
+            <tr>
+              <td><strong>${item.qty}</strong></td>
+              <td class="col-item">${productName}</td>
+              <td>${item.price.toFixed(2)}</td>
+              <td>${item.total.toFixed(2)}</td>
+            </tr>
+          `}).join('')}
+        </tbody>
+      </table>
+
+      <div class="totals-section">
+        <div class="total-row">
+          <span>${isArabic ? 'صافي المبلغ' : 'Subtotal'}</span>
+          <span>${receiptData.subtotal.toFixed(2)}</span>
+        </div>
+        ${receiptData.discount > 0 ? `
+        <div class="total-row">
+          <span>${isArabic ? 'الخصم' : 'Discount'}</span>
+          <span>${receiptData.discount.toFixed(2)}</span>
+        </div>` : ''}
+        <div class="total-row">
+          <span>${isArabic ? 'الضريبة' : 'VAT'}</span>
+          <span>${receiptData.tax.toFixed(2)}</span>
+        </div>
+        <div class="total-row grand-total">
+          <span>${isArabic ? 'الإجمالي' : 'Total'}</span>
+          <span>${receiptData.total.toFixed(2)}</span>
+        </div>
+      </div>
+
+      <div class="footer">
+        ${receiptData.receiptFooter || (isArabic ? 'شكراً لزيارتكم' : 'Thank You')}
+      </div>
+    </body>
+  </html>
+  `;
 };
 // ===================================================================
 // 5. تصميم إيصال المطبخ (مبسط - بدون أسعار)
 // ===================================================================
-const formatKitchenReceipt = (receiptData, kitchenName) => {
-  return `
-  <html>
-    <head>
-      <style>
-        /* [!] الحل 1: لضمان أن البادنج لا يتجاوز عرض الورقة */
-        * {
-          box-sizing: border-box;
-        }
-        body, html { 
-          width: 80mm; 
-          margin: 0; 
-          padding: 3px; /* [!] الحل 2: تقليل البادنج الخارجي */
-          font-family: Tahoma, sans-serif; 
-          font-size: 14px;
-          direction: rtl;
-        }
-        .center { text-align: center; }
-        .right { text-align: right; }
-        .ticket { 
-          width: 100%;
-          /* [!] الحل 3: السماح للكلمات بالانقسام */
-          word-wrap: break-word; 
-          overflow-wrap: break-word;
-        }
-        table { width: 100%; border-collapse: collapse; }
-        th, td { 
-          padding: 4px; /* <-- البادنج القديم */
-          /* [!] الحل 3 (مكرر): لضمان انقسام الكلام داخل الخلية */
-          word-wrap: break-word; 
-          overflow-wrap: break-word;
-        }
-        .line { border-top: 2px solid black; margin: 6px 0; }
-        .bold { font-weight: bold; font-size: 16px; }
-        .item-row { border-bottom: 1px dashed #ccc; }
-        .notes { font-size: 12px; color: #666; font-style: italic; }
-      </style>
-    </head>
-    <body>
-      <div class="ticket">
-        <div class="center bold">
-          ${kitchenName || 'المطبخ'}
-        </div>
-        <div class="line"></div>
-        <div class="right">
-          <strong>رقم الطلب: ${receiptData.invoiceNumber}</strong><br>
-          التاريخ: ${receiptData.date}<br>
-          الطاولة: ${receiptData.table}<br>
-          النوع: ${receiptData.orderType || 'N/A'}
-        </div>
-        <div class="line"></div>
-        <table>
-          <thead>
-            <tr>
-              <th class="right bold">الصنف</th>
-              <th class="center bold">الكمية</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${receiptData.items.map(item => `
-              <tr class="item-row">
-                <td class="right">
-                  <strong>${item.name}</strong>
-                  ${item.notes ? '<br><span class="notes">ملاحظة: ' + item.notes + '</span>' : ''}
-                </td>
-                <td class="center bold">${item.qty}</td>
-              </tr>
-            `).join('')}
-          </tbody>
-        </table>
-        <div class="line"></div>
-        <div class="center">
-          <strong>إجمالي الأصناف: ${receiptData.items.length}</strong>
-        </div>
-      </div>
-    </body>
-  </html>
-  `;
-};
+// productsList: دي الليستا الكاملة للمنتجات اللي فيها (id, name_ar, name_en) اللي انت محملها في التطبيق
+const formatKitchenReceipt = (receiptData, productsList = []) => {
 
+  const isArabic = localStorage.getItem('language') === 'ar';
+  
+  // ... (نفس كود تحديد نوع الطلب والـ Header السابق) ...
+  const storedOrderType = sessionStorage.getItem('order_type') || receiptData.orderType || '';
+  let orderTypeLabel = isArabic ? 'سفري' : 'Takeaway';
+  let displayBigNumber = isArabic ? 'سفري' : 'To Go'; 
+  let isDineIn = false;
+  let tableNumber = receiptData.table;
+  if (tableNumber === 'N/A' || tableNumber === 'null' || tableNumber === null) tableNumber = '';
+
+  if (storedOrderType.toLowerCase() === 'dine_in') {
+    orderTypeLabel = isArabic ? 'صالة' : 'Dine In';
+    displayBigNumber = tableNumber;
+    isDineIn = true;
+  } else if (storedOrderType.toLowerCase() === 'delivery') {
+    orderTypeLabel = isArabic ? 'توصيل' : 'Delivery';
+    displayBigNumber = isArabic ? 'توصيل' : 'Delivery';
+  } else if (storedOrderType.toLowerCase() === 'take_away') {
+    orderTypeLabel = isArabic ? 'تيك أواي' : 'Takeaway';
+    displayBigNumber = isArabic ? 'سفري' : 'Takeaway';
+  }
+  // ... (نهاية جزء الـ Header) ...
+
+  return `
+  <html>
+    <head>
+      <style>
+        /* ... نفس الـ Styles السابقة ... */
+        * { box-sizing: border-box; }
+        body, html { width: 80mm; margin: 0; padding: 2px; font-family: 'Tahoma', sans-serif; font-size: 14px; direction: ${isArabic ? 'rtl' : 'ltr'}; }
+        .header-box { border: 2px solid #000; display: flex; margin-bottom: 10px; }
+        .box-left { width: 55%; border-${isArabic ? 'left' : 'right'}: 2px solid #000; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .box-right { width: 45%; display: flex; flex-direction: column; justify-content: space-between; }
+        .row-label { border-bottom: 1px solid #000; padding: 2px; text-align: center; font-weight: bold; height: 33%; display: flex; align-items: center; justify-content: center; font-size: 12px; }
+        .row-label:last-child { border-bottom: none; }
+        .big-table-num { font-size: ${isDineIn ? '26px' : '20px'}; font-weight: bold; padding: 5px 0; border-bottom: 1px solid #000; width: 100%; text-align: center; }
+        .mid-type { font-size: 16px; font-weight: bold; padding: 2px 0; border-bottom: 1px solid #000; width: 100%; text-align: center; }
+        .inv-num { font-size: 18px; font-weight: bold; padding: 2px 0; width: 100%; text-align: center; }
+        .hall-title { text-align: center; font-weight: bold; font-size: 18px; margin: 5px 0; text-decoration: underline; }
+        table { width: 100%; border-collapse: collapse; border: 2px solid #000; margin-top: 5px; }
+        th { border: 1px solid #000; background-color: #eee; padding: 5px; font-size: 14px; }
+        td { border: 1px solid #000; padding: 5px; font-weight: bold; font-size: 15px; vertical-align: middle; }
+        .td-qty { text-align: center; width: 15%; font-size: 18px; }
+        .td-name { text-align: ${isArabic ? 'right' : 'left'}; width: 65%; }
+        .footer-time { margin-top: 10px; text-align: center; font-size: 12px; }
+        .cashier-name { text-align: ${isArabic ? 'left' : 'right'}; font-size: 12px; margin-top: 5px; }
+      </style>
+    </head>
+    <body>
+      <div class="header-box">
+        <div class="box-left">
+          <div class="big-table-num">${displayBigNumber}</div>
+          <div class="mid-type">${isDineIn ? orderTypeLabel : (receiptData.customerName || orderTypeLabel)}</div>
+          <div class="inv-num">${receiptData.invoiceNumber}</div>
+        </div>
+        <div class="box-right">
+          <div class="row-label">${isDineIn ? (isArabic ? 'طاوله' : 'Table') : (isArabic ? 'نوع الطلب' : 'Type')}</div>
+          <div class="row-label">${isDineIn ? (isArabic ? 'نوع الطلب' : 'Type') : (isArabic ? 'العميل' : 'Client')}</div>
+          <div class="row-label">${isArabic ? 'رقم الفاتورة' : 'Order #'}</div>
+        </div>
+      </div>
+
+      <div class="hall-title">
+        ${orderTypeLabel} ${tableNumber ? '(' + tableNumber + ')' : ''}
+      </div>
+
+      <table>
+        <thead>
+          <tr>
+            <th>${isArabic ? 'الكمية' : 'Qty'}</th>
+            <th>${isArabic ? 'الوجبة' : 'Item'}</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${receiptData.items.map(item => {
+            // ============================================================
+            // الحل السحري هنا: البحث عن المنتج الأصلي باستخدام ID
+            // ============================================================
+            let finalName = item.name; // الافتراضي (انجليزي من الباك اند)
+            
+            if (isArabic && productsList.length > 0) {
+                // البحث عن المنتج في القائمة الكاملة المحملة في التطبيق
+                const originalProduct = productsList.find(p => p.id == item.id);
+                if (originalProduct) {
+                    // محاولة جلب الاسم العربي من المنتج الأصلي
+                    finalName = originalProduct.name_ar || originalProduct.nameAr || originalProduct.ar_name || item.name;
+                }
+            }
+            // ============================================================
+
+            return `
+            <tr>
+              <td class="td-qty">${item.qty}</td>
+              <td class="td-name">
+                ${finalName}
+                ${item.notes ? '<br><span style="font-size:12px; font-weight:normal; font-style:italic;">** ' + item.notes + ' **</span>' : ''}
+              </td>
+            </tr>
+          `}).join('')}
+        </tbody>
+      </table>
+
+      <div class="cashier-name">User: ${receiptData.cashier || 'System'}</div>
+      <div class="footer-time">${receiptData.date}</div>
+    </body>
+  </html>
+  `;
+};  
 // ===================================================================
 // 6. تصميم إيصال الباريستا (للمشروبات)
 // ===================================================================
@@ -307,13 +409,19 @@ const formatBaristaReceipt = (receiptData) => {
           ${receiptData.date}
         </div>
         <div class="line"></div>
-        ${receiptData.items.map(item => `
+        
+        ${receiptData.items.map(item => {
+          // استخدام الاسم العربي إذا توفر
+          const productName = item.nameAr || item.name_ar || item.name;
+          
+          return `
           <div class="drink">
-            <strong>${item.name}</strong><br>
+            <strong>${productName}</strong><br>
             الكمية: <strong>${item.qty}</strong>
             ${item.notes ? '<br>ملاحظة: ' + item.notes : ''}
           </div>
-        `).join('')}
+        `}).join('')}
+
         <div class="line"></div>
         <div class="center">الطاولة: <strong>${receiptData.table}</strong></div>
       </div>
@@ -321,7 +429,6 @@ const formatBaristaReceipt = (receiptData) => {
   </html>
   `;
 };
-
 // ===================================================================
 // 7. اختيار التصميم حسب نوع الطابعة
 // ===================================================================
