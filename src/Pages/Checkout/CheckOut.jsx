@@ -324,26 +324,26 @@ const CheckOut = ({
     if (hasDealItems) {
       payload = buildDealPayload(orderItems, financialsPayload);
     } else {
-      payload = buildOrderPayload({
-        orderType,
-        orderItems,
-        amountToPay: requiredTotal,
-        totalTax,
-        totalDiscount: appliedDiscount > 0
-          ? amountToPay * (appliedDiscount / 100)
-          : discountData.module.includes(orderType)
-            ? amountToPay * (discountData.discount / 100)
-            : totalDiscount,
-        notes: orderNotes.trim() || "No special instructions",
-        source,
-        financialsPayload,
-        cashierId,
-        tableId,
-        customerPaid,
-        discountCode: appliedDiscount > 0 ? discountCode : undefined,
-        due,
-        customer_id,
-      });
+payload = buildOrderPayload({
+  orderType,
+  orderItems,
+  amountToPay: requiredTotal,
+  totalTax,
+  totalDiscount: appliedDiscount > 0
+    ? amountToPay * (appliedDiscount / 100)
+    : discountData.module.includes(orderType)
+      ? amountToPay * (discountData.discount / 100)
+      : totalDiscount,
+  notes: orderNotes.trim() || "No special instructions",
+  source,
+  financialsPayload,
+  cashierId,
+  tableId,
+  customerPaid,
+  discountCode: appliedDiscount > 0 ? discountCode : undefined,
+  due: due,           // ← مهم جدًا: مرر قيمة due (0 أو 1)
+  customer_id: customer_id,  // ← لو في عميل آجل
+});
     }
 
     try {

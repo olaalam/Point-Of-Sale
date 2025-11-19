@@ -122,7 +122,17 @@ const formatCashierReceipt = (receiptData) => {
   } else if (storedOrderType.toLowerCase() === 'take_away') {
     orderTypeLabel = isArabic ? 'تيك أواي' : 'Takeaway';
   }
-
+let paymentRowsHTML = '';
+  
+  if (receiptData.financials && receiptData.financials.length > 0) {
+    // لو فيه بيانات دفع راجعة من الباك، نعرض كل وسيلة والمبلغ بتاعها
+    paymentRowsHTML = receiptData.financials.map(fin => `
+      <div class="info-row">
+        <span class="info-label">${fin.name}</span>
+        <span class="info-value">${Number(fin.amount).toFixed(2)}</span>
+      </div>
+    `).join('');
+  }
   return `
   <html>
     <head>
@@ -186,11 +196,8 @@ const formatCashierReceipt = (receiptData) => {
           <span class="info-label">${isArabic ? 'نوع الطلب' : 'Order Type'}</span>
           <span class="info-value">${orderTypeLabel}</span>
         </div>
+${paymentRowsHTML}
 
-        <div class="info-row">
-          <span class="info-label">${isArabic ? 'طريقة الدفع' : 'Payment'}</span>
-          <span class="info-value">${isArabic ? 'نقدي' : 'Cash'}</span>
-        </div>
 
         <div class="info-row">
           <span class="info-label">${isArabic ? 'التاريخ' : 'Date'}</span>
@@ -447,66 +454,75 @@ const getReceiptHTML = (receiptData, printerConfig) => {
 };
 
 // ===================================================================
-// 8. تهيئة بيانات الإيصال
+// 8. تهيئة بيانات الإيصال (تم التعديل لجلب المنتجات من success)
 // ===================================================================
 export const prepareReceiptData = (
-  orderItems,
-  amountToPay,        // ده حالياً = إجمالي الأصناف بعد الخصم وقبل الضريبة
-  totalTax,
-  totalDiscount,      // إجمالي قيمة الخصم الفعلية (بالجنيه مش بالنسبة)
-  appliedDiscount,
-  discountData,
-  orderType,
-  requiredTotal,      // الإجمالي النهائي بعد الضريبة
-  responseSuccess,
-  response
+    orderItems, // القيمة القديمة من الفرونت (لن نعتمد عليها كأولوية)
+    amountToPay,
+    totalTax,
+    totalDiscount,
+    appliedDiscount,
+    discountData,
+    orderType,
+    requiredTotal,
+    responseSuccess,
+    response // المصدر الرئيسي
 ) => {
+    const finalDiscountValue = appliedDiscount > 0
+      ? amountToPay * (appliedDiscount / 100)
+      : discountData.module.includes(orderType)
+        ? amountToPay * (discountData.discount / 100)
+        : totalDiscount;
 
-  // 1. حساب الإجمالي الخام قبل أي خصم (Sum of price × qty)
-  const rawSubtotal = orderItems.reduce((sum, item) => {
-    return sum + (item.price * item.count);
-  }, 0);
+    // [تعديل جوهري]: تحديد مصدر المنتجات
+    // نأخذ البيانات من response.success لأن الاسم فيها عربي (من الباك إند)
+    // إذا لم نجدها نعود لاستخدام orderItems كاحتياطي
+    const itemsSource = (response && response.success && response.success.length > 0) 
+                        ? response.success 
+                        : orderItems;
 
-  // 2. قيمة الخصم الفعلية (بالجنيه)
-  const finalDiscountValue = totalDiscount; 
-  // لو عايز تحتسبها من النسبة تاني ممكن تسيب المنطق القديم، لكن أسهل إنك تبعتها جاهزة من الباك
+    return {
+      invoiceNumber: response?.order_number || "N/A",
+      cashier: response?.caheir_name || sessionStorage.getItem("cashier_name") || "Cashier",
+      date: response?.date 
+            ? new Date(response.date).toLocaleString("en-EG", {
+                year: 'numeric', month: 'numeric', day: 'numeric',
+                hour: '2-digit', minute: '2-digit', hour12: false
+              })
+            : new Date().toLocaleString("ar-EG"),
+      table: sessionStorage.getItem("table_id") || "N/A",
+      
+      // الاعتماد على النوع من الباك إند
+      orderType: response?.type || orderType, 
+      
+      // الاعتماد على المدفوعات من الباك إند
+      financials: response?.financials || [], 
 
-  // 3. المبلغ بعد الخصم وقبل الضريبة
-  const netAmount = rawSubtotal - finalDiscountValue;
+      // [تعديل]: عمل map على المصدر الصحيح (itemsSource)
+      items: itemsSource.map(item => ({
+        // لاحظ أن الباك إند يرجع count كـ string أحياناً، فنضمن تحويله
+        qty: item.count, 
+        // الاسم سيأتي الآن "سندوتش شاورما دجاج" كما في الـ success array
+        name: item.name, 
+        // ضمان أن السعر رقم
+        price: Number(item.price), 
+        // ضمان أن الإجمالي رقم
+        total: Number(item.total || (item.price * item.count)), 
+        notes: item.notes || "",
+        // الحفاظ على category_id إذا كان موجوداً للطابعات الأخرى
+        category_id: item.category_id || item.product?.category_id 
+      })),
 
-  return {
-    invoiceNumber: response?.order_number || "N/A",
-    cashier: sessionStorage.getItem("cashier_name") || "Cashier",
-    date: new Date().toLocaleString("ar-EG", {
-      year: 'numeric', month: 'numeric', day: 'numeric',
-      hour: '2-digit', minute: '2-digit', hour12: false
-    }),
-    table: sessionStorage.getItem("table_id") || "N/A",
-    orderType: orderType,
-    items: orderItems.map(item => ({
-      qty: item.count,
-      name: item.name,
-      nameAr: item.name_ar || item.nameAr,     // مهم للعرض بالعربي
-      nameEn: item.name_en || item.nameEn,
-      price: item.price,
-      total: item.price * item.count,
-      notes: item.notes || "",
-      category_id: item.category_id || item.product?.category_id
-    })),
-    
-    // الجديد الصحيح
-    rawSubtotal: rawSubtotal.toFixed(2),        // إجمالي الأصناف قبل الخصم والضريبة
-    subtotal: netAmount.toFixed(2),             // بعد الخصم وقبل الضريبة ← ده اللي هيظهر كـ "Subtotal"
-    discount: finalDiscountValue.toFixed(2),
-    tax: totalTax.toFixed(2),
-    total: requiredTotal.toFixed(2),
-
-    restaurantName: sessionStorage.getItem("resturant_name") || "اسم المطعم",
-    restaurantAddress: sessionStorage.getItem("restaurant_address") || "العنوان",
-    receiptFooter: sessionStorage.getItem("receipt_footer") || "شكراً لزيارتكم"
-  };
+      subtotal: amountToPay,
+      discount: finalDiscountValue,
+      tax: totalTax,
+      total: requiredTotal,
+      restaurantName: sessionStorage.getItem("resturant_name") || "اسم المطعم",
+      restaurantAddress: response?.address || sessionStorage.getItem("restaurant_address") || "العنوان",
+      restaurantPhone: sessionStorage.getItem("restaurant_phone") || "",
+      receiptFooter: sessionStorage.getItem("receipt_footer") || "شكراً لزيارتكم"
+    };
 };
-
 // ===================================================================
 // 9. الدالة الرئيسية للطباعة (تم تعديلها لجلب الطابعة الافتراضية)
 // ===================================================================
