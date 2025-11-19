@@ -1,8 +1,38 @@
-// ItemRow.jsx - ✅ Fixed: Now uses item.price (with addons) instead of originalPrice
+// ItemRow.jsx - تم إصلاح مشكلة عدم احتساب Addons في Dine-in
 import { toast } from "react-toastify";
 import { PREPARATION_STATUSES } from "./constants";
 import { Trash2, FileText } from "lucide-react";
 import ProductDetailModalWrapper from "./ProductDetailModalWrapper";
+
+// دالة لحساب السعر مع الإضافات (Addons + Extras) - خاصة بـ Dine-in
+const calculatePriceWithAddons = (item) => {
+  let basePrice = Number(item.originalPrice || item.price || 0);
+
+  let addonsTotal = 0;
+
+  // حساب الـ Addons
+  if (item.addons && Array.isArray(item.addons)) {
+    item.addons.forEach((addonGroup) => {
+      if (addonGroup.options && Array.isArray(addonGroup.options)) {
+        addonGroup.options.forEach((option) => {
+          if (option.selected || option.quantity > 0) {
+            const qty = option.quantity || 1;
+            addonsTotal += Number(option.price || 0) * qty;
+          }
+        });
+      }
+    });
+  }
+
+  // حساب الـ Extras (لو موجودة بنفس الطريقة)
+  if (item.extras && Array.isArray(item.extras)) {
+    item.extras.forEach((extra) => {
+      addonsTotal += Number(extra.price || 0) * (extra.quantity || 1);
+    });
+  }
+
+  return basePrice + addonsTotal;
+};
 
 const ItemRow = ({
   item,
@@ -31,16 +61,29 @@ const ItemRow = ({
 
   if (!item) return null;
 
-  // ✅ استخدام item.price (السعر الفعلي بعد الإضافات)
-  const safePrice = Number(item.price) || 0;
-  
-  // السعر الأصلي (قبل الإضافات) للاستخدام في عرض الخصم فقط
-  const safeOriginalPrice = Number(item.originalPrice) || 0;
+  // الحل السحري: نحسب السعر الصحيح في Dine-in بنفسنا
+  const finalUnitPrice = orderType === "dine_in"
+    ? calculatePriceWithAddons(item)  // نحسب Addons يدويًا
+    : Number(item.price) || 0;        // في Takeaway/Delivery السعر جاي مظبوط أصلًا
 
-  // ✅ For weight products: quantity is weight (e.g., 0.75 kg)
+  const safePrice = Number(finalUnitPrice.toFixed(2));
+  const safeOriginalPrice = Number(item.originalPrice || item.price || 0).toFixed(2);
+
+  // للمنتجات بالوزن (مثل اللحوم)
   const displayQuantity = item.weight_status === 1 
     ? `${item.count} kg` 
     : item.count;
+
+  // الكمية المستخدمة في الحساب (weight أو count)
+  const quantityForCalc = item.weight_status === 1 
+    ? Number(item.quantity || item.count || 1)
+    : Number(item.count || 1);
+
+  // إجمالي السعر بعد الكمية
+  const totalPrice = (safePrice * quantityForCalc).toFixed(2);
+  const totalOriginalPrice = hasDiscount 
+    ? (Number(safeOriginalPrice) * quantityForCalc).toFixed(2)
+    : null;
 
   return (
     <tr className={`border-b last:border-b-0 hover:bg-gray-50 ${item.type === "addon" ? "bg-blue-50" : ""} ${selectedPaymentItems.includes(item.temp_id) ? "bg-green-50" : ""}`}>
@@ -92,7 +135,7 @@ const ItemRow = ({
         </ProductDetailModalWrapper>
       </td>
 
-      {/* Price per Unit - ✅ Now shows item.price (with addons) */}
+      {/* Price per Unit - الآن مظبوط في Dine-in و Takeaway */}
       <td className="py-3 px-4 text-center align-top">
         <div>
           <span className={hasDiscount ? "text-green-600 font-semibold" : "font-medium"}>
@@ -101,11 +144,10 @@ const ItemRow = ({
           {hasDiscount && (
             <div>
               <span className="text-xs text-gray-500 line-through">
-                {safeOriginalPrice.toFixed(2)}
+                {safeOriginalPrice}
               </span>
             </div>
           )}
-          {/* Tax Info */}
           {item.tax_obj && (
             <div className="text-xs text-blue-600 mt-1">
               {item.taxes === "excluded" ? "Tax Excluded" : "Tax Included"}
@@ -115,7 +157,7 @@ const ItemRow = ({
         </div>
       </td>
 
-      {/* Quantity - with weight support */}
+      {/* Quantity */}
       <td className="py-3 px-4 text-center align-top">
         {item.weight_status === 1 ? (
           <div className="flex items-center justify-center gap-1">
@@ -184,7 +226,7 @@ const ItemRow = ({
         )}
       </td>
 
-      {/* Preparation Status (dine_in) */}
+      {/* Preparation Status */}
       {orderType === "dine_in" && (
         <td className="py-3 px-4 text-center align-top">
           <div className="flex items-center justify-center gap-2">
@@ -210,7 +252,7 @@ const ItemRow = ({
         </td>
       )}
 
-      {/* Payment Selection (dine_in) */}
+      {/* Payment Selection */}
       {orderType === "dine_in" && (
         <td className="py-3 px-4 text-center align-top">
           {isDoneItem && (
@@ -223,23 +265,18 @@ const ItemRow = ({
           )}
         </td>
       )}
-{/* Total - Calculate dynamically based on current quantity */}
-<td className="py-3 px-4 text-center align-top">
-  <span className="font-semibold">
-    {item.weight_status === 1
-      ? (safePrice * Number(item.quantity || 0)).toFixed(2)
-      : (safePrice * Number(item.count || 0)).toFixed(2)
-    }
-  </span>
-  {hasDiscount && (
-    <div className="text-xs text-gray-500 line-through">
-      {item.weight_status === 1
-        ? (Number(item.quantity) * safeOriginalPrice).toFixed(2)
-        : (safeOriginalPrice * item.count).toFixed(2)
-      }
-    </div>
-  )}
-</td>
+
+      {/* Total - الآن مظبوط تمامًا في Dine-in */}
+      <td className="py-3 px-4 text-center align-top">
+        <span className="font-semibold">
+          {totalPrice}
+        </span>
+        {hasDiscount && totalOriginalPrice && (
+          <div className="text-xs text-gray-500 line-through">
+            {totalOriginalPrice}
+          </div>
+        )}
+      </td>
 
       {/* Delete Item */}
       <td className="py-3 px-4 text-center align-top">

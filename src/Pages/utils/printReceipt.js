@@ -172,7 +172,6 @@ const formatCashierReceipt = (receiptData) => {
       <div class="header">
         <h1>${receiptData.restaurantName}</h1>
         <p>${receiptData.restaurantAddress}</p>
-        <p>${isArabic ? 'نسخة' : 'Copy'}</p>
       </div>
 
       <div class="info-grid">
@@ -236,25 +235,28 @@ const formatCashierReceipt = (receiptData) => {
         </tbody>
       </table>
 
-      <div class="totals-section">
-        <div class="total-row">
-          <span>${isArabic ? 'صافي المبلغ' : 'Subtotal'}</span>
-          <span>${receiptData.subtotal.toFixed(2)}</span>
-        </div>
-        ${receiptData.discount > 0 ? `
-        <div class="total-row">
-          <span>${isArabic ? 'الخصم' : 'Discount'}</span>
-          <span>${receiptData.discount.toFixed(2)}</span>
-        </div>` : ''}
-        <div class="total-row">
-          <span>${isArabic ? 'الضريبة' : 'VAT'}</span>
-          <span>${receiptData.tax.toFixed(2)}</span>
-        </div>
-        <div class="total-row grand-total">
-          <span>${isArabic ? 'الإجمالي' : 'Total'}</span>
-          <span>${receiptData.total.toFixed(2)}</span>
-        </div>
-      </div>
+<div class="totals-section">
+  <div class="total-row">
+    <span>${isArabic ? 'المبلغ قبل الضريبة' : 'Subtotal'}</span>
+    <span>${receiptData.subtotal}</span>
+  </div>
+
+  ${receiptData.discount > 0 ? `
+  <div class="total-row">
+    <span>${isArabic ? 'الخصم' : 'Discount'}</span>
+    <span>- ${receiptData.discount}</span>
+  </div>` : ''}
+
+  <div class="total-row">
+    <span>${isArabic ? 'الضريبة (15%)' : 'VAT (15%)'}</span>
+    <span>${receiptData.tax}</span>
+  </div>
+
+  <div class="total-row grand-total">
+    <span>${isArabic ? 'الإجمالي الكلي' : 'Grand Total'}</span>
+    <span>${receiptData.total}</span>
+  </div>
+</div>
 
       <div class="footer">
         ${receiptData.receiptFooter || (isArabic ? 'شكراً لزيارتكم' : 'Thank You')}
@@ -449,21 +451,28 @@ const getReceiptHTML = (receiptData, printerConfig) => {
 // ===================================================================
 export const prepareReceiptData = (
   orderItems,
-  amountToPay,
+  amountToPay,        // ده حالياً = إجمالي الأصناف بعد الخصم وقبل الضريبة
   totalTax,
-  totalDiscount,
+  totalDiscount,      // إجمالي قيمة الخصم الفعلية (بالجنيه مش بالنسبة)
   appliedDiscount,
   discountData,
   orderType,
-  requiredTotal,
+  requiredTotal,      // الإجمالي النهائي بعد الضريبة
   responseSuccess,
   response
 ) => {
-  const finalDiscountValue = appliedDiscount > 0
-    ? amountToPay * (appliedDiscount / 100)
-    : discountData.module.includes(orderType)
-      ? amountToPay * (discountData.discount / 100)
-      : totalDiscount;
+
+  // 1. حساب الإجمالي الخام قبل أي خصم (Sum of price × qty)
+  const rawSubtotal = orderItems.reduce((sum, item) => {
+    return sum + (item.price * item.count);
+  }, 0);
+
+  // 2. قيمة الخصم الفعلية (بالجنيه)
+  const finalDiscountValue = totalDiscount; 
+  // لو عايز تحتسبها من النسبة تاني ممكن تسيب المنطق القديم، لكن أسهل إنك تبعتها جاهزة من الباك
+
+  // 3. المبلغ بعد الخصم وقبل الضريبة
+  const netAmount = rawSubtotal - finalDiscountValue;
 
   return {
     invoiceNumber: response?.order_number || "N/A",
@@ -477,18 +486,23 @@ export const prepareReceiptData = (
     items: orderItems.map(item => ({
       qty: item.count,
       name: item.name,
+      nameAr: item.name_ar || item.nameAr,     // مهم للعرض بالعربي
+      nameEn: item.name_en || item.nameEn,
       price: item.price,
       total: item.price * item.count,
       notes: item.notes || "",
       category_id: item.category_id || item.product?.category_id
     })),
-    subtotal: amountToPay,
-    discount: finalDiscountValue,
-    tax: totalTax,
-    total: requiredTotal,
+    
+    // الجديد الصحيح
+    rawSubtotal: rawSubtotal.toFixed(2),        // إجمالي الأصناف قبل الخصم والضريبة
+    subtotal: netAmount.toFixed(2),             // بعد الخصم وقبل الضريبة ← ده اللي هيظهر كـ "Subtotal"
+    discount: finalDiscountValue.toFixed(2),
+    tax: totalTax.toFixed(2),
+    total: requiredTotal.toFixed(2),
+
     restaurantName: sessionStorage.getItem("resturant_name") || "اسم المطعم",
     restaurantAddress: sessionStorage.getItem("restaurant_address") || "العنوان",
-    restaurantPhone: sessionStorage.getItem("restaurant_phone") || "التليفون",
     receiptFooter: sessionStorage.getItem("receipt_footer") || "شكراً لزيارتكم"
   };
 };
@@ -497,103 +511,103 @@ export const prepareReceiptData = (
 // 9. الدالة الرئيسية للطباعة (تم تعديلها لجلب الطابعة الافتراضية)
 // ===================================================================
 export const printReceiptSilently = async (receiptData, apiResponse, callback) => {
-  try {
-    const isConnected = qz.websocket.isActive();
-    if (!isConnected) {
-      toast.error("❌ QZ Tray is not connected.");
-      callback();
-      return;
-    }
+ try {
+  const isConnected = qz.websocket.isActive();
+  if (!isConnected) {
+   toast.error("❌ QZ Tray is not connected.");
+   callback();
+   return;
+  }
 
-    const printJobs = [];
-    let cashierPrinterName; // <-- متغير عشان نشيل فيه اسم الطابعة
+  const printJobs = [];
+  let cashierPrinterName; // <-- متغير عشان نشيل فيه اسم الطابعة
 
-    // --- 1. طباعة إيصال الكاشير (ديناميكي على الطابعة الافتراضية) ---
-    try {
-      // [!] التعديل الجديد: جلب الطابعة الافتراضية من QZ
-      cashierPrinterName = await qz.printers.getDefault();
-      
-      if (!cashierPrinterName) {
-        throw new Error("No default printer found.");
-      }
+  // --- 1. طباعة إيصال الكاشير (ديناميكي على الطابعة الافتراضية) ---
+  try {
+   // [!] التعديل الجديد: جلب الطابعة الافتراضية من QZ
+   cashierPrinterName = await qz.printers.getDefault();
+   
+   if (!cashierPrinterName) {
+    throw new Error("No default printer found.");
+   }
 
-      console.log(`✅ Default cashier printer found: ${cashierPrinterName}`);
+   console.log(`✅ Default cashier printer found: ${cashierPrinterName}`);
 
-      // إعداد تصميم إيصال الكاشير
-      const cashierDesignConfig = { design: "full", type: "cashier" };
-      const cashierHtml = getReceiptHTML(receiptData, cashierDesignConfig);
-      const cashierConfig = qz.configs.create(cashierPrinterName); // <-- استخدام الاسم الديناميكي
-      const cashierData = [{ type: "html", format: "plain", data: cashierHtml }];
-      
-      printJobs.push(
-        qz.print(cashierConfig, cashierData).catch(err => {
-          console.error(`Error printing to ${cashierPrinterName}:`, err); // <-- استخدام الاسم الديناميكي
-          toast.error(`فشل الطباعة على طابعة الكاشير: ${cashierPrinterName}`); // <-- استخدام الاسم الديناميكي
-          return null; 
-        })
-      );
+   // إعداد تصميم إيصال الكاشير
+   const cashierDesignConfig = { design: "full", type: "cashier" };
+   const cashierHtml = getReceiptHTML(receiptData, cashierDesignConfig);
+   const cashierConfig = qz.configs.create(cashierPrinterName); // <-- استخدام الاسم الديناميكي
+   const cashierData = [{ type: "html", format: "plain", data: cashierHtml }];
+   
+   printJobs.push(
+    qz.print(cashierConfig, cashierData).catch(err => {
+     console.error(`Error printing to ${cashierPrinterName}:`, err); // <-- استخدام الاسم الديناميكي
+     toast.error(`فشل الطباعة على طابعة الكاشير: ${cashierPrinterName}`); // <-- استخدام الاسم الديناميكي
+     return null; 
+    })
+   );
 
-    } catch (err) {
-      console.error("Failed to get or print to default printer:", err);
-      toast.error(err.message || "فشل تحديد طابعة الكاشير الافتراضية");
-      // مش هنوقف، هنكمل طباعة المطبخ عادي
-    }
+  } catch (err) {
+   console.error("Failed to get or print to default printer:", err);
+   toast.error(err.message || "فشل تحديد طابعة الكاشير الافتراضية");
+   // مش هنوقف، هنكمل طباعة المطبخ عادي
+  }
 
-    // --- 2. طباعة إيصالات المطبخ (من الـ response الديناميكي) ---
-    const kitchens = apiResponse?.kitchen_items || [];
-    
-    for (const kitchen of kitchens) {
-      const itemsToPrint = kitchen.order || [];
-      const printerName = kitchen.print_name;
-      
-      if (!printerName || kitchen.print_status !== 1 || itemsToPrint.length === 0) {
-        console.log(`⏭️ Skipping kitchen: ${kitchen.name} (No items or printer offline/not set)`);
-        continue;
-      }
+  // --- 2. طباعة إيصالات المطبخ (من الـ response الديناميكي) ---
+  const kitchens = apiResponse?.kitchen_items || [];
+  
+  for (const kitchen of kitchens) {
+   const itemsToPrint = kitchen.order || [];
+   const printerName = kitchen.print_name;
+   
+   if (!printerName || kitchen.print_status !== 1 || itemsToPrint.length === 0) {
+    console.log(`⏭️ Skipping kitchen: ${kitchen.name} (No items or printer offline/not set)`);
+    continue;
+   }
 
-      const formattedKitchenItems = itemsToPrint.map(item => ({
-        qty: item.count || "1",
-        name: item.name,
-        price: 0,
-        total: 0,
-        notes: item.notes || "",
-        category_id: item.category_id
-      }));
+   const formattedKitchenItems = itemsToPrint.map(item => ({
+    qty: item.count || "1",
+    name: item.name,
+    price: 0,
+    total: 0,
+    notes: item.notes || "",
+    category_id: item.category_id
+   }));
 
-      const kitchenReceiptData = {
-        ...receiptData,
-        items: formattedKitchenItems
-      };
+   const kitchenReceiptData = {
+    ...receiptData,
+    items: formattedKitchenItems
+   };
 
-      const kitchenDesignConfig = { 
-        design: "kitchen", 
-        type: kitchen.name
-      };
-      const kitchenHtml = getReceiptHTML(kitchenReceiptData, kitchenDesignConfig);
-      
-      const dataToPrint = [{ type: "html", format: "plain", data: kitchenHtml }];
-      const config = qz.configs.create(printerName);
+   const kitchenDesignConfig = { 
+    design: "kitchen", 
+    type: kitchen.name
+   };
+   const kitchenHtml = getReceiptHTML(kitchenReceiptData, kitchenDesignConfig);
+   
+   const dataToPrint = [{ type: "html", format: "plain", data: kitchenHtml }];
+   const config = qz.configs.create(printerName);
 
-      printJobs.push(
-        qz.print(config, dataToPrint).catch(err => {
-          console.error(`Error printing to ${printerName}:`, err);
-          toast.error(`فشل الطباعة على طابعة المطبخ: ${printerName}`);
-          return null; 
-        })
-      );
-    }
+   printJobs.push(
+    qz.print(config, dataToPrint).catch(err => {
+     console.error(`Error printing to ${printerName}:`, err);
+     toast.error(`فشل الطباعة على طابعة المطبخ: ${printerName}`);
+     return null; 
+    })
+   );
+  }
 
-    // الانتظار حتى تنتهي كل الطابعات
-    await Promise.all(printJobs);
+  // الانتظار حتى تنتهي كل الطابعات
+  await Promise.all(printJobs);
 
-    toast.success("✅ تم إرسال أوامر الطباعة!");
-    callback();
+  toast.success("✅ تم إرسال أوامر الطباعة!");
+  callback();
 
-  } catch (err) {
-    console.error("QZ Tray Printing Error:", err);
-    toast.error("❌ فشلت الطباعة: " + (err.message || "تحقق من QZ Tray"));
-    callback();
-  }
+ } catch (err) {
+  console.error("QZ Tray Printing Error:", err);
+  toast.error("❌ فشلت الطباعة: " + (err.message || "تحقق من QZ Tray"));
+  callback();
+ }
 };
 // ===================================================================
 // 10. دالة إضافة طابعة جديدة ديناميكيًا
