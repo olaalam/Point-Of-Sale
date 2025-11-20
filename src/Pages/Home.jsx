@@ -90,8 +90,10 @@ export default function Home() {
 
     try {
       const branch_id = sessionStorage.getItem("branch_id") || "4";
-      const response = await postData(`cashier/discount_module?branch_id=${branch_id}`);
-      console.log("Discount API Response:", response);
+const response = await postData("cashier/discount_module", {
+      branch_id: branch_id,
+      type: "web", // هنا بنبعت type: web زي ما عاوزة
+    });      console.log("Discount API Response:", response);
       const discountData = {
         discount: response?.discount || 0,
         module: response?.module || [],

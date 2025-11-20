@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { usePost } from "@/Hooks/usePost";
-import { toast } from "react-toastify";
+import { toast,ToastContainer } from "react-toastify";
 import SummaryRow from "./SummaryRow";
 import ItemRow from "./ItemRow";
 import VoidItemModal from "./VoidItemModal";
@@ -375,11 +375,11 @@ export default function Card({
         });
         setShowDealModal(false);
       } else {
-        toast.error(t("Unexpectedresponsefromserverorinvaliddeal"));
+        toast.error(t("Unexpectedresponsefromserverorinvaliddeal",response.data.faild));
       }
     } catch (err) {
       const errorMessage =
-        err.response?.data?.message ||
+        err.response?.data?.faild ||
         err.response?.data?.exception ||
         t("FailedtoapplydealPleasetryagain");
       toast.error(errorMessage);
@@ -1400,6 +1400,7 @@ export default function Card({
           </div>
         </div>
       )}
+      <ToastContainer/>
     </div>
   );
 }
