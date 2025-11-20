@@ -46,6 +46,10 @@ export default function Card({
   const [showClearAllConfirm, setShowClearAllConfirm] = useState(false);
   const { t, i18n } = useTranslation();
   const isArabic = i18n.language === "ar";
+  // جديد: مودال تأكيد مسح الكل مع مدير في dine_in
+  const [showClearAllManagerModal, setShowClearAllManagerModal] = useState(false);
+  const [clearAllManagerId, setClearAllManagerId] = useState("");
+  const [clearAllManagerPassword, setClearAllManagerPassword] = useState("");
 
   // Offers States
   const [showOfferModal, setShowOfferModal] = useState(false);
@@ -67,28 +71,27 @@ export default function Card({
     return orderItems.map((item) => item.cart_id).filter(Boolean);
   }, [orderItems]);
 
-  // ✅ Memoize subtotal, tax, and total with correct weight calculation
-const { subTotal, totalTax, totalOtherCharge, totalAmountDisplay, taxDetails } =
-  useMemo(() => {
-    const calculatedSubTotal = Array.isArray(orderItems)
-      ? orderItems.reduce((acc, item) => {
-          // ✅ استخدم item.price فقط (السعر النهائي بعد كل الإضافات)
-          const price = Number(item.price ?? 0);
+  // Memoize subtotal, tax, and total with correct weight calculation
+  const { subTotal, totalTax, totalOtherCharge, totalAmountDisplay, taxDetails } =
+    useMemo(() => {
+      const calculatedSubTotal = Array.isArray(orderItems)
+        ? orderItems.reduce((acc, item) => {
+            const price = Number(item.price ?? 0);
 
-          const qty = item.weight_status === 1
-            ? Number(item.quantity ?? 1)
-            : Number(item.count ?? 1);
+            const qty = item.weight_status === 1
+              ? Number(item.quantity ?? 1)
+              : Number(item.count ?? 1);
 
-          console.log("SubTotal calc:", { 
-            name: item.name, 
-            price, 
-            qty, 
-            total: price * qty 
-          });
+            console.log("SubTotal calc:", { 
+              name: item.name, 
+              price, 
+              qty, 
+              total: price * qty 
+            });
 
-          return acc + (price * qty);
-        }, 0)
-      : 0;
+            return acc + (price * qty);
+          }, 0)
+        : 0;
       let calculatedTax = 0;
       const taxInfo = {};
 
@@ -132,25 +135,25 @@ const { subTotal, totalTax, totalOtherCharge, totalAmountDisplay, taxDetails } =
       : [];
   }, [orderItems]);
 
-  // ✅ Memoize checkout items and amountToPay with weight support
+  // Memoize checkout items and amountToPay with weight support
   const { checkoutItems, amountToPay } = useMemo(() => {
     if (orderType === "dine_in") {
       const itemsToPayFor = doneItems.filter((item) =>
         selectedPaymentItems.includes(item.temp_id)
       );
 
-const selectedSubTotal = itemsToPayFor.reduce((acc, item) => {
-  const price = Number(
-    item.itemPrice ?? 
-    item.itemTotal ?? 
-    item.price_after_discount ?? 
-    item.price ?? 0
-  );
-  const qty = item.weight_status === 1
-    ? Number(item.quantity ?? 1)
-    : Number(item.count ?? 1);
-  return acc + price * qty;
-}, 0);
+      const selectedSubTotal = itemsToPayFor.reduce((acc, item) => {
+        const price = Number(
+          item.itemPrice ?? 
+          item.itemTotal ?? 
+          item.price_after_discount ?? 
+          item.price ?? 0
+        );
+        const qty = item.weight_status === 1
+          ? Number(item.quantity ?? 1)
+          : Number(item.count ?? 1);
+        return acc + price * qty;
+      }, 0);
 
       const selectedTax = itemsToPayFor.reduce((acc, item) => {
         const taxPerUnit = Number(item.tax_val ?? 0);
@@ -726,12 +729,18 @@ const selectedSubTotal = itemsToPayFor.reduce((acc, item) => {
     toast.success(t("Itemremovedsuccessfully"));
   };
 
+  // تعديل: Clear All Items في dine_in يطلب مدير
   const handleClearAllItems = () => {
     if (orderItems.length === 0) {
       toast.warning(t("Noitemstoclear"));
       return;
     }
-    setShowClearAllConfirm(true);
+
+    if (orderType === "dine_in") {
+      setShowClearAllManagerModal(true);
+    } else {
+      setShowClearAllConfirm(true);
+    }
   };
 
   const confirmClearAllItems = () => {
@@ -739,72 +748,122 @@ const selectedSubTotal = itemsToPayFor.reduce((acc, item) => {
     setShowClearAllConfirm(false);
   };
 
+  // جديد: تأكيد مسح الكل مع مدير في dine_in
+  const confirmClearAllWithManager = async () => {
+    if (!clearAllManagerId || !clearAllManagerPassword) {
+      toast.error(t("PleasefillinallrequiredfieldsManagerIDandPassword"));
+      return;
+    }
+
+    const allValidCartIds = orderItems
+      .flatMap(item => {
+        if (Array.isArray(item.cart_id)) return item.cart_id;
+        if (typeof item.cart_id === "string") return item.cart_id.split(",").map(id => id.trim());
+        if (item.cart_id) return [item.cart_id.toString()];
+        return [];
+      })
+      .filter(Boolean);
+
+    if (allValidCartIds.length === 0) {
+      toast.error(t("Noitemswithcartidtovoid"));
+      return;
+    }
+
+    const formData = new FormData();
+    allValidCartIds.forEach(id => formData.append("cart_ids[]", id));
+    formData.append("manager_id", clearAllManagerId);
+    formData.append("manager_password", clearAllManagerPassword);
+    formData.append("table_id", tableId.toString());
+
+    try {
+      setItemLoadingStates(prev => ({ ...prev, clearAll: true }));
+      await postData("cashier/order_void", formData);
+      clearCart();
+      toast.success(t("Allitemsvoidedsuccessfully"));
+      setShowClearAllManagerModal(false);
+      setClearAllManagerId("");
+      setClearAllManagerPassword("");
+    } catch (err) {
+      let errorMessage = t("Failedtovoidallitems");
+      if (err.response?.status === 401 || err.response?.status === 403) {
+        errorMessage = t("InvalidManagerIDorPasswordAccessdenied");
+      } else if (err.response?.data?.message) {
+        errorMessage = err.response.data.message;
+      }
+      toast.error(errorMessage);
+    } finally {
+      setItemLoadingStates(prev => ({ ...prev, clearAll: false }));
+    }
+  };
+
   const handleViewOrders = () => navigate("/orders");
   const handleViewPendingOrders = () => navigate("/pending-orders");
 
   const onAddFromModal = (product, options = {}) => {
-  const { checkDuplicate = false, mergeWeight = false } = options;
-  let updatedItems = [...orderItems];
+    const { checkDuplicate = false, mergeWeight = false } = options;
+    let updatedItems = [...orderItems];
 
-  if (checkDuplicate && !mergeWeight) {
-    const exists = updatedItems.some(item => areProductsEqual(item, product));
-    if (exists) {
-      toast.info(t("Thisitemalreadyexistsinthecart"));
-      return;
+    if (checkDuplicate && !mergeWeight) {
+      const exists = updatedItems.some(item => areProductsEqual(item, product));
+      if (exists) {
+        toast.info(t("Thisitemalreadyexistsinthecart"));
+        return;
+      }
     }
-  }
 
-  if (mergeWeight && product.weight_status === 1) {
-    updatedItems = mergeWeightProducts(updatedItems, product);
-  } else {
-    updatedItems.push(product);
-  }
+    if (mergeWeight && product.weight_status === 1) {
+      updatedItems = mergeWeightProducts(updatedItems, product);
+    } else {
+      updatedItems.push(product);
+    }
 
-  updateOrderItems(updatedItems);
-  toast.success(t("Itemaddedtocartsuccessfully"));
-};
-const mergeWeightProducts = (existingItems, newItem) => {
-  if (newItem.weight_status !== 1) return [...existingItems, newItem];
-
-  const key = JSON.stringify({
-    id: newItem.id,
-    variation: newItem.selectedVariation || {},
-    extras: (newItem.selectedExtras || []).sort(),
-    excludes: (newItem.selectedExcludes || []).sort(),
-    notes: (newItem.notes || "").trim()
-  });
-
-  const existingIndex = existingItems.findIndex(item => {
-    if (item.weight_status !== 1 || item.id !== newItem.id) return false;
-    const itemKey = JSON.stringify({
-      variation: item.selectedVariation || {},
-      extras: (item.selectedExtras || []).sort(),
-      excludes: (item.selectedExcludes || []).sort(),
-      notes: (item.notes || "").trim()
-    });
-    return itemKey === key;
-  });
-
-  if (existingIndex === -1) return [...existingItems, newItem];
-
-  const existing = existingItems[existingIndex];
-  const totalQty = (Number(existing.quantity) || 0) + (Number(newItem.quantity) || 0);
-  const unitPrice = Number(existing.itemPrice || existing.price_after_discount || existing.price);
-
-  const merged = {
-    ...existing,
-    quantity: totalQty,
-    count: totalQty,
-    itemPrice: unitPrice,
-    itemTotal: unitPrice * totalQty,
-    totalPrice: unitPrice * totalQty,
-    temp_id: `merged-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+    updateOrderItems(updatedItems);
+    toast.success(t("Itemaddedtocartsuccessfully"));
   };
 
-  const updated = [...existingItems];
-  updated[existingIndex] = merged;
-  return updated;
-};
+  const mergeWeightProducts = (existingItems, newItem) => {
+    if (newItem.weight_status !== 1) return [...existingItems, newItem];
+
+    const key = JSON.stringify({
+      id: newItem.id,
+      variation: newItem.selectedVariation || {},
+      extras: (newItem.selectedExtras || []).sort(),
+      excludes: (newItem.selectedExcludes || []).sort(),
+      notes: (newItem.notes || "").trim()
+    });
+
+    const existingIndex = existingItems.findIndex(item => {
+      if (item.weight_status !== 1 || item.id !== newItem.id) return false;
+      const itemKey = JSON.stringify({
+        variation: item.selectedVariation || {},
+        extras: (item.selectedExtras || []).sort(),
+        excludes: (item.selectedExcludes || []).sort(),
+        notes: (item.notes || "").trim()
+      });
+      return itemKey === key;
+    });
+
+    if (existingIndex === -1) return [...existingItems, newItem];
+
+    const existing = existingItems[existingIndex];
+    const totalQty = (Number(existing.quantity) || 0) + (Number(newItem.quantity) || 0);
+    const unitPrice = Number(existing.itemPrice || existing.price_after_discount || existing.price);
+
+    const merged = {
+      ...existing,
+      quantity: totalQty,
+      count: totalQty,
+      itemPrice: unitPrice,
+      itemTotal: unitPrice * totalQty,
+      totalPrice: unitPrice * totalQty,
+      temp_id: `merged-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+    };
+
+    const updated = [...existingItems];
+    updated[existingIndex] = merged;
+    return updated;
+  };
+
   return (
     <div
       className={`flex flex-col h-full ${
@@ -915,6 +974,8 @@ const mergeWeightProducts = (existingItems, newItem) => {
             <Loading />
           </div>
         )}
+
+        {/* مودال تأكيد المسح العادي (للطلبات الخارجية) */}
         {showClearAllConfirm && (
           <div className="fixed inset-0 bg-gray-500/50 flex items-center justify-center z-50">
             <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full mx-4">
@@ -941,6 +1002,56 @@ const mergeWeightProducts = (existingItems, newItem) => {
             </div>
           </div>
         )}
+
+        {/* مودال جديد: مسح الكل مع مدير في dine_in */}
+        {showClearAllManagerModal && (
+          <div className="fixed inset-0 bg-gray-500/50 flex items-center justify-center z-50">
+            <div className="bg-white p-8 rounded-lg shadow-xl max-w-md w-full mx-4">
+              <h3 className="text-xl font-bold text-red-700 mb-6">
+                {t("ManagerApprovalRequired")}
+              </h3>
+              <p className="text-gray-700 mb-6">
+                {t("Clearingallitemsrequiresmanagerapproval")}
+              </p>
+              <div className="space-y-4">
+                <Input
+                  placeholder={t("ManagerID")}
+                  value={clearAllManagerId}
+                  onChange={(e) => setClearAllManagerId(e.target.value)}
+                  className="w-full"
+                />
+                <Input
+                  type="password"
+                  placeholder={t("ManagerPassword")}
+                  value={clearAllManagerPassword}
+                  onChange={(e) => setClearAllManagerPassword(e.target.value)}
+                  className="w-full"
+                />
+              </div>
+              <div className="flex justify-end gap-4 mt-8">
+                <Button
+                  onClick={() => {
+                    setShowClearAllManagerModal(false);
+                    setClearAllManagerId("");
+                    setClearAllManagerPassword("");
+                  }}
+                  variant="outline"
+                  disabled={itemLoadingStates.clearAll}
+                >
+                  {t("Cancel")}
+                </Button>
+                <Button
+                  onClick={confirmClearAllWithManager}
+                  className="bg-red-600 text-white hover:bg-red-800"
+                  disabled={itemLoadingStates.clearAll || !clearAllManagerId || !clearAllManagerPassword}
+                >
+                  {itemLoadingStates.clearAll ? <Loading /> : t("VoidAllItems")}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="bg-white shadow-md rounded-lg">
           <table className="w-full">
             <thead className="bg-gray-100 text-xs sm:text-sm sticky top-0 z-10">
@@ -1032,7 +1143,6 @@ const mergeWeightProducts = (existingItems, newItem) => {
       </div>
 
       <div className="flex-shrink-0 bg-white border-t-2 border-gray-200 pt-6 mt-4">
-        {/* Tax Details Section */}
         <div className="bg-gray-50 p-6 rounded-lg shadow-inner mb-6">
           <SummaryRow label={t("SubTotal")} value={subTotal} />
           
