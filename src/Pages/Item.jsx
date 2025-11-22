@@ -174,14 +174,18 @@ export default function Item({
   }, [allProducts, selectedGroup, favouriteCategories]);
 
   // ✅ Filter: البحث له الأولوية على الـ Category
+// ✅ Filter: البحث له الأولوية على الـ Category
   const filteredProducts = useMemo(() => {
     let productsToFilter = filteredProductsByModule;
 
     // لو في سيرش، ابحث في كل المنتجات (تجاهل الـ category)
     if (searchQuery.trim()) {
-      return productsToFilter.filter((p) =>
-        p.name?.toLowerCase().includes(searchQuery.toLowerCase())
-      );
+      const query = searchQuery.toLowerCase();
+      return productsToFilter.filter((p) => {
+        const matchName = p.name?.toLowerCase().includes(query);
+        const matchCode = p.product_code?.toLowerCase().includes(query);
+        return matchName || matchCode;
+      });
     }
 
     // لو مفيش سيرش، فلتر حسب الـ category المختار
