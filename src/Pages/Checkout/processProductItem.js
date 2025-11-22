@@ -58,6 +58,7 @@ export const processProductItem = (item) => {
     product_id: item.id.toString(),
     count: item.count.toString(),
     note: item.notes || "Product Note",
+    price: item.price.toString(),
     addons: addonItems,
     variation: groupedVariations,
     exclude_id: (item.selectedExcludes || []).map((id) => id.toString()),
@@ -112,6 +113,8 @@ export const buildOrderPayload = ({
   cashierId,
   tableId,
   customerPaid,
+  due = 0,           // ← هنا المهم: due بيجي من الـ Checkout (0 أو 1)
+  customer_id,       // ← جديد: للطلبات الآجلة
 }) => {
   const basePayload = {
     amount: amountToPay.toString(),
@@ -121,7 +124,14 @@ export const buildOrderPayload = ({
     source: source,
     financials: financialsPayload,
     cashier_id: cashierId.toString(),
+    due: due.toString(),                    // ← دايمًا موجود: 0 أو 1
+    order_pending: due === 1 ? "1" : "0",   // ← الحل السحري للـ validation
   };
+
+  // إضافة customer_id لو الطلب آجل
+  if (due === 1 && customer_id) {
+    basePayload.customer_id = customer_id.toString();
+  }
 
   const productsToSend = orderItems.map(processProductItem);
 
@@ -142,10 +152,11 @@ export const buildOrderPayload = ({
       cash_with_delivery: (parseFloat(customerPaid) || 0).toString(),
     };
   } else {
+    // Take Away أو Pickup
     return {
       ...basePayload,
       products: productsToSend,
-      due: "0",
+      // due و order_pending موجودين في basePayload
     };
   }
 };

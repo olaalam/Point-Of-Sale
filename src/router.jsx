@@ -18,7 +18,6 @@ import PendingOrders from "./Pages/PendingOrders";
 import Notifications from "./components/Notifications";
 import Profile from "./Pages/Profile";
 import DueUsers from "./Pages/Due/DueUsers";
-import InvoicePage from "./Pages/Receipt/InvoicePage";
 import AllOrders from "./Pages/AllOrders/AllOrders";
 import Dine from "./Pages/Dine";
 import OnlineOrders from "./Pages/OnlineOrders/OnlineOrders";
@@ -194,14 +193,7 @@ const router = createBrowserRouter(
           path: "*",
           element: <NotFound />,
         },
-        {
-          path:"/invoice"
-          ,          element:(
-            <ProtectedRoute>
-              <InvoicePage/>
-            </ProtectedRoute>
-          )
-        },
+
                 {
           path:"/all-orders"
           ,          element:(

@@ -84,6 +84,7 @@ export default function LoginPage() {
    sessionStorage.setItem("token", res.data.token);
    sessionStorage.setItem("user", JSON.stringify(res.data.cashier));
    sessionStorage.setItem("branch_id", res.data.cashier.branch_id);
+   sessionStorage.setItem("resturant_name",res.data.resturant_name);
    if (res.data.financial_account) {
     sessionStorage.setItem(
      "financial_account",
@@ -134,7 +135,7 @@ export default function LoginPage() {
    console.error("Error:", err);
    const errorMessage =
     err?.response?.data?.errors ||
-    err?.response?.data?.message ||
+    err?.response?.data?.faield ||
     t("AnErrorOccurred");
    toast.error(errorMessage);
   } finally {

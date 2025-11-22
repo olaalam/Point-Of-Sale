@@ -52,7 +52,7 @@ export default function AllOrders() {
     <div className="p-4">
       {/* Password Modal */}
       <Dialog open={showModal} onOpenChange={setShowModal}>
-        <DialogContent className="relative">
+<DialogContent className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
           {/* زرار X */}
           <DialogClose
             asChild

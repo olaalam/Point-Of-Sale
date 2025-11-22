@@ -6,7 +6,6 @@ import Loading from "@/components/Loading";
 import { toast } from "react-toastify";
 import { useDeliveryUser } from "@/Hooks/useDeliveryUser";
 import { useProductModal } from "@/Hooks/useProductModal";
-import { submitItemToBackend } from "@/services/orderService";
 import DeliveryInfo from "./Delivery/DeliveryInfo";
 import CategorySelector from "./CategorySelector";
 import ProductCard from "./ProductCard";
@@ -15,7 +14,6 @@ import { useTranslation } from "react-i18next";
 import { buildProductPayload } from "@/services/productProcessor";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "https://bcknd.food2go.online/";
-
 const getAuthToken = () => sessionStorage.getItem("token");
 
 const apiFetcher = async (path) => {
@@ -64,9 +62,7 @@ export default function Item({
   const [productType, setProductType] = useState("piece");
   const [selectedGroup, setSelectedGroup] = useState("all");
   const { t, i18n } = useTranslation();
-
   const orderType = sessionStorage.getItem("order_type") || "dine_in";
-
   const { deliveryUserData, userLoading, userError } = useDeliveryUser(orderType);
   const { postData: postOrder, loading: orderLoading } = usePost();
 
@@ -94,7 +90,6 @@ export default function Item({
     }
   }, [branchIdState]);
 
-  // ✅ Fetch Group Products (Modules)
   const groupEndpoint = branchIdState ? `cashier/group_product` : null;
   const { data: groupData, isLoading: groupLoading } = useQuery({
     queryKey: ["groupProducts", branchIdState],
@@ -103,11 +98,8 @@ export default function Item({
     staleTime: 5 * 60 * 1000,
   });
 
-  const groupProducts = useMemo(() => {
-    return groupData?.group_product || [];
-  }, [groupData]);
+  const groupProducts = useMemo(() => groupData?.group_product || [], [groupData]);
 
-  // ✅ Restore Last Selected Group
   useEffect(() => {
     if (groupProducts.length > 0) {
       const saved = sessionStorage.getItem("last_selected_group");
@@ -120,7 +112,7 @@ export default function Item({
     }
   }, [groupProducts]);
 
-  // ✅ Fetch Favourite Categories (when module selected)
+  // جلب بيانات المجموعة المفضلة (Categories + favourite_products)
   const { data: favouriteCategoriesData, isLoading: isFavCatLoading } = useQuery({
     queryKey: ["favouriteCategories", selectedGroup, branchIdState],
     queryFn: () =>
@@ -131,32 +123,33 @@ export default function Item({
     enabled: selectedGroup !== "all" && !!branchIdState,
     staleTime: 5 * 60 * 1000,
   });
-
-  const favouriteCategories = useMemo(() => {
-    return favouriteCategoriesData?.categories || [];
-  }, [favouriteCategoriesData]);
-
-  // ✅ Fetch All Products (All Modules)
-  const allModulesEndpoint = useMemo(() => {
-    return `captain/lists?branch_id=${branchIdState}&locale=${i18n.language}`;
-  }, [branchIdState, i18n.language]);
-
   const { data: allModulesData, isLoading: isAllDataLoading, error: allModulesError } = useQuery({
     queryKey: ["allData", branchIdState, i18n.language],
     queryFn: () => apiFetcher(allModulesEndpoint),
     enabled: !!branchIdState,
     staleTime: 5 * 60 * 1000,
   });
-
-  // ✅ Categories: All or Favourite
+  // الكاتيجوريز اللي هتتعرض (من المجموعة أو من الكل)
   const finalCategories = useMemo(() => {
-    if (selectedGroup === "all") {
+    if (selectedGroup === "all" || !favouriteCategoriesData) {
       return allModulesData?.categories || [];
     }
-    return favouriteCategories;
-  }, [selectedGroup, allModulesData, favouriteCategories]);
+    return favouriteCategoriesData.categories || [];
+  }, [selectedGroup, allModulesData, favouriteCategoriesData]);
 
-  // ✅ All Products (based on type)
+  // المنتجات المفضلة من المجموعة (مهمة جداً)
+  const favouriteProducts = useMemo(() => {
+    if (selectedGroup === "all" || !favouriteCategoriesData) return [];
+    return favouriteCategoriesData.favourite_products || [];
+  }, [selectedGroup, favouriteCategoriesData]);
+
+  // جلب كل المنتجات والكاتيجوريز العادية (لما يكون Group = all)
+  const allModulesEndpoint = useMemo(() => {
+    return `captain/lists?branch_id=${branchIdState}&locale=${i18n.language}`;
+  }, [branchIdState, i18n.language]);
+
+
+
   const allProducts = useMemo(() => {
     if (!allModulesData) return [];
     return productType === "weight"
@@ -164,22 +157,22 @@ export default function Item({
       : allModulesData?.products || [];
   }, [allModulesData, productType]);
 
-  // ✅ Filter by Module (if not "all")
-  const filteredProductsByModule = useMemo(() => {
-    if (selectedGroup === "all") return allProducts;
+  // المنتجات اللي هتتعرض فعلياً (من المجموعة أو من الكل)
+  const productsSource = useMemo(() => {
+    return selectedGroup === "all" ? allProducts : favouriteProducts;
+  }, [selectedGroup, allProducts, favouriteProducts]);
 
-    // Filter products that belong to categories in favouriteCategories
-    const favCategoryIds = favouriteCategories.map((cat) => cat.id);
-    return allProducts.filter((p) => favCategoryIds.includes(p.category_id));
-  }, [allProducts, selectedGroup, favouriteCategories]);
-
+  // فلترة المنتجات حسب الكاتيجوري والبحث
   // ✅ Filter: البحث له الأولوية على الـ Category
 // ✅ Filter: البحث له الأولوية على الـ Category
   const filteredProducts = useMemo(() => {
-    let productsToFilter = filteredProductsByModule;
+    let products = productsSource;
 
-    // لو في سيرش، ابحث في كل المنتجات (تجاهل الـ category)
+    // فلترة بالبحث
     if (searchQuery.trim()) {
+      products = products.filter((p) =>
+        p.name?.toLowerCase().includes(searchQuery.toLowerCase())
+      );
       const query = searchQuery.toLowerCase();
       return productsToFilter.filter((p) => {
         const matchName = p.name?.toLowerCase().includes(query);
@@ -188,15 +181,13 @@ export default function Item({
       });
     }
 
-    // لو مفيش سيرش، فلتر حسب الـ category المختار
+    // فلترة بالكاتيجوري
     if (selectedCategory !== "all") {
-      productsToFilter = productsToFilter.filter(
-        (p) => p.category_id === parseInt(selectedCategory)
-      );
+      products = products.filter((p) => p.category_id === parseInt(selectedCategory));
     }
 
-    return productsToFilter;
-  }, [filteredProductsByModule, selectedCategory, searchQuery]);
+    return products;
+  }, [productsSource, selectedCategory, searchQuery]);
 
   const productsToDisplay = filteredProducts.slice(0, visibleProductCount);
 
@@ -210,6 +201,7 @@ export default function Item({
     setProductType(type);
     setVisibleProductCount(PRODUCTS_TO_SHOW_INITIALLY);
     setSearchQuery("");
+    setSelectedCategory("all");
   };
 
   const handleShowMoreProducts = () => {
@@ -228,125 +220,69 @@ export default function Item({
   const createTempId = (productId) =>
     `${productId}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-// داخل handleAddToOrder (قسم dine_in فقط)
-const handleAddToOrder = useCallback(async (product, customQuantity = 1) => {
-  // ✅ Calculate correct price (with discount priority)
-  const itemPrice = parseFloat(
-    product.price_after_discount || 
-    product.price || 
-    product.originalPrice || 
-    0
-  );
+  // باقي الكود زي ما هو (handleAddToOrder + Modal + إلخ)
+  const handleAddToOrder = useCallback(async (product, customQuantity = 1) => {
+    const basePrice = parseFloat(
+      product.price_after_discount || product.price || product.originalPrice || 0
+    );
 
-  // ❌ Block if price is 0 or invalid
-  if (itemPrice <= 0) {
-    console.error("❌ Invalid product price:", product);
-    toast.error(t("InvalidProductPrice"));
-    return;
-  }
+    let addonsTotal = 0;
+    if (product.selectedExtras && product.selectedExtras.length > 0) {
+      const extraCounts = {};
+      product.selectedExtras.forEach(extraId => {
+        extraCounts[extraId] = (extraCounts[extraId] || 0) + 1;
+      });
+      Object.entries(extraCounts).forEach(([extraId, count]) => {
+        let extra = product.addons?.find(a => a.id === parseInt(extraId));
+        if (!extra) extra = product.allExtras?.find(e => e.id === parseInt(extraId));
+        if (extra) {
+          const extraPrice = parseFloat(
+            extra.price_after_discount || extra.price_after_tax || extra.price || 0
+          );
+          addonsTotal += extraPrice * count;
+        }
+      });
+    }
 
-  const quantity = parseInt(customQuantity) || 1;
-  const itemTotal = itemPrice * quantity;
+    let variationsTotal = 0;
+    if (product.selectedVariation && product.variations) {
+      product.variations.forEach(variation => {
+        const selectedOptions = product.selectedVariation[variation.id];
+        if (selectedOptions) {
+          if (variation.type === 'single') {
+            const option = variation.options?.find(opt => opt.id === selectedOptions);
+            if (option) variationsTotal += parseFloat(option.price_after_tax || option.price || 0);
+          } else if (variation.type === 'multiple') {
+            const optionsArray = Array.isArray(selectedOptions) ? selectedOptions : [selectedOptions];
+            optionsArray.forEach(optionId => {
+              const option = variation.options?.find(opt => opt.id === optionId);
+              if (option) variationsTotal += parseFloat(option.price_after_tax || option.price || 0);
+            });
+          }
+        }
+      });
+    }
 
-  console.log("🛒 Adding product:", {
-    name: product.name,
-    itemPrice,
-    quantity,
-    itemTotal,
-    orderType
-  });
-
-  // ✅ Handle take_away (no API call)
- if (orderType === "take_away" || orderType === "delivery") {
-    const newItem = {
-      ...product,
-      temp_id: createTempId(product.id),
-      count: quantity,
-      price: itemPrice,
-      originalPrice: itemPrice,
-      totalPrice: itemTotal,
-      preparation_status: "pending",
-      notes: product.notes || "",
-      allSelectedVariations: product.allSelectedVariations || [],
-      selectedExtras: product.selectedExtras || [],
-      selectedExcludes: product.selectedExcludes || [],
-      selectedAddons: product.selectedAddons || [],
-    };
-    onAddToOrder(newItem);
-    toast.success(t("ProductAddedToCart"));
-    return;
-  }
-
-  // ✅ Handle dine_in (requires API)
-  if (orderType === "dine_in") {
-    const tableId = sessionStorage.getItem("table_id");
-    if (!tableId) {
-      toast.error(t("PleaseSelectTableFirst"));
+    const itemPrice = basePrice + addonsTotal + variationsTotal;
+    if (itemPrice <= 0) {
+      toast.error(t("InvalidProductPrice"));
       return;
     }
 
-    const processedItem = buildProductPayload({
-      ...product,
-      price: itemPrice,
-      count: quantity,
-    });
+    const quantity = product.weight_status === 1
+      ? Number(product.quantity || customQuantity || 1)
+      : parseInt(customQuantity) || 1;
 
-    const payload = {
-      table_id: tableId,
-      cashier_id: sessionStorage.getItem("cashier_id"),
-      amount: itemTotal.toFixed(2),
-      total_tax: (itemTotal * 0.14).toFixed(2),
-      total_discount: "0.00",
-      notes: "Added from POS",
-      source: "web",
-      products: [processedItem],
-    };
+    const itemTotal = itemPrice * quantity;
 
-    try {
-      const response = await postOrder("cashier/dine_in_order", payload, {
-        headers: {
-          Authorization: `Bearer ${sessionStorage.getItem("access_token")}`,
-          "Content-Type": "application/json",
-        },
-      });
-
-      console.log("✅ API Response:", response);
-
-      // ✅ Extract cart_id from all possible locations
-      let cartId = null;
-
-      if (response?.cart_id) cartId = response.cart_id;
-      else if (response?.id) cartId = response.id;
-      else if (response?.success?.cart_id) cartId = response.success.cart_id;
-      else if (response?.data?.cart_id) cartId = response.data.cart_id;
-      else if (response?.data?.id) cartId = response.data.id;
-      else if (Array.isArray(response?.products) && response.products[0]?.cart_id) {
-        cartId = response.products[0].cart_id;
-      }
-      else if (Array.isArray(response?.data?.products) && response.data.products[0]?.cart_id) {
-        cartId = response.data.products[0].cart_id;
-      }
-
-      // ✅ If cart_id not found, refresh from server
-      if (!cartId) {
-        console.error("❌ cart_id not found in response:", response);
-        toast.warning("تم إضافة المنتج - جاري التحديث من السيرفر...");
-        
-        setTimeout(() => {
-          refreshCartData?.();
-        }, 500);
-        return;
-      }
-
-      // ✅ Create item with cart_id
+    if (orderType === "take_away" || orderType === "delivery") {
       const newItem = {
         ...product,
         temp_id: createTempId(product.id),
         count: quantity,
         price: itemPrice,
-        originalPrice: itemPrice,
+        originalPrice: basePrice,
         totalPrice: itemTotal,
-        cart_id: cartId.toString(),
         preparation_status: "pending",
         notes: product.notes || "",
         allSelectedVariations: product.allSelectedVariations || [],
@@ -354,22 +290,83 @@ const handleAddToOrder = useCallback(async (product, customQuantity = 1) => {
         selectedExcludes: product.selectedExcludes || [],
         selectedAddons: product.selectedAddons || [],
       };
-
       onAddToOrder(newItem);
-      toast.success(t("ProductAddedToTable", { table: tableId }));
-
-    } catch (err) {
-      console.error("❌ Dine-in order error:", err);
-      toast.error(err.response?.data?.message || t("FailedToAddToTable"));
+      toast.success(t("ProductAddedToCart"));
+      return;
     }
-  }
-}, [orderType, onAddToOrder, postOrder, t, refreshCartData, createTempId]);
+
+    if (orderType === "dine_in") {
+      const tableId = sessionStorage.getItem("table_id");
+      if (!tableId) {
+        toast.error(t("PleaseSelectTableFirst"));
+        return;
+      }
+
+      const processedItem = buildProductPayload({
+        ...product,
+        price: itemPrice,
+        count: quantity,
+      });
+
+      const payload = {
+        table_id: tableId,
+        cashier_id: sessionStorage.getItem("cashier_id"),
+        amount: itemTotal.toFixed(2),
+        total_tax: (itemTotal * 0.14).toFixed(2),
+        total_discount: "0.00",
+        notes: "Added from POS",
+        source: "web",
+        products: [processedItem],
+      };
+
+      try {
+        const response = await postOrder("cashier/dine_in_order", payload, {
+          headers: {
+            Authorization: `Bearer ${sessionStorage.getItem("access_token")}`,
+            "Content-Type": "application/json",
+          },
+        });
+
+        let cartId = null;
+        // دعم كل الأشكال الممكنة للـ response
+        if (response?.cart_id) cartId = response.cart_id;
+        else if (response?.id) cartId = response.id;
+        else if (response?.success?.cart_id) cartId = response.success.cart_id;
+        else if (response?.data?.cart_id) cartId = response.data.cart_id;
+        else if (response?.data?.id) cartId = response.data.id;
+        else if (Array.isArray(response?.products) && response.products[0]?.cart_id) cartId = response.products[0].cart_id;
+        else if (Array.isArray(response?.data?.products) && response.data.products[0]?.cart_id) cartId = response.data.products[0].cart_id;
+
+        const newItem = {
+          ...product,
+          temp_id: createTempId(product.id),
+          count: quantity,
+          price: itemPrice,
+          originalPrice: basePrice,
+          totalPrice: itemTotal,
+          cart_id: cartId ? cartId.toString() : null,
+          preparation_status: "pending",
+          notes: product.notes || "",
+          allSelectedVariations: product.allSelectedVars || [],
+          selectedExtras: product.selectedExtras || [],
+          selectedExcludes: product.selectedExcludes || [],
+          selectedAddons: product.selectedAddons || [],
+        };
+
+        onAddToOrder(newItem);
+        toast.success(t("ProductAddedToTable", { table: tableId }));
+      } catch (err) {
+        console.error("Dine-in order error:", err);
+        toast.error(err.response?.data?.message || t("FailedToAddToTable"));
+      }
+    }
+  }, [orderType, onAddToOrder, postOrder, t, refreshCartData]);
 
   const handleAddFromModal = (enhancedProduct, options = {}) => {
     handleAddToOrder(enhancedProduct, enhancedProduct.quantity, options);
   };
 
-  const isAnyLoading = isAllDataLoading || groupLoading || isFavCatLoading;
+  const isAnyLoading = isAllDataLoading || groupLoading || (selectedGroup !== "all" && isFavCatLoading);
 
   if (isAnyLoading)
     return (
@@ -391,11 +388,7 @@ const handleAddToOrder = useCallback(async (product, customQuantity = 1) => {
   const isArabic = i18n.language === "ar";
 
   return (
-    <div
-      className={`${isArabic ? "text-right direction-rtl" : "text-left direction-ltr"}`}
-      dir={isArabic ? "rtl" : "ltr"}
-    >
-      {/* Module Selector */}
+    <div className={`${isArabic ? "text-right direction-rtl" : "text-left direction-ltr"}`} dir={isArabic ? "rtl" : "ltr"}>
       <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 my-2">
         <h2 className="text-bg-primary text-2xl font-bold mb-4 flex flex-wrap items-center gap-4">
           {t("SelectCategory")}
@@ -442,7 +435,6 @@ const handleAddToOrder = useCallback(async (product, customQuantity = 1) => {
               <option value="weight">{t("ByWeight")}</option>
             </select>
           </div>
-
           <input
             type="text"
             placeholder={t("SearchByProductName")}
@@ -457,10 +449,9 @@ const handleAddToOrder = useCallback(async (product, customQuantity = 1) => {
             <div className="text-center text-gray-500 text-lg py-8">
               {t("Noproductsfoundfor")} "
               {selectedCategory === "all"
-                ? "All Categories"
-                : finalCategories.find((cat) => cat.id === selectedCategory)?.name ||
-                  t("SelectedCategory")}
-              " ({productType === "weight" ? t("ByWeight") : t("ByPiece")}).
+                ? t("AllCategories")
+                : finalCategories.find((cat) => cat.id === parseInt(selectedCategory))?.name || t("SelectedCategory")
+              }" ({productType === "weight" ? t("ByWeight") : t("ByPiece")}).
             </div>
           ) : (
             <>

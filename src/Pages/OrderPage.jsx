@@ -35,11 +35,7 @@ export default function OrderPage({
     isDineIn && currentTableId ? `cashier/dine_in_table_order/${currentTableId}` : null
   );
 
-  const { data: deliveryData, loading: deliveryLoading, refetch: refetchDelivery } = useGet(
-    isDelivery && currentUserId ? `cashier/delivery_order/${currentUserId}` : null
-  );
-
-  // تحميل الطلب المؤقت (take-away)
+  // ✅ FIXED: تحميل الطلب المتكرر من sessionStorage للـ take_away
   useEffect(() => {
     if (pendingOrder && pendingOrder.orderDetails && !pendingOrderLoaded) {
       const mappedItems = pendingOrder.orderDetails.map((detail, index) => ({
@@ -47,7 +43,7 @@ export default function OrderPage({
         temp_id: `pending_${detail.product_id || index}_${Date.now()}`,
         name: detail.product_name || "Unknown Product",
         price: parseFloat(detail.price || 0),
-        originalPrice: parseFloat(detail.price || 0), // أضيف دائمًا
+        originalPrice: parseFloat(detail.price || 0),
         count: parseInt(detail.count || 1),
         selectedVariation: detail.variation_name || null,
         selectedExtras: Array.isArray(detail.addons) ? detail.addons : [],
@@ -59,7 +55,7 @@ export default function OrderPage({
           id: `addon_${addonIndex}_${Date.now()}`,
           name: addon.name || "Unknown Addon",
           price: parseFloat(addon.price || 0),
-          originalPrice: parseFloat(addon.price || 0), // أضيف للإضافات
+          originalPrice: parseFloat(addon.price || 0),
           count: parseInt(addon.count || 1),
           preparation_status: "pending",
         })) : [],
@@ -79,6 +75,7 @@ export default function OrderPage({
       if (storedCartString && storedCartString !== "undefined") {
         try {
           const storedCart = JSON.parse(storedCartString);
+          console.log("📦 Loading cart from sessionStorage in OrderPage:", storedCart);
           setTakeAwayItems(Array.isArray(storedCart) ? storedCart : []);
         } catch (error) {
           console.error("Error parsing cart JSON from sessionStorage:", error);
@@ -98,8 +95,7 @@ export default function OrderPage({
             temp_id: item.temp_id || `dinein_${item.id}_${Date.now()}`,
             count: parseInt(item.count || 1),
             price: parseFloat(item.price || 0),
-                      preparation_status: item.prepration || item.preparation_status || "pending", // ✅ أضف هذا السطر
-
+            preparation_status: item.prepration || item.preparation_status || "pending",
           }))
         : [];
 
@@ -111,25 +107,25 @@ export default function OrderPage({
   }, [isDineIn, currentTableId, dineInData]);
 
   // delivery: أضف originalPrice و temp_id
-useEffect(() => {
-  if (isDineIn && currentTableId && dineInData?.success) {
-    const mappedItems = Array.isArray(dineInData.success)
-      ? dineInData.success.map((item) => ({
-          ...item,
-          originalPrice: item.originalPrice ?? item.price ?? 0,
-          temp_id: item.temp_id || `dinein_${item.id}_${Date.now()}`,
-          count: parseInt(item.count || 1),
-          price: parseFloat(item.price || 0),
-          preparation_status: item.prepration || item.preparation_status || "pending", // ✅ أضف هذا السطر
-        }))
-      : [];
+  useEffect(() => {
+    if (isDelivery && currentUserId && dineInData?.success) {
+      const mappedItems = Array.isArray(dineInData.success)
+        ? dineInData.success.map((item) => ({
+            ...item,
+            originalPrice: item.originalPrice ?? item.price ?? 0,
+            temp_id: item.temp_id || `delivery_${item.id}_${Date.now()}`,
+            count: parseInt(item.count || 1),
+            price: parseFloat(item.price || 0),
+            preparation_status: item.prepration || item.preparation_status || "pending",
+          }))
+        : [];
 
       setOrdersByUser((prev) => ({
         ...prev,
         [currentUserId]: mappedItems,
       }));
     }
-  }, [isDelivery, currentUserId, deliveryData]);
+  }, [isDelivery, currentUserId, dineInData]);
 
   const clearOrderData = () => {
     if (currentOrderType === "take_away") {
@@ -150,13 +146,12 @@ useEffect(() => {
       setIsLoading(true);
       if (isDineIn && currentTableId && refetchDineIn) {
         await refetchDineIn();
-      } else if (isDelivery && currentUserId && refetchDelivery) {
-        await refetchDelivery();
       } else if (currentOrderType === "take_away") {
         const storedCartString = sessionStorage.getItem("cart");
         if (storedCartString && storedCartString !== "undefined") {
           try {
             const storedCart = JSON.parse(storedCartString);
+            console.log("🔄 Refreshing cart from sessionStorage:", storedCart);
             setTakeAwayItems(Array.isArray(storedCart) ? storedCart : []);
           } catch (error) {
             console.error("Error parsing cart JSON:", error);
@@ -187,6 +182,7 @@ useEffect(() => {
     } else {
       setTakeAwayItems(safeNewItems);
       sessionStorage.setItem("cart", JSON.stringify(safeNewItems));
+      console.log("💾 Updated cart in sessionStorage:", safeNewItems);
     }
   };
 
@@ -234,6 +230,9 @@ useEffect(() => {
     navigate("/");
   };
 
+  console.log("📋 OrderPage Current Items:", currentOrderItems);
+  console.log("🎯 OrderPage Order Type:", currentOrderType);
+
   return (
     <div className="flex flex-col-reverse lg:flex-row gap-4 p-4 h-full w-full">
       <div className="w-full lg:w-1/2 sm:overflow-auto">
@@ -246,7 +245,7 @@ useEffect(() => {
           clearOrderData={clearOrderData}
           tableId={currentTableId}
           userId={currentUserId}
-          isLoading={dineInLoading || deliveryLoading || isLoading}
+          isLoading={dineInLoading || isLoading}
           discountData={discountData}
         />
       </div>
