@@ -1,31 +1,30 @@
-import React, { useMemo, useState, useEffect } from "react";
+// ============================================
+import React, {  useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import Loading from "@/components/Loading";
-import { Button } from "@/components/ui/button";
-import CheckOut from "../Checkout/CheckOut";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Input } from "@/components/ui/input";
-import { usePost } from "@/Hooks/usePost";
-import { toast,ToastContainer } from "react-toastify";
-import SummaryRow from "./SummaryRow";
-import ItemRow from "./ItemRow";
-import VoidItemModal from "./VoidItemModal";
-import DoneItemsSection from "./DoneItemsSection";
-import {
-  TAX_RATE,
-  OTHER_CHARGE,
-  PREPARATION_STATUSES,
-  statusOrder,
-} from "./constants";
-import { renderItemVariations } from "@/lib/utils";
+import { toast, ToastContainer } from "react-toastify";
 import { useTranslation } from "react-i18next";
-import { buildProductPayload } from "@/services/productProcessor";
+import { usePost } from "@/Hooks/usePost";
+
+// Components
+import Loading from "@/components/Loading";
+import CheckOut from "../Checkout/CheckOut";
+import CardHeader from "./CardHeader";
+import BulkActionsBar from "./BulkActionsBar";
+import OrderTable from "./OrderTable";
+import DoneItemsSection from "./DoneItemsSection";
+import OrderSummary from "./OrderSummary";
+import OfferModal from "./OfferModal";
+import DealModal from "./DealModal";
+import VoidItemModal from "./VoidItemModal";
+import ClearAllConfirmModal from "./ClearAllConfirmModal";
+import ClearAllManagerModal from "./ClearAllManagerModal";
+
+// Hooks & Utils
+import { useOrderCalculations } from "./hooks/useOrderCalculations";
+import { useOrderActions } from "./hooks/useOrderActions";
+import { useOfferManagement } from "./hooks/useOfferManagement";
+import { useDealManagement } from "./hooks/useDealManagement";
+import { OTHER_CHARGE } from "./constants";
 
 export default function Card({
   orderItems,
@@ -34,173 +33,50 @@ export default function Card({
   orderType,
   tableId,
 }) {
+  const navigate = useNavigate();
+  const { t, i18n } = useTranslation();
+  const isArabic = i18n.language === "ar";
+  const { loading: apiLoading, postData } = usePost();
+
+  // State Management
   const [showModal, setShowModal] = useState(false);
   const [selectedItems, setSelectedItems] = useState([]);
   const [selectedPaymentItems, setSelectedPaymentItems] = useState([]);
   const [bulkStatus, setBulkStatus] = useState("");
   const [itemLoadingStates, setItemLoadingStates] = useState({});
+
+  // Void Modal States
   const [showVoidModal, setShowVoidModal] = useState(false);
   const [voidItemId, setVoidItemId] = useState(null);
   const [managerId, setManagerId] = useState("");
   const [managerPassword, setManagerPassword] = useState("");
+
+  // Clear All Modals
   const [showClearAllConfirm, setShowClearAllConfirm] = useState(false);
-  const { t, i18n } = useTranslation();
-  const isArabic = i18n.language === "ar";
-  // جديد: مودال تأكيد مسح الكل مع مدير في dine_in
   const [showClearAllManagerModal, setShowClearAllManagerModal] = useState(false);
   const [clearAllManagerId, setClearAllManagerId] = useState("");
   const [clearAllManagerPassword, setClearAllManagerPassword] = useState("");
 
-  // Offers States
-  const [showOfferModal, setShowOfferModal] = useState(false);
-  const [offerCode, setOfferCode] = useState("");
-  const [pendingOfferApproval, setPendingOfferApproval] = useState(null);
-
-  // Deals States
-  const [showDealModal, setShowDealModal] = useState(false);
-  const [dealCode, setDealCode] = useState("");
-  const [pendingDealApproval, setPendingDealApproval] = useState(null);
-
-  const { loading: apiLoading, postData } = usePost();
-  const navigate = useNavigate();
-
-  const isLoading = apiLoading;
-
-  // Memoize all cart IDs for transfer functionality
-  const allCartIds = useMemo(() => {
-    return orderItems.map((item) => item.cart_id).filter(Boolean);
-  }, [orderItems]);
-
-  // Memoize subtotal, tax, and total with correct weight calculation
-  const { subTotal, totalTax, totalOtherCharge, totalAmountDisplay, taxDetails } =
-    useMemo(() => {
-      const calculatedSubTotal = Array.isArray(orderItems)
-        ? orderItems.reduce((acc, item) => {
-            const price = Number(item.price ?? 0);
-
-            const qty = item.weight_status === 1
-              ? Number(item.quantity ?? 1)
-              : Number(item.count ?? 1);
-
-            console.log("SubTotal calc:", { 
-              name: item.name, 
-              price, 
-              qty, 
-              total: price * qty 
-            });
-
-            return acc + (price * qty);
-          }, 0)
-        : 0;
-      let calculatedTax = 0;
-      const taxInfo = {};
-
-      if (Array.isArray(orderItems)) {
-        orderItems.forEach(item => {
-          const taxPerUnit = Number(item.tax_val ?? 0);
-          const qty = item.weight_status === 1
-            ? Number(item.quantity ?? 1)
-            : Number(item.count ?? 1);
-          calculatedTax += taxPerUnit * qty;
-
-          if (item.tax_obj && taxPerUnit > 0) {
-            const taxId = item.tax_obj.id;
-            if (!taxInfo[taxId]) {
-              taxInfo[taxId] = {
-                name: item.tax_obj.name,
-                amount: item.tax_obj.amount,
-                type: item.tax_obj.type,
-                total: 0,
-              };
-            }
-            taxInfo[taxId].total += taxPerUnit * qty;
-          }
-        });
-      }
-
-      const calculatedTotal = calculatedSubTotal + calculatedTax + OTHER_CHARGE;
-      return {
-        subTotal: calculatedSubTotal,
-        totalTax: calculatedTax,
-        totalOtherCharge: OTHER_CHARGE,
-        totalAmountDisplay: calculatedTotal,
-        taxDetails: Object.values(taxInfo),
-      };
-    }, [orderItems]);
-
-  // Memoize items with "done" status
-  const doneItems = useMemo(() => {
-    return Array.isArray(orderItems)
-      ? orderItems.filter((item) => item.preparation_status === "done")
-      : [];
-  }, [orderItems]);
-
-  // Memoize checkout items and amountToPay with weight support
-  const { checkoutItems, amountToPay } = useMemo(() => {
-    if (orderType === "dine_in") {
-      const itemsToPayFor = doneItems.filter((item) =>
-        selectedPaymentItems.includes(item.temp_id)
-      );
-
-      const selectedSubTotal = itemsToPayFor.reduce((acc, item) => {
-        const price = Number(
-          item.itemPrice ?? 
-          item.itemTotal ?? 
-          item.price_after_discount ?? 
-          item.price ?? 0
-        );
-        const qty = item.weight_status === 1
-          ? Number(item.quantity ?? 1)
-          : Number(item.count ?? 1);
-        return acc + price * qty;
-      }, 0);
-
-      const selectedTax = itemsToPayFor.reduce((acc, item) => {
-        const taxPerUnit = Number(item.tax_val ?? 0);
-        const qty = item.weight_status === 1
-          ? Number(item.quantity ?? 1)
-          : Number(item.count ?? 1);
-        return acc + taxPerUnit * qty;
-      }, 0);
-
-      const selectedTotal = selectedSubTotal + selectedTax + OTHER_CHARGE;
-      return {
-        checkoutItems: itemsToPayFor,
-        amountToPay: selectedTotal,
-      };
-    }
-    return {
-      checkoutItems: Array.isArray(orderItems) ? orderItems : [],
-      amountToPay: totalAmountDisplay,
-    };
-  }, [
+  // Custom Hooks
+  const calculations = useOrderCalculations(orderItems, selectedPaymentItems, orderType);
+  const offerManagement = useOfferManagement(orderItems, updateOrderItems, postData, t);
+  const dealManagement = useDealManagement(orderItems, updateOrderItems, t);
+  const orderActions = useOrderActions({
     orderItems,
+    updateOrderItems,
+    tableId,
     orderType,
-    totalAmountDisplay,
-    selectedPaymentItems,
-    doneItems,
-  ]);
-
-  // Memoize the lowest preparation status among selected items
-  const currentLowestSelectedStatus = useMemo(() => {
-    if (selectedItems.length === 0) return statusOrder[0];
-    const selectedItemStatuses = orderItems
-      .filter((item) => selectedItems.includes(item.temp_id))
-      .map((item) => item.preparation_status || "pending");
-    const lowestStatusIndex = Math.min(
-      ...selectedItemStatuses.map((status) => statusOrder.indexOf(status))
-    );
-    return statusOrder[lowestStatusIndex];
-  }, [selectedItems, orderItems]);
+    postData,
+    navigate,
+    t,
+    itemLoadingStates,
+    setItemLoadingStates,
+  });
 
   // Add temp_id to items if missing
   useEffect(() => {
-    console.log("Card.jsx → orderItems changed:", orderItems.length, orderItems);
-    
-    const needsUpdate = orderItems.some(item => !item.temp_id);
-    
+    const needsUpdate = orderItems.some((item) => !item.temp_id);
     if (needsUpdate) {
-      console.log("Some items missing temp_id, updating...");
       const updatedItemsWithTempId = orderItems.map((item) => ({
         ...item,
         temp_id: item.temp_id || `item-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -218,415 +94,7 @@ export default function Card({
     toast.success(t("Allitemsclearedfromtheorder"));
   };
 
-  // Handle save as pending order
-  const handleSaveAsPending = async () => {
-    if (orderItems.length === 0) {
-      toast.warning(t("Noitemstosaveaspending"));
-      return;
-    }
-
-    const productsToSend = orderItems.map(buildProductPayload);
-
-    const payload = {
-      amount: amountToPay.toString(),
-      total_tax: totalTax.toString(),
-      total_discount: totalOtherCharge.toString(),
-      notes: "Customer requested no plastic bag.",
-      source: "web",
-      financials: [],
-      order_pending: 1,
-      cashier_id: sessionStorage.getItem("cashier_id"),
-      products: productsToSend,
-    };
-
-    try {
-      const response = await postData("cashier/take_away_order", payload, {
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${sessionStorage.getItem("access_token")}`,
-        },
-      });
-
-      toast.success(t("Ordersavedaspending"));
-      clearCart();
-    } catch (e) {
-      toast.error(e.response?.data?.message || t("Failedtosaveaspending"));
-    }
-  };
-
-  // Offers Functions
-  const handleApplyOffer = async () => {
-    if (!offerCode.trim()) {
-      toast.warning(t("Pleaseenteranoffercode"));
-      return;
-    }
-
-    const formData = new FormData();
-    formData.append("code", offerCode.trim());
-
-    try {
-      const response = await postData("cashier/offer/check_order", formData);
-      let offerData = response?.offer || response?.data?.offer;
-      if (offerData && !Array.isArray(offerData)) {
-        offerData = [offerData];
-      }
-
-      const appliedOfferDetails =
-        Array.isArray(offerData) && offerData.length > 0 ? offerData[0] : null;
-
-      if (appliedOfferDetails) {
-        const offerInfo = appliedOfferDetails.offer;
-        const productName = offerInfo?.product || appliedOfferDetails.product;
-        const pointsRequired =
-          offerInfo?.points || appliedOfferDetails.points || 0;
-
-        if (productName) {
-          toast.success(t("OffervalidatedsuccessfullyPleaseconfirm"));
-          setPendingOfferApproval({
-            offer_order_id: appliedOfferDetails.id,
-            user_id: appliedOfferDetails.user_id,
-            product: productName,
-            points: pointsRequired,
-          });
-          setShowOfferModal(false);
-        } else {
-          toast.error(t("Offerdetailsareincompleteintheresponse"));
-        }
-      } else {
-        console.error(
-          "Failed check - appliedOfferDetails:",
-          appliedOfferDetails
-        );
-        toast.error(t("Offerdetailsareincompleteintheresponse"));
-      }
-    } catch (err) {
-      if (err.response?.status === 404 || err.response?.status === 400) {
-        toast.error(
-          err.response?.data?.message || t("Failedtofetchdiscountdata")
-        );
-      } else {
-        toast.error(t("FailedtovalidateofferPleasetryagain"));
-      }
-    }
-  };
-
-  const handleApproveOffer = async () => {
-    if (!pendingOfferApproval) return;
-
-    const { offer_order_id, user_id, product } = pendingOfferApproval;
-
-    const formData = new FormData();
-    formData.append("offer_order_id", offer_order_id.toString());
-    formData.append("user_id", user_id.toString());
-
-    try {
-      const response = await postData("cashier/offer/approve_offer", formData);
-      if (response?.success) {
-        toast.success(t("RewardAdded", { product }));
-        const freeItem = {
-          temp_id: `reward-${Date.now()}-${Math.random()
-            .toString(36)
-            .substr(2, 9)}`,
-          id: offer_order_id,
-          name: product + " (Reward Item)",
-          price: 0.0,
-          count: 1,
-          is_reward: true,
-          applied_discount: 0,
-        };
-        updateOrderItems([...orderItems, freeItem]);
-        setPendingOfferApproval(null);
-        setOfferCode("");
-      } else {
-        toast.error(response.message || t("Failedtoapproveoffer"));
-      }
-    } catch (err) {
-      const errorMessage =
-        err.response?.data?.message ||
-        err.response?.data?.exception ||
-        t("Failedtoapproveoffer");
-      toast.error(errorMessage);
-    }
-  };
-
-  // Deals Functions
-  const handleApplyDeal = async () => {
-    if (!dealCode.trim()) {
-      toast.warning(t("Pleaseenteradealcode"));
-      return;
-    }
-
-    const formData = new FormData();
-    formData.append("code", dealCode.trim());
-
-    try {
-      const response = await postData("cashier/deal/deal_order", formData);
-      const dealDetails = response?.deal || response?.data?.deal;
-      const userDetails = response?.user || response?.data?.user;
-
-      if (dealDetails && userDetails) {
-        toast.success(t("DealvalidatedsuccessfullyPleaseconfirm"));
-        setPendingDealApproval({
-          deal_id: dealDetails.id,
-          user_id: userDetails.id,
-          deal_title: dealDetails.title,
-          deal_price: dealDetails.price,
-          description: response?.deal.description,
-        });
-        setShowDealModal(false);
-      } else {
-        toast.error(t("Unexpectedresponsefromserverorinvaliddeal",response.data.faild));
-      }
-    } catch (err) {
-      const errorMessage =
-        err.response?.data?.faild ||
-        err.response?.data?.exception ||
-        t("FailedtoapplydealPleasetryagain");
-      toast.error(errorMessage);
-    }
-  };
-
-  const handleApproveDeal = () => {
-    if (!pendingDealApproval) return;
-
-    const { deal_id, user_id, deal_title, deal_price } = pendingDealApproval;
-
-    toast.success(t("DealAdded", { deal_title }));
-    const dealItem = {
-      temp_id: `deal-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      id: deal_id,
-      name: deal_title + " (Deal Item)",
-      price: deal_price || 0.0,
-      count: 1,
-      is_deal: true,
-      deal_id: deal_id,
-      deal_user_id: user_id,
-      applied_discount: 0,
-    };
-    updateOrderItems([...orderItems, dealItem]);
-    setPendingDealApproval(null);
-    setDealCode("");
-  };
-
-  const handleTransferOrder = () => {
-    if (!tableId || allCartIds.length === 0) {
-      toast.error(t("CannottransferorderTableIDorCartIDsaremissing"));
-      return;
-    }
-
-    sessionStorage.setItem("transfer_cart_ids", JSON.stringify(allCartIds));
-    sessionStorage.setItem("transfer_source_table_id", tableId.toString());
-    sessionStorage.setItem("transfer_pending", "true");
-
-    toast.info(t("Pleaseselectanewtabletotransfertheorder"));
-
-    navigate("/", {
-      state: {
-        initiateTransfer: true,
-        sourceTableId: tableId,
-        cartIds: allCartIds,
-        timestamp: Date.now(),
-      },
-      replace: false,
-    });
-  };
-
-  const handleUpdatePreparationStatus = async (itemTempId) => {
-    const itemToUpdate = orderItems.find((item) => item.temp_id === itemTempId);
-    
-    if (!itemToUpdate) {
-      toast.error("المنتج غير موجود");
-      return;
-    }
-
-    if (!itemToUpdate.cart_id) {
-      console.warn("cart_id missing, attempting to fetch from server...", itemToUpdate);
-
-      const tableId = sessionStorage.getItem("table_id");
-      if (!tableId) {
-        toast.error("رقم الطاولة مفقود");
-        return;
-      }
-
-      try {
-        const response = await apiFetcher(`cashier/table_orders/${tableId}`);
-        const serverOrder = response?.orders?.[0];
-        if (!serverOrder?.products) {
-          toast.error("فشل جلب بيانات الطلب من الخادم");
-          return;
-        }
-
-        const serverItem = serverOrder.products.find(p => 
-          p.product_id == itemToUpdate.id &&
-          parseInt(p.count) === itemToUpdate.count &&
-          parseFloat(p.price) === itemToUpdate.price &&
-          p.note === (itemToUpdate.notes || "")
-        );
-
-        if (serverItem?.cart_id) {
-          const updatedItems = orderItems.map(item =>
-            item.temp_id === itemTempId
-              ? { ...item, cart_id: serverItem.cart_id.toString() }
-              : item
-          );
-          updateOrderItems(updatedItems);
-
-          toast.info("تم تحديث بيانات المنتج من الخادم");
-          
-          itemToUpdate.cart_id = serverItem.cart_id.toString();
-        } else {
-          toast.error("لا يمكن تحديث الحالة: المنتج غير موجود على الخادم");
-          return;
-        }
-      } catch (err) {
-        console.error("Failed to fetch order from server:", err);
-        toast.error("فشل الاتصال بالخادم لتحديث الحالة");
-        return;
-      }
-    }
-
-    const currentStatus = itemToUpdate.preparation_status || "pending";
-    const nextStatus = PREPARATION_STATUSES[currentStatus]?.nextStatus;
-    
-    if (!nextStatus || !PREPARATION_STATUSES[nextStatus]?.canSendToAPI) {
-      toast.info("لا يمكن تحديث هذه الحالة الآن");
-      return;
-    }
-
-    setItemLoadingStates((prev) => ({ ...prev, [itemTempId]: true }));
-
-    const formData = new FormData();
-    formData.append("table_id", tableId);
-
-    const cartIds = Array.isArray(itemToUpdate.cart_id)
-      ? itemToUpdate.cart_id
-      : [itemToUpdate.cart_id.toString()];
-
-    cartIds.forEach((id, index) => {
-      formData.append(`preparing[${index}][cart_id]`, id);
-      formData.append(`preparing[${index}][status]`, PREPARATION_STATUSES[nextStatus].apiValue || nextStatus);
-    });
-
-    try {
-      await postData("cashier/preparing", formData);
-      
-      const updatedItems = orderItems.map((item) =>
-        item.temp_id === itemTempId
-          ? { ...item, preparation_status: nextStatus }
-          : item
-      );
-      
-      updateOrderItems(updatedItems);
-      toast.success(`تم تحديث الحالة إلى ${PREPARATION_STATUSES[nextStatus].label}`);
-
-    } catch (err) {
-      toast.error(err.response?.data?.message || "فشل تحديث الحالة");
-    } finally {
-      setItemLoadingStates((prev) => ({ ...prev, [itemTempId]: false }));
-    }
-  };
-
-  const handleVoidItem = (itemTempId) => {
-    setVoidItemId(itemTempId);
-    setShowVoidModal(true);
-  };
-
-  const confirmVoidItem = async () => {
-    const itemToVoid = orderItems.find((item) => item.temp_id === voidItemId);
-    if (!itemToVoid?.cart_id || !tableId || !managerId || !managerPassword) {
-      setTimeout(() => {
-        toast.error(t("PleasefillinallrequiredfieldsManagerIDandPassword"));
-      }, 100);
-      return;
-    }
-
-    setItemLoadingStates((prev) => ({ ...prev, [voidItemId]: true }));
-
-    const formData = new FormData();
-    const cartIds = Array.isArray(itemToVoid.cart_id)
-      ? itemToVoid.cart_id
-      : typeof itemToVoid.cart_id === "string"
-      ? itemToVoid.cart_id.split(",").map((id) => id.trim())
-      : [itemToVoid.cart_id];
-
-    cartIds.forEach((id) => formData.append("cart_ids[]", id.toString()));
-    formData.append("manager_id", managerId);
-    formData.append("manager_password", managerPassword);
-    formData.append("table_id", tableId.toString());
-
-    try {
-      const response = await postData("cashier/order_void", formData);
-
-      const updatedItems = orderItems.filter(
-        (item) => item.temp_id !== voidItemId
-      );
-      updateOrderItems(updatedItems);
-
-      setTimeout(() => {
-        toast.success(t("Itemvoidedsuccessfully"));
-      }, 100);
-
-      setShowVoidModal(false);
-      setManagerId("");
-      setManagerPassword("");
-      setVoidItemId(null);
-    } catch (err) {
-      console.error("Void Item Error:", err);
-      
-      let errorMessage = "Failed to void item.";
-
-      if (err.response) {
-        const { status, data } = err.response;
-
-        if (data?.errors) {
-          errorMessage = data.errors;
-        } else if (data?.message) {
-          errorMessage = data.message;
-        } else if (data?.error) {
-          errorMessage = data.error;
-        } else if ([401, 403, 400].includes(status)) {
-          errorMessage = t("InvalidManagerIDorPasswordAccessdenied");
-        } else {
-          errorMessage = `Server error (${status})`;
-        }
-      } else if (err.request) {
-        errorMessage = t("NoresponsefromserverCheckyourinternetconnection");
-      } else {
-        errorMessage = err.message || t("Anunexpectederroroccurred");
-      }
-
-      setTimeout(() => {
-        toast.error(errorMessage);
-      }, 100);
-    } finally {
-      setItemLoadingStates((prev) => ({ ...prev, [voidItemId]: false }));
-    }
-  };
-
-  const handleIncrease = (itemTempId) => {
-    const updatedItems = orderItems.map((item) =>
-      item.temp_id === itemTempId
-        ? { ...item, count: (item.count || 0) + 1 }
-        : item
-    );
-    updateOrderItems(updatedItems);
-  };
-
-  const handleDecrease = (itemTempId) => {
-    const updatedItems = orderItems
-      .map((item) => {
-        if (item.temp_id === itemTempId) {
-          const newCount = (item.count || 0) - 1;
-          return newCount > 0 || item.preparation_status === "done"
-            ? { ...item, count: Math.max(newCount, 1) }
-            : null;
-        }
-        return item;
-      })
-      .filter(Boolean);
-    updateOrderItems(updatedItems);
-  };
-
+  // Handlers
   const handleCheckOut = () => {
     if (orderType === "dine_in" && selectedPaymentItems.length === 0) {
       toast.warning(t("Pleaseselectitemstopayforfromthedoneitemslist"));
@@ -635,107 +103,11 @@ export default function Card({
     setShowModal(true);
   };
 
-  const toggleSelectItem = (tempId) => {
-    setSelectedItems((prev) =>
-      prev.includes(tempId)
-        ? prev.filter((id) => id !== tempId)
-        : [...prev, tempId]
-    );
-  };
-
-  const toggleSelectPaymentItem = (tempId) => {
-    setSelectedPaymentItems((prev) =>
-      prev.includes(tempId)
-        ? prev.filter((id) => id !== tempId)
-        : [...prev, tempId]
-    );
-  };
-
-  const handleSelectAll = () => {
-    const allTempIds = orderItems.map((item) => item.temp_id);
-    setSelectedItems((prev) =>
-      prev.length === allTempIds.length ? [] : allTempIds
-    );
-  };
-
-  const handleSelectAllPaymentItems = () => {
-    const allDoneTempIds = doneItems.map((item) => item.temp_id);
-    setSelectedPaymentItems((prev) =>
-      prev.length === allDoneTempIds.length ? [] : allDoneTempIds
-    );
-  };
-
-  const applyBulkStatus = async () => {
-    if (!bulkStatus || selectedItems.length === 0 || !tableId) {
-      toast.warning(t('PleaseselectitemschooseastatusandensureaTableIDisset'));
-      return;
-    }
-
-    const itemsToUpdate = orderItems.filter((item) =>
-      selectedItems.includes(item.temp_id)
-    );
-
-    if (itemsToUpdate.length === 0) {
-      toast.warning(t("Novaliditemstoupdate"));
-      return;
-    }
-
-    const itemsForApi = itemsToUpdate.filter(
-      (item) => PREPARATION_STATUSES[bulkStatus]?.canSendToAPI && item.cart_id
-    );
-
-    if (itemsForApi.length > 0) {
-      const formData = new FormData();
-      formData.append("table_id", tableId.toString());
-      itemsForApi.forEach((item, index) => {
-        formData.append(
-          `preparing[${index}][cart_id]`,
-          item.cart_id.toString()
-        );
-        formData.append(
-          `preparing[${index}][status]`,
-          PREPARATION_STATUSES[bulkStatus].apiValue
-        );
-      });
-      try {
-        const response = await postData("cashier/preparing", formData);
-        toast.success(
-          `Successfully updated ${itemsForApi.length} items to ${PREPARATION_STATUSES[bulkStatus].label}`
-        );
-      } catch (err) {
-        toast.error(err.response?.data?.message || t("Failedtoupdatestatus"));
-        return;
-      }
-    } else {
-      toast.info(t("BulkUpdateSuccess", {
-        count: itemsForApi.length,
-        status: PREPARATION_STATUSES[bulkStatus].label
-      }));
-    }
-
-    const updatedItems = orderItems.map((item) =>
-      selectedItems.includes(item.temp_id)
-        ? { ...item, preparation_status: bulkStatus }
-        : item
-    );
-    updateOrderItems(updatedItems);
-    setSelectedItems([]);
-    setBulkStatus("");
-  };
-
-  const handleRemoveFrontOnly = (temp_id) => {
-    const updatedItems = orderItems.filter((item) => item.temp_id !== temp_id);
-    updateOrderItems(updatedItems);
-    toast.success(t("Itemremovedsuccessfully"));
-  };
-
-  // تعديل: Clear All Items في dine_in يطلب مدير
   const handleClearAllItems = () => {
     if (orderItems.length === 0) {
       toast.warning(t("Noitemstoclear"));
       return;
     }
-
     if (orderType === "dine_in") {
       setShowClearAllManagerModal(true);
     } else {
@@ -743,12 +115,6 @@ export default function Card({
     }
   };
 
-  const confirmClearAllItems = () => {
-    clearCart();
-    setShowClearAllConfirm(false);
-  };
-
-  // جديد: تأكيد مسح الكل مع مدير في dine_in
   const confirmClearAllWithManager = async () => {
     if (!clearAllManagerId || !clearAllManagerPassword) {
       toast.error(t("PleasefillinallrequiredfieldsManagerIDandPassword"));
@@ -756,9 +122,10 @@ export default function Card({
     }
 
     const allValidCartIds = orderItems
-      .flatMap(item => {
+      .flatMap((item) => {
         if (Array.isArray(item.cart_id)) return item.cart_id;
-        if (typeof item.cart_id === "string") return item.cart_id.split(",").map(id => id.trim());
+        if (typeof item.cart_id === "string")
+          return item.cart_id.split(",").map((id) => id.trim());
         if (item.cart_id) return [item.cart_id.toString()];
         return [];
       })
@@ -770,13 +137,13 @@ export default function Card({
     }
 
     const formData = new FormData();
-    allValidCartIds.forEach(id => formData.append("cart_ids[]", id));
+    allValidCartIds.forEach((id) => formData.append("cart_ids[]", id));
     formData.append("manager_id", clearAllManagerId);
     formData.append("manager_password", clearAllManagerPassword);
     formData.append("table_id", tableId.toString());
 
     try {
-      setItemLoadingStates(prev => ({ ...prev, clearAll: true }));
+      setItemLoadingStates((prev) => ({ ...prev, clearAll: true }));
       await postData("cashier/order_void", formData);
       clearCart();
       toast.success(t("Allitemsvoidedsuccessfully"));
@@ -792,76 +159,8 @@ export default function Card({
       }
       toast.error(errorMessage);
     } finally {
-      setItemLoadingStates(prev => ({ ...prev, clearAll: false }));
+      setItemLoadingStates((prev) => ({ ...prev, clearAll: false }));
     }
-  };
-
-  const handleViewOrders = () => navigate("/orders");
-  const handleViewPendingOrders = () => navigate("/pending-orders");
-
-  const onAddFromModal = (product, options = {}) => {
-    const { checkDuplicate = false, mergeWeight = false } = options;
-    let updatedItems = [...orderItems];
-
-    if (checkDuplicate && !mergeWeight) {
-      const exists = updatedItems.some(item => areProductsEqual(item, product));
-      if (exists) {
-        toast.info(t("Thisitemalreadyexistsinthecart"));
-        return;
-      }
-    }
-
-    if (mergeWeight && product.weight_status === 1) {
-      updatedItems = mergeWeightProducts(updatedItems, product);
-    } else {
-      updatedItems.push(product);
-    }
-
-    updateOrderItems(updatedItems);
-    toast.success(t("Itemaddedtocartsuccessfully"));
-  };
-
-  const mergeWeightProducts = (existingItems, newItem) => {
-    if (newItem.weight_status !== 1) return [...existingItems, newItem];
-
-    const key = JSON.stringify({
-      id: newItem.id,
-      variation: newItem.selectedVariation || {},
-      extras: (newItem.selectedExtras || []).sort(),
-      excludes: (newItem.selectedExcludes || []).sort(),
-      notes: (newItem.notes || "").trim()
-    });
-
-    const existingIndex = existingItems.findIndex(item => {
-      if (item.weight_status !== 1 || item.id !== newItem.id) return false;
-      const itemKey = JSON.stringify({
-        variation: item.selectedVariation || {},
-        extras: (item.selectedExtras || []).sort(),
-        excludes: (item.selectedExcludes || []).sort(),
-        notes: (item.notes || "").trim()
-      });
-      return itemKey === key;
-    });
-
-    if (existingIndex === -1) return [...existingItems, newItem];
-
-    const existing = existingItems[existingIndex];
-    const totalQty = (Number(existing.quantity) || 0) + (Number(newItem.quantity) || 0);
-    const unitPrice = Number(existing.itemPrice || existing.price_after_discount || existing.price);
-
-    const merged = {
-      ...existing,
-      quantity: totalQty,
-      count: totalQty,
-      itemPrice: unitPrice,
-      itemTotal: unitPrice * totalQty,
-      totalPrice: unitPrice * totalQty,
-      temp_id: `merged-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
-    };
-
-    const updated = [...existingItems];
-    updated[existingIndex] = merged;
-    return updated;
   };
 
   return (
@@ -871,345 +170,107 @@ export default function Card({
       }`}
       dir={isArabic ? "rtl" : "ltr"}
     >
-      <div className="flex-shrink-0">
-        <h2 className="text-bg-primary text-3xl font-bold mb-6">
-          {t("OrderDetails")}
-        </h2>
-        <div className="!p-4 flex md:flex-row flex-col gap-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-grow">
-            <Button
-              onClick={handleClearAllItems}
-              className="bg-bg-primary text-white hover:bg-red-700 text-sm flex items-center justify-center gap-2 py-4"
-              disabled={isLoading || orderItems.length === 0}
-            >
-              {t("ClearAllItems")} ({orderItems.length || 0})
-            </Button>
-            <Button
-              onClick={handleViewOrders}
-              className="bg-gray-500 text-white hover:bg-gray-600 text-sm py-4"
-              disabled={isLoading}
-            >
-              {t("ViewOrders")}
-            </Button>
+      {/* Header Section */}
+      <CardHeader
+        orderType={orderType}
+        orderItems={orderItems}
+        handleClearAllItems={handleClearAllItems}
+        handleViewOrders={() => navigate("/orders")}
+        handleViewPendingOrders={() => navigate("/pending-orders")}
+        onShowOfferModal={() => offerManagement.setShowOfferModal(true)}
+        onShowDealModal={() => dealManagement.setShowDealModal(true)}
+        isLoading={apiLoading}
+        t={t}
+      />
 
-            {orderType !== "delivery" && (
-              <>
-                <Button
-                  onClick={() => setShowOfferModal(true)}
-                  className="bg-green-600 text-white hover:bg-green-700 text-sm py-4"
-                  disabled={isLoading}
-                >
-                  {t("ApplyOffer")}
-                </Button>
-                <Button
-                  onClick={() => setShowDealModal(true)}
-                  className="bg-orange-600 text-white hover:bg-orange-700 text-sm py-4"
-                  disabled={isLoading}
-                >
-                  {t("ApplyDeal")}
-                </Button>
-              </>
-            )}
-          </div>
-          {orderType === "take_away" && (
-            <div className="flex md:flex-col flex-row items-stretch justify-center">
-              <Button
-                onClick={handleViewPendingOrders}
-                className="bg-yellow-600 text-white hover:bg-yellow-500 text-sm px-6 py-4 md:h-full w-full md:w-36"
-              >
-                {t("PendingOrders")}
-              </Button>
-            </div>
-          )}
-        </div>
+      {/* Bulk Actions Bar (Dine-in only) */}
+      {orderType === "dine_in" && (
+        <BulkActionsBar
+          bulkStatus={bulkStatus}
+          setBulkStatus={setBulkStatus}
+          selectedItems={selectedItems}
+          onApplyStatus={() => orderActions.applyBulkStatus(selectedItems, bulkStatus, setBulkStatus, setSelectedItems)}
+          onTransferOrder={orderActions.handleTransferOrder}
+          isLoading={apiLoading}
+          currentLowestStatus={calculations.currentLowestSelectedStatus}
+          t={t}
+        />
+      )}
 
-        {orderType === "dine_in" && (
-          <div className="flex items-center justify-start mb-4 gap-4 flex-wrap p-4 bg-white rounded-lg shadow-md">
-            <Select value={bulkStatus} onValueChange={setBulkStatus}>
-              <SelectTrigger className="w-[200px] border-gray-300 rounded-md shadow-sm px-4 py-2 bg-white hover:border-bg-primary focus:ring-2 focus:ring-bg-primary">
-                <SelectValue placeholder="-- Choose Status --" />
-              </SelectTrigger>
-              <SelectContent className="bg-white border border-gray-200 rounded-md shadow-lg">
-                {Object.entries(PREPARATION_STATUSES)
-                  .filter(
-                    ([key]) =>
-                      statusOrder.indexOf(key) >=
-                      statusOrder.indexOf(currentLowestSelectedStatus)
-                  )
-                  .map(([key, value]) => (
-                    <SelectItem
-                      key={key}
-                      value={key}
-                      className="px-4 py-2 hover:bg-gray-100 cursor-pointer"
-                    >
-                      <div className="flex items-center gap-2">
-                        <value.icon size={16} className={value.color} />
-                        <span>{value.label}</span>
-                      </div>
-                    </SelectItem>
-                  ))}
-              </SelectContent>
-            </Select>
-            <Button
-              onClick={applyBulkStatus}
-              className="bg-bg-primary text-white hover:bg-red-700 text-sm"
-              disabled={selectedItems.length === 0 || !bulkStatus || isLoading}
-            >
-              {t("ApplyStatus", { count: selectedItems.length })}
-            </Button>
-            <Button
-              onClick={handleTransferOrder}
-              className="bg-red-700 text-white hover:bg-bg-primary text-sm flex items-center gap-1"
-              disabled={isLoading || allCartIds.length === 0}
-            >
-              {t("ChangeTable")}
-            </Button>
-          </div>
-        )}
-      </div>
-
+      {/* Order Table */}
       <div className="flex-1 overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-        {isLoading && (
+        {apiLoading && (
           <div className="flex justify-center items-center h-40">
             <Loading />
           </div>
         )}
 
-        {/* مودال تأكيد المسح العادي (للطلبات الخارجية) */}
-        {showClearAllConfirm && (
-          <div className="fixed inset-0 bg-gray-500/50 flex items-center justify-center z-50">
-            <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full mx-4">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                {t("ConfirmClearAllItems")}
-              </h3>
-              <p className="text-gray-600 mb-6">
-                {t("ConfirmRemoveAll", { count: orderItems?.length || 0 })}
-              </p>
-              <div className="flex justify-end gap-3">
-                <Button
-                  onClick={() => setShowClearAllConfirm(false)}
-                  variant="outline"
-                >
-                  {t("Cancel")}
-                </Button>
-                <Button
-                  onClick={confirmClearAllItems}
-                  className="bg-red-600 text-white hover:bg-red-700"
-                >
-                  {t("ClearAllItems")}
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
+        <OrderTable
+          orderItems={orderItems}
+          orderType={orderType}
+          selectedItems={selectedItems}
+          selectedPaymentItems={selectedPaymentItems}
+          onToggleSelectItem={(id) =>
+            setSelectedItems((prev) =>
+              prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
+            )
+          }
+          onToggleSelectPaymentItem={(id) =>
+            setSelectedPaymentItems((prev) =>
+              prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
+            )
+          }
+          onSelectAll={() => {
+            const allIds = orderItems.map((item) => item.temp_id);
+            setSelectedItems((prev) => (prev.length === allIds.length ? [] : allIds));
+          }}
+          onIncrease={orderActions.handleIncrease}
+          onDecrease={orderActions.handleDecrease}
+          onUpdateStatus={orderActions.handleUpdatePreparationStatus}
+          onVoidItem={(id) => {
+            setVoidItemId(id);
+            setShowVoidModal(true);
+          }}
+          onRemoveFrontOnly={orderActions.handleRemoveFrontOnly}
+          allowQuantityEdit={allowQuantityEdit}
+          itemLoadingStates={itemLoadingStates}
+          updateOrderItems={updateOrderItems}
+          t={t}
+        />
 
-        {/* مودال جديد: مسح الكل مع مدير في dine_in */}
-        {showClearAllManagerModal && (
-          <div className="fixed inset-0 bg-gray-500/50 flex items-center justify-center z-50">
-            <div className="bg-white p-8 rounded-lg shadow-xl max-w-md w-full mx-4">
-              <h3 className="text-xl font-bold text-red-700 mb-6">
-                {t("ManagerApprovalRequired")}
-              </h3>
-              <p className="text-gray-700 mb-6">
-                {t("Clearingallitemsrequiresmanagerapproval")}
-              </p>
-              <div className="space-y-4">
-                <Input
-                  placeholder={t("ManagerID")}
-                  value={clearAllManagerId}
-                  onChange={(e) => setClearAllManagerId(e.target.value)}
-                  className="w-full"
-                />
-                <Input
-                  type="password"
-                  placeholder={t("ManagerPassword")}
-                  value={clearAllManagerPassword}
-                  onChange={(e) => setClearAllManagerPassword(e.target.value)}
-                  className="w-full"
-                />
-              </div>
-              <div className="flex justify-end gap-4 mt-8">
-                <Button
-                  onClick={() => {
-                    setShowClearAllManagerModal(false);
-                    setClearAllManagerId("");
-                    setClearAllManagerPassword("");
-                  }}
-                  variant="outline"
-                  disabled={itemLoadingStates.clearAll}
-                >
-                  {t("Cancel")}
-                </Button>
-                <Button
-                  onClick={confirmClearAllWithManager}
-                  className="bg-red-600 text-white hover:bg-red-800"
-                  disabled={itemLoadingStates.clearAll || !clearAllManagerId || !clearAllManagerPassword}
-                >
-                  {itemLoadingStates.clearAll ? <Loading /> : t("VoidAllItems")}
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        <div className="bg-white shadow-md rounded-lg">
-          <table className="w-full">
-            <thead className="bg-gray-100 text-xs sm:text-sm sticky top-0 z-10">
-              <tr>
-                {orderType === "dine_in" && (
-                  <th className="py-3 px-4 text-center text-gray-600 font-semibold">
-                    <input
-                      type="checkbox"
-                      checked={
-                        selectedItems.length > 0 &&
-                        selectedItems.length === orderItems.length
-                      }
-                      onChange={handleSelectAll}
-                    />
-                  </th>
-                )}
-                <th className="py-3 px-4 text-center text-gray-600 font-semibold">
-                  {t("Item")}
-                </th>
-                <th className="py-3 px-4 text-center text-gray-600 font-semibold">
-                  {t("Price")}
-                </th>
-                <th className="py-3 px-4 text-center text-gray-600 font-semibold">
-                  {t("Quantity")}
-                </th>
-                {orderType === "dine_in" && (
-                  <th className="py-3 px-4 text-center text-gray-600 font-semibold">
-                    {t("Preparation")}
-                  </th>
-                )}
-                {orderType === "dine_in" && (
-                  <th className="py-3 px-4 text-center text-gray-600 font-semibold">
-                    {t("Pay")}
-                  </th>
-                )}
-                <th className="py-3 px-4 text-right text-gray-600 font-semibold">
-                  {t("Total")}
-                </th>
-                <th className="py-3 px-4 text-right text-gray-600 font-semibold">
-                  {t("Void")}
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {orderItems.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={orderType === "dine_in" ? 8 : 6}
-                    className="text-center py-4 text-gray-500"
-                  >
-                    <p>{t("NoItemsFound")}</p>
-                  </td>
-                </tr>
-              ) : (
-                orderItems.map((item, index) => (
-                  <ItemRow
-                    key={item.temp_id || `${item.id}-${index}`}
-                    item={item}
-                    orderType={orderType}
-                    selectedItems={selectedItems}
-                    toggleSelectItem={toggleSelectItem}
-                    selectedPaymentItems={selectedPaymentItems}
-                    toggleSelectPaymentItem={toggleSelectPaymentItem}
-                    handleIncrease={handleIncrease}
-                    handleDecrease={handleDecrease}
-                    allowQuantityEdit={allowQuantityEdit}
-                    itemLoadingStates={itemLoadingStates}
-                    handleUpdatePreparationStatus={handleUpdatePreparationStatus}
-                    handleVoidItem={handleVoidItem}
-                    handleRemoveFrontOnly={handleRemoveFrontOnly}
-                    updateOrderItems={updateOrderItems}
-                    orderItems={orderItems}
-                  />
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-        {orderType === "dine_in" && doneItems.length > 0 && (
-          <div className="mt-6">
-            <DoneItemsSection
-              doneItems={doneItems}
-              selectedPaymentItems={selectedPaymentItems}
-              toggleSelectPaymentItem={toggleSelectPaymentItem}
-              handleSelectAllPaymentItems={handleSelectAllPaymentItems}
-            />
-          </div>
+        {/* Done Items Section (Dine-in only) */}
+        {orderType === "dine_in" && calculations.doneItems.length > 0 && (
+          <DoneItemsSection
+            doneItems={calculations.doneItems}
+            selectedPaymentItems={selectedPaymentItems}
+            handleSelectAllPaymentItems={() => {
+              const allDoneIds = calculations.doneItems.map((item) => item.temp_id);
+              setSelectedPaymentItems((prev) =>
+                prev.length === allDoneIds.length ? [] : allDoneIds
+              );
+            }}
+          />
         )}
       </div>
 
-      <div className="flex-shrink-0 bg-white border-t-2 border-gray-200 pt-6 mt-4">
-        <div className="bg-gray-50 p-6 rounded-lg shadow-inner mb-6">
-          <SummaryRow label={t("SubTotal")} value={subTotal} />
-          
-          {taxDetails && taxDetails.length > 0 ? (
-            taxDetails.map((tax, index) => (
-              <SummaryRow 
-                key={index}
-                label={`${tax.name} (${tax.amount}${tax.type === 'precentage' ? '%' : ' EGP'})`}
-                value={tax.total}
-              />
-            ))
-          ) : (
-            <SummaryRow label={t("Tax")} value={totalTax} />
-          )}
-          
-          <SummaryRow label={t("OtherCharge")} value={totalOtherCharge} />
-        </div>
+      {/* Order Summary */}
+      <OrderSummary
+        orderType={orderType}
+        subTotal={calculations.subTotal}
+        totalTax={calculations.totalTax}
+        totalOtherCharge={OTHER_CHARGE}
+        taxDetails={calculations.taxDetails}
+        totalAmountDisplay={calculations.totalAmountDisplay}
+        amountToPay={calculations.amountToPay}
+        selectedPaymentCount={selectedPaymentItems.length}
+        onCheckout={handleCheckOut}
+        onSaveAsPending={() => orderActions.handleSaveAsPending(calculations.amountToPay, calculations.totalTax)}
+        isLoading={apiLoading}
+        orderItemsLength={orderItems.length}
+        t={t}
+      />
 
-        {orderType === "dine_in" && (
-          <>
-            <div className="grid grid-cols-2 gap-4 items-center mb-4">
-              <p className="text-gray-600">{t("TotalOrderAmount")}:</p>
-              <p className="text-right text-lg font-semibold">
-                {totalAmountDisplay.toFixed(2)} {t('EGP')}
-              </p>
-            </div>
-            <div className="grid grid-cols-2 gap-4 items-center mb-4">
-              <p className="text-gray-600">
-                <p>{t("SelectedItems", { count: selectedPaymentItems.length })}</p>
-              </p>
-              <p className="text-right text-lg font-semibold text-green-600">
-                {amountToPay.toFixed(2)} {t("EGP")}
-              </p>
-            </div>
-            <hr className="my-4 border-t border-gray-300" />
-          </>
-        )}
-        <div className="grid grid-cols-2 gap-4 items-center mb-6">
-          <p className="text-bg-primary text-xl font-bold">{t("AmountToPay")}</p>
-          <p className="text-right text-2xl font-bold text-green-700">
-            {amountToPay.toFixed(2)} {t("EGP")}
-          </p>
-        </div>
-        <div className="flex justify-center gap-4">
-          <Button
-            onClick={handleCheckOut}
-            className="bg-bg-primary text-white hover:bg-red-700 text-lg px-8 py-3"
-            disabled={
-              isLoading ||
-              orderItems.length === 0 ||
-              (orderType === "dine_in" && selectedPaymentItems.length === 0)
-            }
-          >
-            {t("Checkout")}
-          </Button>
-          {orderType === "take_away" && (
-            <Button
-              onClick={handleSaveAsPending}
-              className="bg-orange-600 text-white hover:bg-orange-700 text-lg px-8 py-3"
-              disabled={isLoading || orderItems.length === 0}
-            >
-              {t("SaveasPending")}
-            </Button>
-          )}
-        </div>
-      </div>
-
+      {/* Modals */}
       <VoidItemModal
         open={showVoidModal}
         onOpenChange={setShowVoidModal}
@@ -1217,19 +278,81 @@ export default function Card({
         setManagerId={setManagerId}
         managerPassword={managerPassword}
         setManagerPassword={setManagerPassword}
-        confirmVoidItem={confirmVoidItem}
-        isLoading={isLoading}
+        confirmVoidItem={() =>
+          orderActions.confirmVoidItem(voidItemId, managerId, managerPassword, () => {
+            setShowVoidModal(false);
+            setManagerId("");
+            setManagerPassword("");
+            setVoidItemId(null);
+          })
+        }
+        isLoading={apiLoading}
+      />
+
+      <ClearAllConfirmModal
+        open={showClearAllConfirm}
+        onOpenChange={setShowClearAllConfirm}
+        onConfirm={() => {
+          clearCart();
+          setShowClearAllConfirm(false);
+        }}
+        itemCount={orderItems.length}
+        t={t}
+      />
+
+      <ClearAllManagerModal
+        open={showClearAllManagerModal}
+        onOpenChange={setShowClearAllManagerModal}
+        managerId={clearAllManagerId}
+        setManagerId={setClearAllManagerId}
+        managerPassword={clearAllManagerPassword}
+        setManagerPassword={setClearAllManagerPassword}
+        onConfirm={confirmClearAllWithManager}
+        isLoading={itemLoadingStates.clearAll}
+        t={t}
+      />
+
+      <OfferModal
+        isOpen={offerManagement.showOfferModal}
+        onClose={() => offerManagement.setShowOfferModal(false)}
+        offerCode={offerManagement.offerCode}
+        setOfferCode={offerManagement.setOfferCode}
+        onApply={offerManagement.handleApplyOffer}
+        pendingApproval={offerManagement.pendingOfferApproval}
+        onApprove={offerManagement.handleApproveOffer}
+        onCancelApproval={() => {
+          offerManagement.setPendingOfferApproval(null);
+          offerManagement.setOfferCode("");
+        }}
+        isLoading={apiLoading}
+        t={t}
+      />
+
+      <DealModal
+        isOpen={dealManagement.showDealModal}
+        onClose={() => dealManagement.setShowDealModal(false)}
+        dealCode={dealManagement.dealCode}
+        setDealCode={dealManagement.setDealCode}
+        onApply={dealManagement.handleApplyDeal}
+        pendingApproval={dealManagement.pendingDealApproval}
+        onApprove={dealManagement.handleApproveDeal}
+        onCancelApproval={() => {
+          dealManagement.setPendingDealApproval(null);
+          dealManagement.setDealCode("");
+        }}
+        isLoading={apiLoading}
+        t={t}
       />
 
       {showModal && (
         <CheckOut
           totalDineInItems={orderItems.length}
           onClose={() => setShowModal(false)}
-          amountToPay={amountToPay}
-          orderItems={checkoutItems}
+          amountToPay={calculations.amountToPay}
+          orderItems={calculations.checkoutItems}
           updateOrderItems={updateOrderItems}
-          totalTax={totalTax}
-          totalDiscount={totalOtherCharge}
+          totalTax={calculations.totalTax}
+          totalDiscount={OTHER_CHARGE}
           notes="Customer requested no plastic bag."
           source="web"
           orderType={orderType}
@@ -1238,169 +361,7 @@ export default function Card({
         />
       )}
 
-      {/* Offer Modal */}
-      {showOfferModal && (
-        <div className="fixed inset-0 bg-gray-500/50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full mx-4">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">
-              {t("ApplyOfferUsePoints")}
-            </h3>
-            <p className="text-gray-600 mb-6">
-              {t("EnterLoyaltyOrRewardCode")}
-            </p>
-            <Input
-              type="text"
-              placeholder={t("EnterOfferCode")}
-              value={offerCode}
-              onChange={(e) => setOfferCode(e.target.value)}
-              className="w-full p-2 border border-gray-300 rounded-md mb-4 focus:ring-bg-primary focus:border-bg-primary"
-              disabled={isLoading}
-            />
-            <div className="flex justify-end gap-3">
-              <Button
-                onClick={() => {
-                  setShowOfferModal(false);
-                  setOfferCode("");
-                }}
-                variant="outline"
-                disabled={isLoading}
-              >
-                {t("Cancel")}
-              </Button>
-              <Button
-                onClick={handleApplyOffer}
-                className="bg-bg-primary text-white hover:bg-red-700"
-                disabled={isLoading || !offerCode.trim()}
-              >
-                {isLoading ? <Loading /> : t("CheckCode")}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Pending Offer Approval Modal */}
-      {pendingOfferApproval && (
-        <div className="fixed inset-0 bg-gray-500/50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full mx-4">
-            <h3 className="text-lg font-semibold text-bg-primary mb-4">
-              {t("ConfirmRewardPurchase")}
-            </h3>
-            <p className="text-gray-700 mb-2 font-medium">
-              {t("UserID")}: **{pendingOfferApproval.user_id}**
-            </p>
-            <p className="text-gray-700 mb-6">
-              {t("ConfirmAddOffer", {
-                product: pendingOfferApproval.product,
-                points: pendingOfferApproval.points,
-              })}
-            </p>
-            <div className="flex justify-end gap-3">
-              <Button
-                onClick={() => {
-                  setPendingOfferApproval(null);
-                  setOfferCode("");
-                }}
-                variant="outline"
-                disabled={isLoading}
-              >
-                {t("Cancel")}
-              </Button>
-              <Button
-                onClick={handleApproveOffer}
-                className="bg-bg-primary text-white hover:bg-red-700"
-                disabled={isLoading}
-              >
-                {isLoading ? <Loading /> : t("ApproveandAddItem")}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Deal Modal */}
-      {showDealModal && (
-        <div className="fixed inset-0 bg-gray-500/50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full mx-4">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">
-              {t("ApplyDealCode")}
-            </h3>
-            <p className="text-gray-600 mb-6">
-              <p>{t("EnterDealCode")}</p>
-            </p>
-            <Input
-              type="text"
-              placeholder={t("EnterDealCode")}
-              value={dealCode}
-              onChange={(e) => setDealCode(e.target.value)}
-              className="w-full p-2 border border-gray-300 rounded-md mb-4 focus:ring-bg-primary focus:border-bg-primary"
-              disabled={isLoading}
-            />
-            <div className="flex justify-end gap-3">
-              <Button
-                onClick={() => {
-                  setShowDealModal(false);
-                  setDealCode("");
-                }}
-                variant="outline"
-                disabled={isLoading}
-              >
-                {t('Cancel')}
-              </Button>
-              <Button
-                onClick={handleApplyDeal}
-                className="bg-orange-600 text-white hover:bg-orange-700"
-                disabled={isLoading || !dealCode.trim()}
-              >
-                {isLoading ? <Loading /> : t("CheckDeal")}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Pending Deal Approval Modal */}
-      {pendingDealApproval && (
-        <div className="fixed inset-0 bg-gray-500/50 flex items-center justify-center z-50">
-          <div className="bg-white p-6 rounded-lg shadow-lg max-w-md w-full mx-4">
-            <h3 className="text-lg font-semibold text-orange-700 mb-4">
-              {t("ConfirmDealAcceptance")}
-            </h3>
-            <p className="text-gray-700 mb-2 font-medium">
-              {t("CustomerUserId", { user_id: pendingDealApproval.user_id })}
-            </p>
-            <p className="text-gray-700 mb-6">
-              {t("ConfirmAddDeal", {
-                deal_title: pendingDealApproval.deal_title,
-                deal_price: pendingDealApproval.deal_price.toFixed(2),
-              })}
-            </p>
-            <p className="text-gray-700 mb-6">
-              {pendingDealApproval.description || "No description available."}
-            </p>
-            <div className="flex justify-end gap-3">
-              <Button
-                onClick={() => {
-                  setPendingDealApproval(null);
-                  setDealCode("");
-                }}
-                variant="outline"
-                disabled={isLoading}
-              >
-                {t("Cancel")}
-              </Button>
-              <Button
-                onClick={handleApproveDeal}
-                className="bg-orange-600 text-white hover:bg-orange-700"
-                disabled={isLoading}
-              >
-                {isLoading ? <Loading /> : t("ApproveandAddDeal")}
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-      <ToastContainer/>
+      <ToastContainer />
     </div>
   );
 }
