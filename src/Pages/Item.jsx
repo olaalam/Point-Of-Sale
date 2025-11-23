@@ -9,7 +9,7 @@ import { useProductModal } from "@/Hooks/useProductModal";
 import DeliveryInfo from "./Delivery/DeliveryInfo";
 import CategorySelector from "./CategorySelector";
 import ProductCard from "./ProductCard";
-import ProductModal, { areProductsEqual } from "./ProductModal";
+import ProductModal from "./ProductModal";
 import { useTranslation } from "react-i18next";
 import { buildProductPayload } from "@/services/productProcessor";
 
@@ -49,11 +49,9 @@ const PRODUCTS_PER_ROW = 4;
 const PRODUCTS_TO_SHOW_INITIALLY = INITIAL_PRODUCT_ROWS * PRODUCTS_PER_ROW;
 
 export default function Item({
-  fetchEndpoint,
   onAddToOrder,
   onClose,
   refreshCartData,
-  orderItems = [],
 }) {
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -162,32 +160,27 @@ export default function Item({
     return selectedGroup === "all" ? allProducts : favouriteProducts;
   }, [selectedGroup, allProducts, favouriteProducts]);
 
-  // فلترة المنتجات حسب الكاتيجوري والبحث
-  // ✅ Filter: البحث له الأولوية على الـ Category
-// ✅ Filter: البحث له الأولوية على الـ Category
-  const filteredProducts = useMemo(() => {
-    let products = productsSource;
+const filteredProducts = useMemo(() => {
+  let products = productsSource;
 
-    // فلترة بالبحث
-    if (searchQuery.trim()) {
-      products = products.filter((p) =>
-        p.name?.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-      const query = searchQuery.toLowerCase();
-      return productsToFilter.filter((p) => {
-        const matchName = p.name?.toLowerCase().includes(query);
-        const matchCode = p.product_code?.toLowerCase().includes(query);
-        return matchName || matchCode;
-      });
-    }
+  const query = searchQuery.trim().toLowerCase();
 
-    // فلترة بالكاتيجوري
-    if (selectedCategory !== "all") {
-      products = products.filter((p) => p.category_id === parseInt(selectedCategory));
-    }
+  // فلترة البحث (بالاسم + الكود)
+  if (query) {
+    products = products.filter((p) => {
+      const name = p.name?.toLowerCase() || "";
+      const code = p.product_code?.toString().toLowerCase() || "";
+      return name.includes(query) || code.includes(query);
+    });
+  }
 
-    return products;
-  }, [productsSource, selectedCategory, searchQuery]);
+  // فلترة الكاتيجوري
+  if (selectedCategory !== "all") {
+    products = products.filter((p) => p.category_id === parseInt(selectedCategory));
+  }
+
+  return products;
+}, [productsSource, selectedCategory, searchQuery]);
 
   const productsToDisplay = filteredProducts.slice(0, visibleProductCount);
 
