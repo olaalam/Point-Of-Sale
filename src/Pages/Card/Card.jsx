@@ -1,5 +1,5 @@
 // ============================================
-import React, {  useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast, ToastContainer } from "react-toastify";
 import { useTranslation } from "react-i18next";
@@ -25,7 +25,7 @@ import { useOrderActions } from "./hooks/useOrderActions";
 import { useOfferManagement } from "./hooks/useOfferManagement";
 import { useDealManagement } from "./hooks/useDealManagement";
 import { OTHER_CHARGE } from "./constants";
-
+import { useServiceFee } from "./Hooks/useServiceFee";
 export default function Card({
   orderItems,
   updateOrderItems,
@@ -53,13 +53,25 @@ export default function Card({
 
   // Clear All Modals
   const [showClearAllConfirm, setShowClearAllConfirm] = useState(false);
-  const [showClearAllManagerModal, setShowClearAllManagerModal] = useState(false);
+  const [showClearAllManagerModal, setShowClearAllManagerModal] =
+    useState(false);
   const [clearAllManagerId, setClearAllManagerId] = useState("");
   const [clearAllManagerPassword, setClearAllManagerPassword] = useState("");
-
+  const { data: serviceFeeData, isLoading: serviceFeeLoading } =
+    useServiceFee();
   // Custom Hooks
-  const calculations = useOrderCalculations(orderItems, selectedPaymentItems, orderType);
-  const offerManagement = useOfferManagement(orderItems, updateOrderItems, postData, t);
+  const calculations = useOrderCalculations(
+    orderItems,
+    selectedPaymentItems,
+    orderType,
+    serviceFeeData
+  );
+  const offerManagement = useOfferManagement(
+    orderItems,
+    updateOrderItems,
+    postData,
+    t
+  );
   const dealManagement = useDealManagement(orderItems, updateOrderItems, t);
   const orderActions = useOrderActions({
     orderItems,
@@ -79,7 +91,9 @@ export default function Card({
     if (needsUpdate) {
       const updatedItemsWithTempId = orderItems.map((item) => ({
         ...item,
-        temp_id: item.temp_id || `item-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        temp_id:
+          item.temp_id ||
+          `item-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       }));
       updateOrderItems(updatedItemsWithTempId);
     }
@@ -189,7 +203,14 @@ export default function Card({
           bulkStatus={bulkStatus}
           setBulkStatus={setBulkStatus}
           selectedItems={selectedItems}
-          onApplyStatus={() => orderActions.applyBulkStatus(selectedItems, bulkStatus, setBulkStatus, setSelectedItems)}
+          onApplyStatus={() =>
+            orderActions.applyBulkStatus(
+              selectedItems,
+              bulkStatus,
+              setBulkStatus,
+              setSelectedItems
+            )
+          }
           onTransferOrder={orderActions.handleTransferOrder}
           isLoading={apiLoading}
           currentLowestStatus={calculations.currentLowestSelectedStatus}
@@ -222,7 +243,9 @@ export default function Card({
           }
           onSelectAll={() => {
             const allIds = orderItems.map((item) => item.temp_id);
-            setSelectedItems((prev) => (prev.length === allIds.length ? [] : allIds));
+            setSelectedItems((prev) =>
+              prev.length === allIds.length ? [] : allIds
+            );
           }}
           onIncrease={orderActions.handleIncrease}
           onDecrease={orderActions.handleDecrease}
@@ -244,7 +267,9 @@ export default function Card({
             doneItems={calculations.doneItems}
             selectedPaymentItems={selectedPaymentItems}
             handleSelectAllPaymentItems={() => {
-              const allDoneIds = calculations.doneItems.map((item) => item.temp_id);
+              const allDoneIds = calculations.doneItems.map(
+                (item) => item.temp_id
+              );
               setSelectedPaymentItems((prev) =>
                 prev.length === allDoneIds.length ? [] : allDoneIds
               );
@@ -258,13 +283,19 @@ export default function Card({
         orderType={orderType}
         subTotal={calculations.subTotal}
         totalTax={calculations.totalTax}
-        totalOtherCharge={OTHER_CHARGE}
+        totalOtherCharge={calculations.totalOtherCharge}
+        serviceFeeData={serviceFeeData} // ← جديد: نبعتله البيانات كاملة
         taxDetails={calculations.taxDetails}
         totalAmountDisplay={calculations.totalAmountDisplay}
         amountToPay={calculations.amountToPay}
         selectedPaymentCount={selectedPaymentItems.length}
         onCheckout={handleCheckOut}
-        onSaveAsPending={() => orderActions.handleSaveAsPending(calculations.amountToPay, calculations.totalTax)}
+        onSaveAsPending={() =>
+          orderActions.handleSaveAsPending(
+            calculations.amountToPay,
+            calculations.totalTax
+          )
+        }
         isLoading={apiLoading}
         orderItemsLength={orderItems.length}
         t={t}
@@ -279,12 +310,17 @@ export default function Card({
         managerPassword={managerPassword}
         setManagerPassword={setManagerPassword}
         confirmVoidItem={() =>
-          orderActions.confirmVoidItem(voidItemId, managerId, managerPassword, () => {
-            setShowVoidModal(false);
-            setManagerId("");
-            setManagerPassword("");
-            setVoidItemId(null);
-          })
+          orderActions.confirmVoidItem(
+            voidItemId,
+            managerId,
+            managerPassword,
+            () => {
+              setShowVoidModal(false);
+              setManagerId("");
+              setManagerPassword("");
+              setVoidItemId(null);
+            }
+          )
         }
         isLoading={apiLoading}
       />

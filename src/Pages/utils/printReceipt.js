@@ -87,6 +87,30 @@ let paymentRowsHTML = '';
         .info-value { font-weight: bold; font-size: 12px; text-align: ${isArabic ? 'left' : 'right'}; }
         .big-number { font-size: 16px; font-weight: bold; }
 
+
+        ${storedOrderType.toLowerCase() === 'delivery' && receiptData.customer ? `
+        <div class="info-grid" style="margin-top: 8px; padding: 5px; border: 1px dashed #000; background-color: #f9f9f9;">
+          <div class="info-row">
+            <span class="info-label">${isArabic ? 'العميل' : 'Customer'}</span>
+            <span class="info-value big-number">${receiptData.customer.name || receiptData.customer.f_name + ' ' + (receiptData.customer.l_name || '')}</span>
+          </div>
+          <div class="info-row">
+            <span class="info-label">${isArabic ? 'رقم الهاتف' : 'Phone'}</span>
+            <span class="info-value" style="direction: ltr; font-weight: bold;">${receiptData.customer.phone}</span>
+          </div>
+          <div class="info-row" style="flex-direction: column; align-items: flex-start; gap: 2px;">
+            <span class="info-label">${isArabic ? 'العنوان' : 'Address'}</span>
+            <span class="info-value" style="font-size: 11px; line-height: 1.4; text-align: ${isArabic ? 'right' : 'left'};">
+              ${receiptData.address?.address || 'غير محدد'}
+              ${receiptData.address?.building_num ? (isArabic ? ' - مبنى: ' + receiptData.address.building_num : ' - Bldg: ' + receiptData.address.building_num) : ''}
+              ${receiptData.address?.floor_num ? (isArabic ? ' - دور: ' + receiptData.address.floor_num : ' - Floor: ' + receiptData.address.floor_num) : ''}
+              ${receiptData.address?.apartment ? (isArabic ? ' - شقة: ' + receiptData.address.apartment : ' - Apt: ' + receiptData.address.apartment) : ''}
+              ${receiptData.address?.additional_data ? '<br>' + (isArabic ? 'ملاحظات: ' : 'Notes: ') + receiptData.address.additional_data : ''}
+            </span>
+          </div>
+        </div>
+      ` : ''}
+
         .staff-row {
           display: flex; justify-content: space-between; font-size: 10px; margin: 5px 0; font-weight: bold;
         }
@@ -437,7 +461,8 @@ export const prepareReceiptData = (
         // الحفاظ على category_id إذا كان موجوداً للطابعات الأخرى
         category_id: item.category_id || item.product?.category_id 
       })),
-
+      customer: response?.customer || null,
+      address: response?.address || null,
       subtotal: amountToPay,
       discount: finalDiscountValue,
       tax: totalTax,

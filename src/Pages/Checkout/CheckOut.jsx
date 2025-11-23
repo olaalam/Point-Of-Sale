@@ -372,9 +372,6 @@ payload = buildOrderPayload({
         printReceiptSilently(receiptData, response, () => {
           console.log("PRINTING COMPLETED → Proceeding to navigation");
           if (orderType === "delivery") {
-    sessionStorage.removeItem("selected_user_data");
-    sessionStorage.removeItem("selected_user_id");
-    sessionStorage.removeItem("selected_address_id");
     console.log("✅ Cleared delivery customer & address data from sessionStorage");
   }
           onClearCart();
@@ -458,9 +455,6 @@ payload = buildOrderPayload({
   };
 
   const handleSkip = () => {
-    sessionStorage.removeItem("selected_user_data");
-  sessionStorage.removeItem("selected_user_id");
-  sessionStorage.removeItem("selected_address_id");
     setDeliveryModelOpen(false);
     onClose();
     // navigate("/orders");

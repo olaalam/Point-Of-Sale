@@ -7,6 +7,7 @@ export default function OrderSummary({
   subTotal,
   totalTax,
   totalOtherCharge,
+  serviceFeeData,
   taxDetails,
   totalAmountDisplay,
   amountToPay,
@@ -21,7 +22,6 @@ export default function OrderSummary({
     <div className="flex-shrink-0 bg-white border-t-2 border-gray-200 pt-6 mt-4">
       <div className="bg-gray-50 p-6 rounded-lg shadow-inner mb-6">
         <SummaryRow label={t("SubTotal")} value={subTotal} />
-
         {taxDetails && taxDetails.length > 0 ? (
           taxDetails.map((tax, index) => (
             <SummaryRow
@@ -35,14 +35,14 @@ export default function OrderSummary({
         ) : (
           <SummaryRow label={t("Tax")} value={totalTax} />
         )}
-
-{orderType === "dine_in"  && (
-  <SummaryRow 
-    label={t("Service Fee")} 
-    value={totalOtherCharge}
-
-  />
-)}      </div>
+        {["dine_in", "take_away"].includes(orderType) &&
+          totalOtherCharge > 0 && (
+            <SummaryRow
+              label={`${t("Service Fee")} (${serviceFeeData.amount}%)`}
+              value={totalOtherCharge}
+            />
+          )}{" "}
+      </div>
 
       {orderType === "dine_in" && (
         <>
