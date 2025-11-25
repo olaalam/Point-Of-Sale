@@ -7,6 +7,7 @@ export const useConfirmDuePayment = ({
   onClose,
   setDueSplits,
   setDueAmount,
+  refetch,
 }) => {
   const { postData } = usePost();
 
@@ -37,6 +38,9 @@ export const useConfirmDuePayment = ({
         headers: { "Content-Type": "multipart/form-data" },
       });
       toast.success("Due order processed successfully!");
+      if (typeof refetch === "function") {
+    refetch();
+  }
       onClearCart();
       onClose();
     } catch (e) {

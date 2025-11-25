@@ -6,7 +6,7 @@ import { useConfirmDuePayment } from "../../Hooks/useConfirmDuePayment";
 import { useTranslation } from "react-i18next";
 
 const DueUsers = () => {
-  const { data, loading, error } = useGet("cashier/customer/due_user");
+  const { data, loading, error ,refetch } = useGet("cashier/customer/due_user");
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [requiredTotal, setRequiredTotal] = useState(0);
@@ -23,6 +23,7 @@ const DueUsers = () => {
     onClose: () => setIsModalOpen(false),
     setDueSplits: () => {},
     setDueAmount: () => {},
+      refetch,
   });
 
   const handlePayClick = (customer, dueAmount) => {
@@ -57,13 +58,17 @@ const DueUsers = () => {
       </div>
 
       {isModalOpen && selectedCustomer && ( // Add guard to ensure selectedCustomer exists
-        <DuePaymentModal
-          isOpen={isModalOpen}
-          onClose={() => setIsModalOpen(false)}
-          customer={selectedCustomer}
-          requiredTotal={requiredTotal}
-          onConfirm={(splits, dueAmount) => handleConfirmDuePayment(splits, dueAmount, selectedCustomer)}
-        />
+<DuePaymentModal
+  isOpen={isModalOpen}
+  onClose={() => setIsModalOpen(false)}
+  customer={selectedCustomer}
+  refetch={refetch}
+  requiredTotal={requiredTotal}
+  onConfirm={(splits, paidNow, remainingDue) => {
+    handleConfirmDuePayment(splits, paidNow, selectedCustomer, remainingDue);
+   
+  }}
+/>
       )}
     </div>
   );

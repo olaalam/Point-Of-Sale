@@ -16,6 +16,7 @@ const DuePaymentModal = ({
   customer,
   requiredTotal,
   onConfirm,
+ refetch,
 }) => {
   const branch_id = sessionStorage.getItem("branch_id");
   const { data } = useGet(`captain/selection_lists?branch_id=${branch_id}`);
@@ -129,10 +130,24 @@ const DuePaymentModal = ({
   };
 
   // تأكيد الدفع
-  const handleConfirm = () => {
-    if (!validateSplits()) return;
-    onConfirm(splits, dueAmount);
-  };
+const handleConfirm = () => {
+  if (!validateSplits()) return;
+
+  // المبلغ اللي اتدفع دلوقتي
+  const totalPaidNow = splits.reduce((sum, s) => sum + (parseFloat(s.amount) || 0), 0);
+
+  // المتبقي آجل بعد الدفعة دي
+  const remainingDue = requiredTotal - totalPaidNow;
+
+  // لو مفيش دفع خالص → منعه
+  if (totalPaidNow <= 0) {
+    toast.error("Please enter an amount greater than 0");
+    return;
+  }
+
+  // تبعت: splits + المبلغ المدفوع + المتبقي
+  onConfirm(splits, totalPaidNow, remainingDue);
+};
 
   if (!isOpen) return null;
 

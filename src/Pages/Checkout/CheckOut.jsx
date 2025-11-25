@@ -9,7 +9,6 @@ import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import Loading from "@/components/Loading";
 import qz from "qz-tray";
-import { useNavigate } from "react-router-dom";
 import CustomerSelectionModal from "./CustomerSelectionModal";
 import DeliveryAssignmentModal from "./DeliveryAssignmentModal";
 import { buildFinancialsPayload, getOrderEndpoint, buildOrderPayload, buildDealPayload, validatePaymentSplits } from "./processProductItem";
@@ -31,7 +30,6 @@ const CheckOut = ({
   const cashierId = sessionStorage.getItem("cashier_id");
   const tableId = sessionStorage.getItem("table_id") || null;
   const baseUrl = import.meta.env.VITE_API_BASE_URL;
-  const navigate = useNavigate();
   // === QZ Tray Connection ===
   // الكود الجديد (كامل وسليم)
   useEffect(() => {
@@ -314,49 +312,79 @@ const CheckOut = ({
     return acc?.description_status === 1;
   };
 
-  // دالة إرسال الطلب + الطباعة الصامتة
-  const proceedWithOrderSubmission = async (due = 0, customer_id = undefined) => {
-    const hasDealItems = orderItems.some((item) => item.is_deal);
-    const endpoint = getOrderEndpoint(orderType, orderItems, totalDineInItems, hasDealItems);
-    const financialsPayload = buildFinancialsPayload(paymentSplits);
+// دالة إرسال الطلب + الطباعة الصامتة (معدلة ومظبوطة 100%)
+const proceedWithOrderSubmission = async (due = 0, customer_id = undefined) => {
+  // تأكد إن orderItems array (حماية من الإيرور اللي فات)
+  const safeOrderItems = Array.isArray(orderItems) ? orderItems : [];
 
-    let payload;
-    if (hasDealItems) {
-      payload = buildDealPayload(orderItems, financialsPayload);
-    } else {
-payload = buildOrderPayload({
-  orderType,
-  orderItems,
-  amountToPay: requiredTotal,
-  totalTax,
-  totalDiscount: appliedDiscount > 0
-    ? amountToPay * (appliedDiscount / 100)
-    : discountData.module.includes(orderType)
-      ? amountToPay * (discountData.discount / 100)
-      : totalDiscount,
-  notes: orderNotes.trim() || "No special instructions",
-  source,
-  financialsPayload,
-  cashierId,
-  tableId,
-  customerPaid,
-  discountCode: appliedDiscount > 0 ? discountCode : undefined,
-  due: due,           // ← مهم جدًا: مرر قيمة due (0 أو 1)
-  customer_id: customer_id,  // ← لو في عميل آجل
-});
-    }
+  const hasDealItems = safeOrderItems.some((item) => item.is_deal);
+  const endpoint = getOrderEndpoint(orderType, safeOrderItems, totalDineInItems, hasDealItems);
+  const financialsPayload = buildFinancialsPayload(paymentSplits);
 
-    try {
-      const response = await postData(endpoint, payload, {
-        headers: { "Content-Type": "application/json" },
-      });
+  let payload;
+  if (hasDealItems) {
+    payload = buildDealPayload(safeOrderItems, financialsPayload);
+  } else {
+    payload = buildOrderPayload({
+      orderType,
+      orderItems: safeOrderItems,
+      amountToPay: requiredTotal,
+      totalTax,
+      totalDiscount: appliedDiscount > 0
+        ? amountToPay * (appliedDiscount / 100)
+        : discountData.module.includes(orderType)
+          ? amountToPay * (discountData.discount / 100)
+          : totalDiscount,
+      notes: orderNotes.trim() || "No special instructions",
+      source,
+      financialsPayload,
+      cashierId,
+      tableId,
+      customerPaid,
+      discountCode: appliedDiscount > 0 ? discountCode : undefined,
+      due: due,
+      user_id: customer_id,
+    });
+  }
 
-      if (response?.success) {
-        toast.success(due === 1 ? "Due order created successfully!" : "Order placed successfully!");
+  try {
+    const response = await postData(endpoint, payload, {
+      headers: { "Content-Type": "application/json" },
+    });
 
-        // 1. تحضير بيانات الفاتورة
+    if (response?.success) {
+      toast.success(due === 1 ? "Due order created successfully!" : "Order placed successfully!");
+
+      // دالة التنقل بعد الطلب (مشتركة بين الحالتين)
+      const handleNavigation = () => {
+        console.log("Order completed → Clearing cart & navigating...");
+        if (orderType === "delivery") {
+    sessionStorage.removeItem("selected_user_id");
+    sessionStorage.removeItem("selected_user_data");
+    sessionStorage.removeItem("selected_address_id");
+    sessionStorage.removeItem("selected_address_data");
+    console.log("تم مسح بيانات العميل والعنوان من sessionStorage بعد طلب الدليفري");
+  }
+        onClearCart();
+        sessionStorage.setItem("last_order_type", orderType);
+
+        if (orderType === "delivery") {
+          const newOrderId = response?.success?.id;
+          if (newOrderId) {
+            setOrderId(newOrderId);
+            setDeliveryModelOpen(true);
+          } else {
+            onClose();
+          }
+        } else {
+          onClose();
+        }
+      };
+
+      // طباعة الفاتورة فقط لو الطلب مش آجل
+      if (due === 0) {
         const receiptData = prepareReceiptData(
-          orderItems,
+          safeOrderItems,           // ← هنا آمن 100%
           amountToPay,
           totalTax,
           totalDiscount,
@@ -368,38 +396,23 @@ payload = buildOrderPayload({
           response
         );
 
-        // 2. طباعة صامتة (بدون واجهة) واستخدام الكولباك للانتقال
         printReceiptSilently(receiptData, response, () => {
           console.log("PRINTING COMPLETED → Proceeding to navigation");
-          if (orderType === "delivery") {
-    console.log("✅ Cleared delivery customer & address data from sessionStorage");
-  }
-          onClearCart();
-          sessionStorage.setItem("last_order_type", orderType);
-
-          if (orderType === "delivery") {
-            const newOrderId = response?.success?.id;
-            if (newOrderId) {
-              setOrderId(newOrderId);
-              setDeliveryModelOpen(true);
-            } else {
-              onClose();
-              // navigate("/orders");
-            }
-          } else {
-            onClose();
-            // navigate(due === 1 ? "/due" : "/orders");
-          }
+          handleNavigation();
         });
-
       } else {
-        toast.error(response?.message || "Failed to process order.");
+        // لو طلب آجل → نكمل بدون طباعة نهائيًا
+        console.log("Due Order → Skipping print");
+        handleNavigation();
       }
-    } catch (e) {
-      console.error("Submit error:", e);
-      toast.error(e.message || "Submission failed");
+    } else {
+      toast.error(response?.message || "Failed to process order.");
     }
-  };
+  } catch (e) {
+    console.error("Submit error:", e);
+    toast.error(e.message || "Submission failed");
+  }
+};
 
   // اختيار العميل → إرسال الطلب فورًا
   const handleSelectCustomer = async (customer) => {
@@ -455,6 +468,10 @@ payload = buildOrderPayload({
   };
 
   const handleSkip = () => {
+    sessionStorage.removeItem("selected_user_id");
+  sessionStorage.removeItem("selected_user_data");
+  sessionStorage.removeItem("selected_address_id");
+  sessionStorage.removeItem("selected_address_data");
     setDeliveryModelOpen(false);
     onClose();
     // navigate("/orders");

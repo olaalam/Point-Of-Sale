@@ -177,7 +177,7 @@ const handleOrderClick = (id) => {
                   {t("Status") || "Status"}
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  {t("Date") || "Date"}
+                  {t("Date/Time") || "Date/Time"}
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   {t("Type") || "Type"}

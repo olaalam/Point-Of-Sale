@@ -20,12 +20,13 @@ import ClearAllConfirmModal from "./ClearAllConfirmModal";
 import ClearAllManagerModal from "./ClearAllManagerModal";
 
 // Hooks & Utils
-import { useOrderCalculations } from "./hooks/useOrderCalculations";
-import { useOrderActions } from "./hooks/useOrderActions";
-import { useOfferManagement } from "./hooks/useOfferManagement";
-import { useDealManagement } from "./hooks/useDealManagement";
+import { useOrderCalculations } from "./Hooks/useOrderCalculations";
+import { useOrderActions } from "./Hooks/useOrderActions";
+import { useOfferManagement } from "./Hooks/useOfferManagement";
+import { useDealManagement } from "./Hooks/useDealManagement";
 import { OTHER_CHARGE } from "./constants";
 import { useServiceFee } from "./Hooks/useServiceFee";
+import DineInformation from "./DineInformation";
 export default function Card({
   orderItems,
   updateOrderItems,
@@ -184,6 +185,7 @@ export default function Card({
       }`}
       dir={isArabic ? "rtl" : "ltr"}
     >
+      <DineInformation/>
       {/* Header Section */}
       <CardHeader
         orderType={orderType}

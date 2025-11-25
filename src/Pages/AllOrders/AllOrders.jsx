@@ -113,7 +113,7 @@ export default function AllOrders() {
                   <th className="border p-3 text-left">Amount</th>
                   <th className="border p-3 text-left">Status</th>
                   <th className="border p-3 text-left">Branch</th>
-                  <th className="border p-3 text-left">Date</th>
+                  <th className="border p-3 text-left">Date/Time</th>
                 </tr>
               </thead>
               <tbody>

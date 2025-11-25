@@ -43,9 +43,16 @@ useEffect(() => {
   if (data?.users) {
     setFilteredusers(data.users);
 
-    // نحاول نجيب الـ user_id من الـ URL أو من sessionStorage
-    const savedUserId = userIdFromUrl || sessionStorage.getItem("last_selected_user_id");
+    // استرجاع البحث المحفوظ
+    const savedQuery = sessionStorage.getItem("delivery_search_query");
+    if (savedQuery && savedQuery !== searchQuery) {
+      setSearchQuery(savedQuery);
+      // نعمل فلترة فورية بناءً على البحث المحفوظ
+      handleInstantSearch(savedQuery);
+    }
 
+    // باقي الكود بتاع السكرول لليوزر
+    const savedUserId = userIdFromUrl || sessionStorage.getItem("last_selected_user_id");
     if (savedUserId) {
       setTimeout(() => {
         const element = document.getElementById(`user-card-${savedUserId}`);
@@ -61,30 +68,32 @@ useEffect(() => {
 
 
 
-  const handleInstantSearch = (query) => {
-    setSearchQuery(query);
+const handleInstantSearch = (query) => {
+  setSearchQuery(query);
+  
+  // كل ما يتغير البحث → نحفظه في الـ sessionStorage
+  sessionStorage.setItem("delivery_search_query", query);
 
-    if (!data?.users) {
-      setFilteredusers([]);
-      return;
-    }
+  if (!data?.users) {
+    setFilteredusers([]);
+    return;
+  }
 
-    if (!query) {
-      setFilteredusers(data.users);
-      return;
-    }
+  if (!query) {
+    setFilteredusers(data.users);
+    return;
+  }
 
-    const lowerCaseQuery = query.toLowerCase();
-    const filtered = data.users.filter((user) => {
-      const fullName = `${user.f_name} ${user.l_name}`.toLowerCase();
-      const matchesName = fullName.includes(lowerCaseQuery);
-      const matchesPhone =
-        user.phone && String(user.phone).includes(lowerCaseQuery);
-      return matchesName || matchesPhone;
-    });
-    setFilteredusers(filtered);
-  };
-
+  const lowerCaseQuery = query.toLowerCase();
+  const filtered = data.users.filter((user) => {
+    const fullName = `${user.f_name} ${user.l_name}`.toLowerCase();
+    const matchesName = fullName.includes(lowerCaseQuery);
+    const matchesPhone =
+      user.phone && String(user.phone).includes(lowerCaseQuery);
+    return matchesName || matchesPhone;
+  });
+  setFilteredusers(filtered);
+};
   const handleAddUser = () => {
     navigate("/add");
   };

@@ -114,7 +114,7 @@ export const buildOrderPayload = ({
   tableId,
   customerPaid,
   due = 0,           // ← هنا المهم: due بيجي من الـ Checkout (0 أو 1)
-  customer_id,       // ← جديد: للطلبات الآجلة
+  user_id,       // ← جديد: للطلبات الآجلة
 }) => {
   const basePayload = {
     amount: amountToPay.toString(),
@@ -125,12 +125,12 @@ export const buildOrderPayload = ({
     financials: financialsPayload,
     cashier_id: cashierId.toString(),
     due: due.toString(),                    // ← دايمًا موجود: 0 أو 1
-    order_pending: due === 1 ? "1" : "0",   // ← الحل السحري للـ validation
+    order_pending: due === 1 ? "0" : "0",   // ← الحل السحري للـ validation
   };
 
   // إضافة customer_id لو الطلب آجل
-  if (due === 1 && customer_id) {
-    basePayload.customer_id = customer_id.toString();
+  if (due === 1 && user_id) {
+    basePayload.user_id = user_id.toString();
   }
 
   const productsToSend = orderItems.map(processProductItem);
