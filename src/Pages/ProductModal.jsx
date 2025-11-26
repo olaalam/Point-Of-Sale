@@ -567,6 +567,7 @@ const { t , i18n } = useTranslation();
               )}
             </div>
             <Button
+           data-enter
               onClick={() => {
                 const totalUnitPrice = calculateProductTotalPrice(
                   selectedProduct,

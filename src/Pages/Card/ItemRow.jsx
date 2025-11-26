@@ -41,9 +41,6 @@ const ItemRow = ({
   toggleSelectItem,
   selectedPaymentItems,
   toggleSelectPaymentItem,
-  handleIncrease,
-  handleDecrease,
-  allowQuantityEdit,
   itemLoadingStates,
   handleUpdatePreparationStatus,
   handleVoidItem,
@@ -84,6 +81,7 @@ const ItemRow = ({
   const totalOriginalPrice = hasDiscount 
     ? (Number(safeOriginalPrice) * quantityForCalc).toFixed(2)
     : null;
+
 
   return (
     <tr className={`border-b last:border-b-0 hover:bg-gray-50 ${item.type === "addon" ? "bg-blue-50" : ""} ${selectedPaymentItems.includes(item.temp_id) ? "bg-green-50" : ""}`}>
@@ -158,73 +156,99 @@ const ItemRow = ({
       </td>
 
       {/* Quantity */}
-      <td className="py-3 px-4 text-center align-top">
-        {item.weight_status === 1 ? (
-          <div className="flex items-center justify-center gap-1">
-            <button
-              onClick={() => {
-                const newQty = Math.max(0.25, (Number(item.quantity) || 0) - 0.25);
-                const updatedItems = orderItems.map((i) =>
-                  i.temp_id === item.temp_id ? { ...i, quantity: newQty } : i
-                );
-                updateOrderItems(updatedItems);
-              }}
-              className="px-2 py-1 bg-gray-200 rounded hover:bg-gray-300 transition-colors"
-            >
-              −
-            </button>
-            <input
-              type="text"
-              value={Number(item.quantity || 0).toFixed(2)}
-              onChange={(e) => {
-                const val = e.target.value;
-                if (/^\d*\.?\d*$/.test(val)) {
-                  const numVal = val === "" ? 0 : Number(val);
-                  if (numVal >= 0.25) {
-                    const updatedItems = orderItems.map((i) =>
-                      i.temp_id === item.temp_id ? { ...i, quantity: numVal } : i
-                    );
-                    updateOrderItems(updatedItems);
-                  }
-                }
-              }}
-              className="w-16 text-center font-medium border border-gray-300 rounded px-1 py-0.5 focus:outline-none focus:ring-2 focus:ring-bg-primary"
-            />
-            <span className="text-xs text-gray-600">kg</span>
-            <button
-              onClick={() => {
-                const newQty = (Number(item.quantity) || 0) + 0.25;
-                const updatedItems = orderItems.map((i) =>
-                  i.temp_id === item.temp_id ? { ...i, quantity: newQty } : i
-                );
-                updateOrderItems(updatedItems);
-              }}
-              className="px-2 py-1 bg-gray-200 rounded hover:bg-gray-300 transition-colors"
-            >
-              +
-            </button>
-          </div>
-        ) : !(item.is_reward || item.is_deal) && allowQuantityEdit ? (
-          <div className="flex items-center justify-center gap-1">
-            <button
-              onClick={() => handleDecrease(item.temp_id)}
-              disabled={!allowQuantityEdit}
-              className={`px-2 py-1 rounded ${allowQuantityEdit ? "bg-gray-200 hover:bg-gray-300" : "bg-gray-100 cursor-not-allowed"}`}
-            >
-              −
-            </button>
-            <span className="min-w-[24px] text-center font-medium">{item.count}</span>
-            <button
-              onClick={() => handleIncrease(item.temp_id)}
-              className="px-2 py-1 bg-gray-200 rounded hover:bg-gray-300"
-            >
-              +
-            </button>
-          </div>
-        ) : (
-          <span className="min-w-[24px] text-center font-medium">1 (ثابت)</span>
-        )}
-      </td>
+{/* Quantity */}
+<td className="py-3 px-4 text-center align-top">
+  {item.weight_status === 1 ? (
+    <div className="flex items-center justify-center gap-1">
+      
+      {/* Minus */}
+      <button
+        onClick={() => {
+          const currentQty = parseFloat(item.quantity) || 0;
+          const newQty = Math.max(0.25, currentQty - 0.25);
+          const updatedItems = orderItems.map((i) =>
+            i.temp_id === item.temp_id ? { ...i, quantity: newQty.toFixed(2) } : i
+          );
+          updateOrderItems(updatedItems);
+        }}
+        className="px-2 py-1 bg-gray-200 rounded hover:bg-gray-300 transition-colors"
+      >
+        −
+      </button>
+
+      {/* Weight Input */}
+      <input
+        type="text"
+        value={item.quantity}
+        onChange={(e) => {
+          let val = e.target.value;
+
+          // 👇 يسمح بالأرقام + النقطة فقط (بدون تحديد عدد الخانات)
+          if (!/^\d*\.?\d*$/.test(val)) return;
+
+          // لو فاضي أو نقطة لوحدها، نسمح به مؤقتاً
+          if (val === "" || val === ".") {
+            const updatedItems = orderItems.map((i) =>
+              i.temp_id === item.temp_id ? { ...i, quantity: val } : i
+            );
+            updateOrderItems(updatedItems);
+            return;
+          }
+
+          // لو الرقم صح، نحدثه مباشرة بدون قيود
+          const updatedItems = orderItems.map((i) =>
+            i.temp_id === item.temp_id ? { ...i, quantity: val } : i
+          );
+          updateOrderItems(updatedItems);
+        }}
+        onBlur={() => {
+          // عند ترك الحقل → نتأكد من صحة الرقم
+          let num = parseFloat(item.quantity);
+          
+          // لو مش رقم صحيح أو أقل من 0.25، نحطه 0.25
+          if (isNaN(num) || num < 0.25) {
+            num = 0.25;
+          }
+          
+          const updatedItems = orderItems.map((i) =>
+            i.temp_id === item.temp_id
+              ? { ...i, quantity: num.toFixed(2) }
+              : i
+          );
+          updateOrderItems(updatedItems);
+        }}
+        onKeyDown={(e) => {
+          // لو ضغط Enter، نعمل blur عشان يتنسق الرقم
+          if (e.key === 'Enter') {
+            e.target.blur();
+          }
+        }}
+        className="w-20 text-center font-medium border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-bg-primary"
+        placeholder="0.00"
+      />
+
+      <span className="text-xs text-gray-600">kg</span>
+
+      {/* Plus */}
+      <button
+        onClick={() => {
+          const currentQty = parseFloat(item.quantity) || 0;
+          const newQty = currentQty + 0.25;
+          const updatedItems = orderItems.map((i) =>
+            i.temp_id === item.temp_id ? { ...i, quantity: newQty.toFixed(2) } : i
+          );
+          updateOrderItems(updatedItems);
+        }}
+        className="px-2 py-1 bg-gray-200 rounded hover:bg-gray-300 transition-colors"
+      >
+        +
+      </button>
+    </div>
+  ) : (
+    <span>{item.count}</span>
+  )}
+</td>
+
 
       {/* Preparation Status */}
       {orderType === "dine_in" && (
