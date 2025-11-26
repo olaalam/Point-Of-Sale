@@ -1,5 +1,5 @@
 // ============================================
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast, ToastContainer } from "react-toastify";
 import { useTranslation } from "react-i18next";
@@ -58,7 +58,7 @@ export default function Card({
     useState(false);
   const [clearAllManagerId, setClearAllManagerId] = useState("");
   const [clearAllManagerPassword, setClearAllManagerPassword] = useState("");
-  const { data: serviceFeeData, isLoading: serviceFeeLoading } =
+  const { data: serviceFeeData } =
     useServiceFee();
   // Custom Hooks
   const calculations = useOrderCalculations(
@@ -85,7 +85,11 @@ export default function Card({
     itemLoadingStates,
     setItemLoadingStates,
   });
-
+const allItemsDone =
+  orderType === "dine_in" &&
+  orderItems.length > 0 &&
+  calculations.doneItems.length === orderItems.length;
+const printRef = useRef();
   // Add temp_id to items if missing
   useEffect(() => {
     const needsUpdate = orderItems.some((item) => !item.temp_id);
@@ -177,9 +181,36 @@ export default function Card({
       setItemLoadingStates((prev) => ({ ...prev, clearAll: false }));
     }
   };
+const handlePrint = () => {
+  if (!printRef.current) return;
+
+  const printContents = printRef.current.innerHTML;
+  const printWindow = window.open("", "_blank", "width=800,height=600");
+  printWindow.document.write(`
+    <html>
+      <head>
+        <title>Print Order</title>
+        <style>
+          body { font-family: Arial, sans-serif; padding: 20px; }
+          table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+          th, td { border: 1px solid #000; padding: 8px; text-align: left; }
+          th { background-color: #f0f0f0; }
+        </style>
+      </head>
+      <body>${printContents}</body>
+    </html>
+  `);
+  printWindow.document.close();
+  printWindow.focus();
+  printWindow.print();
+  printWindow.close();
+};
+
+
 
   return (
     <div
+    ref={printRef} 
       className={`flex flex-col h-full ${
         isArabic ? "text-right direction-rtl" : "text-left direction-ltr"
       }`}
@@ -300,7 +331,10 @@ export default function Card({
         }
         isLoading={apiLoading}
         orderItemsLength={orderItems.length}
+        allItemsDone={allItemsDone}
         t={t}
+        onPrint={handlePrint}
+        orderItems={orderItems} 
       />
 
       {/* Modals */}
@@ -400,6 +434,38 @@ export default function Card({
       )}
 
       <ToastContainer />
+      <div style={{ display: "none" }}>
+  <div ref={printRef} className="print-area">
+    <h2 style={{ textAlign: "center" }}>Order Summary</h2>
+    <table style={{ width: "100%", borderCollapse: "collapse" }}>
+      <thead>
+        <tr>
+          <th style={{ border: "1px solid #000", padding: "8px" }}>Product</th>
+          <th style={{ border: "1px solid #000", padding: "8px" }}>Qty</th>
+          <th style={{ border: "1px solid #000", padding: "8px" }}>Price</th>
+          <th style={{ border: "1px solid #000", padding: "8px" }}>Total</th>
+        </tr>
+      </thead>
+      <tbody>
+        {orderItems.map((item) => (
+          <tr key={item.temp_id}>
+            <td style={{ border: "1px solid #000", padding: "8px" }}>{item.name}</td>
+            <td style={{ border: "1px solid #000", padding: "8px" }}>{item.quantity}</td>
+            <td style={{ border: "1px solid #000", padding: "8px" }}>{item.price.toFixed(2)}</td>
+            <td style={{ border: "1px solid #000", padding: "8px" }}>{(item.price * item.quantity).toFixed(2)}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+
+    <div style={{ marginTop: "10px", textAlign: "right" }}>
+      <p>Tax: {calculations.totalTax.toFixed(2)}</p>
+      <p>Service Fee: {calculations.totalOtherCharge.toFixed(2)}</p>
+      <p><strong>Total: {calculations.amountToPay.toFixed(2)}</strong></p>
+    </div>
+  </div>
+</div>
+
     </div>
   );
 }
