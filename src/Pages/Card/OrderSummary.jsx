@@ -405,11 +405,8 @@ export default function OrderSummary({
         {orderType === "dine_in" && allItemsDone && (
           <Button
             onClick={handlePrint}
-          disabled={
-            isLoading ||
-            orderItemsLength === 0 ||
-            (orderType === "dine_in" && selectedPaymentCount === 0)
-          }            className="bg-blue-600 text-white hover:bg-blue-700 text-lg px-8 py-3"
+            disabled={!allItemsDone}
+            className="bg-blue-600 text-white hover:bg-blue-700 text-lg px-8 py-3"
           >
             🖨️ {t("Print")}
           </Button>
