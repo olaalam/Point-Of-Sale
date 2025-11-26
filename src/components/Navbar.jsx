@@ -20,6 +20,7 @@ import logo from "@/assets/logo.jpg";
 import ExpensesModal from "@/Pages/ExpensesModal";
 import PasswordConfirmModal from "@/Pages/PasswordConfirmModal";
 import EndShiftReportModal from "@/Pages/ReportsAfterShift";
+import Notifications from "@/components/Notifications";
 
 export default function Navbar() {
   const navigate = useNavigate();
@@ -327,6 +328,7 @@ const handleClose = async () => {
               </button>
               <span className="text-sm font-medium">AR</span>
             </div>
+  <Notifications />
 
             <button
               onClick={handleLogout}

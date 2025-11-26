@@ -27,7 +27,7 @@ export default function LoginPage() {
      "/point-of-sale/firebase-messaging-sw.js",
      { scope: "/point-of-sale/" }
     );
-
+const vapidKey= import.meta.env.VITE_FIREBASE_VAPID_KEY
     const permission = await Notification.requestPermission();
     if (permission === "granted") {
      const token = await getToken(messaging, {
@@ -35,6 +35,7 @@ export default function LoginPage() {
       serviceWorkerRegistration: swRegistration,
      });
      console.log("FCM Token:", token);
+     console.log("vapidKey",vapidKey)
      setFcmToken(token);
     } else {
      console.warn("Notification permission denied");

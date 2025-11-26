@@ -2,7 +2,7 @@
 import React from "react";
 import { RouterProvider } from "react-router-dom";
 import router from "./router";
-import "./firebase"; // Firebase setup
+import "./firebase"; 
 import "react-toastify/dist/ReactToastify.css";
 
 function App() {
