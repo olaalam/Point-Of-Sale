@@ -19,8 +19,9 @@ export default function OnlineOrders() {
   const [filteredOrders, setFilteredOrders] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const { t } = useTranslation();
+  const { t,i18n } = useTranslation();
   const navigate = useNavigate();
+  const isArabic = i18n.language === "ar";
 
   // ✅ استخدام useGet لجلب البيانات
   const { data, isLoading, error } = useGet("cashier/orders/online_orders"); 
@@ -110,7 +111,7 @@ const handleOrderClick = (id) => {
 
   // ... (الجزء الخاص بالتصاميم JSX يبقى كما هو)
   return (
-    <div className="min-h-screen bg-gray-50 p-4 md:p-6">
+    <div className="min-h-screen bg-gray-50 p-4 md:p-6" dir={isArabic?"rtl":"rtl"}>
       {/* Header */}
       <div className="mb-6">
         <h1 className="text-2xl md:text-3xl font-bold text-gray-800 mb-2">
@@ -161,27 +162,28 @@ const handleOrderClick = (id) => {
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  {t("OrderNumber") || "Order #"}
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  {t("Customer") || "Customer"}
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  {t("Branch") || "Branch"}
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  {t("Amount") || "Amount"}
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  {t("Status") || "Status"}
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  {t("Date/Time") || "Date/Time"}
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  {t("Type") || "Type"}
-                </th>
+               <th className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${isArabic ? "text-right" : "text-left"}`}>
+  {t("OrderNumber") || "Order #"}
+</th>
+<th className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${isArabic ? "text-right" : "text-left"}`}>
+  {t("Customer") || "Customer"}
+</th>
+<th className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${isArabic ? "text-right" : "text-left"}`}>
+  {t("Branch") || "Branch"}
+</th>
+<th className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${isArabic ? "text-right" : "text-left"}`}>
+  {t("Amount") || "Amount"}
+</th>
+<th className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${isArabic ? "text-right" : "text-left"}`}>
+  {t("Status") || "Status"}
+</th>
+<th className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${isArabic ? "text-right" : "text-left"}`}>
+  {t("DateTime") || "Date/Time"}
+</th>
+<th className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${isArabic ? "text-right" : "text-left"}`}>
+  {t("Type") || "Type"}
+</th>
+
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">

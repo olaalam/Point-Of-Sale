@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { usePost } from "@/Hooks/usePost";
 import { toast } from "react-toastify";
 import { X } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 export default function AllOrders() {
   const [showModal, setShowModal] = useState(true);
@@ -18,11 +19,13 @@ export default function AllOrders() {
   const [orders, setOrders] = useState([]);
   const [search, setSearch] = useState("");
   const [date, setDate] = useState(() => new Date().toISOString().split("T")[0]);
+  const { t ,i18n } = useTranslation();
+  const isArabic = i18n.language === "ar";
 
   const { postData, loading } = usePost();
 
   const handlePasswordSubmit = async () => {
-    if (!password.trim()) return toast.error("Please enter your password");
+    if (!password.trim()) return toast.error(t("Pleaseenteryourpassword"));
 
     try {
       const res = await postData("cashier/orders/point_of_sale", { password });
@@ -30,12 +33,12 @@ export default function AllOrders() {
       if (res?.orders) {
         setOrders(res.orders);
         setShowModal(false);
-        toast.success("Access granted successfully");
+        toast.success(t("Accessgrantedsuccessfully"));
       } else {
-        toast.error("Incorrect password");
+        toast.error(t("Incorrectpassword"));
       }
     } catch (err) {
-      toast.error("An error occurred while connecting to the server", err);
+      toast.error(t("totheserver"), err);
     }
   };
 
@@ -49,7 +52,7 @@ export default function AllOrders() {
   }, [orders, search, date]);
 
   return (
-    <div className="p-4">
+    <div className="p-4" dir={isArabic ? "rtl" : "ltr"}>
       {/* Password Modal */}
       <Dialog open={showModal} onOpenChange={setShowModal}>
 <DialogContent className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
@@ -65,12 +68,12 @@ export default function AllOrders() {
           </DialogClose>
 
           <DialogHeader>
-            <DialogTitle>Enter Password</DialogTitle>
+            <DialogTitle>{t("EnterPassword")}</DialogTitle>
           </DialogHeader>
 
           <Input
             type="password"
-            placeholder="Password"
+            placeholder={t("Password")}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
@@ -80,7 +83,7 @@ export default function AllOrders() {
             disabled={loading}
             className="mt-3 w-full"
           >
-            {loading ? "Loading..." : "Login"}
+            {loading ? t("Loading") : t("Login")}
           </Button>
         </DialogContent>
       </Dialog>
@@ -90,7 +93,7 @@ export default function AllOrders() {
           {/* Filters */}
           <div className="flex flex-col sm:flex-row gap-2 mb-4">
             <Input
-              placeholder="Search by order number"
+placeholder={t("SearchByOrderNumber")}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="sm:w-1/3"
@@ -104,17 +107,17 @@ export default function AllOrders() {
           </div>
 
           {/* Orders Table */}
-          <div className="overflow-x-auto rounded-lg shadow-md border">
+          <div className="overflow-x-auto rounded-lg shadow-md border" dir={isArabic ? "rtl" : "ltr"}>
             <table className="min-w-full border-collapse">
               <thead className="bg-gray-100 text-gray-700">
-                <tr>
-                  <th className="border p-3 text-left">Order #</th>
-                  <th className="border p-3 text-left">Type</th>
-                  <th className="border p-3 text-left">Amount</th>
-                  <th className="border p-3 text-left">Status</th>
-                  <th className="border p-3 text-left">Branch</th>
-                  <th className="border p-3 text-left">Date/Time</th>
-                </tr>
+               <tr>
+        <th className={`border p-3 ${isArabic ? "text-right" : "text-left"}`}>{t("OrderNumber")}</th>
+        <th className={`border p-3 ${isArabic ? "text-right" : "text-left"}`}>{t("Type")}</th>
+        <th className={`border p-3 ${isArabic ? "text-right" : "text-left"}`}>{t("Amount")}</th>
+        <th className={`border p-3 ${isArabic ? "text-right" : "text-left"}`}>{t("Status")}</th>
+        <th className={`border p-3 ${isArabic ? "text-right" : "text-left"}`}>{t("Branch")}</th>
+        <th className={`border p-3 ${isArabic ? "text-right" : "text-left"}`}>{t("DateTime")}</th>
+      </tr>
               </thead>
               <tbody>
                 {filteredOrders.map((order) => (
@@ -122,28 +125,27 @@ export default function AllOrders() {
                     key={order.id}
                     className="hover:bg-gray-50 transition-colors"
                   >
-                    <td className="border p-3">{order.order_number}</td>
-                    <td className="border p-3 capitalize">{order.order_type}</td>
-                    <td className="border p-3">{order.amount}</td>
-                    <td className="border p-3">
-                      <span
-                        className={`px-3 py-1 text-xs rounded-full ${
-                          order.order_status === "completed"
-                            ? "bg-green-100 text-green-700"
-                            : order.order_status === "pending"
-                            ? "bg-yellow-100 text-yellow-700"
-                            : "bg-gray-100 text-gray-700"
-                        }`}
-                      >
-                        {order.order_status}
-                      </span>
-                    </td>
-                    <td className="border p-3">
-                      {order.branch?.name || "—"}
-                    </td>
-                    <td className="border p-3">
-                      {new Date(order.created_at).toLocaleString()}
-                    </td>
+                <td className={`border p-3 ${isArabic ? "text-right" : "text-left"}`}>{order.order_number}</td>
+<td className={`border p-3 capitalize ${isArabic ? "text-right" : "text-left"}`}>{order.order_type}</td>
+<td className={`border p-3 ${isArabic ? "text-right" : "text-left"}`}>{order.amount}</td>
+<td className={`border p-3 ${isArabic ? "text-right" : "text-left"}`}>
+  <span
+    className={`px-3 py-1 text-xs rounded-full ${
+      order.order_status === "completed"
+        ? "bg-green-100 text-green-700"
+        : order.order_status === "pending"
+        ? "bg-yellow-100 text-yellow-700"
+        : "bg-gray-100 text-gray-700"
+    }`}
+  >
+    {order.order_status}
+  </span>
+</td>
+<td className={`border p-3 ${isArabic ? "text-right" : "text-left"}`}>{order.branch?.name || "—"}</td>
+<td className={`border p-3 ${isArabic ? "text-right" : "text-left"}`}>
+  {new Date(order.created_at).toLocaleString(isArabic ? "ar-EG" : "en-US")}
+</td>
+
                   </tr>
                 ))}
               </tbody>
@@ -152,7 +154,7 @@ export default function AllOrders() {
 
           {filteredOrders.length === 0 && (
             <p className="text-center text-gray-500 mt-6">
-              No orders found for this date.
+{t("NoOrdersFoundForThisDate")}
             </p>
           )}
         </>

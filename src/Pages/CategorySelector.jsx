@@ -1,13 +1,15 @@
 // components/CategorySelector.jsx
 import React from "react";
 import { Button } from "@/components/ui/button";
+import { useTranslation } from "react-i18next";
 
 const CategorySelector = ({ categories, selectedCategory, onCategorySelect }) => {
+      const { t } = useTranslation();
+  
   if (categories.length === 0) {
     return (
       <div className="text-center text-gray-500 py-8">
-        No categories found.
-      </div>
+{t("NoCategoriesFound")}      </div>
     );
   }
 
@@ -28,7 +30,7 @@ const CategorySelector = ({ categories, selectedCategory, onCategorySelect }) =>
               {selectedCategory === "all" ? "❤️" : "🤍"}
             </span>
           </div>
-          <span className="text-sm font-semibold">Favorite</span>
+          <span className="text-sm font-semibold">{t("Favorite")}</span>
         </Button>
       </div>
 

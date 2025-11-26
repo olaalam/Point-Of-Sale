@@ -7,8 +7,11 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { useTranslation } from "react-i18next";
 
 const UserFormFields = ({ form }) => {
+    const { t } = useTranslation();
+  
   return (
     <>
       <FormField
@@ -16,9 +19,9 @@ const UserFormFields = ({ form }) => {
         name="f_name"
         render={({ field }) => (
           <FormItem>
-            <FormLabel>First Name</FormLabel>
+            <FormLabel>{t("FirstName")}</FormLabel>
             <FormControl>
-              <Input placeholder="First Name" {...field} />
+              <Input placeholder={t("FirstName")} {...field} />
             </FormControl>
             <FormMessage />
           </FormItem>
@@ -30,9 +33,9 @@ const UserFormFields = ({ form }) => {
         name="l_name"
         render={({ field }) => (
           <FormItem>
-            <FormLabel>Last Name</FormLabel>
+            <FormLabel>{t("LastName")}</FormLabel>
             <FormControl>
-              <Input placeholder="Last Name" {...field} />
+              <Input placeholder={t("LastName")} {...field} />
             </FormControl>
             <FormMessage />
           </FormItem>
@@ -44,9 +47,9 @@ const UserFormFields = ({ form }) => {
         name="phone"
         render={({ field }) => (
           <FormItem>
-            <FormLabel>Phone Number</FormLabel>
+            <FormLabel>{t("PhoneNumber")}</FormLabel>
             <FormControl>
-              <Input placeholder="Phone Number" {...field} />
+              <Input placeholder={t("PhoneNumber")} {...field} />
             </FormControl>
             <FormMessage />
           </FormItem>
@@ -58,9 +61,9 @@ const UserFormFields = ({ form }) => {
         name="phone_2"
         render={({ field }) => (
           <FormItem>
-            <FormLabel>Phone Number 2 (Optional)</FormLabel>
+            <FormLabel>{t("PhoneNumber2Optional")}</FormLabel>
             <FormControl>
-              <Input placeholder="Phone Number 2" {...field} />
+              <Input placeholder={t("PhoneNumber2Optional")} {...field} />
             </FormControl>
             <FormMessage />
           </FormItem>

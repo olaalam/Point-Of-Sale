@@ -42,7 +42,7 @@ const ProductCard = ({ product, onAddToOrder, onOpenModal }) => {
         <div className="p-3">
           <h3 className="text-base font-semibold text-gray-800 truncate">
             {product.name}
-            <p className="text-sm text-gray-500 font-medium">code:{product.product_code} </p>
+            <p className="text-sm text-gray-500 font-medium">{t("code")}:{product.product_code} </p>
           </h3>
         </div>
       </div>

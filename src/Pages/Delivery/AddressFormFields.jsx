@@ -159,7 +159,7 @@ const AddressFormFields = ({
           name="city_id"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>City</FormLabel>
+              <FormLabel>{t("City")}</FormLabel>
               <Select 
                 onValueChange={(value) => {
                   console.log("City select changed:", value);
