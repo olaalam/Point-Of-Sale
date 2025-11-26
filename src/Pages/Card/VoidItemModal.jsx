@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { useTranslation } from "react-i18next";
 
 const VoidItemModal = ({
   open,
@@ -36,18 +37,18 @@ const VoidItemModal = ({
     setManagerPassword("");
     onOpenChange(false);
   };
+     const { t  } = useTranslation();
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Void Item - Manager Authentication</DialogTitle>
+          <DialogTitle>{t("VoidItemManagerAuthentication")}</DialogTitle>
         </DialogHeader>
         <div className="grid gap-4 py-4">
           <div className="grid grid-cols-4 items-center gap-4">
             <label htmlFor="managerId" className="text-right font-medium">
-              Manager ID
-            </label>
+{t("ManagerID")}            </label>
             <Input
               type="text"
               inputMode="numeric"
@@ -60,13 +61,13 @@ const VoidItemModal = ({
               }}
               onBlur={handleManagerIdBlur} // هنا التحقق
               className="col-span-3"
-              placeholder="Enter Manager ID"
+              placeholder={t("EnterManagerID")}
               disabled={isLoading}
             />
           </div>
           <div className="grid grid-cols-4 items-center gap-4">
             <label htmlFor="password" className="text-right font-medium">
-              Password
+              {t("Password")}
             </label>
             <Input
               id="password"
@@ -74,21 +75,23 @@ const VoidItemModal = ({
               value={managerPassword}
               onChange={(e) => setManagerPassword(e.target.value)}
               className="col-span-3"
-              placeholder="Enter password"
+              placeholder={t(
+                "Enterpassword"
+              )}
               disabled={isLoading}
             />
           </div>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={handleClose} disabled={isLoading}>
-            Cancel
+            {t("Cancel")}
           </Button>
           <Button
             onClick={confirmVoidItem}
             disabled={!managerId || !managerPassword || isLoading}
             className="bg-red-600 text-white hover:bg-red-700"
           >
-            {isLoading ? "Voiding..." : "Confirm Void"}
+            {isLoading ? t("Voiding") : t("ConfirmVoid")}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -14,6 +14,7 @@ import DeliveryAssignmentModal from "./DeliveryAssignmentModal";
 import { buildFinancialsPayload, getOrderEndpoint, buildOrderPayload, buildDealPayload, validatePaymentSplits } from "./processProductItem";
 // استيراد الدوال من الملف المساعد الجديد
 import { prepareReceiptData, printReceiptSilently } from "../utils/printReceipt";
+import { useTranslation } from "react-i18next";
 
 
 const CheckOut = ({
@@ -30,6 +31,8 @@ const CheckOut = ({
   const cashierId = sessionStorage.getItem("cashier_id");
   const tableId = sessionStorage.getItem("table_id") || null;
   const baseUrl = import.meta.env.VITE_API_BASE_URL;
+    const { t } = useTranslation();
+  
   // === QZ Tray Connection ===
   // الكود الجديد (كامل وسليم)
   useEffect(() => {
@@ -70,7 +73,7 @@ const CheckOut = ({
       console.log("✅ Connected to QZ Tray");
     }).catch((err) => {
       console.error("❌ QZ Tray connection error:", err);
-      toast.error("QZ Tray service not running. Automatic printing is disabled.");
+      toast.error(t("QZTrayNotRunning"));
     });
 
     return () => {
@@ -208,7 +211,7 @@ const CheckOut = ({
   // Handle Discount Code
   const handleApplyDiscount = async () => {
     if (!discountCode) {
-      toast.error("Please enter a discount code.");
+      toast.error(t("PleaseEnterDiscountCode"));
       return;
     }
 
@@ -219,16 +222,16 @@ const CheckOut = ({
       const response = await postData("cashier/check_discount_code", { code: discountCode });
       if (response.success) {
         setAppliedDiscount(response.discount);
-        toast.success(`Discount of ${response.discount}% applied!`);
+toast.success(t("DiscountApplied", { discount: response.discount }));
       } else {
         setAppliedDiscount(0);
         setDiscountError("Invalid or Off discount code.");
-        toast.error("Invalid or Off discount code.");
+        toast.error(t("InvalidOrOffDiscountCode"));
       }
     } catch (e) {
       setAppliedDiscount(0);
       setDiscountError(e.message || "Failed to validate discount code.");
-      toast.error(e.message || "Failed to validate discount code.");
+toast.error(e.message || t("FailedToValidateDiscountCode"));
     } finally {
       setIsCheckingDiscount(false);
     }
@@ -237,7 +240,7 @@ const CheckOut = ({
   const handleAmountChange = (id, value) => {
     const newAmount = parseFloat(value) || 0;
     if (newAmount < 0) {
-      toast.error("Amount cannot be negative.");
+      toast.error(t("AmountCannotBeNegative"));
       return;
     }
 
@@ -249,7 +252,7 @@ const CheckOut = ({
       const maxAllowed = requiredTotal - totalExcludingCurrent;
 
       if (newAmount > maxAllowed) {
-        toast.error(`Amount cannot exceed: ${maxAllowed.toFixed(2)} EGP.`);
+toast.error(t("AmountExceedsLimit", { amount: maxAllowed.toFixed(2) }));
         return prevSplits.map((split) =>
           split.id === id ? { ...split, amount: maxAllowed } : split
         );
@@ -282,7 +285,7 @@ const CheckOut = ({
 
   const handleAddSplit = () => {
     if (!financialAccounts?.length) {
-      return toast.error("No financial accounts available.");
+return toast.error(t("NoFinancialAccounts"));
     }
 
     const defaultAccountId = financialAccounts[0].id;
@@ -353,7 +356,7 @@ const proceedWithOrderSubmission = async (due = 0, customer_id = undefined) => {
     });
 
     if (response?.success) {
-      toast.success(due === 1 ? "Due order created successfully!" : "Order placed successfully!");
+toast.success(due === 1 ? t("DueOrderCreated") : t("OrderPlaced"));
 
       // دالة التنقل بعد الطلب (مشتركة بين الحالتين)
       const handleNavigation = () => {
@@ -406,18 +409,18 @@ const proceedWithOrderSubmission = async (due = 0, customer_id = undefined) => {
         handleNavigation();
       }
     } else {
-      toast.error(response?.message || "Failed to process order.");
+toast.error(response?.message || t("FailedToProcessOrder"));
     }
   } catch (e) {
     console.error("Submit error:", e);
-    toast.error(e.message || "Submission failed");
+toast.error(e.message || t("SubmissionFailed"));
   }
 };
 
   // اختيار العميل → إرسال الطلب فورًا
   const handleSelectCustomer = async (customer) => {
     if (requiredTotal > customer.can_debit) {
-      toast.error(`Order amount (${requiredTotal.toFixed(2)} EGP) exceeds customer's debit limit.`);
+toast.error(t("OrderExceedsDebitLimit", { amount: requiredTotal.toFixed(2) }));
       return;
     }
 
@@ -430,7 +433,7 @@ const proceedWithOrderSubmission = async (due = 0, customer_id = undefined) => {
   // الضغط على Confirm & Pay
   const handleSubmitOrder = async () => {
     if (!isTotalMet || totalScheduled === 0) {
-      return toast.error(`Total must equal ${requiredTotal.toFixed(2)} EGP.`);
+return toast.error(t("TotalMustEqual", { amount: requiredTotal.toFixed(2) }));
     }
 
     const validation = validatePaymentSplits(paymentSplits, getDescriptionStatus);
@@ -451,19 +454,20 @@ const proceedWithOrderSubmission = async (due = 0, customer_id = undefined) => {
   };
 
   const handleAssignDelivery = async () => {
-    if (!orderId) return toast.error("Order ID is missing.");
-    if (!selectedDeliveryId) return toast.error("Please select a delivery person.");
+   if (!orderId) return toast.error(t("OrderIdMissing"));
+if (!selectedDeliveryId) return toast.error(t("SelectDeliveryPerson"));
+
 
     try {
       await postData(`cashier/determine_delivery/${orderId}`, {
         delivery_id: selectedDeliveryId,
       });
-      toast.success("Delivery person assigned successfully!");
+toast.success(t("DeliveryPersonAssigned"));
       setDeliveryModelOpen(false);
       onClose();
       // navigate("/orders");
     } catch (e) {
-      toast.error(e.message || "Failed to assign delivery person.");
+toast.error(e.message || t("FailedToAssignDeliveryPerson"));
     }
   };
 
@@ -504,7 +508,7 @@ const proceedWithOrderSubmission = async (due = 0, customer_id = undefined) => {
       {!deliveryModelOpen && (
         <div className="relative w-full max-w-2xl bg-white rounded-2xl shadow-2xl h-auto flex flex-col">
           <div className="bg-white p-4 border-b flex items-center justify-between">
-            <h2 className="text-2xl font-semibold">Process Payment</h2>
+            <h2 className="text-2xl font-semibold">{t("ProcessPayment")}</h2>
             <button
               onClick={onClose}
               className="text-4xl p-2 rounded-full hover:bg-gray-100"
@@ -514,63 +518,64 @@ const proceedWithOrderSubmission = async (due = 0, customer_id = undefined) => {
           </div>
 
           <div className="p-8 overflow-y-auto max-h-[calc(90vh-6rem)]">
-            <div className="mb-6 border-b pb-4">
+         
+           <div className="mb-6 border-b pb-4">
               <div className="flex justify-between mb-2">
-                <span>Original Amount:</span>
-                <span>{amountToPay.toFixed(2)} EGP</span>
+                <span>{t("OriginalAmount")}</span>
+                <span>{amountToPay.toFixed(2)} {t("EGP")}</span>
               </div>
               {appliedDiscount > 0 && (
                 <div className="flex justify-between mb-2">
-                  <span>Discount ({appliedDiscount}%):</span>
-                  <span>-{(amountToPay * (appliedDiscount / 100)).toFixed(2)} EGP</span>
+                  <span>{t("Discount")} ({appliedDiscount}%):</span>
+                  <span>-{(amountToPay * (appliedDiscount / 100)).toFixed(2)} {t("EGP")}</span>
                 </div>
               )}
               {discountData.module.includes(orderType) && appliedDiscount === 0 && (
                 <div className="flex justify-between mb-2">
-                  <span>Discount ({discountData.discount}%):</span>
-                  <span>-{(amountToPay * (discountData.discount / 100)).toFixed(2)} EGP</span>
+                  <span>{t("Discount")} ({discountData.discount}%):</span>
+                  <span>-{(amountToPay * (discountData.discount / 100)).toFixed(2)} {t("EGP")}</span>
                 </div>
               )}
               <div className="flex justify-between mb-2">
-                <span>Total Amount:</span>
-                <span>{requiredTotal.toFixed(2)} EGP</span>
+                <span>{t("TotalAmount")}</span>
+                <span>{requiredTotal.toFixed(2)} {t("EGP")}</span>
               </div>
               <div className="flex justify-between mb-2">
-                <span>Remaining:</span>
+                <span>{t("Remaining")}</span>
                 <span className={remainingAmount > 0 ? "text-orange-500" : "text-green-600"}>
-                  {remainingAmount.toFixed(2)} EGP
+                  {remainingAmount.toFixed(2)} {t("EGP")}
                 </span>
               </div>
               {changeAmount > 0 && (
                 <div className="flex justify-between">
-                  <span>Change:</span>
-                  <span className="text-green-600">{changeAmount.toFixed(2)} EGP</span>
+                  <span>{t("Change")}:</span>
+                  <span className="text-green-600">{changeAmount.toFixed(2)} {t("EGP")}</span>
                 </div>
               )}
             </div>
 
             {/* Order Notes Section */}
             <div className="mb-6">
-              <label className="block text-sm font-medium mb-2">Order Notes (Optional)</label>
+              <label className="block text-sm font-medium mb-2"> {t("OrderNotes")}</label>
               <Textarea
-                placeholder="Add any special instructions or notes for this order..."
+  placeholder={t("OrderNotesPlaceholder")}
                 value={orderNotes}
                 onChange={(e) => setOrderNotes(e.target.value)}
                 className="w-full min-h-[100px] resize-none"
                 maxLength={500}
               />
               <p className="text-xs text-gray-500 mt-1">
-                {orderNotes.length}/500 characters
+                {orderNotes.length}/500 {t("characters")}
               </p>
             </div>
 
             {/* Discount Code */}
             <div className="mb-6">
-              <label className="block text-sm mb-1">Discount by Company</label>
+              <label className="block text-sm mb-1">{t("DiscountbyCompany")}</label>
               <div className="flex space-x-2">
                 <Input
                   type="text"
-                  placeholder="Enter discount code"
+placeholder={t("EnterDiscountCode")}
                   value={discountCode}
                   onChange={(e) => setDiscountCode(e.target.value)}
                   disabled={isCheckingDiscount}
@@ -580,7 +585,7 @@ const proceedWithOrderSubmission = async (due = 0, customer_id = undefined) => {
                   disabled={isCheckingDiscount || !discountCode}
                   className="bg-blue-600 hover:bg-blue-700 text-white"
                 >
-                  {isCheckingDiscount ? "Checking..." : "Apply"}
+{isCheckingDiscount ? t("Checking") : t("Apply")}
                 </Button>
               </div>
               {discountError && (
@@ -588,7 +593,7 @@ const proceedWithOrderSubmission = async (due = 0, customer_id = undefined) => {
               )}
               {appliedDiscount > 0 && (
                 <p className="mt-2 text-green-600 text-sm">
-                  Discount of {appliedDiscount}% applied successfully!
+{t("DiscountAppliedSuccess", { appliedDiscount })}
                 </p>
               )}
             </div>
@@ -622,7 +627,7 @@ const proceedWithOrderSubmission = async (due = 0, customer_id = undefined) => {
                       onChange={(e) => handleAmountChange(split.id, e.target.value)}
                       className="pl-16"
                     />
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2">EGP</span>
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2">{t("EGP")}</span>
                   </div>
                   {getDescriptionStatus(split.accountId) && (
                     <Input
@@ -636,35 +641,36 @@ const proceedWithOrderSubmission = async (due = 0, customer_id = undefined) => {
                   )}
                   {paymentSplits.length > 1 && (
                     <Button variant="ghost" size="icon" onClick={() => handleRemoveSplit(split.id)}>
-                      [Remove]
+  {t("Remove")}
                     </Button>
                   )}
                 </div>
               ))}
               {remainingAmount > 0 && (
                 <Button variant="link" onClick={handleAddSplit} className="text-sm text-blue-600">
-                  + Add account split
+  {t("AddAccountSplit")}
                 </Button>
               )}
             </div>
 
             {/* Amount Paid */}
             <div className="mt-6">
-              <label className="block text-sm mb-1">Amount Paid by Customer</label>
+              <label className="block text-sm mb-1">  {t("AmountPaidByCustomer")}
+</label>
               <div className="relative">
                 <Input
                   type="number"
                   min="0"
-                  placeholder="Enter amount paid"
+  placeholder={t("EnterAmountPaid")}
                   value={customerPaid}
                   onChange={(e) => setCustomerPaid(e.target.value)}
                   className="pl-16"
                 />
-                <span className="absolute left-3 top-1/2 -translate-y-1/2">EGP</span>
+                <span className="absolute left-3 top-1/2 -translate-y-1/2">{t("EGP")}</span>
               </div>
               {parseFloat(customerPaid) > requiredTotal && (
                 <p className="mt-2 text-green-600 text-sm font-semibold">
-                  Change Due: {calculatedChange.toFixed(2)} EGP
+  {t("ChangeDue", { value: calculatedChange.toFixed(2) })}
                 </p>
               )}
             </div>
@@ -684,8 +690,7 @@ const proceedWithOrderSubmission = async (due = 0, customer_id = undefined) => {
                 className="w-5 h-5 text-orange-600 border-gray-300 rounded focus:ring-orange-500"
               />
               <label htmlFor="isDueOrder" className="text-sm font-medium text-gray-700 cursor-pointer">
-                Mark as Due Order (Customer will pay later)
-              </label>
+{t("MarkAsDueOrder")}              </label>
             </div>
 
             {/* الأزرار */}
@@ -695,13 +700,14 @@ const proceedWithOrderSubmission = async (due = 0, customer_id = undefined) => {
                 disabled={loading || !isTotalMet}
                 onClick={handleSubmitOrder}
               >
-                {loading
-                  ? "Processing..."
-                  : isDueOrder
-                    ? selectedCustomer
-                      ? "Due Order Ready"
-                      : "Select Customer"
-                    : "Confirm & Pay"}
+              {loading
+  ? t("Processing")
+  : isDueOrder
+    ? selectedCustomer
+      ? t("DueOrderReady")
+      : t("SelectCustomer")
+    : t("ConfirmAndPay")}
+
               </Button>
             </div>
           </div>

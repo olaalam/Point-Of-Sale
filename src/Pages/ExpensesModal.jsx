@@ -2,10 +2,12 @@ import React, { useState } from "react";
 import { useGet } from "@/Hooks/useGet";
 import { usePost } from "@/Hooks/usePost";
 import { toast } from "react-toastify";
+import { useTranslation } from "react-i18next";
 
 export default function ExpensesModal({ onClose }) {
     const { data, loading } = useGet("cashier/expenses_list/lists");
     const { postData } = usePost();
+  const { t } = useTranslation();
 
     const [expense_id, setExpenseId] = useState("");
     const [category_id, setCategoryId] = useState("");
@@ -36,12 +38,12 @@ export default function ExpensesModal({ onClose }) {
 
     const handleSubmit = async () => {
         if (!expense_id || !category_id || !amount) {
-            toast.error("Please fill required fields");
+            toast.error(t("Pleasefillrequiredfields"));
             return;
         }
 
         if (!financial_account_id) {
-            toast.error("Please select financial account");
+            toast.error(t("Pleaseselectfinancialaccount"));
             return;
         }
 
@@ -55,10 +57,10 @@ export default function ExpensesModal({ onClose }) {
 
         try {
             await postData("cashier/expenses_list/add", body);
-            toast.success("Expense Added");
+            toast.success(t("ExpenseAdded"));
             onClose();
         } catch (err) {
-            toast.error(err?.message || "Failed to add expense");
+            toast.error(err?.message || "Failedtoaddexpense");
         }
     };
 
@@ -69,7 +71,7 @@ export default function ExpensesModal({ onClose }) {
             <div className="bg-white rounded-xl p-6 w-[95%] max-w-md shadow-xl overflow-y-auto max-h-[90vh] scrollbar-width-none [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
                 <div className="flex items-center justify-between mb-4 relative">
                     <h2 className="text-xl font-bold  flex-1">
-                        Add Expense
+                        {t("AddExpense")}
                     </h2>
 
                     <button
@@ -83,24 +85,24 @@ export default function ExpensesModal({ onClose }) {
                 </div>
 
                 {/* Expense */}
-<label className="block font-semibold mb-1">Expense</label>
+<label className="block font-semibold mb-1">{t("Expense")}</label>
 <input
     type="text"
     value={expense_id}
     onChange={(e) => setExpenseId(e.target.value)}
-    placeholder="Enter Expense"
+    placeholder={t("EnterExpense")}
     className="w-full p-2 border rounded mb-3"
 />
 
 
                 {/* Category */}
-                <label className="block font-semibold mb-1">Category</label>
+                <label className="block font-semibold mb-1">{t("Category")}</label>
                 <select
                     value={category_id}
                     onChange={(e) => setCategoryId(e.target.value)}
                     className="w-full p-2 border rounded mb-3"
                 >
-                    <option value="">Select Category</option>
+                    <option value="">{t("SelectCategory")}</option>
                     {data?.categories?.map((cat) => (
                         <option key={cat.id} value={cat.id}>
                             {cat.name}
@@ -109,7 +111,7 @@ export default function ExpensesModal({ onClose }) {
                 </select>
 
                 {/* Amount */}
-                <label className="block font-semibold mb-1">Amount</label>
+                <label className="block font-semibold mb-1">{t("Amount")}</label>
 <input
     type="number"
     value={amount}
@@ -118,13 +120,13 @@ export default function ExpensesModal({ onClose }) {
         if (val >= 0) setAmount(e.target.value);
     }}
     className="w-full p-2 border rounded mb-3"
-    placeholder="Enter amount"
+    placeholder={t("Enteramount")}
     min="1"
 />
 
 
                 {/* Note */}
-                <label className="block font-semibold mb-1">Note</label>
+                <label className="block font-semibold mb-1">{t("Note")}</label>
                 <textarea
                     value={note}
                     onChange={(e) => setNote(e.target.value)}
@@ -133,13 +135,13 @@ export default function ExpensesModal({ onClose }) {
                 />
 
                 {/* FINANCIAL ACCOUNT */}
-                <label className="block font-semibold mb-1">Financial Account</label>
+                <label className="block font-semibold mb-1">{t("FinancialAccount")}</label>
                 <select
                     value={financial_account_id}
                     onChange={(e) => setFinancialAccountId(e.target.value)}
                     className="w-full p-2 border rounded mb-3"
                 >
-                    <option value="">Select Account</option>
+                    <option value="">{t("SelectAccount")}</option>
                     {data?.financial?.map((acc) => (
                         <option key={acc.id} value={acc.id}>
                             {acc.name} - {acc.details}
@@ -152,7 +154,7 @@ export default function ExpensesModal({ onClose }) {
                     onClick={handleSubmit}
                     className="px-6 py-4 bg-bg-primary text-white rounded hover:bg-red-700 w-full"
                 >
-                    Add
+                    {t("add")}
                 </button>
             </div>
         </div>

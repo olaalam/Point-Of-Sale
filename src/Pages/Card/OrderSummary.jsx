@@ -38,7 +38,7 @@ export default function OrderSummary({
         {["dine_in", "take_away"].includes(orderType) &&
           totalOtherCharge > 0 && (
             <SummaryRow
-              label={`${t("Service Fee")} (${serviceFeeData.amount}%)`}
+              label={`${t("ServiceFee")} (${serviceFeeData.amount}%)`}
               value={totalOtherCharge}
             />
           )}{" "}
