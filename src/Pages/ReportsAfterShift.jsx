@@ -18,24 +18,6 @@ export default function EndShiftReportModal({ reportData, onClose, onConfirmClos
             {t("EndShiftReport")}
           </h2>
 
-          {/* معلومات الشيفت
-          <div className="grid grid-cols-2 gap-4 mb-6 text-sm">
-            <div className="flex items-center gap-2">
-              <FaUser className="text-gray-600" />
-              <div>
-                <p className="text-gray-500">{t("Cashier")}</p>
-                <p className="font-semibold">{shift?.cashier_name || "-"}</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <FaClock className="text-gray-600" />
-              <div>
-                <p className="text-gray-500">{t("Duration")}</p>
-                <p className="font-semibold">{shift?.duration || "-"}</p>
-              </div>
-            </div>
-          </div> */}
-
           {/* الحسابات المالية */}
           <div className="space-y-4">
             <h3 className="font-bold text-lg flex items-center gap-2">

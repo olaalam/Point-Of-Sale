@@ -19,8 +19,8 @@ import Profile from "./Pages/Profile";
 import DueUsers from "./Pages/Due/DueUsers";
 import AllOrders from "./Pages/AllOrders/AllOrders";
 import Dine from "./Pages/Dine";
-import OnlineOrders from "./Pages/OnlineOrders/OnlineOrders";
 import SinglePage from "./Pages/OnlineOrders/SinglePage";
+import OnlineTabs from "./Pages/OnlineOrders/OnlineTabs";
 
 const router = createBrowserRouter(
   [
@@ -210,7 +210,7 @@ const router = createBrowserRouter(
           path:"/online-orders",
           element:(
             <ProtectedRoute>
-              <OnlineOrders/>
+              <OnlineTabs/>
             </ProtectedRoute>
           )
         },

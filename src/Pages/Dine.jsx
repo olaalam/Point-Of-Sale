@@ -42,7 +42,10 @@ const CustomStatusSelect = ({ table, statusOptions, onStatusChange }) => {
           )}
           <span className="truncate">{currentStatus?.label || "Status"}</span>
         </div>
-        <ChevronDown size={12} className={`transition-transform ${isOpen ? "rotate-180" : ""}`} />
+        <ChevronDown
+          size={12}
+          className={`transition-transform ${isOpen ? "rotate-180" : ""}`}
+        />
       </button>
 
       {isOpen && (
@@ -58,7 +61,9 @@ const CustomStatusSelect = ({ table, statusOptions, onStatusChange }) => {
                   <option.icon size={12} className={option.iconColor} />
                   <span>{option.label}</span>
                 </div>
-                {table.current_status === option.value && <Check size={12} className="text-blue-500" />}
+                {table.current_status === option.value && (
+                  <Check size={12} className="text-blue-500" />
+                )}
               </button>
             ))}
           </div>
@@ -85,11 +90,36 @@ const Dine = () => {
   const locations = data?.cafe_location || [];
 
   const statusOptions = [
-    { label: t("Available"), value: "available", icon: CheckCircle, iconColor: "text-gray-500" },
-    { label: t("Preorder"), value: "not_available_pre_order", icon: Clock, iconColor: "text-orange-500" },
-    { label: t("Withorder"), value: "not_available_with_order", icon: ShoppingCart, iconColor: "text-red-500" },
-    { label: t("Reserved"), value: "reserved", icon: UserCheck, iconColor: "text-blue-500" },
-    { label: t("Checkout"), value: "not_available_but_checkout", icon: CreditCard, iconColor: "text-green-500" },
+    {
+      label: t("Available"),
+      value: "available",
+      icon: CheckCircle,
+      iconColor: "text-gray-500",
+    },
+    {
+      label: t("Preorder"),
+      value: "not_available_pre_order",
+      icon: Clock,
+      iconColor: "text-orange-500",
+    },
+    {
+      label: t("Withorder"),
+      value: "not_available_with_order",
+      icon: ShoppingCart,
+      iconColor: "text-red-500",
+    },
+    {
+      label: t("Reserved"),
+      value: "reserved",
+      icon: UserCheck,
+      iconColor: "text-blue-500",
+    },
+    {
+      label: t("Checkout"),
+      value: "not_available_but_checkout",
+      icon: CreditCard,
+      iconColor: "text-green-500",
+    },
   ];
 
   const processTablesWithMerge = (tables) => {
@@ -99,7 +129,10 @@ const Dine = () => {
           ...table,
           isMerged: true,
           subTables: table.sub_table,
-          mergedTableNumbers: [table.table_number, ...table.sub_table.map((s) => s.table_number)].join(" + "),
+          mergedTableNumbers: [
+            table.table_number,
+            ...table.sub_table.map((s) => s.table_number),
+          ].join(" + "),
         };
       }
       return { ...table, isMerged: false };
@@ -120,8 +153,12 @@ const Dine = () => {
     }
   }, []);
 
-  const selectedLocation = locations.find((loc) => loc.id === selectedLocationId);
-  const tablesToDisplay = processTablesWithMerge(selectedLocation?.tables || []);
+  const selectedLocation = locations.find(
+    (loc) => loc.id === selectedLocationId
+  );
+  const tablesToDisplay = processTablesWithMerge(
+    selectedLocation?.tables || []
+  );
 
   const tableStates = {
     available: "available",
@@ -133,20 +170,26 @@ const Dine = () => {
   const getTableColor = (state) => {
     const colors = {
       available: "bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200",
-      not_available_pre_order: "bg-orange-100 text-orange-700 border-orange-300 hover:bg-orange-200",
-      not_available_with_order: "bg-red-100 text-red-700 border-red-300 hover:bg-red-200",
-      not_available_but_checkout: "bg-green-100 text-green-700 border-green-300 hover:bg-green-200",
+      not_available_pre_order:
+        "bg-orange-100 text-orange-700 border-orange-300 hover:bg-orange-200",
+      not_available_with_order:
+        "bg-red-100 text-red-700 border-red-300 hover:bg-red-200",
+      not_available_but_checkout:
+        "bg-green-100 text-green-700 border-green-300 hover:bg-green-200",
       reserved: "bg-blue-100 text-blue-700 border-blue-300 hover:bg-blue-200",
     };
     return colors[state] || colors.available;
   };
 
   const handleSelectTable = async (table) => {
-    const transferPending = sessionStorage.getItem("transfer_pending") === "true";
+    const transferPending =
+      sessionStorage.getItem("transfer_pending") === "true";
     const sourceTableId = sessionStorage.getItem("transfer_source_table_id");
 
     if (transferPending) {
-      const cartIds = JSON.parse(sessionStorage.getItem("transfer_cart_ids") || "[]");
+      const cartIds = JSON.parse(
+        sessionStorage.getItem("transfer_cart_ids") || "[]"
+      );
       if (cartIds.length > 0 && sourceTableId === table.id.toString()) {
         toast.error(t("CannotTransferToSameTable"));
         return;
@@ -159,25 +202,45 @@ const Dine = () => {
       try {
         await postData("cashier/transfer_order", formData);
         toast.success(t("OrderTransferredSuccessfully"));
-        ["transfer_cart_ids", "transfer_first_cart_id", "transfer_source_table_id", "transfer_pending"].forEach((k) => sessionStorage.removeItem(k));
+        [
+          "transfer_cart_ids",
+          "transfer_first_cart_id",
+          "transfer_source_table_id",
+          "transfer_pending",
+        ].forEach((k) => sessionStorage.removeItem(k));
         sessionStorage.setItem("table_id", table.id);
-        navigate("/order-page", { state: { order_type: "dine_in", table_id: table.id, transferred: true } });
+        navigate("/order-page", {
+          state: {
+            order_type: "dine_in",
+            table_id: table.id,
+            transferred: true,
+          },
+        });
       } catch (err) {
-        toast.error(err.response?.data?.message || t("FailedtotransfertablePleasetryagain"));
+        toast.error(
+          err.response?.data?.message ||
+            t("FailedtotransfertablePleasetryagain")
+        );
       }
     } else {
       sessionStorage.setItem("table_id", table.id);
       sessionStorage.setItem("order_type", "dine_in");
       sessionStorage.setItem("hall_name", selectedLocation?.name || "");
       sessionStorage.setItem("table_number", table.table_number || "");
-      navigate("/order-page", { state: { order_type: "dine_in", table_id: table.id } });
+      navigate("/order-page", {
+        state: { order_type: "dine_in", table_id: table.id },
+      });
     }
     setSelectedTable(table.id);
   };
 
   const MergedTableCard = ({ table, onStatusChange }) => {
-    const transferPending = sessionStorage.getItem("transfer_pending") === "true";
-    const isSource = transferPending && sessionStorage.getItem("transfer_source_table_id") === table.id.toString();
+    const transferPending =
+      sessionStorage.getItem("transfer_pending") === "true";
+    const isSource =
+      transferPending &&
+      sessionStorage.getItem("transfer_source_table_id") ===
+        table.id.toString();
 
     return (
       <div
@@ -195,7 +258,9 @@ const Dine = () => {
         </div>
 
         <div className="text-center mb-2">
-          <div className="text-lg font-bold text-purple-800">{table.table_number}</div>
+          <div className="text-lg font-bold text-purple-800">
+            {table.table_number}
+          </div>
           <div className="text-xs flex items-center justify-center gap-1">
             <Users size={10} /> {table.capacity}
           </div>
@@ -205,7 +270,9 @@ const Dine = () => {
           {table.subTables.map((sub) => (
             <div
               key={sub.id}
-              className={`p-1.5 rounded border text-center ${getTableColor(sub.current_status || table.current_status)}`}
+              className={`p-1.5 rounded border text-center ${getTableColor(
+                sub.current_status || table.current_status
+              )}`}
             >
               <div className="font-bold">{sub.table_number}</div>
               <div className="flex items-center justify-center gap-0.5">
@@ -215,26 +282,47 @@ const Dine = () => {
           ))}
         </div>
 
-        <CustomStatusSelect table={table} statusOptions={statusOptions} onStatusChange={onStatusChange} />
+        <CustomStatusSelect
+          table={table}
+          statusOptions={statusOptions}
+          onStatusChange={onStatusChange}
+        />
 
-        {isSource && <div className="absolute top-1 right-1 bg-yellow-500 text-white text-[9px] px-1.5 py-0.5 rounded">{t("Source")}</div>}
-        {transferPending && !isSource && <div className="absolute top-1 right-1 bg-green-500 text-white text-[9px] px-1.5 py-0.5 rounded">Select</div>}
+        {isSource && (
+          <div className="absolute top-1 right-1 bg-yellow-500 text-white text-[9px] px-1.5 py-0.5 rounded">
+            {t("Source")}
+          </div>
+        )}
+        {transferPending && !isSource && (
+          <div className="absolute top-1 right-1 bg-green-500 text-white text-[9px] px-1.5 py-0.5 rounded">
+            Select
+          </div>
+        )}
       </div>
     );
   };
 
   const TableCard = ({ table }) => {
-    const transferPending = sessionStorage.getItem("transfer_pending") === "true";
-    const isSource = transferPending && sessionStorage.getItem("transfer_source_table_id") === table.id.toString();
+    const transferPending =
+      sessionStorage.getItem("transfer_pending") === "true";
+    const isSource =
+      transferPending &&
+      sessionStorage.getItem("transfer_source_table_id") ===
+        table.id.toString();
     const { putData: putStatusChange } = usePut();
 
     const dynamicStatusOptions = statusOptions.filter((opt) =>
-      opt.value === "reserved" ? ["available", "reserved"].includes(table.current_status) : true
+      opt.value === "reserved"
+        ? ["available", "reserved"].includes(table.current_status)
+        : true
     );
 
     const handleStatusChange = async (status) => {
       try {
-        await putStatusChange(`cashier/tables_status/${table.id}?current_status=${status}`, {});
+        await putStatusChange(
+          `cashier/tables_status/${table.id}?current_status=${status}`,
+          {}
+        );
         toast.success(t("StatusUpdated"));
       } catch (err) {
         toast.error(err.response?.data?.message || "Failed");
@@ -242,7 +330,9 @@ const Dine = () => {
     };
 
     if (table.isMerged) {
-      return <MergedTableCard table={table} onStatusChange={handleStatusChange} />;
+      return (
+        <MergedTableCard table={table} onStatusChange={handleStatusChange} />
+      );
     }
 
     return (
@@ -264,9 +354,21 @@ const Dine = () => {
           <Users size={14} />
           <span>{table.capacity}</span>
         </div>
-        <CustomStatusSelect table={table} statusOptions={dynamicStatusOptions} onStatusChange={handleStatusChange} />
-        {isSource && <div className="absolute top-1 right-1 bg-yellow-500 text-white text-xs px-1.5 py-0.5 rounded">{t("Source")}</div>}
-        {transferPending && !isSource && <div className="absolute top-1 right-1 bg-green-500 text-white text-xs px-1.5 py-0.5 rounded">Select</div>}
+        <CustomStatusSelect
+          table={table}
+          statusOptions={dynamicStatusOptions}
+          onStatusChange={handleStatusChange}
+        />
+        {isSource && (
+          <div className="absolute top-1 right-1 bg-yellow-500 text-white text-xs px-1.5 py-0.5 rounded">
+            {t("Source")}
+          </div>
+        )}
+        {transferPending && !isSource && (
+          <div className="absolute top-1 right-1 bg-green-500 text-white text-xs px-1.5 py-0.5 rounded">
+            Select
+          </div>
+        )}
       </div>
     );
   };
@@ -275,16 +377,27 @@ const Dine = () => {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <Loading />
-        {transferLoading && <div className="absolute bottom-10 bg-white p-3 rounded shadow"><p className="text-sm">{t("Transferringorder")}</p></div>}
+        {transferLoading && (
+          <div className="absolute bottom-10 bg-white p-3 rounded shadow">
+            <p className="text-sm">{t("Transferringorder")}</p>
+          </div>
+        )}
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className={`p-8 text-center text-red-600 bg-red-50 rounded-lg shadow-md max-w-lg mx-auto mt-10 ${isArabic ? "text-right" : "text-left"}`} dir={isArabic ? "rtl" : "ltr"}>
+      <div
+        className={`p-8 text-center text-red-600 bg-red-50 rounded-lg shadow-md max-w-lg mx-auto mt-10 ${
+          isArabic ? "text-right" : "text-left"
+        }`}
+        dir={isArabic ? "rtl" : "ltr"}
+      >
         <p className="font-semibold">{t("Failedtoloadtables")}</p>
-        <p className="text-sm mt-2">{t("Pleasecheckyournetworkconnectionortryagainlater")}</p>
+        <p className="text-sm mt-2">
+          {t("Pleasecheckyournetworkconnectionortryagainlater")}
+        </p>
       </div>
     );
   }
@@ -294,31 +407,47 @@ const Dine = () => {
       <div className=" mx-auto bg-white rounded-xl shadow-lg ">
         <div className="p-6 border-b">
           <h1 className="text-2xl font-bold text-gray-800">
-            {sessionStorage.getItem("transfer_pending") === "true" ? t("SelectNewTableForTransfer") : t("DineInTables")}
+            {sessionStorage.getItem("transfer_pending") === "true"
+              ? t("SelectNewTableForTransfer")
+              : t("DineInTables")}
           </h1>
           <p className="text-gray-500 text-sm mt-1">
             {sessionStorage.getItem("transfer_pending") === "true"
-              ? t("SelectTableToTransferFrom", { sourceTableId: sessionStorage.getItem("transfer_source_table_id") })
+              ? t("SelectTableToTransferFrom", {
+                  sourceTableId: sessionStorage.getItem(
+                    "transfer_source_table_id"
+                  ),
+                })
               : t("SelectTableToStartOrder")}
           </p>
         </div>
 
         {locations.length > 0 ? (
-          <Tabs value={selectedLocationId?.toString()} onValueChange={(v) => setSelectedLocationId(parseInt(v))} className="w-full">
-            <TabsList className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-1 p-2 bg-gray-50">
+          <Tabs
+            value={selectedLocationId?.toString()}
+            onValueChange={(v) => setSelectedLocationId(parseInt(v))}
+            className="w-full "
+          >
+            <TabsList className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-1 p-4 pt-2 h-12 !shadow-none !bg-none w-full">
               {locations.map((loc) => (
                 <TabsTrigger
                   key={loc.id}
                   value={loc.id.toString()}
-                  className="text-xs py-1.5 data-[state=active]:bg-blue-600 data-[state=active]:text-white rounded-md"
+                  className="text-xs  data-[state=active]:bg-bg-primary data-[state=active]:text-white rounded-md "
                 >
-                  {loc.name === "Main Hall" ? t("MainHall") : t("ReceptionHall")}
+                  {loc.name === "Main Hall"
+                    ? t("MainHall")
+                    : t("ReceptionHall")}
                 </TabsTrigger>
               ))}
             </TabsList>
 
             {locations.map((loc) => (
-              <TabsContent key={loc.id} value={loc.id.toString()} className="mt-0">
+              <TabsContent
+                key={loc.id}
+                value={loc.id.toString()}
+                className="mt-0"
+              >
                 <div className="p-4">
                   {tablesToDisplay.length > 0 ? (
                     <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10 gap-3 auto-rows-min">

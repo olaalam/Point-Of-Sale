@@ -6,7 +6,8 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs";
-import OnlineOrders from "./OnlineOrders/OnlineOrders";
+import OnlineOrders from "./OnlineOrders";
+import ExpensesList from "./ExpensesList";
 
 export default function OnlineTabs() {
   return (
@@ -14,17 +15,17 @@ export default function OnlineTabs() {
       <Tabs defaultValue="orders" className="w-full">
 
         {/* === TABS HEADER === */}
-        <TabsList className="w-full flex gap-4 bg-muted p-2 rounded-xl">
+        <TabsList className="grid grid-cols-2 md:grid-cols-3 gap-1 p-4 pt-2 h-12 !shadow-none !bg-none w-full">
           <TabsTrigger
             value="orders"
-            className="flex-1 data-[state=active]:bg-primary data-[state=active]:text-white py-2 rounded-lg"
+            className="text-xs  data-[state=active]:bg-bg-primary data-[state=active]:text-white rounded-md"
           >
             Online Orders
           </TabsTrigger>
 
           <TabsTrigger
             value="expenses"
-            className="flex-1 data-[state=active]:bg-primary data-[state=active]:text-white py-2 rounded-lg"
+            className="text-xs  data-[state=active]:bg-bg-primary data-[state=active]:text-white rounded-md"
           >
             Expenses
           </TabsTrigger>
@@ -37,14 +38,8 @@ export default function OnlineTabs() {
 
         {/* === EXPENSES CONTENT === */}
         <TabsContent value="expenses" className="mt-6">
-          <div className="p-4 border rounded-xl shadow-sm">
-            <h2 className="text-xl font-semibold mb-3">Expenses</h2>
+          <ExpensesList/>
 
-            {/* PLACE YOUR CONTENT HERE */}
-            <p className="text-sm text-gray-600">
-              Display expenses details here...
-            </p>
-          </div>
         </TabsContent>
 
       </Tabs>
