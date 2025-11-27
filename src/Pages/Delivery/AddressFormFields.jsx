@@ -61,8 +61,8 @@ const AddressFormFields = ({
           >
             <span
               className={`
-                inline-block h-4 w-4 transform rounded-full bg-white transition duration-200 ease-in-out
-                ${isAutoAddress ? 'translate-x-6' : 'translate-x-1'}
+                pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out
+                ${isAutoAddress ? 'translate-x-[-20px]' : 'translate-x-0'}
               `}
             />
           </button>

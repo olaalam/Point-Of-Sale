@@ -313,7 +313,7 @@ const handleClose = async () => {
 
             {/* تبديل اللغة */}
             <div className="flex items-center gap-2">
-              <span className="text-sm font-medium">EN</span>
+              <span className="text-sm font-medium">AR</span>
               <button
                 onClick={toggleLanguage}
                 className={`relative inline-flex h-6 w-12 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
@@ -326,7 +326,7 @@ const handleClose = async () => {
                   }`}
                 />
               </button>
-              <span className="text-sm font-medium">AR</span>
+              <span className="text-sm font-medium">EN</span>
             </div>
   <Notifications />
 

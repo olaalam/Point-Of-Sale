@@ -252,7 +252,7 @@ const Dine = () => {
           relative p-3 rounded-lg border-2 shadow-sm transition-all cursor-pointer
           bg-gradient-to-br from-purple-50 to-purple-100
           ${selectedTable === table.id ? "ring-2 ring-purple-500" : ""}
-          hover:shadow-md hover:scale-[1.02]
+          hover:shadow-md 
         `}
         onClick={() => !transferLoading && handleSelectTable(table)}
       >
@@ -348,7 +348,7 @@ const Dine = () => {
           ${selectedTable === table.id ? "ring-2 ring-blue-500" : ""}
           ${isSource ? "ring-2 ring-yellow-500 opacity-70" : ""}
           ${transferPending && !isSource ? "ring-2 ring-green-400" : ""}
-          hover:shadow-md hover:scale-[1.03]
+          hover:shadow-md 
           ${transferLoading ? "opacity-50 pointer-events-none" : ""}
         `}
         onClick={() => !transferLoading && handleSelectTable(table)}
