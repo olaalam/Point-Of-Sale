@@ -4,6 +4,7 @@ import Item from "./Item";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useGet } from "@/Hooks/useGet";
 import { areProductsEqual } from "./ProductModal";
+import { useTranslation } from "react-i18next";
 
 export default function OrderPage({
   fetchEndpoint,
@@ -14,6 +15,8 @@ export default function OrderPage({
   propUserId,
   discountData = { discount: 0, module: [] },
 }) {
+   const { i18n } = useTranslation()
+      const isArabic = i18n.language === "ar";
   const [ordersByTable, setOrdersByTable] = useState({});
   const [ordersByUser, setOrdersByUser] = useState({});
   const [takeAwayItems, setTakeAwayItems] = useState(initialCart);
@@ -234,7 +237,7 @@ export default function OrderPage({
   console.log("🎯 OrderPage Order Type:", currentOrderType);
 
   return (
-    <div className="flex flex-col-reverse lg:flex-row gap-4 p-4 h-full w-full">
+    <div className="flex flex-col-reverse lg:flex-row gap-4 p-4 h-full  w-full" dir={isArabic ? "rtl" : "ltr"}>
       <div className="w-full lg:w-1/2 sm:overflow-auto">
         <Card
           key={refreshTrigger}
