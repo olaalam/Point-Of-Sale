@@ -396,7 +396,7 @@ ConfirmVoid:"Confirm Void",
 ar: { 
   translation: {
     ServiceFee: "رسوم الخدمة"
-,
+, TotalAmount:"مجموع الحساب",
     ManagerID: "رقم هوية المدير",
 Voiding: "جاري الإلغاء",
 ConfirmVoid: "تأكيد الإلغاء"

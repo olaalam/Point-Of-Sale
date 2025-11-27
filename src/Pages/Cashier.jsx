@@ -95,7 +95,8 @@ export default function Cashier() {
   return (
     <div className={`grid grid-cols-1 md:grid-cols-2 bg-white min-h-screen ${
         isArabic ? "text-right direction-rtl" : "text-left direction-ltr"
-      }`} dir={isArabic ? "rtl" : "ltr"}>
+      }`}
+       dir={isArabic ? "rtl" : "ltr"}>
       <div className="flex items-center justify-center p-8">
         <div className="w-full max-w-md space-y-8">
           <h1 className="text-3xl md:text-4xl font-bold text-black " >
