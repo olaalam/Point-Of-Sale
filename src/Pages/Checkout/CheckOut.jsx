@@ -26,6 +26,8 @@ const CheckOut = ({
   source = "web",
   totalDineInItems,
   orderType,
+  selectedPaymentItemIds = [],
+  clearPaidItemsOnly,
   onClearCart,
 }) => {
   const cashierId = sessionStorage.getItem("cashier_id");
@@ -143,12 +145,28 @@ const CheckOut = ({
   }, [amountToPay, orderType, discountData, appliedDiscount]);
 
   // Required Total
-  const requiredTotal = useMemo(() => {
-    if (orderType === "dine_in") {
-      return orderItems.reduce((acc, item) => acc + item.price * item.count, 0);
-    }
+// Required Total - الحساب الصحيح للـ dine_in الجزئي
+const requiredTotal = useMemo(() => {
+  // لو takeaway أو delivery أو دفع كامل → نحسب كل اللي في السلة
+  if (orderType !== "dine_in") {
     return discountedAmount;
-  }, [orderItems, orderType, discountedAmount]);
+  }
+
+  // لو dine_in وفيه عناصر مختارة للدفع → نحسب بس دول
+  if (selectedPaymentItemIds.length > 0) {
+    const selectedItems = orderItems.filter(item => 
+      selectedPaymentItemIds.includes(item.temp_id)
+    );
+    return selectedItems.reduce((acc, item) => {
+      // item.count أحيانًا بيكون count وأحيانًا quantity
+      const quantity = item.count ?? item.quantity ?? 1;
+      return acc + (item.price * quantity);
+    }, 0);
+  }
+
+  // لو مفيش حاجة مختارة (دي حالة نظريًا ما بتحصلش لأنك بتمنع الدخول أصلًا)
+  return discountedAmount;
+}, [orderItems, orderType, discountedAmount, selectedPaymentItemIds]);
 
   const { totalScheduled, remainingAmount, changeAmount } = useMemo(() => {
     const sum = paymentSplits.reduce((acc, split) => acc + (parseFloat(split.amount) || 0), 0);
@@ -316,9 +334,19 @@ return toast.error(t("NoFinancialAccounts"));
   };
 
 // دالة إرسال الطلب + الطباعة الصامتة (معدلة ومظبوطة 100%)
+
 const proceedWithOrderSubmission = async (due = 0, customer_id = undefined) => {
-  // تأكد إن orderItems array (حماية من الإيرور اللي فات)
   const safeOrderItems = Array.isArray(orderItems) ? orderItems : [];
+
+  // تحديد إذا كان دفع جزئي في الـ dine_in
+// تحديد إذا كان دفع جزئي
+const isDineIn = orderType === "dine_in";
+const hasSelectedItems = selectedPaymentItemIds.length > 0;
+const totalItemsCount = orderItems.length;
+const allItemsSelected = hasSelectedItems && selectedPaymentItemIds.length === totalItemsCount;
+
+// دفع جزئي = dine_in + مختار حاجة بس مش الكل
+const isPartialPayment = isDineIn && hasSelectedItems && !allItemsSelected;
 
   const hasDealItems = safeOrderItems.some((item) => item.is_deal);
   const endpoint = getOrderEndpoint(orderType, safeOrderItems, totalDineInItems, hasDealItems);
@@ -333,9 +361,10 @@ const proceedWithOrderSubmission = async (due = 0, customer_id = undefined) => {
       orderItems: safeOrderItems,
       amountToPay: requiredTotal,
       totalTax,
-      totalDiscount: appliedDiscount > 0
-        ? amountToPay * (appliedDiscount / 100)
-        : discountData.module.includes(orderType)
+      totalDiscount:
+        appliedDiscount > 0
+          ? amountToPay * (appliedDiscount / 100)
+          : discountData.module.includes(orderType)
           ? amountToPay * (discountData.discount / 100)
           : totalDiscount,
       notes: orderNotes.trim() || "No special instructions",
@@ -343,7 +372,7 @@ const proceedWithOrderSubmission = async (due = 0, customer_id = undefined) => {
       financialsPayload,
       cashierId,
       tableId,
-      customerPaid,
+      customerPaid: customerPaid || undefined,
       discountCode: appliedDiscount > 0 ? discountCode : undefined,
       due: due,
       user_id: customer_id,
@@ -356,38 +385,40 @@ const proceedWithOrderSubmission = async (due = 0, customer_id = undefined) => {
     });
 
     if (response?.success) {
-toast.success(due === 1 ? t("DueOrderCreated") : t("OrderPlaced"));
+      toast.success(due === 1 ? t("DueOrderCreated") : t("OrderPlaced"));
 
-      // دالة التنقل بعد الطلب (مشتركة بين الحالتين)
-      const handleNavigation = () => {
-        console.log("Order completed → Clearing cart & navigating...");
-        if (orderType === "delivery") {
+const handleNavigation = () => {
+  if (orderType === "delivery") {
     sessionStorage.removeItem("selected_user_id");
     sessionStorage.removeItem("selected_user_data");
     sessionStorage.removeItem("selected_address_id");
     sessionStorage.removeItem("selected_address_data");
-    console.log("تم مسح بيانات العميل والعنوان من sessionStorage بعد طلب الدليفري");
   }
-        onClearCart();
-        sessionStorage.setItem("last_order_type", orderType);
 
-        if (orderType === "delivery") {
-          const newOrderId = response?.success?.id;
-          if (newOrderId) {
-            setOrderId(newOrderId);
-            setDeliveryModelOpen(true);
-          } else {
-            onClose();
-          }
-        } else {
-          onClose();
-        }
-      };
+// القرار الجديد: بناءً على نوع الطلب + هل فيه دفع جزئي أم لا
+if (orderType === "dine_in" && selectedPaymentItemIds.length > 0) {
+  // في حالة dine_in واختار عناصر للدفع → دفع جزئي
+  clearPaidItemsOnly();
+} else {
+  // في كل الحالات الأخرى (takeaway, delivery, أو dine_in دفع كامل)
+  // أو حتى dine_in بدون تحديد (يعني دفع كامل)
+  onClearCart();
+}
 
-      // طباعة الفاتورة فقط لو الطلب مش آجل
+  sessionStorage.setItem("last_order_type", orderType);
+
+  if (orderType === "delivery" && response?.success?.id) {
+    setOrderId(response.success.id);
+    setDeliveryModelOpen(true);
+  } else {
+    onClose();
+  }
+};
+
+      // طباعة فقط لو مش طلب آجل
       if (due === 0) {
         const receiptData = prepareReceiptData(
-          safeOrderItems,           // ← هنا آمن 100%
+          safeOrderItems,
           amountToPay,
           totalTax,
           totalDiscount,
@@ -400,20 +431,17 @@ toast.success(due === 1 ? t("DueOrderCreated") : t("OrderPlaced"));
         );
 
         printReceiptSilently(receiptData, response, () => {
-          console.log("PRINTING COMPLETED → Proceeding to navigation");
           handleNavigation();
         });
       } else {
-        // لو طلب آجل → نكمل بدون طباعة نهائيًا
-        console.log("Due Order → Skipping print");
         handleNavigation();
       }
     } else {
-toast.error(response?.message || t("FailedToProcessOrder"));
+      toast.error(response?.message || t("FailedToProcessOrder"));
     }
   } catch (e) {
     console.error("Submit error:", e);
-toast.error(e.message || t("SubmissionFailed"));
+    toast.error(e.message || t("SubmissionFailed"));
   }
 };
 

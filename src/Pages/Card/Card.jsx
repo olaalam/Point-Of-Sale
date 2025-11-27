@@ -104,6 +104,13 @@ const printRef = useRef();
     }
   }, [orderItems]);
 
+  const clearCart = () => {
+    updateOrderItems([]);
+    sessionStorage.removeItem("cart");
+    setSelectedItems([]);
+    setSelectedPaymentItems([]);
+    toast.success(t("Allitemsclearedfromtheorder"));
+  };
   // Clear cart function
 const clearPaidItemsOnly = () => {
   // نحذف بس العناصر اللي تم اختيارها للدفع (selectedPaymentItems)
@@ -450,7 +457,9 @@ const handlePrint = () => {
           source="web"
           orderType={orderType}
           tableId={tableId}
-          onClearCart={clearPaidItemsOnly}
+          onClearCart={clearCart}
+          clearPaidItemsOnly={clearPaidItemsOnly}
+          selectedPaymentItemIds={selectedPaymentItems}
         />
       )}
 
