@@ -46,6 +46,9 @@ const ItemRow = ({
   handleVoidItem,
   handleRemoveFrontOnly,
   updateOrderItems,
+    handleIncrease,
+  handleDecrease,
+   allowQuantityEdit,
   orderItems
 }) => {
   console.log("ItemRow → Rendering item:", item);
@@ -155,7 +158,6 @@ const ItemRow = ({
         </div>
       </td>
 
-      {/* Quantity */}
 {/* Quantity */}
 <td className="py-3 px-4 text-center align-top">
   {item.weight_status === 1 ? (
@@ -244,9 +246,26 @@ const ItemRow = ({
         +
       </button>
     </div>
-  ) : (
-    <span>{item.count}</span>
-  )}
+  ) :!(item.is_reward || item.is_deal) && allowQuantityEdit ? (
+          <div className="flex items-center justify-center gap-1">
+            <button
+              onClick={() => handleDecrease(item.temp_id)}
+              disabled={!allowQuantityEdit}
+              className={`px-2 py-1 rounded ${allowQuantityEdit ? "bg-gray-200 hover:bg-gray-300" : "bg-gray-100 cursor-not-allowed"}`}
+            >
+              −
+            </button>
+            <span className="min-w-[24px] text-center font-medium">{item.count}</span>
+            <button
+              onClick={() => handleIncrease(item.temp_id)}
+              className="px-2 py-1 bg-gray-200 rounded hover:bg-gray-300"
+            >
+              +
+            </button>
+          </div>
+        ) : (
+          <span className="min-w-[24px] text-center font-medium">1 (ثابت)</span>
+        )}
 </td>
 
 
