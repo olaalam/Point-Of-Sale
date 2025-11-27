@@ -111,7 +111,7 @@ const handleOrderClick = (id) => {
 
   // ... (الجزء الخاص بالتصاميم JSX يبقى كما هو)
   return (
-    <div className="min-h-screen bg-gray-50 p-4 md:p-6" dir={isArabic?"rtl":"rtl"}>
+    <div className="min-h-screen bg-gray-50 p-4 md:p-6" dir={isArabic?"rtl":"ltr"}>
       {/* Header */}
       <div className="mb-6">
         <h1 className="text-2xl md:text-3xl font-bold text-gray-800 mb-2">

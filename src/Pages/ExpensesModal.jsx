@@ -1,13 +1,16 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useGet } from "@/Hooks/useGet";
 import { usePost } from "@/Hooks/usePost";
 import { toast } from "react-toastify";
 import { useTranslation } from "react-i18next";
 
-export default function ExpensesModal({ onClose }) {
-    const { data, loading } = useGet("cashier/expenses_list/lists");
+export default function ExpensesModal({ onClose, expense = null , refetchParent }) {
+    const { data, loading        } = useGet("cashier/expenses_list/lists");
     const { postData } = usePost();
-  const { t } = useTranslation();
+    const { t } = useTranslation();
+
+    // Check if we're editing or adding
+    const isEditMode = !!expense;
 
     const [expense_id, setExpenseId] = useState("");
     const [category_id, setCategoryId] = useState("");
@@ -36,10 +39,28 @@ export default function ExpensesModal({ onClose }) {
 
     const [financial_account_id, setFinancialAccountId] = useState(initialFinancialId);
 
+    // ----------------------------
+    // Populate fields if editing
+    // ----------------------------
+    useEffect(() => {
+        if (isEditMode && expense) {
+            setExpenseId(expense.expense?.id || expense.expense_id || "");
+            setCategoryId(expense.category?.id || expense.category_id || "");
+            setAmount(expense.amount || "");
+            setNote(expense.note || "");
+            setFinancialAccountId(
+                expense.financial_account?.id || 
+                expense.financial_account_id || 
+                initialFinancialId
+            );
+        }
+    }, [expense, isEditMode]);
+
     const handleSubmit = async () => {
         if (!expense_id || !category_id || !amount) {
             toast.error(t("Pleasefillrequiredfields"));
             return;
+            
         }
 
         if (!financial_account_id) {
@@ -56,28 +77,34 @@ export default function ExpensesModal({ onClose }) {
         };
 
         try {
-            await postData("cashier/expenses_list/add", body);
-            toast.success(t("ExpenseAdded"));
+            if (isEditMode) {
+                // Edit endpoint - adjust this based on your API
+                await postData(`cashier/expenses_list/update/${expense.id}`, body);
+                toast.success(t("ExpenseUpdated") || "Expense updated successfully");
+  if (refetchParent) refetchParent();
+            } else {
+                // Add endpoint
+                await postData("cashier/expenses_list/add", body);
+                toast.success(t("ExpenseAdded"));
+            }
             onClose();
         } catch (err) {
-            toast.error(err?.message || "Failedtoaddexpense");
+            toast.error(err?.message || "Failed to save expense");
         }
     };
 
     if (loading) return null;
 
     return (
-        <div className="fixed inset-0 bg-black/60  flex items-center justify-center z-[9999] ">
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[9999]">
             <div className="bg-white rounded-xl p-6 w-[95%] max-w-md shadow-xl overflow-y-auto max-h-[90vh] scrollbar-width-none [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
                 <div className="flex items-center justify-between mb-4 relative">
-                    <h2 className="text-xl font-bold  flex-1">
-                        {t("AddExpense")}
+                    <h2 className="text-xl font-bold flex-1">
+                        {isEditMode ? t("EditExpense") || "Edit Expense" : t("AddExpense")}
                     </h2>
 
                     <button
-                        onClick={() => {
-                            onClose();
-                        }}
+                        onClick={onClose}
                         className="text-black text-xl font-bold"
                     >
                         X
@@ -85,15 +112,19 @@ export default function ExpensesModal({ onClose }) {
                 </div>
 
                 {/* Expense */}
-<label className="block font-semibold mb-1">{t("Expense")}</label>
-<input
-    type="text"
-    value={expense_id}
-    onChange={(e) => setExpenseId(e.target.value)}
-    placeholder={t("EnterExpense")}
-    className="w-full p-2 border rounded mb-3"
-/>
-
+                <label className="block font-semibold mb-1">{t("Expense")}</label>
+                <select
+                    value={expense_id}
+                    onChange={(e) => setExpenseId(e.target.value)}
+                    className="w-full p-2 border rounded mb-3"
+                >
+                    <option value="">{t("SelectExpense") || "Select Expense"}</option>
+                    {data?.expenses?.map((exp) => (
+                        <option key={exp.id} value={exp.id}>
+                            {exp.name}
+                        </option>
+                    ))}
+                </select>
 
                 {/* Category */}
                 <label className="block font-semibold mb-1">{t("Category")}</label>
@@ -112,18 +143,17 @@ export default function ExpensesModal({ onClose }) {
 
                 {/* Amount */}
                 <label className="block font-semibold mb-1">{t("Amount")}</label>
-<input
-    type="number"
-    value={amount}
-    onChange={(e) => {
-        const val = Number(e.target.value);
-        if (val >= 0) setAmount(e.target.value);
-    }}
-    className="w-full p-2 border rounded mb-3"
-    placeholder={t("Enteramount")}
-    min="1"
-/>
-
+                <input
+                    type="number"
+                    value={amount}
+                    onChange={(e) => {
+                        const val = Number(e.target.value);
+                        if (val >= 0) setAmount(e.target.value);
+                    }}
+                    className="w-full p-2 border rounded mb-3"
+                    placeholder={t("Enteramount")}
+                    min="1"
+                />
 
                 {/* Note */}
                 <label className="block font-semibold mb-1">{t("Note")}</label>
@@ -149,12 +179,11 @@ export default function ExpensesModal({ onClose }) {
                     ))}
                 </select>
 
-
                 <button
                     onClick={handleSubmit}
                     className="px-6 py-4 bg-bg-primary text-white rounded hover:bg-red-700 w-full"
                 >
-                    {t("add")}
+                    {isEditMode ? t("Update") || "Update" : t("add")}
                 </button>
             </div>
         </div>
