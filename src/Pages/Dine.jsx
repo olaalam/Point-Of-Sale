@@ -31,7 +31,10 @@ const CustomStatusSelect = ({ table, statusOptions, onStatusChange }) => {
   };
 
   return (
-    <div className="relative w-full" onClick={(e) => e.stopPropagation()}>
+<div
+  className={`relative w-full ${isOpen ? "z-[9999]" : "z-[1]"}`}
+  onClick={(e) => e.stopPropagation()}
+>
       <button
         className="flex items-center justify-between w-full px-2 py-1 text-xs font-medium border border-gray-300 rounded-md bg-white hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-all duration-200"
         onClick={() => setIsOpen(!isOpen)}
@@ -47,10 +50,11 @@ const CustomStatusSelect = ({ table, statusOptions, onStatusChange }) => {
           className={`transition-transform ${isOpen ? "rotate-180" : ""}`}
         />
       </button>
+      
+{isOpen && (
+  <div className="absolute top-full left-0 right-0 mt-1 z-[99999]">
+    <div className="bg-white border border-gray-300 rounded-md shadow-xl overflow-hidden text-xs">
 
-      {isOpen && (
-        <div className="absolute top-full left-0 right-0 mt-1 z-50">
-          <div className="bg-white border border-gray-300 rounded-md shadow-lg overflow-hidden text-xs">
             {statusOptions.map((option) => (
               <button
                 key={option.value}

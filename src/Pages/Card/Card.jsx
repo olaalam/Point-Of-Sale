@@ -105,13 +105,34 @@ const printRef = useRef();
   }, [orderItems]);
 
   // Clear cart function
-  const clearCart = () => {
-    updateOrderItems([]);
+const clearPaidItemsOnly = () => {
+  // نحذف بس العناصر اللي تم اختيارها للدفع (selectedPaymentItems)
+  const paidItemIds = new Set(selectedPaymentItems);
+
+  const remainingItems = orderItems.filter(
+    (item) => !paidItemIds.has(item.temp_id)
+  );
+
+  // نعمل تحديث للسلة بالعناصر الباقية فقط
+  updateOrderItems(remainingItems);
+
+  // نحدث sessionStorage بالباقي
+  if (remainingItems.length > 0) {
+    sessionStorage.setItem("cart", JSON.stringify(remainingItems));
+  } else {
     sessionStorage.removeItem("cart");
-    setSelectedItems([]);
-    setSelectedPaymentItems([]);
-    toast.success(t("Allitemsclearedfromtheorder"));
-  };
+  }
+
+  // نرست التحديدات
+  setSelectedItems([]);
+  setSelectedPaymentItems([]);
+
+  toast.success(
+    remainingItems.length > 0
+      ? t("PaiditemshavebeenremovedRemainingitemsstillintheorder")
+      : t("Allselecteditemshavebeenpaidandremoved")
+  );
+};
 
   // Handlers
   const handleCheckOut = () => {
@@ -164,7 +185,7 @@ const printRef = useRef();
     try {
       setItemLoadingStates((prev) => ({ ...prev, clearAll: true }));
       await postData("cashier/order_void", formData);
-      clearCart();
+      clearPaidItemsOnly();
       toast.success(t("Allitemsvoidedsuccessfully"));
       setShowClearAllManagerModal(false);
       setClearAllManagerId("");
@@ -365,7 +386,7 @@ const handlePrint = () => {
         open={showClearAllConfirm}
         onOpenChange={setShowClearAllConfirm}
         onConfirm={() => {
-          clearCart();
+          clearPaidItemsOnly();
           setShowClearAllConfirm(false);
         }}
         itemCount={orderItems.length}
@@ -429,7 +450,7 @@ const handlePrint = () => {
           source="web"
           orderType={orderType}
           tableId={tableId}
-          onClearCart={clearCart}
+          onClearCart={clearPaidItemsOnly}
         />
       )}
 
