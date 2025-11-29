@@ -69,12 +69,43 @@ export const processProductItem = (item) => {
 /**
  * بناء بيانات الحسابات المالية
  */
-export const buildFinancialsPayload = (paymentSplits) => {
-  return paymentSplits.map((s) => ({
-    id: s.accountId.toString(),
-    amount: s.amount.toString(),
-    description: s.description || undefined,
-  }));
+/**
+ * بناء بيانات الحسابات المالية - النسخة الصحيحة 100% للفيزا
+ */
+export const buildFinancialsPayload = (paymentSplits, financialAccounts = []) => {
+  return paymentSplits.map((split) => {
+    const account = financialAccounts.find(acc => acc.id === split.accountId);
+    const accountName = account?.name || "";
+    const isVisa = accountName.toLowerCase().includes("visa");
+
+    // القاعدة:
+    // - لو الحساب فيه كلمة "visa" → description = آخر 4 أرقام (مطلوب)
+    // - لو الحساب عادي → description = اللي مكتوب في checkout أو فاضي
+    const description = isVisa 
+      ? (split.checkout?.trim() || "") 
+      : (split.checkout?.trim() || "");
+
+    const payload = {
+      id: split.accountId.toString(),
+      amount: parseFloat(split.amount || 0).toFixed(2),
+    };
+
+    // فقط لو فيزا: نبعت description (آخر 4 أرقام)
+    if (isVisa) {
+      if (description && description.length === 4) {
+        payload.description = description;
+      }
+      // ونبعت رقم العملية لو موجود
+      if (split.transition_id?.trim()) {
+        payload.transition_id = split.transition_id.trim(); // أو approval_code حسب الباك
+      }
+    } else if (description) {
+      // لو مش فيزا بس فيه نص في checkout (مثلاً ملاحظة)
+      payload.description = description;
+    }
+
+    return payload;
+  });
 };
 
 /**
@@ -176,17 +207,36 @@ export const buildDealPayload = (orderItems, financialsPayload) => {
 /**
  * التحقق من صحة طرق الدفع
  */
+/**
+ * التحقق من صحة طرق الدفع - نسخة نظيفة بدون أي validation للـ Transaction ID
+ */
 export const validatePaymentSplits = (paymentSplits, getDescriptionStatus) => {
+  let totalPaid = 0;
+
   for (const split of paymentSplits) {
-    if (
-      getDescriptionStatus(split.accountId) &&
-      (!split.description || !/^\d{4}$/.test(split.description))
-    ) {
+    const amount = parseFloat(split.amount) || 0;
+    if (amount <= 0) {
       return {
         valid: false,
-        error: `Please enter exactly 4 digits for the Visa card ending in split ${split.id}.`,
+        error: "please enter a valid amount for all payment methods",
       };
     }
+    totalPaid += amount;
+
+    // التحقق من آخر 4 أرقام فقط لو الحساب مفعّل description_status = 1
+    const needsLast4 = getDescriptionStatus(split.accountId);
+    if (needsLast4) {
+      if (!split.checkout || split.checkout.length !== 4 || !/^\d{4}$/.test(split.checkout)) {
+        return {
+          valid: false,
+          error: "please enter the last 4 digits for all required payment methods",
+        };
+      }
+    }
+
+    // Transaction ID خلاص مش هنتحقق منه هنا خالص
+    // الباك إند هو اللي هيرفض لو فاضي ومحتاج
   }
-  return { valid: true };
+
+  return { valid: true, totalPaid };
 };

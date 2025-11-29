@@ -12,7 +12,6 @@ import qz from "qz-tray";
 import CustomerSelectionModal from "./CustomerSelectionModal";
 import DeliveryAssignmentModal from "./DeliveryAssignmentModal";
 import { buildFinancialsPayload, getOrderEndpoint, buildOrderPayload, buildDealPayload, validatePaymentSplits } from "./processProductItem";
-// استيراد الدوال من الملف المساعد الجديد
 import { prepareReceiptData, printReceiptSilently } from "../utils/printReceipt";
 import { useTranslation } from "react-i18next";
 
@@ -33,14 +32,10 @@ const CheckOut = ({
   const cashierId = sessionStorage.getItem("cashier_id");
   const tableId = sessionStorage.getItem("table_id") || null;
   const baseUrl = import.meta.env.VITE_API_BASE_URL;
-    const { t } = useTranslation();
+  const { t } = useTranslation();
   
   // === QZ Tray Connection ===
-  // الكود الجديد (كامل وسليم)
   useEffect(() => {
-    // =================== QZ TRAY AUTH CONFIG ===================
-    // 1. بنعرف QZ "البطاقة" بتاعتنا فين
-    //    (لازم تكون حاطط digital-certificate.txt في فولدر public)
     qz.security.setCertificatePromise(function (resolve, reject) {
       fetch("/point-of-sale/digital-certificate.txt")
         .then(response => response.text())
@@ -48,13 +43,10 @@ const CheckOut = ({
         .catch(reject);
     });
 
-    // 2. بنعرف QZ الـ "Algorithm" (ده اللي بيصلح زرار Remember)
-    qz.security.setSignatureAlgorithm("SHA512"); // لازم SHA512
+    qz.security.setSignatureAlgorithm("SHA512");
 
-    // 3. بنقول لـ QZ إزاي يجيب "التوقيع" (من اللارافيل)
     qz.security.setSignaturePromise(function (toSign) {
       return function (resolve, reject) {
-        // اتأكد إن اللينك ده هو اللينك الصح بتاع اللارافيل سيرفر بتاعك
         const apiUrl = `${baseUrl}api/sign-qz-request?request=${toSign}`;
 
         fetch(apiUrl)
@@ -64,13 +56,11 @@ const CheckOut = ({
             }
             return response.text();
           })
-          .then(resolve) // بنرجع التوقيع لـ QZ
+          .then(resolve)
           .catch(reject);
       };
     });
-    // =============================================================
 
-    // 4. بعد ما ظبطنا التوثيق، بنعمل connect
     qz.websocket.connect().then(() => {
       console.log("✅ Connected to QZ Tray");
     }).catch((err) => {
@@ -81,14 +71,12 @@ const CheckOut = ({
     return () => {
       qz.websocket.disconnect();
     };
-  }, []); // القوس ده معناه إن الكود ده هيشتغل مرة واحدة بس
+  }, []);
 
   const { data: deliveryData } = useGet("cashier/delivery_lists");
   const { postData, loading } = usePost();
 
-  // State for order notes
   const [orderNotes, setOrderNotes] = useState("");
-
   const [paymentSplits, setPaymentSplits] = useState([]);
   const [customerPaid, setCustomerPaid] = useState("");
   const [customerSelectionOpen, setCustomerSelectionOpen] = useState(false);
@@ -112,17 +100,12 @@ const CheckOut = ({
   const [deliveryModelOpen, setDeliveryModelOpen] = useState(false);
   const [selectedDeliveryId, setSelectedDeliveryId] = useState(null);
   const [orderId, setOrderId] = useState(null);
-
-  // Due checkbox state
   const [isDueOrder, setIsDueOrder] = useState(false);
-
-  // Discount Code State
   const [discountCode, setDiscountCode] = useState("");
   const [appliedDiscount, setAppliedDiscount] = useState(0);
   const [discountError, setDiscountError] = useState(null);
   const [isCheckingDiscount, setIsCheckingDiscount] = useState(false);
 
-  // Memoized discount from sessionStorage
   const discountData = useMemo(() => {
     const storedDiscount = sessionStorage.getItem("discount_data");
     try {
@@ -133,7 +116,6 @@ const CheckOut = ({
     }
   }, []);
 
-  // Calculate discounted amount
   const discountedAmount = useMemo(() => {
     let totalDiscount = 0;
     if (appliedDiscount > 0) {
@@ -144,29 +126,23 @@ const CheckOut = ({
     return amountToPay - totalDiscount;
   }, [amountToPay, orderType, discountData, appliedDiscount]);
 
-  // Required Total
-// Required Total - الحساب الصحيح للـ dine_in الجزئي
-const requiredTotal = useMemo(() => {
-  // لو takeaway أو delivery أو دفع كامل → نحسب كل اللي في السلة
-  if (orderType !== "dine_in") {
+  const requiredTotal = useMemo(() => {
+    if (orderType !== "dine_in") {
+      return discountedAmount;
+    }
+
+    if (selectedPaymentItemIds.length > 0) {
+      const selectedItems = orderItems.filter(item => 
+        selectedPaymentItemIds.includes(item.temp_id)
+      );
+      return selectedItems.reduce((acc, item) => {
+        const quantity = item.count ?? item.quantity ?? 1;
+        return acc + (item.price * quantity);
+      }, 0);
+    }
+
     return discountedAmount;
-  }
-
-  // لو dine_in وفيه عناصر مختارة للدفع → نحسب بس دول
-  if (selectedPaymentItemIds.length > 0) {
-    const selectedItems = orderItems.filter(item => 
-      selectedPaymentItemIds.includes(item.temp_id)
-    );
-    return selectedItems.reduce((acc, item) => {
-      // item.count أحيانًا بيكون count وأحيانًا quantity
-      const quantity = item.count ?? item.quantity ?? 1;
-      return acc + (item.price * quantity);
-    }, 0);
-  }
-
-  // لو مفيش حاجة مختارة (دي حالة نظريًا ما بتحصلش لأنك بتمنع الدخول أصلًا)
-  return discountedAmount;
-}, [orderItems, orderType, discountedAmount, selectedPaymentItemIds]);
+  }, [orderItems, orderType, discountedAmount, selectedPaymentItemIds]);
 
   const { totalScheduled, remainingAmount, changeAmount } = useMemo(() => {
     const sum = paymentSplits.reduce((acc, split) => acc + (parseFloat(split.amount) || 0), 0);
@@ -198,19 +174,27 @@ const requiredTotal = useMemo(() => {
   }, []);
 
   // Initialize default payment split
+  // Initialize default payment split - اختيار Visa كافتراضي لو موجود
   useEffect(() => {
-    if (financialAccounts?.length > 0 && paymentSplits.length === 0) {
-      const defaultAccountId = financialAccounts[0]?.id;
+    if (financialAccounts?.length > 0 && paymentSplits.length === 0 && requiredTotal > 0) {
+      // ابحث عن أول حساب فيه كلمة visa (غير حساس لحالة الأحرف)
+      const visaAccount = financialAccounts.find(acc => 
+        acc.name?.toLowerCase().includes("visa")
+      );
+
+      const defaultAccountId = visaAccount ? visaAccount.id : financialAccounts[0].id;
+
       setPaymentSplits([
         {
           id: "split-1",
           accountId: defaultAccountId,
-          amount: requiredTotal || 0,
+          amount: requiredTotal,
           checkout: "",
+          transition_id: "",
         },
       ]);
     }
-  }, [requiredTotal, paymentSplits.length]);
+  }, [financialAccounts, requiredTotal, paymentSplits.length]);
 
   // Auto-update single split amount
   useEffect(() => {
@@ -226,7 +210,6 @@ const requiredTotal = useMemo(() => {
     }
   }, [requiredTotal]);
 
-  // Handle Discount Code
   const handleApplyDiscount = async () => {
     if (!discountCode) {
       toast.error(t("PleaseEnterDiscountCode"));
@@ -240,7 +223,7 @@ const requiredTotal = useMemo(() => {
       const response = await postData("cashier/check_discount_code", { code: discountCode });
       if (response.success) {
         setAppliedDiscount(response.discount);
-toast.success(t("DiscountApplied", { discount: response.discount }));
+        toast.success(t("DiscountApplied", { discount: response.discount }));
       } else {
         setAppliedDiscount(0);
         setDiscountError("Invalid or Off discount code.");
@@ -249,7 +232,7 @@ toast.success(t("DiscountApplied", { discount: response.discount }));
     } catch (e) {
       setAppliedDiscount(0);
       setDiscountError(e.message || "Failed to validate discount code.");
-toast.error(e.message || t("FailedToValidateDiscountCode"));
+      toast.error(e.message || t("FailedToValidateDiscountCode"));
     } finally {
       setIsCheckingDiscount(false);
     }
@@ -270,7 +253,7 @@ toast.error(e.message || t("FailedToValidateDiscountCode"));
       const maxAllowed = requiredTotal - totalExcludingCurrent;
 
       if (newAmount > maxAllowed) {
-toast.error(t("AmountExceedsLimit", { amount: maxAllowed.toFixed(2) }));
+        toast.error(t("AmountExceedsLimit", { amount: maxAllowed.toFixed(2) }));
         return prevSplits.map((split) =>
           split.id === id ? { ...split, amount: maxAllowed } : split
         );
@@ -286,7 +269,7 @@ toast.error(t("AmountExceedsLimit", { amount: maxAllowed.toFixed(2) }));
     setPaymentSplits((prev) =>
       prev.map((split) =>
         split.id === id
-          ? { ...split, accountId: parseInt(accountId), checkout: "" }
+          ? { ...split, accountId: parseInt(accountId), checkout: "", transition_id: "" } // 🟢 مسح transition_id
           : split
       )
     );
@@ -300,10 +283,18 @@ toast.error(t("AmountExceedsLimit", { amount: maxAllowed.toFixed(2) }));
     );
   };
 
+  // 🟢 دالة جديدة للتعامل مع رقم العملية
+  const handleTransitionIdChange = (id, value) => {
+    setPaymentSplits((prev) =>
+      prev.map((split) =>
+        split.id === id ? { ...split, transition_id: value } : split
+      )
+    );
+  };
 
   const handleAddSplit = () => {
     if (!financialAccounts?.length) {
-return toast.error(t("NoFinancialAccounts"));
+      return toast.error(t("NoFinancialAccounts"));
     }
 
     const defaultAccountId = financialAccounts[0].id;
@@ -314,10 +305,10 @@ return toast.error(t("NoFinancialAccounts"));
         accountId: defaultAccountId,
         amount: remainingAmount > 0 ? remainingAmount : 0,
         checkout: "",
+        transition_id: "", // 🟢 إضافة حقل رقم العملية
       },
     ]);
   };
-
 
   const handleRemoveSplit = (id) => {
     setPaymentSplits((prev) => prev.filter((s) => s.id !== id));
@@ -333,122 +324,117 @@ return toast.error(t("NoFinancialAccounts"));
     return acc?.description_status === 1;
   };
 
-// دالة إرسال الطلب + الطباعة الصامتة (معدلة ومظبوطة 100%)
+  // 🟢 دالة جديدة للتحقق إذا كان الحساب Visa
+  const isVisaAccount = (accountId) => {
+    const acc = financialAccounts?.find((a) => a.id === parseInt(accountId));
+    return acc?.name?.toLowerCase().includes("visa");
+  };
 
-const proceedWithOrderSubmission = async (due = 0, customer_id = undefined) => {
-  const safeOrderItems = Array.isArray(orderItems) ? orderItems : [];
+  const proceedWithOrderSubmission = async (due = 0, customer_id = undefined) => {
+    const safeOrderItems = Array.isArray(orderItems) ? orderItems : [];
 
-  // تحديد إذا كان دفع جزئي في الـ dine_in
-// تحديد إذا كان دفع جزئي
-const isDineIn = orderType === "dine_in";
-const hasSelectedItems = selectedPaymentItemIds.length > 0;
-const totalItemsCount = orderItems.length;
-const allItemsSelected = hasSelectedItems && selectedPaymentItemIds.length === totalItemsCount;
+    const isDineIn = orderType === "dine_in";
+    const hasSelectedItems = selectedPaymentItemIds.length > 0;
+    const totalItemsCount = orderItems.length;
+    const allItemsSelected = hasSelectedItems && selectedPaymentItemIds.length === totalItemsCount;
 
-// دفع جزئي = dine_in + مختار حاجة بس مش الكل
-const isPartialPayment = isDineIn && hasSelectedItems && !allItemsSelected;
+    const isPartialPayment = isDineIn && hasSelectedItems && !allItemsSelected;
 
-  const hasDealItems = safeOrderItems.some((item) => item.is_deal);
-  const endpoint = getOrderEndpoint(orderType, safeOrderItems, totalDineInItems, hasDealItems);
-  const financialsPayload = buildFinancialsPayload(paymentSplits);
+    const hasDealItems = safeOrderItems.some((item) => item.is_deal);
+    const endpoint = getOrderEndpoint(orderType, safeOrderItems, totalDineInItems, hasDealItems);
+   const financialsPayload = buildFinancialsPayload(paymentSplits, financialAccounts);
 
-  let payload;
-  if (hasDealItems) {
-    payload = buildDealPayload(safeOrderItems, financialsPayload);
-  } else {
-    payload = buildOrderPayload({
-      orderType,
-      orderItems: safeOrderItems,
-      amountToPay: requiredTotal,
-      totalTax,
-      totalDiscount:
-        appliedDiscount > 0
-          ? amountToPay * (appliedDiscount / 100)
-          : discountData.module.includes(orderType)
-          ? amountToPay * (discountData.discount / 100)
-          : totalDiscount,
-      notes: orderNotes.trim() || "No special instructions",
-      source,
-      financialsPayload,
-      cashierId,
-      tableId,
-      customerPaid: customerPaid || undefined,
-      discountCode: appliedDiscount > 0 ? discountCode : undefined,
-      due: due,
-      user_id: customer_id,
-    });
-  }
-
-  try {
-    const response = await postData(endpoint, payload, {
-      headers: { "Content-Type": "application/json" },
-    });
-
-    if (response?.success) {
-      toast.success(due === 1 ? t("DueOrderCreated") : t("OrderPlaced"));
-
-const handleNavigation = () => {
-  if (orderType === "delivery") {
-    sessionStorage.removeItem("selected_user_id");
-    sessionStorage.removeItem("selected_user_data");
-    sessionStorage.removeItem("selected_address_id");
-    sessionStorage.removeItem("selected_address_data");
-  }
-
-// القرار الجديد: بناءً على نوع الطلب + هل فيه دفع جزئي أم لا
-if (orderType === "dine_in" && selectedPaymentItemIds.length > 0) {
-  // في حالة dine_in واختار عناصر للدفع → دفع جزئي
-  clearPaidItemsOnly();
-} else {
-  // في كل الحالات الأخرى (takeaway, delivery, أو dine_in دفع كامل)
-  // أو حتى dine_in بدون تحديد (يعني دفع كامل)
-  onClearCart();
-}
-
-  sessionStorage.setItem("last_order_type", orderType);
-
-  if (orderType === "delivery" && response?.success?.id) {
-    setOrderId(response.success.id);
-    setDeliveryModelOpen(true);
-  } else {
-    onClose();
-  }
-};
-
-      // طباعة فقط لو مش طلب آجل
-      if (due === 0) {
-        const receiptData = prepareReceiptData(
-          safeOrderItems,
-          amountToPay,
-          totalTax,
-          totalDiscount,
-          appliedDiscount,
-          discountData,
-          orderType,
-          requiredTotal,
-          response.success,
-          response
-        );
-
-        printReceiptSilently(receiptData, response, () => {
-          handleNavigation();
-        });
-      } else {
-        handleNavigation();
-      }
+    let payload;
+    if (hasDealItems) {
+      payload = buildDealPayload(safeOrderItems, financialsPayload);
     } else {
-      toast.error(response?.message || t("FailedToProcessOrder"));
+      payload = buildOrderPayload({
+        orderType,
+        orderItems: safeOrderItems,
+        amountToPay: requiredTotal,
+        totalTax,
+        totalDiscount:
+          appliedDiscount > 0
+            ? amountToPay * (appliedDiscount / 100)
+            : discountData.module.includes(orderType)
+            ? amountToPay * (discountData.discount / 100)
+            : totalDiscount,
+        notes: orderNotes.trim() || "No special instructions",
+        source,
+        financialsPayload,
+        cashierId,
+        tableId,
+        customerPaid: customerPaid || undefined,
+        discountCode: appliedDiscount > 0 ? discountCode : undefined,
+        due: due,
+        user_id: customer_id,
+      });
     }
-  } catch (e) {
-    console.error("Submit error:", e);
-    toast.error(e.message || t("SubmissionFailed"));
-  }
-};
 
-  // اختيار العميل → إرسال الطلب فورًا
+    try {
+      const response = await postData(endpoint, payload, {
+        headers: { "Content-Type": "application/json" },
+      });
+
+      if (response?.success) {
+        toast.success(due === 1 ? t("DueOrderCreated") : t("OrderPlaced"));
+
+        const handleNavigation = () => {
+          if (orderType === "delivery") {
+            sessionStorage.removeItem("selected_user_id");
+            sessionStorage.removeItem("selected_user_data");
+            sessionStorage.removeItem("selected_address_id");
+            sessionStorage.removeItem("selected_address_data");
+          }
+
+          if (orderType === "dine_in" && selectedPaymentItemIds.length > 0) {
+            clearPaidItemsOnly();
+          } else {
+            onClearCart();
+          }
+
+          sessionStorage.setItem("last_order_type", orderType);
+
+          if (orderType === "delivery" && response?.success?.id) {
+            setOrderId(response.success.id);
+            setDeliveryModelOpen(true);
+          } else {
+            onClose();
+          }
+        };
+
+        if (due === 0) {
+          const receiptData = prepareReceiptData(
+            safeOrderItems,
+            amountToPay,
+            totalTax,
+            totalDiscount,
+            appliedDiscount,
+            discountData,
+            orderType,
+            requiredTotal,
+            response.success,
+            response
+          );
+
+          printReceiptSilently(receiptData, response, () => {
+            handleNavigation();
+          });
+        } else {
+          handleNavigation();
+        }
+      } else {
+        toast.error(response?.message || t("FailedToProcessOrder"));
+      }
+    } catch (e) {
+      console.error("Submit error:", e);
+      toast.error(e.message || t("SubmissionFailed"));
+    }
+  };
+
   const handleSelectCustomer = async (customer) => {
     if (requiredTotal > customer.can_debit) {
-toast.error(t("OrderExceedsDebitLimit", { amount: requiredTotal.toFixed(2) }));
+      toast.error(t("OrderExceedsDebitLimit", { amount: requiredTotal.toFixed(2) }));
       return;
     }
 
@@ -458,10 +444,9 @@ toast.error(t("OrderExceedsDebitLimit", { amount: requiredTotal.toFixed(2) }));
     await proceedWithOrderSubmission(1, customer.id);
   };
 
-  // الضغط على Confirm & Pay
   const handleSubmitOrder = async () => {
     if (!isTotalMet || totalScheduled === 0) {
-return toast.error(t("TotalMustEqual", { amount: requiredTotal.toFixed(2) }));
+      return toast.error(t("TotalMustEqual", { amount: requiredTotal.toFixed(2) }));
     }
 
     const validation = validatePaymentSplits(paymentSplits, getDescriptionStatus);
@@ -482,33 +467,29 @@ return toast.error(t("TotalMustEqual", { amount: requiredTotal.toFixed(2) }));
   };
 
   const handleAssignDelivery = async () => {
-   if (!orderId) return toast.error(t("OrderIdMissing"));
-if (!selectedDeliveryId) return toast.error(t("SelectDeliveryPerson"));
-
+    if (!orderId) return toast.error(t("OrderIdMissing"));
+    if (!selectedDeliveryId) return toast.error(t("SelectDeliveryPerson"));
 
     try {
       await postData(`cashier/determine_delivery/${orderId}`, {
         delivery_id: selectedDeliveryId,
       });
-toast.success(t("DeliveryPersonAssigned"));
+      toast.success(t("DeliveryPersonAssigned"));
       setDeliveryModelOpen(false);
       onClose();
-      // navigate("/orders");
     } catch (e) {
-toast.error(e.message || t("FailedToAssignDeliveryPerson"));
+      toast.error(e.message || t("FailedToAssignDeliveryPerson"));
     }
   };
 
   const handleSkip = () => {
     sessionStorage.removeItem("selected_user_id");
-  sessionStorage.removeItem("selected_user_data");
-  sessionStorage.removeItem("selected_address_id");
-  sessionStorage.removeItem("selected_address_data");
+    sessionStorage.removeItem("selected_user_data");
+    sessionStorage.removeItem("selected_address_id");
+    sessionStorage.removeItem("selected_address_data");
     setDeliveryModelOpen(false);
     onClose();
-    // navigate("/orders");
   };
-
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4">
@@ -546,8 +527,7 @@ toast.error(e.message || t("FailedToAssignDeliveryPerson"));
           </div>
 
           <div className="p-8 overflow-y-auto max-h-[calc(90vh-6rem)]">
-         
-           <div className="mb-6 border-b pb-4">
+            <div className="mb-6 border-b pb-4">
               <div className="flex justify-between mb-2">
                 <span>{t("OriginalAmount")}</span>
                 <span>{amountToPay.toFixed(2)} {t("EGP")}</span>
@@ -584,9 +564,9 @@ toast.error(e.message || t("FailedToAssignDeliveryPerson"));
 
             {/* Order Notes Section */}
             <div className="mb-6">
-              <label className="block text-sm font-medium mb-2"> {t("OrderNotes")}</label>
+              <label className="block text-sm font-medium mb-2">{t("OrderNotes")}</label>
               <Textarea
-  placeholder={t("OrderNotesPlaceholder")}
+                placeholder={t("OrderNotesPlaceholder")}
                 value={orderNotes}
                 onChange={(e) => setOrderNotes(e.target.value)}
                 className="w-full min-h-[100px] resize-none"
@@ -603,7 +583,7 @@ toast.error(e.message || t("FailedToAssignDeliveryPerson"));
               <div className="flex space-x-2">
                 <Input
                   type="text"
-placeholder={t("EnterDiscountCode")}
+                  placeholder={t("EnterDiscountCode")}
                   value={discountCode}
                   onChange={(e) => setDiscountCode(e.target.value)}
                   disabled={isCheckingDiscount}
@@ -613,7 +593,7 @@ placeholder={t("EnterDiscountCode")}
                   disabled={isCheckingDiscount || !discountCode}
                   className="bg-blue-600 hover:bg-blue-700 text-white"
                 >
-{isCheckingDiscount ? t("Checking") : t("Apply")}
+                  {isCheckingDiscount ? t("Checking") : t("Apply")}
                 </Button>
               </div>
               {discountError && (
@@ -621,7 +601,7 @@ placeholder={t("EnterDiscountCode")}
               )}
               {appliedDiscount > 0 && (
                 <p className="mt-2 text-green-600 text-sm">
-{t("DiscountAppliedSuccess", { appliedDiscount })}
+                  {t("DiscountAppliedSuccess", { appliedDiscount })}
                 </p>
               )}
             </div>
@@ -629,67 +609,84 @@ placeholder={t("EnterDiscountCode")}
             {/* Payment Splits */}
             <div className="space-y-6">
               {paymentSplits.map((split) => (
-                <div key={split.id} className="flex items-center space-x-4">
-                  <div className="w-40">
-                    <Select
-                      value={String(split.accountId)}
-                      onValueChange={(val) => handleAccountChange(split.id, val)}
-                    >
-                      <SelectTrigger>
-                        <SelectValue>{getAccountNameById(split.accountId)}</SelectValue>
-                      </SelectTrigger>
-                      <SelectContent>
-                        {financialAccounts.map((acc) => (
-                          <SelectItem key={acc.id} value={String(acc.id)}>
-                            {acc.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                <div key={split.id} className="space-y-3">
+                  <div className="flex items-center space-x-4">
+                    <div className="w-40">
+                      <Select
+                        value={String(split.accountId)}
+                        onValueChange={(val) => handleAccountChange(split.id, val)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue>{getAccountNameById(split.accountId)}</SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          {financialAccounts.map((acc) => (
+                            <SelectItem key={acc.id} value={String(acc.id)}>
+                              {acc.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="relative flex-grow">
+                      <Input
+                        type="number"
+                        min="0"
+                        value={split.amount === 0 ? "" : String(split.amount)}
+                        onChange={(e) => handleAmountChange(split.id, e.target.value)}
+                        className="pl-16"
+                      />
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2">{t("EGP")}</span>
+                    </div>
+                    {getDescriptionStatus(split.accountId) && (
+                      <Input
+                        type="text"
+                        placeholder="Last 4 digits"
+                        value={split.checkout}
+                        onChange={(e) => handleDescriptionChange(split.id, e.target.value)}
+                        maxLength={4}
+                        className="w-32"
+                      />
+                    )}
+                    {paymentSplits.length > 1 && (
+                      <Button variant="ghost" size="icon" onClick={() => handleRemoveSplit(split.id)}>
+                        {t("Remove")}
+                      </Button>
+                    )}
                   </div>
-                  <div className="relative flex-grow">
-                    <Input
-                      type="number"
-                      min="0"
-                      value={split.amount === 0 ? "" : String(split.amount)}
-                      onChange={(e) => handleAmountChange(split.id, e.target.value)}
-                      className="pl-16"
-                    />
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2">{t("EGP")}</span>
-                  </div>
-                  {getDescriptionStatus(split.accountId) && (
-                    <Input
-                      type="text"
-                      placeholder="Last 4 digits"
-                      value={split.checkout}
-                      onChange={(e) => handleDescriptionChange(split.id, e.target.value)}
-                      maxLength={4}
-                      className="w-32"
-                    />
-                  )}
-                  {paymentSplits.length > 1 && (
-                    <Button variant="ghost" size="icon" onClick={() => handleRemoveSplit(split.id)}>
-  {t("Remove")}
-                    </Button>
+                  
+                  {/* 🟢 حقل رقم العملية لو الحساب Visa */}
+                  {isVisaAccount(split.accountId) && (
+                    <div className="ml-44 flex items-center gap-2">
+                      <label className="text-sm text-gray-600 whitespace-nowrap">
+                        {t("TransactionID")}:
+                      </label>
+                      <Input
+                        type="text"
+                        placeholder={t("EnterTransactionID")}
+                        value={split.transition_id || ""}
+                        onChange={(e) => handleTransitionIdChange(split.id, e.target.value)}
+                        className="flex-1"
+                      />
+                    </div>
                   )}
                 </div>
               ))}
               {remainingAmount > 0 && (
                 <Button variant="link" onClick={handleAddSplit} className="text-sm text-blue-600">
-  {t("AddAccountSplit")}
+                  {t("AddAccountSplit")}
                 </Button>
               )}
             </div>
 
             {/* Amount Paid */}
             <div className="mt-6">
-              <label className="block text-sm mb-1">  {t("AmountPaidByCustomer")}
-</label>
+              <label className="block text-sm mb-1">{t("AmountPaidByCustomer")}</label>
               <div className="relative">
                 <Input
                   type="number"
                   min="0"
-  placeholder={t("EnterAmountPaid")}
+                  placeholder={t("EnterAmountPaid")}
                   value={customerPaid}
                   onChange={(e) => setCustomerPaid(e.target.value)}
                   className="pl-16"
@@ -698,7 +695,7 @@ placeholder={t("EnterDiscountCode")}
               </div>
               {parseFloat(customerPaid) > requiredTotal && (
                 <p className="mt-2 text-green-600 text-sm font-semibold">
-  {t("ChangeDue", { value: calculatedChange.toFixed(2) })}
+                  {t("ChangeDue", { value: calculatedChange.toFixed(2) })}
                 </p>
               )}
             </div>
@@ -718,7 +715,8 @@ placeholder={t("EnterDiscountCode")}
                 className="w-5 h-5 text-orange-600 border-gray-300 rounded focus:ring-orange-500"
               />
               <label htmlFor="isDueOrder" className="text-sm font-medium text-gray-700 cursor-pointer">
-{t("MarkAsDueOrder")}              </label>
+                {t("MarkAsDueOrder")}
+              </label>
             </div>
 
             {/* الأزرار */}
@@ -728,14 +726,13 @@ placeholder={t("EnterDiscountCode")}
                 disabled={loading || !isTotalMet}
                 onClick={handleSubmitOrder}
               >
-              {loading
-  ? t("Processing")
-  : isDueOrder
-    ? selectedCustomer
-      ? t("DueOrderReady")
-      : t("SelectCustomer")
-    : t("ConfirmAndPay")}
-
+                {loading
+                  ? t("Processing")
+                  : isDueOrder
+                    ? selectedCustomer
+                      ? t("DueOrderReady")
+                      : t("SelectCustomer")
+                    : t("ConfirmAndPay")}
               </Button>
             </div>
           </div>
