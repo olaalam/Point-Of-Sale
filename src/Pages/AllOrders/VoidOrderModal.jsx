@@ -1,0 +1,240 @@
+import React, { useState } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogClose,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { usePost } from "@/Hooks/usePost";
+import { toast } from "react-toastify";
+import { X, Trash2 } from "lucide-react";
+import { useTranslation } from "react-i18next";
+
+export default function VoidOrderModal({ 
+  isOpen, 
+  onClose, 
+  orderId, 
+  orderNumber,
+  onSuccess 
+}) {
+  const [managerId, setManagerId] = useState("");
+  const [managerPassword, setManagerPassword] = useState("");
+  const [financialId, setFinancialId] = useState("");
+  const { t, i18n } = useTranslation();
+  const isArabic = i18n.language === "ar";
+  const { postData, loading } = usePost();
+
+  // 🟢 جلب الـ financial accounts من sessionStorage
+  const financialAccounts = JSON.parse(sessionStorage.getItem("financial_account") || "[]");
+
+  const handleVoidOrder = async () => {
+    // Validation
+    if (!orderId) {
+      toast.error(t("OrderIDismissing"));
+      return;
+    }
+    if (!managerId.trim()) {
+      toast.error(t("PleaseenterManagerID"));
+      return;
+    }
+    if (!managerPassword.trim()) {
+      toast.error(t("PleaseenterManagerPassword"));
+      return;
+    }
+    if (!financialId.trim()) {
+      toast.error(t("PleaseselectFinancialAccount"));
+      return;
+    }
+
+    try {
+      const payload = {
+        order_id: orderId,
+        financial_id: financialId,
+        manager_id: managerId,
+        manager_password: managerPassword,
+      };
+
+      console.log("Void Order Payload:", payload);
+
+      const response = await postData("cashier/orders/void_order", payload);
+
+      if (response?.success) {
+        toast.success(t("Ordervoidedsuccessfully"));
+        
+        // Reset form
+        setManagerId("");
+        setManagerPassword("");
+        setFinancialId("");
+        
+        // Close modal
+        onClose();
+        
+        // 🔥 تأخير بسيط قبل الـ refresh عشان الـ backend يحدث الداتا
+        setTimeout(() => {
+          if (onSuccess) onSuccess();
+        }, 500);
+      } else {
+        toast.error(response?.message || t("Failedtovoidorder"));
+      }
+    } catch (err) {
+      console.error("Void Order Error:", err);
+      
+      let errorMessage = t("Anunexpectederroroccurred");
+      
+      if (err.response?.data) {
+        const { data } = err.response;
+        if (data?.message) {
+          errorMessage = data.message;
+        } else if (data?.error) {
+          errorMessage = data.error;
+        }
+      }
+      
+      toast.error(errorMessage);
+    }
+  };
+
+  const handleClose = () => {
+    setManagerId("");
+    setManagerPassword("");
+    setFinancialId("");
+    onClose();
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={handleClose}>
+      <DialogContent 
+        className="sm:max-w-md bg-white"
+        dir={isArabic ? "rtl" : "ltr"}
+      >
+        {/* Close Button */}
+        <DialogClose
+          asChild
+          onClick={handleClose}
+          className={`absolute top-3 ${isArabic ? "left-3" : "right-3"} text-gray-500 hover:text-gray-700`}
+        >
+          <button aria-label="Close">
+            <X className="w-5 h-5" />
+          </button>
+        </DialogClose>
+
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-red-600">
+            <Trash2 className="w-5 h-5" />
+            {t("VoidOrder")}
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4 mt-4">
+          {/* Order Info */}
+          <div className="bg-gray-50 p-3 rounded-lg">
+            <p className="text-sm text-gray-600">
+              {t("OrderNumber")}: <span className="font-semibold text-gray-800">#{orderNumber}</span>
+            </p>
+          </div>
+
+          {/* Financial ID - Select */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              {t("FinancialAccount")} <span className="text-red-500">*</span>
+            </label>
+            <select
+              value={financialId}
+              onChange={(e) => setFinancialId(e.target.value)}
+              disabled={loading}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+            >
+              <option value="">{t("SelectFinancialAccount")}</option>
+              {financialAccounts.map((account) => (
+                <option key={account.id} value={account.id}>
+                  {account.name} - {account.details}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Manager ID */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              {t("ManagerID")} <span className="text-red-500">*</span>
+            </label>
+            <Input
+              type="text"
+              placeholder={t("EnterManagerID")}
+              value={managerId}
+              onChange={(e) => setManagerId(e.target.value)}
+              disabled={loading}
+              className="w-full"
+            />
+          </div>
+
+          {/* Manager Password */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              {t("ManagerPassword")} <span className="text-red-500">*</span>
+            </label>
+            <Input
+              type="password"
+              placeholder={t("EnterManagerPassword")}
+              value={managerPassword}
+              onChange={(e) => setManagerPassword(e.target.value)}
+              disabled={loading}
+              className="w-full"
+            />
+          </div>
+
+          {/* Buttons */}
+          <div className="flex gap-3 pt-2">
+            <Button
+              onClick={handleClose}
+              disabled={loading}
+              variant="outline"
+              className="flex-1"
+            >
+              {t("Cancel")}
+            </Button>
+            <Button
+              onClick={handleVoidOrder}
+              disabled={loading}
+              className="flex-1 bg-red-600 hover:bg-red-700 text-white"
+            >
+              {loading ? (
+                <div className="flex items-center justify-center gap-2">
+                  <svg 
+                    className="animate-spin h-4 w-4" 
+                    xmlns="http://www.w3.org/2000/svg" 
+                    fill="none" 
+                    viewBox="0 0 24 24"
+                  >
+                    <circle 
+                      className="opacity-25" 
+                      cx="12" 
+                      cy="12" 
+                      r="10" 
+                      stroke="currentColor" 
+                      strokeWidth="4"
+                    />
+                    <path 
+                      className="opacity-75" 
+                      fill="currentColor" 
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    />
+                  </svg>
+                  <span>{t("Processing")}</span>
+                </div>
+              ) : (
+                <span className="flex items-center gap-2">
+                  <Trash2 className="w-4 h-4" />
+                  {t("VoidOrder")}
+                </span>
+              )}
+            </Button>
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
