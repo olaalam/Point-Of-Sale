@@ -42,12 +42,19 @@ const { data, error, isLoading, refetch } = useGet("cashier/user", { useCache: t
 useEffect(() => {
   if (data?.users) {
     setFilteredusers(data.users);
+    
+    // 🟢 فحص لو في parameter refetch في الـ URL
+    const refetchParam = queryParams.get("refetch");
+    if (refetchParam === "true") {
+      refetch(); // إعادة جلب البيانات
+      // امسح الـ parameter من الـ URL عشان ميعملش refetch كل مرة
+      navigate(location.pathname + location.search.replace(/[?&]refetch=true/, ''), { replace: true });
+    }
 
     // استرجاع البحث المحفوظ
     const savedQuery = sessionStorage.getItem("delivery_search_query");
     if (savedQuery && savedQuery !== searchQuery) {
       setSearchQuery(savedQuery);
-      // نعمل فلترة فورية بناءً على البحث المحفوظ
       handleInstantSearch(savedQuery);
     }
 
@@ -64,7 +71,7 @@ useEffect(() => {
       }, 500);
     }
   }
-}, [data, userIdFromUrl]);
+}, [data, userIdFromUrl, location.search]); // ضيفي location.search في الـ dependencies
 
 
 

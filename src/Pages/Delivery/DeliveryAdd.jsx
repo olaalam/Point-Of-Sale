@@ -13,6 +13,7 @@ import MapComponent from "@/components/MapComponent";
 import UserFormFields from "./UserFormFields";
 import AddressFormFields from "./AddressFormFields";
 import { useTranslation } from "react-i18next";
+import { useGet } from "@/Hooks/useGet";
 
 export default function DeliveryAdd() {
   // إضافة state للتحكم في حالة الـ submission
@@ -44,6 +45,7 @@ export default function DeliveryAdd() {
 
   const navigate = useNavigate();
   const { loading, error, postData } = usePost();
+const { clearCache } = useGet("cashier/user", { useCache: true });
 
 const onSubmit = async (values) => {
   if (isSubmitting || loading) return;
@@ -56,14 +58,17 @@ const onSubmit = async (values) => {
 
     if (!values.city_id) {
       toast.error(t("Pleaseselectacity"));
+      setIsSubmitting(false);
       return;
     }
     if (!values.zone_id) {
       toast.error("Pleaseselectazone");
+      setIsSubmitting(false);
       return;
     }
     if (!values.address || values.address.length < 5) {
       toast.error("Pleaseprovideavalidaddress");
+      setIsSubmitting(false);
       return;
     }
 
@@ -89,6 +94,7 @@ const onSubmit = async (values) => {
       const addressId = editAddressData?.addresses?.[0]?.id || editAddressData?.address?.id;
       if (!addressId) {
         toast.error(t("AddressIDnotfound"));
+        setIsSubmitting(false);
         return;
       }
       finalPayload = { ...addressObject, user_id: editAddressData?.user_id };
@@ -112,30 +118,31 @@ const onSubmit = async (values) => {
     console.log("Final Payload:", finalPayload);
 
     const response = await postData(apiEndpoint, finalPayload);
+    
     if (response && response.success) {
-  toast.success(
-    `${isEditMode ? t("Addressupdated") : isAddAnotherAddress ? t("Addressadded") : t("Useradded")} ${t("successfully")}!`
-  );
+      toast.success(
+        `${isEditMode ? t("Addressupdated") : isAddAnotherAddress ? t("Addressadded") : t("Useradded")} ${t("successfully")}!`
+      );
 
-  if (!isEditMode && !isAddAnotherAddress) {
-    form.reset();
-  }
+      // ⚡ امسح الكاش عشان الداتا تتحدث
+      clearCache();
 
-  setTimeout(() => {
-    if (isEditMode) {
-      // بعد التعديل يرجع لـ /delivery ويفتح على نفس اليوزر
-      navigate(`/?user_id=${editAddressData?.user_id}`);
-    } else if (isAddAnotherAddress) {
-      // بعد إضافة عنوان جديد لنفس المستخدم
-      navigate(`/?user_id=${userIdFromUrl}`);
+      if (!isEditMode && !isAddAnotherAddress) {
+        form.reset();
+      }
+
+      setTimeout(() => {
+        if (isEditMode) {
+          navigate(`/?user_id=${editAddressData?.user_id}&refetch=true`);
+        } else if (isAddAnotherAddress) {
+          navigate(`/?user_id=${userIdFromUrl}&refetch=true`);
+        } else {
+          navigate("/?refetch=true");
+        }
+      }, 1500);
     } else {
-      // بعد إضافة مستخدم جديد
-      navigate("/");
+      toast.error(response?.message || t("Operationfailed"));
     }
-  }, 1500);
-} else {
-  toast.error(response?.message || t("Operationfailed"));
-}
   } catch (err) {
     console.error("Submit Error:", err);
 
@@ -144,21 +151,14 @@ const onSubmit = async (values) => {
     if (err.response) {
       const { data } = err.response;
 
-      // الـ API بيرسل { errors: { phone: ["The phone has already been taken."] } }
       if (data?.errors && typeof data.errors === "object") {
-        const errorMessages = Object.values(data.errors).flat(); // ["The phone has already been taken."]
+        const errorMessages = Object.values(data.errors).flat();
         errorMessage = errorMessages.join(" ");
-      }
-      // لو فيه message عادي
-      else if (data?.message) {
+      } else if (data?.message) {
         errorMessage = data.message;
-      }
-      // لو فيه error
-      else if (data?.error) {
+      } else if (data?.error) {
         errorMessage = data.error;
-      }
-      // fallback
-      else {
+      } else {
         errorMessage = t("FailedtosubmitPleasetryagain");
       }
     } else if (err.request) {
@@ -167,11 +167,9 @@ const onSubmit = async (values) => {
       errorMessage = err.message || t("Unknownerror");
     }
 
-    // إظهار الرسالة في الـ toast
     setTimeout(() => {
       toast.error(errorMessage);
     }, 100);
-
   } finally {
     setIsSubmitting(false);
   }
