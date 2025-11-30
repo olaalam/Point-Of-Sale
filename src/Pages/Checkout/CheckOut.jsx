@@ -33,7 +33,8 @@ const CheckOut = ({
   const tableId = sessionStorage.getItem("table_id") || null;
   const baseUrl = import.meta.env.VITE_API_BASE_URL;
   const { t } = useTranslation();
-  
+const { data: discountListData, loading: discountsLoading } = useGet("captain/discount_list");
+const [selectedDiscountId, setSelectedDiscountId] = useState(null);
   // === QZ Tray Connection ===
   useEffect(() => {
     qz.security.setCertificatePromise(function (resolve, reject) {
@@ -96,6 +97,29 @@ const CheckOut = ({
         (c.phone_2 && c.phone_2.includes(customerSearchQuery))
     );
   }, [dueUsersData, customerSearchQuery]);
+  const { selectedDiscountAmount, finalSelectedDiscountId } = useMemo(() => {
+    const discountList = discountListData?.discount_list || [];
+    const selectedDiscount = discountList.find(d => d.id === selectedDiscountId);
+
+    if (!selectedDiscount) {
+      return { selectedDiscountAmount: 0, finalSelectedDiscountId: null };
+    }
+
+    let discountValue = 0;
+    if (selectedDiscount.type === "percentage") {
+      discountValue = amountToPay * (selectedDiscount.amount / 100);
+    } else if (selectedDiscount.type === "value") {
+      discountValue = selectedDiscount.amount;
+    }
+
+    return {
+      selectedDiscountAmount: discountValue,
+      finalSelectedDiscountId: selectedDiscount.id,
+    };
+  }, [discountListData, selectedDiscountId, amountToPay]);
+
+
+
 
   const [deliveryModelOpen, setDeliveryModelOpen] = useState(false);
   const [selectedDeliveryId, setSelectedDeliveryId] = useState(null);
@@ -116,15 +140,25 @@ const CheckOut = ({
     }
   }, []);
 
-  const discountedAmount = useMemo(() => {
-    let totalDiscount = 0;
-    if (appliedDiscount > 0) {
-      totalDiscount = amountToPay * (appliedDiscount / 100);
-    } else if (discountData.module.includes(orderType)) {
-      totalDiscount = amountToPay * (discountData.discount / 100);
+  const discountedAmount = useMemo(() => {
+    let totalDiscountValue = 0;
+
+    // 1. تطبيق الخصم بالرمز (إذا كان مطبقاً)
+    if (appliedDiscount > 0) {
+      totalDiscountValue = amountToPay * (appliedDiscount / 100);
+    } 
+    // 2. تطبيق الخصم الثابت بالـ module (إذا لم يكن هناك خصم بالرمز)
+    else if (discountData.module.includes(orderType)) {
+      totalDiscountValue = amountToPay * (discountData.discount / 100);
+    } 
+    // 3. تطبيق الخصم المختار من القائمة (إذا لم يتم تطبيق خصم بالرمز أو خصم module)
+    else if (selectedDiscountAmount > 0) {
+        totalDiscountValue = selectedDiscountAmount;
     }
-    return amountToPay - totalDiscount;
-  }, [amountToPay, orderType, discountData, appliedDiscount]);
+
+    return amountToPay - totalDiscountValue;
+
+  }, [amountToPay, orderType, discountData, appliedDiscount, selectedDiscountAmount]);
 
   const requiredTotal = useMemo(() => {
     if (orderType !== "dine_in") {
@@ -348,6 +382,7 @@ const CheckOut = ({
     if (hasDealItems) {
       payload = buildDealPayload(safeOrderItems, financialsPayload);
     } else {
+      const finalDiscountId = selectedDiscountAmount > 0 ? finalSelectedDiscountId : null;
       payload = buildOrderPayload({
         orderType,
         orderItems: safeOrderItems,
@@ -368,6 +403,7 @@ const CheckOut = ({
         discountCode: appliedDiscount > 0 ? discountCode : undefined,
         due: due,
         user_id: customer_id,
+        discount_id: selectedDiscountId,
       });
     }
 
@@ -528,26 +564,39 @@ const CheckOut = ({
 
           <div className="p-8 overflow-y-auto max-h-[calc(90vh-6rem)]">
             <div className="mb-6 border-b pb-4">
-              <div className="flex justify-between mb-2">
-                <span>{t("OriginalAmount")}</span>
-                <span>{amountToPay.toFixed(2)} {t("EGP")}</span>
-              </div>
-              {appliedDiscount > 0 && (
-                <div className="flex justify-between mb-2">
-                  <span>{t("Discount")} ({appliedDiscount}%):</span>
-                  <span>-{(amountToPay * (appliedDiscount / 100)).toFixed(2)} {t("EGP")}</span>
-                </div>
-              )}
-              {discountData.module.includes(orderType) && appliedDiscount === 0 && (
-                <div className="flex justify-between mb-2">
-                  <span>{t("Discount")} ({discountData.discount}%):</span>
-                  <span>-{(amountToPay * (discountData.discount / 100)).toFixed(2)} {t("EGP")}</span>
-                </div>
-              )}
-              <div className="flex justify-between mb-2">
-                <span>{t("TotalAmount")}</span>
-                <span>{requiredTotal.toFixed(2)} {t("EGP")}</span>
-              </div>
+<div className="flex justify-between mb-2">
+                  <span>{t("OriginalAmount")}</span>
+                  <span>{amountToPay.toFixed(2)} {t("EGP")}</span>
+                </div>
+                
+                {/* 🟢 عرض الخصم المُطبق من الـ Discount Code */}
+                {appliedDiscount > 0 && (
+                  <div className="flex justify-between mb-2">
+                    <span>{t("Discount")} ({appliedDiscount}%):</span>
+                    <span>-{(amountToPay * (appliedDiscount / 100)).toFixed(2)} {t("EGP")}</span>
+                  </div>
+                )}
+
+                {/* 🟢 عرض الخصم المُطبق من الـ Module */}
+                {discountData.module.includes(orderType) && appliedDiscount === 0 && selectedDiscountAmount === 0 && (
+                  <div className="flex justify-between mb-2">
+                    <span>{t("Discount")} ({discountData.discount}%):</span>
+                    <span>-{(amountToPay * (discountData.discount / 100)).toFixed(2)} {t("EGP")}</span>
+                  </div>
+                )}
+                
+                {/* 🟢 عرض الخصم المُطبق من الـ Discount List */}
+                {selectedDiscountAmount > 0 && appliedDiscount === 0 && !discountData.module.includes(orderType) && (
+                  <div className="flex justify-between mb-2 text-blue-600 font-medium">
+                    <span>{t("ListDiscount")}:</span> 
+                    <span>-{selectedDiscountAmount.toFixed(2)} {t("EGP")}</span>
+                  </div>
+                )}
+
+                <div className="flex justify-between mb-2 font-bold text-lg">
+                  <span>{t("TotalAmount")}</span>
+                  <span>{requiredTotal.toFixed(2)} {t("EGP")}</span>
+                </div>
               <div className="flex justify-between mb-2">
                 <span>{t("Remaining")}</span>
                 <span className={remainingAmount > 0 ? "text-orange-500" : "text-green-600"}>
@@ -605,7 +654,40 @@ const CheckOut = ({
                 </p>
               )}
             </div>
-
+{/* 🟢 اختيار الخصم من القائمة (Discount List) */}
+<div className="mb-6">
+              <label className="block text-sm mb-1">{t("SelectDiscountFromList")}</label>
+              <Select
+                // استخدام القيمة "0" لتمثيل حالة عدم وجود خصم (null) لتجنب الخطأ
+                value={String(selectedDiscountId || "0")} 
+                onValueChange={(val) => {
+                  // إذا كانت القيمة "0" (بلا خصم)، اضبطها على null في الـ state
+                  const id = val === "0" ? null : parseInt(val);
+                  setSelectedDiscountId(id);
+                }}
+                disabled={discountsLoading || !discountListData?.discount_list?.length}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={t("ChooseDiscount")} />
+                </SelectTrigger>
+                <SelectContent>
+                  {/* 🟢 إضافة عنصر "بلا خصم" بقيمة "0" */}
+                  <SelectItem key="none" value="0"> 
+                    {t("NoDiscount")}
+                  </SelectItem>
+                  {discountListData?.discount_list?.map((discount) => (
+                    <SelectItem key={discount.id} value={String(discount.id)}>
+                      {discount.name} ({discount.amount}
+                      {discount.type === "percentage" ? "%" : t("EGP")})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {discountsLoading && <p className="mt-2 text-sm text-gray-500">{t("LoadingDiscounts")}</p>}
+              {!discountListData?.discount_list?.length && !discountsLoading && (
+                <p className="mt-2 text-sm text-gray-500">{t("NoDiscountsAvailable")}</p>
+              )}
+            </div>
             {/* Payment Splits */}
             <div className="space-y-6">
               {paymentSplits.map((split) => (
