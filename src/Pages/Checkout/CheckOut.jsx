@@ -2,7 +2,13 @@ import React, { useState, useEffect, useMemo } from "react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useGet } from "@/Hooks/useGet";
 import { usePost } from "@/Hooks/usePost";
 import { toast } from "react-toastify";
@@ -11,10 +17,18 @@ import Loading from "@/components/Loading";
 import qz from "qz-tray";
 import CustomerSelectionModal from "./CustomerSelectionModal";
 import DeliveryAssignmentModal from "./DeliveryAssignmentModal";
-import { buildFinancialsPayload, getOrderEndpoint, buildOrderPayload, buildDealPayload, validatePaymentSplits } from "./processProductItem";
-import { prepareReceiptData, printReceiptSilently } from "../utils/printReceipt";
+import {
+  buildFinancialsPayload,
+  getOrderEndpoint,
+  buildOrderPayload,
+  buildDealPayload,
+  validatePaymentSplits,
+} from "./processProductItem";
+import {
+  prepareReceiptData,
+  printReceiptSilently,
+} from "../utils/printReceipt";
 import { useTranslation } from "react-i18next";
-
 
 const CheckOut = ({
   amountToPay,
@@ -33,13 +47,15 @@ const CheckOut = ({
   const tableId = sessionStorage.getItem("table_id") || null;
   const baseUrl = import.meta.env.VITE_API_BASE_URL;
   const { t } = useTranslation();
-const { data: discountListData, loading: discountsLoading } = useGet("captain/discount_list");
-const [selectedDiscountId, setSelectedDiscountId] = useState(null);
+  const { data: discountListData, loading: discountsLoading } = useGet(
+    "captain/discount_list"
+  );
+  const [selectedDiscountId, setSelectedDiscountId] = useState(null);
   // === QZ Tray Connection ===
   useEffect(() => {
     qz.security.setCertificatePromise(function (resolve, reject) {
       fetch("/point-of-sale/digital-certificate.txt")
-        .then(response => response.text())
+        .then((response) => response.text())
         .then(resolve)
         .catch(reject);
     });
@@ -51,7 +67,7 @@ const [selectedDiscountId, setSelectedDiscountId] = useState(null);
         const apiUrl = `${baseUrl}api/sign-qz-request?request=${toSign}`;
 
         fetch(apiUrl)
-          .then(response => {
+          .then((response) => {
             if (!response.ok) {
               throw new Error(`Server returned ${response.status}`);
             }
@@ -62,12 +78,15 @@ const [selectedDiscountId, setSelectedDiscountId] = useState(null);
       };
     });
 
-    qz.websocket.connect().then(() => {
-      console.log("✅ Connected to QZ Tray");
-    }).catch((err) => {
-      console.error("❌ QZ Tray connection error:", err);
-      toast.error(t("QZTrayNotRunning"));
-    });
+    qz.websocket
+      .connect()
+      .then(() => {
+        console.log("✅ Connected to QZ Tray");
+      })
+      .catch((err) => {
+        console.error("❌ QZ Tray connection error:", err);
+        toast.error(t("QZTrayNotRunning"));
+      });
 
     return () => {
       qz.websocket.disconnect();
@@ -84,9 +103,11 @@ const [selectedDiscountId, setSelectedDiscountId] = useState(null);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [customerSearchQuery, setCustomerSearchQuery] = useState("");
 
-  const { data: dueUsersData, loading: customerSearchLoading, refetch: refetchDueUsers } = useGet(
-    `cashier/list_due_users?search=${customerSearchQuery}`
-  );
+  const {
+    data: dueUsersData,
+    loading: customerSearchLoading,
+    refetch: refetchDueUsers,
+  } = useGet(`cashier/list_due_users?search=${customerSearchQuery}`);
 
   const searchResults = useMemo(() => {
     const users = dueUsersData?.users || [];
@@ -98,28 +119,27 @@ const [selectedDiscountId, setSelectedDiscountId] = useState(null);
     );
   }, [dueUsersData, customerSearchQuery]);
   const { selectedDiscountAmount, finalSelectedDiscountId } = useMemo(() => {
-    const discountList = discountListData?.discount_list || [];
-    const selectedDiscount = discountList.find(d => d.id === selectedDiscountId);
+    const discountList = discountListData?.discount_list || [];
+    const selectedDiscount = discountList.find(
+      (d) => d.id === selectedDiscountId
+    );
 
-    if (!selectedDiscount) {
-      return { selectedDiscountAmount: 0, finalSelectedDiscountId: null };
-    }
+    if (!selectedDiscount) {
+      return { selectedDiscountAmount: 0, finalSelectedDiscountId: null };
+    }
 
-    let discountValue = 0;
-    if (selectedDiscount.type === "percentage") {
-      discountValue = amountToPay * (selectedDiscount.amount / 100);
-    } else if (selectedDiscount.type === "value") {
-      discountValue = selectedDiscount.amount;
-    }
+    let discountValue = 0;
+    if (selectedDiscount.type === "percentage") {
+      discountValue = amountToPay * (selectedDiscount.amount / 100);
+    } else if (selectedDiscount.type === "value") {
+      discountValue = selectedDiscount.amount;
+    }
 
-    return {
-      selectedDiscountAmount: discountValue,
-      finalSelectedDiscountId: selectedDiscount.id,
-    };
-  }, [discountListData, selectedDiscountId, amountToPay]);
-
-
-
+    return {
+      selectedDiscountAmount: discountValue,
+      finalSelectedDiscountId: selectedDiscount.id,
+    };
+  }, [discountListData, selectedDiscountId, amountToPay]);
 
   const [deliveryModelOpen, setDeliveryModelOpen] = useState(false);
   const [selectedDeliveryId, setSelectedDeliveryId] = useState(null);
@@ -133,32 +153,39 @@ const [selectedDiscountId, setSelectedDiscountId] = useState(null);
   const discountData = useMemo(() => {
     const storedDiscount = sessionStorage.getItem("discount_data");
     try {
-      return storedDiscount ? JSON.parse(storedDiscount) : { discount: 0, module: [] };
+      return storedDiscount
+        ? JSON.parse(storedDiscount)
+        : { discount: 0, module: [] };
     } catch (error) {
       console.error("Error parsing discount data from sessionStorage:", error);
       return { discount: 0, module: [] };
     }
   }, []);
 
-  const discountedAmount = useMemo(() => {
-    let totalDiscountValue = 0;
+  const discountedAmount = useMemo(() => {
+    let totalDiscountValue = 0;
 
-    // 1. تطبيق الخصم بالرمز (إذا كان مطبقاً)
-    if (appliedDiscount > 0) {
-      totalDiscountValue = amountToPay * (appliedDiscount / 100);
-    } 
+    // 1. تطبيق الخصم بالرمز (إذا كان مطبقاً)
+    if (appliedDiscount > 0) {
+      totalDiscountValue = amountToPay * (appliedDiscount / 100);
+    }
     // 2. تطبيق الخصم الثابت بالـ module (إذا لم يكن هناك خصم بالرمز)
     else if (discountData.module.includes(orderType)) {
-      totalDiscountValue = amountToPay * (discountData.discount / 100);
-    } 
+      totalDiscountValue = amountToPay * (discountData.discount / 100);
+    }
     // 3. تطبيق الخصم المختار من القائمة (إذا لم يتم تطبيق خصم بالرمز أو خصم module)
     else if (selectedDiscountAmount > 0) {
-        totalDiscountValue = selectedDiscountAmount;
+      totalDiscountValue = selectedDiscountAmount;
     }
 
-    return amountToPay - totalDiscountValue;
-
-  }, [amountToPay, orderType, discountData, appliedDiscount, selectedDiscountAmount]);
+    return amountToPay - totalDiscountValue;
+  }, [
+    amountToPay,
+    orderType,
+    discountData,
+    appliedDiscount,
+    selectedDiscountAmount,
+  ]);
 
   const requiredTotal = useMemo(() => {
     if (orderType !== "dine_in") {
@@ -166,12 +193,12 @@ const [selectedDiscountId, setSelectedDiscountId] = useState(null);
     }
 
     if (selectedPaymentItemIds.length > 0) {
-      const selectedItems = orderItems.filter(item => 
+      const selectedItems = orderItems.filter((item) =>
         selectedPaymentItemIds.includes(item.temp_id)
       );
       return selectedItems.reduce((acc, item) => {
         const quantity = item.count ?? item.quantity ?? 1;
-        return acc + (item.price * quantity);
+        return acc + item.price * quantity;
       }, 0);
     }
 
@@ -179,7 +206,10 @@ const [selectedDiscountId, setSelectedDiscountId] = useState(null);
   }, [orderItems, orderType, discountedAmount, selectedPaymentItemIds]);
 
   const { totalScheduled, remainingAmount, changeAmount } = useMemo(() => {
-    const sum = paymentSplits.reduce((acc, split) => acc + (parseFloat(split.amount) || 0), 0);
+    const sum = paymentSplits.reduce(
+      (acc, split) => acc + (parseFloat(split.amount) || 0),
+      0
+    );
     const calculatedRemaining = requiredTotal - sum;
     const calculatedChange = sum - requiredTotal;
 
@@ -210,13 +240,19 @@ const [selectedDiscountId, setSelectedDiscountId] = useState(null);
   // Initialize default payment split
   // Initialize default payment split - اختيار Visa كافتراضي لو موجود
   useEffect(() => {
-    if (financialAccounts?.length > 0 && paymentSplits.length === 0 && requiredTotal > 0) {
+    if (
+      financialAccounts?.length > 0 &&
+      paymentSplits.length === 0 &&
+      requiredTotal > 0
+    ) {
       // ابحث عن أول حساب فيه كلمة visa (غير حساس لحالة الأحرف)
-      const visaAccount = financialAccounts.find(acc => 
+      const visaAccount = financialAccounts.find((acc) =>
         acc.name?.toLowerCase().includes("visa")
       );
 
-      const defaultAccountId = visaAccount ? visaAccount.id : financialAccounts[0].id;
+      const defaultAccountId = visaAccount
+        ? visaAccount.id
+        : financialAccounts[0].id;
 
       setPaymentSplits([
         {
@@ -234,9 +270,15 @@ const [selectedDiscountId, setSelectedDiscountId] = useState(null);
   useEffect(() => {
     if (paymentSplits.length === 1 && paymentSplits[0].id === "split-1") {
       setPaymentSplits((prev) => {
-        if (prev.length === 1 && prev[0].id === "split-1" && prev[0].amount !== requiredTotal) {
+        if (
+          prev.length === 1 &&
+          prev[0].id === "split-1" &&
+          prev[0].amount !== requiredTotal
+        ) {
           return prev.map((split) =>
-            split.id === "split-1" ? { ...split, amount: requiredTotal || 0 } : split
+            split.id === "split-1"
+              ? { ...split, amount: requiredTotal || 0 }
+              : split
           );
         }
         return prev;
@@ -254,7 +296,9 @@ const [selectedDiscountId, setSelectedDiscountId] = useState(null);
     setDiscountError(null);
 
     try {
-      const response = await postData("cashier/check_discount_code", { code: discountCode });
+      const response = await postData("cashier/check_discount_code", {
+        code: discountCode,
+      });
       if (response.success) {
         setAppliedDiscount(response.discount);
         toast.success(t("DiscountApplied", { discount: response.discount }));
@@ -303,7 +347,12 @@ const [selectedDiscountId, setSelectedDiscountId] = useState(null);
     setPaymentSplits((prev) =>
       prev.map((split) =>
         split.id === id
-          ? { ...split, accountId: parseInt(accountId), checkout: "", transition_id: "" } // 🟢 مسح transition_id
+          ? {
+              ...split,
+              accountId: parseInt(accountId),
+              checkout: "",
+              transition_id: "",
+            } // 🟢 مسح transition_id
           : split
       )
     );
@@ -364,25 +413,38 @@ const [selectedDiscountId, setSelectedDiscountId] = useState(null);
     return acc?.name?.toLowerCase().includes("visa");
   };
 
-  const proceedWithOrderSubmission = async (due = 0, customer_id = undefined) => {
+  const proceedWithOrderSubmission = async (
+    due = 0,
+    customer_id = undefined
+  ) => {
     const safeOrderItems = Array.isArray(orderItems) ? orderItems : [];
 
     const isDineIn = orderType === "dine_in";
     const hasSelectedItems = selectedPaymentItemIds.length > 0;
     const totalItemsCount = orderItems.length;
-    const allItemsSelected = hasSelectedItems && selectedPaymentItemIds.length === totalItemsCount;
+    const allItemsSelected =
+      hasSelectedItems && selectedPaymentItemIds.length === totalItemsCount;
 
     const isPartialPayment = isDineIn && hasSelectedItems && !allItemsSelected;
 
     const hasDealItems = safeOrderItems.some((item) => item.is_deal);
-    const endpoint = getOrderEndpoint(orderType, safeOrderItems, totalDineInItems, hasDealItems);
-   const financialsPayload = buildFinancialsPayload(paymentSplits, financialAccounts);
+    const endpoint = getOrderEndpoint(
+      orderType,
+      safeOrderItems,
+      totalDineInItems,
+      hasDealItems
+    );
+    const financialsPayload = buildFinancialsPayload(
+      paymentSplits,
+      financialAccounts
+    );
 
     let payload;
     if (hasDealItems) {
       payload = buildDealPayload(safeOrderItems, financialsPayload);
     } else {
-      const finalDiscountId = selectedDiscountAmount > 0 ? finalSelectedDiscountId : null;
+      const finalDiscountId =
+        selectedDiscountAmount > 0 ? finalSelectedDiscountId : null;
       payload = buildOrderPayload({
         orderType,
         orderItems: safeOrderItems,
@@ -421,6 +483,7 @@ const [selectedDiscountId, setSelectedDiscountId] = useState(null);
             sessionStorage.removeItem("selected_user_data");
             sessionStorage.removeItem("selected_address_id");
             sessionStorage.removeItem("selected_address_data");
+            setDeliveryModelOpen(false);
           }
 
           if (orderType === "dine_in" && selectedPaymentItemIds.length > 0) {
@@ -441,16 +504,16 @@ const [selectedDiscountId, setSelectedDiscountId] = useState(null);
 
         if (due === 0) {
           const receiptData = prepareReceiptData(
-            safeOrderItems,
-            amountToPay,
-            totalTax,
-            totalDiscount,
-            appliedDiscount,
-            discountData,
-            orderType,
-            requiredTotal,
-            response.success,
-            response
+safeOrderItems,         
+  amountToPay,
+  totalTax,
+  totalDiscount,
+  appliedDiscount,
+  discountData,
+  orderType,
+  requiredTotal,
+  response.success,        
+  response,
           );
 
           printReceiptSilently(receiptData, response, () => {
@@ -470,7 +533,9 @@ const [selectedDiscountId, setSelectedDiscountId] = useState(null);
 
   const handleSelectCustomer = async (customer) => {
     if (requiredTotal > customer.can_debit) {
-      toast.error(t("OrderExceedsDebitLimit", { amount: requiredTotal.toFixed(2) }));
+      toast.error(
+        t("OrderExceedsDebitLimit", { amount: requiredTotal.toFixed(2) })
+      );
       return;
     }
 
@@ -482,10 +547,15 @@ const [selectedDiscountId, setSelectedDiscountId] = useState(null);
 
   const handleSubmitOrder = async () => {
     if (!isTotalMet || totalScheduled === 0) {
-      return toast.error(t("TotalMustEqual", { amount: requiredTotal.toFixed(2) }));
+      return toast.error(
+        t("TotalMustEqual", { amount: requiredTotal.toFixed(2) })
+      );
     }
 
-    const validation = validatePaymentSplits(paymentSplits, getDescriptionStatus);
+    const validation = validatePaymentSplits(
+      paymentSplits,
+      getDescriptionStatus
+    );
     if (!validation.valid) {
       return toast.error(validation.error);
     }
@@ -564,56 +634,85 @@ const [selectedDiscountId, setSelectedDiscountId] = useState(null);
 
           <div className="p-8 overflow-y-auto max-h-[calc(90vh-6rem)]">
             <div className="mb-6 border-b pb-4">
-<div className="flex justify-between mb-2">
-                  <span>{t("OriginalAmount")}</span>
-                  <span>{amountToPay.toFixed(2)} {t("EGP")}</span>
-                </div>
-                
-                {/* 🟢 عرض الخصم المُطبق من الـ Discount Code */}
-                {appliedDiscount > 0 && (
-                  <div className="flex justify-between mb-2">
-                    <span>{t("Discount")} ({appliedDiscount}%):</span>
-                    <span>-{(amountToPay * (appliedDiscount / 100)).toFixed(2)} {t("EGP")}</span>
-                  </div>
-                )}
+              <div className="flex justify-between mb-2">
+                <span>{t("OriginalAmount")}</span>
+                <span>
+                  {amountToPay.toFixed(2)} {t("EGP")}
+                </span>
+              </div>
 
-                {/* 🟢 عرض الخصم المُطبق من الـ Module */}
-                {discountData.module.includes(orderType) && appliedDiscount === 0 && selectedDiscountAmount === 0 && (
-                  <div className="flex justify-between mb-2">
-                    <span>{t("Discount")} ({discountData.discount}%):</span>
-                    <span>-{(amountToPay * (discountData.discount / 100)).toFixed(2)} {t("EGP")}</span>
-                  </div>
-                )}
-                
-                {/* 🟢 عرض الخصم المُطبق من الـ Discount List */}
-                {selectedDiscountAmount > 0 && appliedDiscount === 0 && !discountData.module.includes(orderType) && (
-                  <div className="flex justify-between mb-2 text-blue-600 font-medium">
-                    <span>{t("ListDiscount")}:</span> 
-                    <span>-{selectedDiscountAmount.toFixed(2)} {t("EGP")}</span>
-                  </div>
-                )}
+              {/* 🟢 عرض الخصم المُطبق من الـ Discount Code */}
+              {appliedDiscount > 0 && (
+                <div className="flex justify-between mb-2">
+                  <span>
+                    {t("Discount")} ({appliedDiscount}%):
+                  </span>
+                  <span>
+                    -{(amountToPay * (appliedDiscount / 100)).toFixed(2)}{" "}
+                    {t("EGP")}
+                  </span>
+                </div>
+              )}
 
-                <div className="flex justify-between mb-2 font-bold text-lg">
-                  <span>{t("TotalAmount")}</span>
-                  <span>{requiredTotal.toFixed(2)} {t("EGP")}</span>
-                </div>
+              {/* 🟢 عرض الخصم المُطبق من الـ Module */}
+              {discountData.module.includes(orderType) &&
+                appliedDiscount === 0 &&
+                selectedDiscountAmount === 0 && (
+                  <div className="flex justify-between mb-2">
+                    <span>
+                      {t("Discount")} ({discountData.discount}%):
+                    </span>
+                    <span>
+                      -
+                      {(amountToPay * (discountData.discount / 100)).toFixed(2)}{" "}
+                      {t("EGP")}
+                    </span>
+                  </div>
+                )}
+
+              {/* 🟢 عرض الخصم المُطبق من الـ Discount List */}
+              {selectedDiscountAmount > 0 &&
+                appliedDiscount === 0 &&
+                !discountData.module.includes(orderType) && (
+                  <div className="flex justify-between mb-2 text-blue-600 font-medium">
+                    <span>{t("ListDiscount")}:</span>
+                    <span>
+                      -{selectedDiscountAmount.toFixed(2)} {t("EGP")}
+                    </span>
+                  </div>
+                )}
+
+              <div className="flex justify-between mb-2 font-bold text-lg">
+                <span>{t("TotalAmount")}</span>
+                <span>
+                  {requiredTotal.toFixed(2)} {t("EGP")}
+                </span>
+              </div>
               <div className="flex justify-between mb-2">
                 <span>{t("Remaining")}</span>
-                <span className={remainingAmount > 0 ? "text-orange-500" : "text-green-600"}>
+                <span
+                  className={
+                    remainingAmount > 0 ? "text-orange-500" : "text-green-600"
+                  }
+                >
                   {remainingAmount.toFixed(2)} {t("EGP")}
                 </span>
               </div>
               {changeAmount > 0 && (
                 <div className="flex justify-between">
                   <span>{t("Change")}:</span>
-                  <span className="text-green-600">{changeAmount.toFixed(2)} {t("EGP")}</span>
+                  <span className="text-green-600">
+                    {changeAmount.toFixed(2)} {t("EGP")}
+                  </span>
                 </div>
               )}
             </div>
 
             {/* Order Notes Section */}
             <div className="mb-6">
-              <label className="block text-sm font-medium mb-2">{t("OrderNotes")}</label>
+              <label className="block text-sm font-medium mb-2">
+                {t("OrderNotes")}
+              </label>
               <Textarea
                 placeholder={t("OrderNotesPlaceholder")}
                 value={orderNotes}
@@ -628,7 +727,9 @@ const [selectedDiscountId, setSelectedDiscountId] = useState(null);
 
             {/* Discount Code */}
             <div className="mb-6">
-              <label className="block text-sm mb-1">{t("DiscountbyCompany")}</label>
+              <label className="block text-sm mb-1">
+                {t("DiscountbyCompany")}
+              </label>
               <div className="flex space-x-2">
                 <Input
                   type="text"
@@ -654,25 +755,29 @@ const [selectedDiscountId, setSelectedDiscountId] = useState(null);
                 </p>
               )}
             </div>
-{/* 🟢 اختيار الخصم من القائمة (Discount List) */}
-<div className="mb-6">
-              <label className="block text-sm mb-1">{t("SelectDiscountFromList")}</label>
+            {/* 🟢 اختيار الخصم من القائمة (Discount List) */}
+            <div className="mb-6">
+              <label className="block text-sm mb-1">
+                {t("SelectDiscountFromList")}
+              </label>
               <Select
                 // استخدام القيمة "0" لتمثيل حالة عدم وجود خصم (null) لتجنب الخطأ
-                value={String(selectedDiscountId || "0")} 
+                value={String(selectedDiscountId || "0")}
                 onValueChange={(val) => {
                   // إذا كانت القيمة "0" (بلا خصم)، اضبطها على null في الـ state
                   const id = val === "0" ? null : parseInt(val);
                   setSelectedDiscountId(id);
                 }}
-                disabled={discountsLoading || !discountListData?.discount_list?.length}
+                disabled={
+                  discountsLoading || !discountListData?.discount_list?.length
+                }
               >
                 <SelectTrigger>
                   <SelectValue placeholder={t("ChooseDiscount")} />
                 </SelectTrigger>
                 <SelectContent>
                   {/* 🟢 إضافة عنصر "بلا خصم" بقيمة "0" */}
-                  <SelectItem key="none" value="0"> 
+                  <SelectItem key="none" value="0">
                     {t("NoDiscount")}
                   </SelectItem>
                   {discountListData?.discount_list?.map((discount) => (
@@ -683,10 +788,17 @@ const [selectedDiscountId, setSelectedDiscountId] = useState(null);
                   ))}
                 </SelectContent>
               </Select>
-              {discountsLoading && <p className="mt-2 text-sm text-gray-500">{t("LoadingDiscounts")}</p>}
-              {!discountListData?.discount_list?.length && !discountsLoading && (
-                <p className="mt-2 text-sm text-gray-500">{t("NoDiscountsAvailable")}</p>
+              {discountsLoading && (
+                <p className="mt-2 text-sm text-gray-500">
+                  {t("LoadingDiscounts")}
+                </p>
               )}
+              {!discountListData?.discount_list?.length &&
+                !discountsLoading && (
+                  <p className="mt-2 text-sm text-gray-500">
+                    {t("NoDiscountsAvailable")}
+                  </p>
+                )}
             </div>
             {/* Payment Splits */}
             <div className="space-y-6">
@@ -696,10 +808,14 @@ const [selectedDiscountId, setSelectedDiscountId] = useState(null);
                     <div className="w-40">
                       <Select
                         value={String(split.accountId)}
-                        onValueChange={(val) => handleAccountChange(split.id, val)}
+                        onValueChange={(val) =>
+                          handleAccountChange(split.id, val)
+                        }
                       >
                         <SelectTrigger>
-                          <SelectValue>{getAccountNameById(split.accountId)}</SelectValue>
+                          <SelectValue>
+                            {getAccountNameById(split.accountId)}
+                          </SelectValue>
                         </SelectTrigger>
                         <SelectContent>
                           {financialAccounts.map((acc) => (
@@ -715,28 +831,38 @@ const [selectedDiscountId, setSelectedDiscountId] = useState(null);
                         type="number"
                         min="0"
                         value={split.amount === 0 ? "" : String(split.amount)}
-                        onChange={(e) => handleAmountChange(split.id, e.target.value)}
+                        onChange={(e) =>
+                          handleAmountChange(split.id, e.target.value)
+                        }
                         className="pl-16"
                       />
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2">{t("EGP")}</span>
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2">
+                        {t("EGP")}
+                      </span>
                     </div>
                     {getDescriptionStatus(split.accountId) && (
                       <Input
                         type="text"
                         placeholder="Last 4 digits"
                         value={split.checkout}
-                        onChange={(e) => handleDescriptionChange(split.id, e.target.value)}
+                        onChange={(e) =>
+                          handleDescriptionChange(split.id, e.target.value)
+                        }
                         maxLength={4}
                         className="w-32"
                       />
                     )}
                     {paymentSplits.length > 1 && (
-                      <Button variant="ghost" size="icon" onClick={() => handleRemoveSplit(split.id)}>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleRemoveSplit(split.id)}
+                      >
                         {t("Remove")}
                       </Button>
                     )}
                   </div>
-                  
+
                   {/* 🟢 حقل رقم العملية لو الحساب Visa */}
                   {isVisaAccount(split.accountId) && (
                     <div className="ml-44 flex items-center gap-2">
@@ -747,7 +873,9 @@ const [selectedDiscountId, setSelectedDiscountId] = useState(null);
                         type="text"
                         placeholder={t("EnterTransactionID")}
                         value={split.transition_id || ""}
-                        onChange={(e) => handleTransitionIdChange(split.id, e.target.value)}
+                        onChange={(e) =>
+                          handleTransitionIdChange(split.id, e.target.value)
+                        }
                         className="flex-1"
                       />
                     </div>
@@ -755,7 +883,11 @@ const [selectedDiscountId, setSelectedDiscountId] = useState(null);
                 </div>
               ))}
               {remainingAmount > 0 && (
-                <Button variant="link" onClick={handleAddSplit} className="text-sm text-blue-600">
+                <Button
+                  variant="link"
+                  onClick={handleAddSplit}
+                  className="text-sm text-blue-600"
+                >
                   {t("AddAccountSplit")}
                 </Button>
               )}
@@ -763,7 +895,9 @@ const [selectedDiscountId, setSelectedDiscountId] = useState(null);
 
             {/* Amount Paid */}
             <div className="mt-6">
-              <label className="block text-sm mb-1">{t("AmountPaidByCustomer")}</label>
+              <label className="block text-sm mb-1">
+                {t("AmountPaidByCustomer")}
+              </label>
               <div className="relative">
                 <Input
                   type="number"
@@ -773,7 +907,9 @@ const [selectedDiscountId, setSelectedDiscountId] = useState(null);
                   onChange={(e) => setCustomerPaid(e.target.value)}
                   className="pl-16"
                 />
-                <span className="absolute left-3 top-1/2 -translate-y-1/2">{t("EGP")}</span>
+                <span className="absolute left-3 top-1/2 -translate-y-1/2">
+                  {t("EGP")}
+                </span>
               </div>
               {parseFloat(customerPaid) > requiredTotal && (
                 <p className="mt-2 text-green-600 text-sm font-semibold">
@@ -796,7 +932,10 @@ const [selectedDiscountId, setSelectedDiscountId] = useState(null);
                 }}
                 className="w-5 h-5 text-orange-600 border-gray-300 rounded focus:ring-orange-500"
               />
-              <label htmlFor="isDueOrder" className="text-sm font-medium text-gray-700 cursor-pointer">
+              <label
+                htmlFor="isDueOrder"
+                className="text-sm font-medium text-gray-700 cursor-pointer"
+              >
                 {t("MarkAsDueOrder")}
               </label>
             </div>
@@ -811,10 +950,10 @@ const [selectedDiscountId, setSelectedDiscountId] = useState(null);
                 {loading
                   ? t("Processing")
                   : isDueOrder
-                    ? selectedCustomer
-                      ? t("DueOrderReady")
-                      : t("SelectCustomer")
-                    : t("ConfirmAndPay")}
+                  ? selectedCustomer
+                    ? t("DueOrderReady")
+                    : t("SelectCustomer")
+                  : t("ConfirmAndPay")}
               </Button>
             </div>
           </div>

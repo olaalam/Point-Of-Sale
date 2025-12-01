@@ -150,17 +150,20 @@ const clearPaidItemsOnly = () => {
     setShowModal(true);
   };
 
-  const handleClearAllItems = () => {
-    if (orderItems.length === 0) {
-      toast.warning(t("Noitemstoclear"));
-      return;
-    }
-    if (orderType === "dine_in") {
-      setShowClearAllManagerModal(true);
-    } else {
-      setShowClearAllConfirm(true);
-    }
-  };
+const handleClearAllItems = () => {
+  if (orderItems.length === 0) {
+    toast.warning(t("Noitemstoclear"));
+    return;
+  }
+
+  if (orderType === "dine_in" && hasAnyItemInPreparationOrLater()) {
+    // فيه عناصر بدأت → يطلب مدير
+    setShowClearAllManagerModal(true);
+  } else {
+    // كله لسة Pending → يمسح عادي
+    setShowClearAllConfirm(true);
+  }
+};
 
   const confirmClearAllWithManager = async () => {
     if (!clearAllManagerId || !clearAllManagerPassword) {
@@ -234,7 +237,12 @@ const handlePrint = () => {
   printWindow.close();
 };
 
-
+const hasAnyItemInPreparationOrLater = () => {
+  return orderItems.some(item => {
+    const status = item.preparation_status || "Pending";
+    return ["preparing", "pick_up", "done"].includes(status);
+  });
+};
 
   return (
     <div
@@ -311,10 +319,21 @@ const handlePrint = () => {
           onIncrease={orderActions.handleIncrease}
           onDecrease={orderActions.handleDecrease}
           onUpdateStatus={orderActions.handleUpdatePreparationStatus}
-          onVoidItem={(id) => {
-            setVoidItemId(id);
-            setShowVoidModal(true);
-          }}
+onVoidItem={(itemId) => {
+  const item = orderItems.find(i => i.temp_id === itemId);
+  const status = item?.preparation_status || "Pending";
+
+  if (orderType === "dine_in" && ["preparing", "pick_up", "done"].includes(status)) {
+    // بدأ التحضير → يطلب مدير
+    setVoidItemId(itemId);
+    setShowVoidModal(true);
+  } else {
+    // لسة Pending أو Waiting → يمسح فورًا بدون باسوورد
+    orderActions.handleRemoveFrontOnly(itemId); // أو أي دالة بتمسح من الواجهة فقط
+    // أو لو عايزة تعمل void للـ backend برضو بدون باسوورد:
+    // orderActions.confirmVoidItem(itemId, null, null, () => {});
+  }
+}}
           onRemoveFrontOnly={orderActions.handleRemoveFrontOnly}
           allowQuantityEdit={allowQuantityEdit}
           itemLoadingStates={itemLoadingStates}
@@ -389,16 +408,20 @@ const handlePrint = () => {
         isLoading={apiLoading}
       />
 
-      <ClearAllConfirmModal
-        open={showClearAllConfirm}
-        onOpenChange={setShowClearAllConfirm}
-        onConfirm={() => {
-          clearPaidItemsOnly();
-          setShowClearAllConfirm(false);
-        }}
-        itemCount={orderItems.length}
-        t={t}
-      />
+<ClearAllConfirmModal
+  open={showClearAllConfirm}
+  onOpenChange={setShowClearAllConfirm}
+  onConfirm={() => {
+    updateOrderItems([]);                    // نمسح الكل من السلة
+    sessionStorage.removeItem("cart");       // نمسح من الـ session
+    setSelectedItems([]);                    // نرست التحديد
+    setSelectedPaymentItems([]);             // نرست تحديد الدفع
+    toast.success(t("Allitemsclearedfromtheorder"));
+    setShowClearAllConfirm(false);
+  }}
+  itemCount={orderItems.length}
+  t={t}
+/>
 
       <ClearAllManagerModal
         open={showClearAllManagerModal}

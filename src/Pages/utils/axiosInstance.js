@@ -22,7 +22,7 @@ axiosInstance.interceptors.response.use(
       localStorage.setItem("shiftStatus", "close");
 
       // إعادة التوجيه إلى صفحة اللوجين
-      window.location.href = "/login";
+      window.location.href = "/point-of-sale/login";
     }
 
     // نرجع الخطأ للـ hooks عشان يتعاملوا معاه لو محتاجين
