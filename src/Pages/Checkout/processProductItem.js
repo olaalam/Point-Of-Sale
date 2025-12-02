@@ -144,8 +144,11 @@ export const buildOrderPayload = ({
   cashierId,
   tableId,
   customerPaid,
-  due = 0,           // ← هنا المهم: due بيجي من الـ Checkout (0 أو 1)
-  user_id,       // ← جديد: للطلبات الآجلة
+  due = 0,
+  user_id,
+  discount_id, // الخصم من القائمة
+  module_id,   // 🟢 module_id
+  free_discount, // 🟢 free_discount
 }) => {
   const basePayload = {
     amount: amountToPay.toString(),
@@ -155,9 +158,24 @@ export const buildOrderPayload = ({
     source: source,
     financials: financialsPayload,
     cashier_id: cashierId.toString(),
-    due: due.toString(),                    // ← دايمًا موجود: 0 أو 1
-    order_pending: due === 1 ? "0" : "0",   // ← الحل السحري للـ validation
+    due: due.toString(),
+    order_pending: due === 1 ? "0" : "0",
   };
+
+  // إضافة discount_id لو موجود
+  if (discount_id) {
+    basePayload.discount_id = discount_id.toString();
+  }
+
+  // 🟢 إضافة module_id لو موجود
+  if (module_id && module_id !== "all") {
+    basePayload.module_id = module_id.toString();
+  }
+
+  // 🟢 إضافة free_discount لو موجود
+  if (free_discount && free_discount > 0) {
+    basePayload.free_discount = free_discount.toString();
+  }
 
   // إضافة customer_id لو الطلب آجل
   if (due === 1 && user_id) {
@@ -187,11 +205,9 @@ export const buildOrderPayload = ({
     return {
       ...basePayload,
       products: productsToSend,
-      // due و order_pending موجودين في basePayload
     };
   }
 };
-
 /**
  * بناء الـ payload لطلبات الديل
  */
