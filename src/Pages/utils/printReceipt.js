@@ -288,11 +288,12 @@ const formatCashierReceipt = (receiptData) => {
 // 5. تصميم إيصال المطبخ
 // ===================================================================
 const formatKitchenReceipt = (receiptData, productsList = []) => {
+  if (!Array.isArray(productsList)) productsList = [];
     const isArabic = localStorage.getItem("language") === "ar";
     const currentOrderType = (receiptData.orderType || "").toLowerCase();
   
-    let orderTypeLabel = isArabic ? "سفري" : "Takeaway";
-    let displayBigNumber = isArabic ? "سفري" : "To Go";
+    let orderTypeLabel = isArabic ? "تيك اواي" : "Takeaway";
+    let displayBigNumber = isArabic ? "تيك اواي" : "To Go";
     let isDineIn = false;
     let tableNumber = receiptData.table;
     
@@ -307,7 +308,7 @@ const formatKitchenReceipt = (receiptData, productsList = []) => {
       displayBigNumber = isArabic ? "توصيل" : "Delivery";
     } else if (currentOrderType === "take_away") {
       orderTypeLabel = isArabic ? "تيك أواي" : "Takeaway";
-      displayBigNumber = isArabic ? "سفري" : "Takeaway";
+      displayBigNumber = isArabic ? "تيك اواي" : "Takeaway";
     }
   
     return `
@@ -441,7 +442,8 @@ const formatBaristaReceipt = (receiptData) => {
 const getReceiptHTML = (receiptData, printerConfig) => {
   switch (printerConfig.design) {
     case "kitchen":
-      return formatKitchenReceipt(receiptData, printerConfig.type);
+      // التعديل هنا: حذف المعامل الثاني لأنه كان يرسل نصاً بدلاً من القائمة
+      return formatKitchenReceipt(receiptData); 
     case "barista":
       return formatBaristaReceipt(receiptData);
     case "full":
@@ -493,8 +495,7 @@ export const prepareReceiptData = (
       detectedType = "dine_in";
     } else if (
       typeStr.includes("take") ||
-      typeStr.includes("تيك") ||
-      typeStr.includes("سفري")
+      typeStr.includes("تيك") 
     ) {
       detectedType = "take_away";
     }
