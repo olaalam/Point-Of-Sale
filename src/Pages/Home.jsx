@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import Delivery from "./Delivery/Delivery";
-import Dine from "./Dine";
+import Dine from "./Dine/Dine";
 import TakeAway from "./TakeAway";
 import OrderPage from "./OrderPage";
 import { usePost } from "@/Hooks/usePost";

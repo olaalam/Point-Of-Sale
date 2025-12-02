@@ -18,7 +18,7 @@ import PendingOrders from "./Pages/PendingOrders";
 import Profile from "./Pages/Profile";
 import DueUsers from "./Pages/Due/DueUsers";
 import AllOrders from "./Pages/AllOrders/AllOrders";
-import Dine from "./Pages/Dine";
+import Dine from "./Pages/Dine/Dine";
 import SinglePage from "./Pages/OnlineOrders/SinglePage";
 import OnlineTabs from "./Pages/OnlineOrders/OnlineTabs";
 
