@@ -35,7 +35,8 @@ const CompactStatCard = ({ icon: Icon, title, value }) => (
 );
 
 export default function EndShiftReportModal({ reportData, onClose, onConfirmClose }) {
-  const { t } = useTranslation();
+  const { t ,i18n} = useTranslation();
+    const isArabic = i18n.language === "ar";
 
   if (!reportData) return null;
 
@@ -64,8 +65,10 @@ export default function EndShiftReportModal({ reportData, onClose, onConfirmClos
   const netCashInDrawer = ((reportData.total_amount || 0) - (reportData.expenses_total || 0));
 
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-2"> {/* تقليل الـ padding */}
-      <div className="bg-white rounded-lg shadow-xl max-w-xl w-full max-h-[95vh] overflow-y-auto transform transition-all duration-300"> {/* تقليل max-w */}
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-2" > {/* تقليل الـ padding */}
+      <div className="bg-white rounded-lg shadow-xl max-w-xl w-full max-h-[95vh] overflow-y-auto transform transition-all duration-300"
+      dir={isArabic ? "rtl" : "ltr"}
+      > {/* تقليل max-w */}
         <div className="p-6"> {/* تقليل الـ padding */}
 
           {/* ─── العنوان ─── */}
