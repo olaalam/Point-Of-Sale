@@ -33,6 +33,7 @@ export const processProductItem = (item) => {
           addonItems.push({
             addon_id: extraId.toString(),
             count: "1",
+            price: addon.price.toString(),
           });
         }
       }
@@ -49,6 +50,7 @@ export const processProductItem = (item) => {
         addonItems.push({
           addon_id: addonData.addon_id.toString(),
           count: (addonData.count || 1).toString(),
+          price: addonData?.price?.toString() || "0",
         });
       }
     });

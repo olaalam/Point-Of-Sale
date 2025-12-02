@@ -13,9 +13,9 @@ const DineInformation = () => {
 
   return (
     <div
-      className={`bg-gradient-to-r from-red-50 to-red-100 
+      className={`bg-gradient-to-r from-gray-50 to-gray-100 
       rounded-xl shadow-md p-5 mb-5 flex items-center justify-center gap-10
-      border border-red-200 transition-all`}
+      border border-gray-200 transition-all`}
       dir={isArabic ? "rtl" : "ltr"}
     >
       {/* Hall */}
