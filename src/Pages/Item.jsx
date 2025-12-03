@@ -204,6 +204,14 @@ const filteredProducts = useMemo(() => {
   const handleGroupChange = (groupId) => {
     const id = groupId === "all" ? "all" : groupId.toString();
     sessionStorage.setItem("last_selected_group", id);
+    
+    // تخزين module_id للاستخدام في checkout
+    if (groupId === "all") {
+      sessionStorage.removeItem("module_id");
+    } else {
+      sessionStorage.setItem("module_id", id);
+    }
+    
     setSelectedGroup(id);
     setSelectedCategory("all");
     setVisibleProductCount(PRODUCTS_TO_SHOW_INITIALLY);

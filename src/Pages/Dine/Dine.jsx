@@ -10,6 +10,7 @@ import {
   CreditCard,
   UserCheck,
   Link,
+  X,
 } from "lucide-react";
 import { useGet } from "@/Hooks/useGet";
 import { usePost } from "@/Hooks/usePost";
@@ -18,23 +19,112 @@ import Loading from "@/components/Loading";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "react-toastify";
 import { useTranslation } from "react-i18next";
-
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+// 🟢 Modal لإدخال رقم التحضير
+const PreparationNumberModal = ({ isOpen, onClose, onSubmit, loading, tableName }) => {
+  const [preparationNum, setPreparationNum] = useState("");
+  const { t } = useTranslation();
+  const handleSubmit = () => {
+    if (!preparationNum.trim()) {
+      toast.error(t("PleaseEnterPreparationNumber"));
+      return;
+    }
+    onSubmit(preparationNum);
+  };
+  const handleCancel = () => {
+    setPreparationNum("");
+    onClose();
+  };
+  if (!isOpen) return null;
+  return (
+    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/70 p-4">
+      <div className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl">
+        {/* Header */}
+        <div className="bg-gradient-to-r from-red-600 to-red-700 p-6 rounded-t-2xl">
+          <div className="flex items-center justify-between">
+            <h2 className="text-2xl font-bold text-white">
+              {t("EnterPreparationNumber")}
+            </h2>
+            <button
+              onClick={handleCancel}
+              disabled={loading}
+              className="text-white hover:bg-white/20 rounded-full p-2 transition-colors"
+            >
+              <X size={24} />
+            </button>
+          </div>
+          <p className="text-blue-100 text-sm mt-2">
+            {t("Table")}: <span className="font-semibold">{tableName}</span>
+          </p>
+        </div>
+        {/* Body */}
+        <div className="p-6">
+          <label className="block text-sm font-semibold text-gray-700 mb-3">
+            {t("PreparationNumber")}
+          </label>
+          <Input
+            type="text"
+            placeholder={t("EnterNumber")}
+            value={preparationNum}
+            onChange={(e) => setPreparationNum(e.target.value)}
+            disabled={loading}
+            className="w-full text-lg py-3 px-4 border-2 border-gray-300 rounded-lg focus:border-red-500 focus:ring-2 focus:ring-red-200"
+            autoFocus
+            onKeyPress={(e) => {
+              if (e.key === "Enter") {
+                handleSubmit();
+              }
+            }}
+          />
+         
+          <p className="text-xs text-gray-500 mt-2">
+            {t("PreparationNumberHint")}
+          </p>
+        </div>
+        {/* Footer */}
+        <div className="flex gap-3 p-6 pt-0">
+          <Button
+            onClick={handleCancel}
+            disabled={loading}
+            variant="outline"
+            className="flex-1 py-3 text-base font-semibold border-2 hover:bg-gray-100"
+          >
+            {t("Cancel")}
+          </Button>
+          <Button
+            onClick={handleSubmit}
+            disabled={loading || !preparationNum.trim()}
+            className="flex-1 py-3 text-base font-semibold bg-red-600 hover:bg-red-700 text-white"
+          >
+            {loading ? (
+              <span className="flex items-center gap-2">
+                <span className="animate-spin">⏳</span>
+                {t("Processing")}
+              </span>
+            ) : (
+              t("Confirm")
+            )}
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+};
 const CustomStatusSelect = ({ table, statusOptions, onStatusChange }) => {
   const [isOpen, setIsOpen] = useState(false);
   const currentStatus = statusOptions.find(
     (option) => option.value === table.current_status
   );
-
   const handleStatusSelect = (statusValue) => {
     onStatusChange(statusValue);
     setIsOpen(false);
   };
-
   return (
-<div
-  className={`relative w-full ${isOpen ? "z-[9999]" : "z-[1]"}`}
-  onClick={(e) => e.stopPropagation()}
->
+    <div
+      className={`relative w-full ${isOpen ? "z-[9999]" : "z-[1]"}`}
+      onClick={(e) => e.stopPropagation()}
+    >
       <button
         className="flex items-center justify-between w-full px-2 py-1 text-xs font-medium border border-gray-300 rounded-md bg-white hover:bg-gray-50 focus:outline-none focus:ring-1 focus:ring-blue-500 transition-all duration-200"
         onClick={() => setIsOpen(!isOpen)}
@@ -50,11 +140,10 @@ const CustomStatusSelect = ({ table, statusOptions, onStatusChange }) => {
           className={`transition-transform ${isOpen ? "rotate-180" : ""}`}
         />
       </button>
-      
-{isOpen && (
-  <div className="absolute top-full left-0 right-0 mt-1 z-[99999]">
-    <div className="bg-white border border-gray-300 rounded-md shadow-xl overflow-hidden text-xs">
-
+     
+      {isOpen && (
+        <div className="absolute top-full left-0 right-0 mt-1 z-[99999]">
+          <div className="bg-white border border-gray-300 rounded-md shadow-xl overflow-hidden text-xs">
             {statusOptions.map((option) => (
               <button
                 key={option.value}
@@ -76,23 +165,23 @@ const CustomStatusSelect = ({ table, statusOptions, onStatusChange }) => {
     </div>
   );
 };
-
 const Dine = () => {
   const navigate = useNavigate();
   const branch_id = sessionStorage.getItem("branch_id");
   const { t, i18n } = useTranslation();
   const isArabic = i18n.language === "ar";
-
   const [selectedTable, setSelectedTable] = useState(null);
   const [selectedLocationId, setSelectedLocationId] = useState(null);
-
+ 
+  // 🟢 State للـ Preparation Number Modal
+  const [showPreparationModal, setShowPreparationModal] = useState(false);
+  const [pendingTableSelection, setPendingTableSelection] = useState(null);
   const { data, isLoading, error } = useGet(
     `captain/lists?branch_id=${branch_id}`
   );
   const { loading: transferLoading, postData } = usePost();
-
+  const { postData: postPreparationNum, loading: preparationLoading } = usePost();
   const locations = data?.cafe_location || [];
-
   const statusOptions = [
     {
       label: t("Available"),
@@ -125,7 +214,6 @@ const Dine = () => {
       iconColor: "text-green-500",
     },
   ];
-
   const processTablesWithMerge = (tables) => {
     return tables.map((table) => {
       if (table.sub_table && table.sub_table.length > 0) {
@@ -142,7 +230,6 @@ const Dine = () => {
       return { ...table, isMerged: false };
     });
   };
-
   useEffect(() => {
     const storedTableId = sessionStorage.getItem("table_id");
     if (storedTableId) setSelectedTable(parseInt(storedTableId));
@@ -150,27 +237,17 @@ const Dine = () => {
       setSelectedLocationId(locations[0].id);
     }
   }, [locations, selectedLocationId]);
-
   useEffect(() => {
     if (sessionStorage.getItem("transfer_pending") === "true") {
       toast.info(t("SelectNewTableToTransferOrder"));
     }
   }, []);
-
   const selectedLocation = locations.find(
     (loc) => loc.id === selectedLocationId
   );
   const tablesToDisplay = processTablesWithMerge(
     selectedLocation?.tables || []
   );
-
-  const tableStates = {
-    available: "available",
-    not_available_pre_order: "not_available_pre_order",
-    not_available_with_order: "not_available_with_order",
-    not_available_but_checkout: "not_available_but_checkout",
-  };
-
   const getTableColor = (state) => {
     const colors = {
       available: "bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200",
@@ -184,12 +261,61 @@ const Dine = () => {
     };
     return colors[state] || colors.available;
   };
-
+  // 🟢 دالة للتنقل بعد إدخال رقم التحضير أو الإلغاء
+  const proceedToOrderPage = (table, preparationNumber = null) => {
+    sessionStorage.setItem("table_id", table.id);
+    sessionStorage.setItem("order_type", "dine_in");
+    sessionStorage.setItem("hall_name", selectedLocation?.name || "");
+    sessionStorage.setItem("table_number", table.table_number || "");
+   
+    if (preparationNumber) {
+      sessionStorage.setItem("preparation_number", preparationNumber);
+    }
+    navigate("/order-page", {
+      state: {
+        order_type: "dine_in",
+        table_id: table.id,
+        preparation_number: preparationNumber
+      },
+    });
+    setSelectedTable(table.id);
+  };
+  // 🟢 دالة إرسال رقم التحضير للباك
+  const handleSubmitPreparationNumber = async (preparationNum) => {
+    if (!pendingTableSelection) return;
+    try {
+      const response = await postPreparationNum("cashier/preparation_num", {
+        table_id: pendingTableSelection.id,
+        preparation_num: preparationNum,
+      });
+      if (response?.success || response) {
+        toast.success(t("PreparationNumberSaved"));
+        setShowPreparationModal(false);
+        proceedToOrderPage(pendingTableSelection, preparationNum);
+        setPendingTableSelection(null);
+      } else {
+        toast.error(response?.message || t("FailedToSavePreparationNumber"));
+      }
+    } catch (err) {
+      console.error("Preparation number error:", err);
+      toast.error(
+        err.response?.data?.message || t("FailedToSavePreparationNumber")
+      );
+    }
+  };
+  // 🟢 دالة الإلغاء (Cancel) - التنقل بدون رقم تحضير
+  const handleCancelPreparationModal = () => {
+    setShowPreparationModal(false);
+    if (pendingTableSelection) {
+      proceedToOrderPage(pendingTableSelection, null);
+      setPendingTableSelection(null);
+    }
+  };
   const handleSelectTable = async (table) => {
     const transferPending =
       sessionStorage.getItem("transfer_pending") === "true";
     const sourceTableId = sessionStorage.getItem("transfer_source_table_id");
-
+    // 🟢 لو في عملية Transfer
     if (transferPending) {
       const cartIds = JSON.parse(
         sessionStorage.getItem("transfer_cart_ids") || "[]"
@@ -198,11 +324,9 @@ const Dine = () => {
         toast.error(t("CannotTransferToSameTable"));
         return;
       }
-
       const formData = new FormData();
       formData.append("table_id", table.id);
       cartIds.forEach((id, i) => formData.append(`cart_ids[${i}]`, id));
-
       try {
         await postData("cashier/transfer_order", formData);
         toast.success(t("OrderTransferredSuccessfully"));
@@ -227,17 +351,11 @@ const Dine = () => {
         );
       }
     } else {
-      sessionStorage.setItem("table_id", table.id);
-      sessionStorage.setItem("order_type", "dine_in");
-      sessionStorage.setItem("hall_name", selectedLocation?.name || "");
-      sessionStorage.setItem("table_number", table.table_number || "");
-      navigate("/order-page", {
-        state: { order_type: "dine_in", table_id: table.id },
-      });
+      // 🟢 عرض الـ Modal لإدخال رقم التحضير
+      setPendingTableSelection(table);
+      setShowPreparationModal(true);
     }
-    setSelectedTable(table.id);
   };
-
   const MergedTableCard = ({ table, onStatusChange }) => {
     const transferPending =
       sessionStorage.getItem("transfer_pending") === "true";
@@ -245,14 +363,13 @@ const Dine = () => {
       transferPending &&
       sessionStorage.getItem("transfer_source_table_id") ===
         table.id.toString();
-
     return (
       <div
         className={`
           relative p-3 rounded-lg border-2 shadow-sm transition-all cursor-pointer
           bg-gradient-to-br from-purple-50 to-purple-100
           ${selectedTable === table.id ? "ring-2 ring-purple-500" : ""}
-          hover:shadow-md 
+          hover:shadow-md
         `}
         onClick={() => !transferLoading && handleSelectTable(table)}
       >
@@ -260,7 +377,6 @@ const Dine = () => {
           <Link size={10} />
           <span className="font-bold">{t("MergedTable")}</span>
         </div>
-
         <div className="text-center mb-2">
           <div className="text-lg font-bold text-purple-800">
             {table.table_number}
@@ -269,7 +385,6 @@ const Dine = () => {
             <Users size={10} /> {table.capacity}
           </div>
         </div>
-
         <div className="grid grid-cols-2 gap-1 text-xs mb-2">
           {table.subTables.map((sub) => (
             <div
@@ -285,13 +400,11 @@ const Dine = () => {
             </div>
           ))}
         </div>
-
         <CustomStatusSelect
           table={table}
           statusOptions={statusOptions}
           onStatusChange={onStatusChange}
         />
-
         {isSource && (
           <div className="absolute top-1 right-1 bg-yellow-500 text-white text-[9px] px-1.5 py-0.5 rounded">
             {t("Source")}
@@ -305,7 +418,6 @@ const Dine = () => {
       </div>
     );
   };
-
   const TableCard = ({ table }) => {
     const transferPending =
       sessionStorage.getItem("transfer_pending") === "true";
@@ -314,13 +426,11 @@ const Dine = () => {
       sessionStorage.getItem("transfer_source_table_id") ===
         table.id.toString();
     const { putData: putStatusChange } = usePut();
-
     const dynamicStatusOptions = statusOptions.filter((opt) =>
       opt.value === "reserved"
         ? ["available", "reserved"].includes(table.current_status)
         : true
     );
-
     const handleStatusChange = async (status) => {
       try {
         await putStatusChange(
@@ -332,13 +442,11 @@ const Dine = () => {
         toast.error(err.response?.data?.message || "Failed");
       }
     };
-
     if (table.isMerged) {
       return (
         <MergedTableCard table={table} onStatusChange={handleStatusChange} />
       );
     }
-
     return (
       <div
         className={`
@@ -348,7 +456,7 @@ const Dine = () => {
           ${selectedTable === table.id ? "ring-2 ring-blue-500" : ""}
           ${isSource ? "ring-2 ring-yellow-500 opacity-70" : ""}
           ${transferPending && !isSource ? "ring-2 ring-green-400" : ""}
-          hover:shadow-md 
+          hover:shadow-md
           ${transferLoading ? "opacity-50 pointer-events-none" : ""}
         `}
         onClick={() => !transferLoading && handleSelectTable(table)}
@@ -376,7 +484,6 @@ const Dine = () => {
       </div>
     );
   };
-
   if (isLoading || transferLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -389,7 +496,6 @@ const Dine = () => {
       </div>
     );
   }
-
   if (error) {
     return (
       <div
@@ -405,10 +511,17 @@ const Dine = () => {
       </div>
     );
   }
-
   return (
-    <div className=" w-full bg-gray-50 p-4" dir={isArabic ? "rtl" : "ltr"}>
-      <div className=" mx-auto bg-white rounded-xl shadow-lg ">
+    <div className="w-full bg-gray-50 p-4" dir={isArabic ? "rtl" : "ltr"}>
+      {/* 🟢 Preparation Number Modal */}
+      <PreparationNumberModal
+        isOpen={showPreparationModal}
+        onClose={handleCancelPreparationModal}
+        onSubmit={handleSubmitPreparationNumber}
+        loading={preparationLoading}
+        tableName={pendingTableSelection?.table_number || ""}
+      />
+      <div className="mx-auto bg-white rounded-xl shadow-lg">
         <div className="p-6 border-b">
           <h1 className="text-2xl font-bold text-gray-800">
             {sessionStorage.getItem("transfer_pending") === "true"
@@ -425,19 +538,18 @@ const Dine = () => {
               : t("SelectTableToStartOrder")}
           </p>
         </div>
-
         {locations.length > 0 ? (
           <Tabs
             value={selectedLocationId?.toString()}
             onValueChange={(v) => setSelectedLocationId(parseInt(v))}
-            className="w-full "
+            className="w-full"
           >
             <TabsList className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-1 p-4 pt-2 h-12 !shadow-none !bg-none w-full">
               {locations.map((loc) => (
                 <TabsTrigger
                   key={loc.id}
                   value={loc.id.toString()}
-                  className="text-xs  data-[state=active]:bg-bg-primary data-[state=active]:text-white rounded-md "
+                  className="text-xs data-[state=active]:bg-bg-primary data-[state=active]:text-white rounded-md"
                 >
                   {loc.name === "Main Hall"
                     ? t("MainHall")
@@ -445,7 +557,6 @@ const Dine = () => {
                 </TabsTrigger>
               ))}
             </TabsList>
-
             {locations.map((loc) => (
               <TabsContent
                 key={loc.id}
@@ -477,5 +588,4 @@ const Dine = () => {
     </div>
   );
 };
-
 export default Dine;

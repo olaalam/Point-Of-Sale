@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef } from "react";
+import React, { useState, useMemo } from "react";
 import {
   Dialog,
   DialogContent,
@@ -14,22 +14,21 @@ import { X, Trash2, Printer } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import VoidOrderModal from "./VoidOrderModal";
 import axiosInstance from "@/Pages/utils/axiosInstance";
+
 export default function AllOrders() {
   const [showModal, setShowModal] = useState(true);
   const [password, setPassword] = useState("");
   const [orders, setOrders] = useState([]);
   const [search, setSearch] = useState("");
   const [date, setDate] = useState(() => new Date().toISOString().split("T")[0]);
-  
+
   // Void Modal States
   const [showVoidModal, setShowVoidModal] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState(null);
-  
+
   // Print States
-  const [printOrderData, setPrintOrderData] = useState(null);
   const [isPrinting, setIsPrinting] = useState(false);
-  const printRef = useRef();
-  
+
   const { t, i18n } = useTranslation();
   const isArabic = i18n.language === "ar";
   const locale = isArabic ? "ar" : "en";
@@ -75,65 +74,269 @@ export default function AllOrders() {
     }
   };
 
-  // Handle Print Click - Fixed Version
-  const handlePrintClick = async (order) => {
-    if (isPrinting) return; // منع الضغط المتكرر
+  // =========================================================
+  // دالة توليد تصميم الفاتورة (نفس تصميم الكود الثاني)
+  // =========================================================
+  const generateReceiptHTML = (data) => {
+    // تجهيز البيانات
+    const orderType = data.order_type || "";
+    let orderTypeLabel = isArabic ? "تيك اواي" : "TAKEAWAY";
+    let tableLabel = "";
+
+    if (orderType === "dine_in") {
+      orderTypeLabel = isArabic ? "صالة" : "DINE IN";
+      if (data.table) {
+        tableLabel = isArabic ? `طاولة: ${data.table}` : `Table: ${data.table}`;
+      }
+    } else if (orderType === "delivery") {
+      orderTypeLabel = isArabic ? "توصيل" : "DELIVERY";
+    } else if (orderType === "pickup") {
+      orderTypeLabel = isArabic ? "استلام" : "PICKUP";
+    }
+
+    const showCustomerInfo = orderType === "delivery" && data.user;
+
+    // حساب الإجماليات
+    const subtotal = (data.amount - data.total_tax - data.delivery_fees).toFixed(2);
     
+    return `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="UTF-8">
+          <title>Print Order ${data.order_number}</title>
+          <style>
+            @page { margin: 0; size: auto; }
+            body {
+              margin: 0 !important;
+              padding: 0 !important;
+              width: 100% !important;
+              background-color: #fff;
+              font-family: 'Tahoma', 'Arial', sans-serif;
+              color: #000;
+              direction: ${isArabic ? "rtl" : "ltr"};
+              font-size: 12px;
+            }
+            .container {
+              width: 100% !important;
+              padding: 5px 2px;
+              margin: 0;
+              box-sizing: border-box;
+            }
+            .header { text-align: center; margin-bottom: 10px; }
+            .header h1 { 
+              font-size: 24px; font-weight: 900; margin: 0; 
+              text-transform: uppercase; letter-spacing: 1px;
+            }
+            .header p { margin: 2px 0; font-size: 12px; color: #333; }
+            .header .phone { font-weight: bold; font-size: 13px; margin-top: 2px;}
+
+            .order-badge {
+              border: 2px solid #000; background-color: #000; color: black;
+              text-align: center; font-size: 18px; font-weight: 900;
+              padding: 5px; margin: 5px 0; border-radius: 4px;
+            }
+            .table-info { text-align: center; font-weight: bold; font-size: 14px; margin-bottom: 5px; }
+
+            .meta-grid { 
+              width: 100%; border-top: 1px dashed #000; border-bottom: 1px dashed #000; 
+              margin-bottom: 8px; padding: 5px 0;
+            }
+            .meta-label { font-size: 10px; color: black; }
+            .meta-value { font-size: 14px; font-weight: 900; }
+
+            .section-header {
+              background-color: #eee; border-top: 1px solid #000; border-bottom: 1px solid #000;
+              color: #000; text-align: center; font-weight: bold; font-size: 12px;
+              padding: 3px 0; margin-top: 8px; margin-bottom: 4px; text-transform: uppercase;
+            }
+
+            .items-table { width: 100%; border-collapse: collapse; }
+            .items-table th { 
+              text-align: center; font-size: 11px; border-bottom: 2px solid #000; padding-bottom: 4px;
+            }
+            .items-table td { 
+              padding: 6px 0; border-bottom: 1px dashed #ccc; vertical-align: top;
+            }
+            .item-qty { font-size: 13px; font-weight: bold; text-align: center; }
+            .item-name { font-size: 13px; font-weight: bold; padding: 0 5px; }
+            .item-total { font-size: 13px; font-weight: bold; text-align: center; }
+            .addon-row { font-size: 11px; color: #444; margin-top: 2px; font-weight: normal; }
+            .notes-row { font-size: 11px; font-style: italic; color: #555; }
+
+            .totals-row { display: flex; justify-content: space-between; margin-bottom: 3px; font-size: 12px; font-weight: bold;}
+            .grand-total {
+              border: 2px solid #000; padding: 8px; margin-top: 8px;
+              text-align: center; font-size: 22px; font-weight: 900;
+              display: flex; justify-content: space-between; align-items: center;
+            }
+            .cust-info { font-size: 12px; font-weight: bold; line-height: 1.4; padding: 5px; border: 1px dotted #000; margin-bottom: 5px; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            
+            <div class="header">
+              <h1>${data.branch?.name || (isArabic ? "اسم المطعم" : "Restaurant Name")}</h1>
+              <p>${data.branch?.address || ""}</p>
+              <div class="phone">${data.branch?.phone || ""}</div>
+            </div>
+
+            <div class="order-badge">${orderTypeLabel}</div>
+            ${tableLabel ? `<div class="table-info">${tableLabel}</div>` : ""}
+
+            <table class="meta-grid">
+              <tr>
+                <td width="50%" style="border-${isArabic ? "left" : "right"}: 1px dotted #000; padding: 0 5px;">
+                  <div class="meta-label">${isArabic ? "رقم الفاتورة" : "ORDER NO"}</div>
+                  <div class="meta-value" style="font-size: 18px;">#${data.order_number}</div>
+                </td>
+                <td width="50%" style="padding: 0 5px; text-align: ${isArabic ? "left" : "right"};">
+                  <div class="meta-label">${isArabic ? "التاريخ / الوقت" : "DATE / TIME"}</div>
+                  <div style="font-weight: bold; font-size: 11px;">${data.order_date}</div>
+                  <div style="font-weight: bold; font-size: 11px;">${data.order_time}</div>
+                </td>
+              </tr>
+            </table>
+
+            ${showCustomerInfo ? `
+              <div class="section-header">${isArabic ? "بيانات العميل" : "CUSTOMER INFO"}</div>
+              <div class="cust-info">
+                <div>${data.user.name}</div>
+                <div style="direction: ltr; text-align: ${isArabic ? "right" : "left"};">${data.user.phone}</div>
+                ${data.address ? `
+                  <div style="font-weight: normal; margin-top: 3px; border-top: 1px dotted #ccc; padding-top:2px;">
+                    ${data.address.address}
+                    ${data.address.building_num ? `, B:${data.address.building_num}` : ""}
+                    ${data.address.floor_num ? `, F:${data.address.floor_num}` : ""}
+                    ${data.address.apartment ? `, Apt:${data.address.apartment}` : ""}
+                  </div>
+                ` : ""}
+              </div>
+            ` : ""}
+
+            <div class="section-header">${isArabic ? "الطلبات" : "ITEMS"}</div>
+            <table class="items-table">
+              <thead>
+                <tr>
+                  <th width="10%">${isArabic ? "ع" : "Qt"}</th>
+                  <th width="65%" style="text-align: ${isArabic ? "right" : "left"};">${isArabic ? "الصنف" : "Item"}</th>
+                  <th width="25%">${isArabic ? "إجمالي" : "Total"}</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${data.order_details.map(item => {
+                  const itemTotal = item.product.total_price + (item.addons?.reduce((s, a) => s + Number(a.total), 0) || 0);
+                  let addonsHTML = "";
+                  if (item.addons && item.addons.length > 0) {
+                    addonsHTML = item.addons.map(add => 
+                      `<div class="addon-row">+ ${add.name} (${Number(add.price).toFixed(2)})</div>`
+                    ).join("");
+                  }
+                  
+                  return `
+                    <tr>
+                      <td class="item-qty">${item.product.count}</td>
+                      <td class="item-name" style="text-align: ${isArabic ? "right" : "left"};">
+                        ${item.product.name}
+                        ${addonsHTML}
+                        ${item.notes ? `<div class="notes-row">(${item.notes})</div>` : ""}
+                      </td>
+                      <td class="item-total">${itemTotal.toFixed(2)}</td>
+                    </tr>
+                  `;
+                }).join("")}
+              </tbody>
+            </table>
+
+            <div style="border-top: 2px solid #000; margin-top: 5px; padding-top: 5px;">
+              <div class="totals-row">
+                <span>${isArabic ? "المجموع" : "Subtotal"}</span>
+                <span>${subtotal}</span>
+              </div>
+              
+              ${data.delivery_fees > 0 ? `
+                <div class="totals-row">
+                  <span>${isArabic ? "التوصيل" : "Delivery"}</span>
+                  <span>${data.delivery_fees.toFixed(2)}</span>
+                </div>
+              ` : ""}
+              
+              ${data.total_discount > 0 ? `
+                <div class="totals-row">
+                  <span>${isArabic ? "الخصم" : "Discount"}</span>
+                  <span>-${data.total_discount.toFixed(2)}</span>
+                </div>
+              ` : ""}
+
+              <div class="grand-total">
+                <span style="font-size: 16px;">${isArabic ? "الإجمالي" : "TOTAL"}</span>
+                <span>${data.amount.toFixed(2)}</span>
+              </div>
+            </div>
+
+            <div style="text-align: center; margin-top: 15px; font-size: 11px;">
+              <p style="margin: 0; font-weight: bold;">
+                ${isArabic ? "شكراً لزيارتكم" : "Thank You For Your Visit"}
+              </p>
+              <p style="margin: 5px 0 0 0;">***</p>
+            </div>
+
+          </div>
+          <script>
+            window.onload = function() {
+              window.focus();
+              window.print();
+            }
+          </script>
+        </body>
+      </html>
+    `;
+  };
+
+  // Handle Print Click - Updated to use generateReceiptHTML
+  const handlePrintClick = async (order) => {
+    if (isPrinting) return;
     setIsPrinting(true);
+    
     try {
       const token = sessionStorage.getItem("token");
       const headers = token ? { Authorization: `Bearer ${token}` } : {};
-      
+
       const response = await axiosInstance.get(
         `${baseUrl}cashier/orders/order_checkout/${order.id}?locale=${locale}`,
         { headers }
       );
-      
+
       if (response?.data?.order_checkout) {
-        setPrintOrderData(response.data.order_checkout);
+        const orderData = response.data.order_checkout;
         
-        // Wait for state update and DOM render
+        // توليد HTML للتصميم الجديد
+        const receiptHTML = generateReceiptHTML(orderData);
+
+        // إنشاء iframe مخفي للطباعة
+        const iframe = document.createElement("iframe");
+        iframe.style.position = "absolute";
+        iframe.style.width = "0px";
+        iframe.style.height = "0px";
+        iframe.style.border = "none";
+        document.body.appendChild(iframe);
+
+        const doc = iframe.contentWindow.document;
+        doc.open();
+        doc.write(receiptHTML);
+        doc.close();
+
+        // إزالة الـ iframe بعد فترة كافية
         setTimeout(() => {
-          if (printRef.current) {
-            const printWindow = window.open('', '_blank');
-            printWindow.document.write(`
-              <html>
-                <head>
-                  <title>Order ${response.data.order_checkout.order_number}</title>
-                  <style>
-                    body { font-family: Arial, sans-serif; padding: 20px; direction: ${isArabic ? 'rtl' : 'ltr'}; }
-                    h2 { text-align: center; margin-bottom: 20px; }
-                    table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-                    th, td { border: 1px solid #000; padding: 8px; }
-                    th { background-color: #f0f0f0; }
-                    @media print { 
-                      body { padding: 0; }
-                      button { display: none; }
-                    }
-                  </style>
-                </head>
-                <body>
-                  ${printRef.current.innerHTML}
-                  <script>
-                    window.onload = function() {
-                      window.print();
-                      window.onafterprint = function() {
-                        window.close();
-                      }
-                    }
-                  </script>
-                </body>
-              </html>
-            `);
-            printWindow.document.close();
-          }
+          document.body.removeChild(iframe);
           setIsPrinting(false);
-        }, 100);
-        
-        toast.success(t("Preparingprint") || "Preparing print...");
+        }, 2000);
+
+        toast.success(t("Preparingprint") || "جاري الطباعة...");
       }
     } catch (err) {
-      toast.error(t("Failedtoloadorderdetails") || "Failed to load order details");
+      toast.error(t("Failedtoloadorderdetails"));
       console.error("Print Error:", err);
       setIsPrinting(false);
     }
@@ -313,150 +516,6 @@ export default function AllOrders() {
         orderNumber={selectedOrder?.order_number}
         onSuccess={handleVoidSuccess}
       />
-
-{/* Hidden Print Template - تصميم فاتورة احترافي */}
-<div style={{ display: "none" }}>
-  <div ref={printRef} className="print-area" dir={isArabic ? "rtl" : "ltr"}>
-    {printOrderData && (
-      <div style={{
-        fontFamily: isArabic ? "'Cairo', 'Arial', sans-serif" : "'Roboto', 'Arial', sans-serif",
-        margin: "0 auto",
-        padding: "2px",
-        background: "#fff",
-        color: "#000",
-        fontSize: "12px",
-        lineHeight: "1.4"
-      }}>
-        {/* Header - اسم المطعم وشعار افتراضي */}
-        <div style={{ textAlign: "center", marginBottom: "15px", borderBottom: "2px dashed #000", paddingBottom: "10px" }}>
-          <h1 style={{ margin: "0", fontSize: "18px", fontWeight: "bold" }}>
-            {isArabic ? "مطعم [اسم المطعم]" : "[Restaurant Name]"}
-          </h1>
-          <p style={{ margin: "5px 0", fontSize: "11px" }}>
-            {printOrderData.branch?.address || "Main Branch"}<br />
-            تليفون: {printOrderData.branch?.phone || "01000000000"}
-          </p>
-          <p style={{ margin: "8px 0 0", fontSize: "10px", color: "#555" }}>
-            {isArabic ? "شكرًا لزيارتكم" : "Thank you for your visit"}
-          </p>
-        </div>
-
-        {/* Order Info */}
-        <div style={{ marginBottom: "12px", fontSize: "11px" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "4px" }}>
-            <span>{t("OrderNumber") || "Order #"}:</span>
-            <strong>{printOrderData.order_number}</strong>
-          </div>
-          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "4px" }}>
-            <span>{t("Date") || "Date"}:</span>
-            <span>{printOrderData.order_date} {printOrderData.order_time}</span>
-          </div>
-          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "4px" }}>
-            <span>{t("Type") || "Type"}:</span>
-            <strong style={{ textTransform: "capitalize" }}>
-              {printOrderData.order_type === "delivery" ? (isArabic ? "توصيل" : "Delivery") :
-               printOrderData.order_type === "pickup" ? (isArabic ? "استلام" : "Pickup") :
-               (isArabic ? "جلوس" : "Dine In")}
-            </strong>
-          </div>
-          {printOrderData.order_type === "delivery" && printOrderData.user && (
-            <div style={{ marginTop: "8px", padding: "8px", background: "#f9f9f9", borderRadius: "4px", fontSize: "10px" }}>
-              <strong>{isArabic ? "العميل" : "Customer"}:</strong> {printOrderData.user.name}<br />
-              <strong>{isArabic ? "الهاتف" : "Phone"}:</strong> {printOrderData.user.phone}<br />
-              <strong>{isArabic ? "العنوان" : "Address"}:</strong> {printOrderData.address?.street && `${printOrderData.address.street}, `}
-              {printOrderData.address?.building_num && `مبنى ${printOrderData.address.building_num}, `}
-              {printOrderData.address?.floor_num && `دور ${printOrderData.address.floor_num}, `}
-              {printOrderData.address?.address}
-            </div>
-          )}
-        </div>
-
-        <div style={{ borderTop: "2px #ccc", margin: "10px 0" }}></div>
-
-        {/* Order Items */}
-        <table style={{ width: "100%", marginBottom: "10px" }}>
-          <tbody>
-            {printOrderData.order_details?.map((detail, index) => (
-              <tr key={index}>
-                <td style={{ padding: "6px 0", verticalAlign: "top" }}>
-                  <div style={{ fontWeight: "bold" }}>
-                    {detail.product.count}x {detail.product.name}
-                  </div>
-                  <div style={{ fontSize: "10px", color: "#555", marginTop: "2px" }}>
-                    {detail.addons?.length > 0 && (
-                      <div>
-                        {detail.addons.map((addon) => `+ ${addon.name}`).join("، ")}
-                      </div>
-                    )}
-                  </div>
-                </td>
-                <td style={{ textAlign: isArabic ? "left" : "right", whiteSpace: "nowrap", fontWeight: "bold" }}>
-                  {(detail.product.total_price + (detail.addons?.reduce((s, a) => s + a.total, 0) || 0)).toFixed(2)}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-
-        <div style={{ borderTop: "2px dashed #ccc", margin: "10px 0" }}></div>
-
-        {/* Totals */}
-        <table style={{ width: "100%", fontSize: "12px" }}>
-          <tbody>
-            <tr>
-              <td>{t("Subtotal") || "Subtotal"}</td>
-              <td style={{ textAlign: isArabic ? "left" : "right" }}>
-                {(printOrderData.amount - printOrderData.total_tax - printOrderData.delivery_fees).toFixed(2)}
-              </td>
-            </tr>
-            {printOrderData.delivery_fees > 0 && (
-              <tr>
-                <td>{t("DeliveryFees") || "Delivery Fees"}</td>
-                <td style={{ textAlign: isArabic ? "left" : "right" }}>
-                  {printOrderData.delivery_fees.toFixed(2)}
-                </td>
-              </tr>
-            )}
-            <tr>
-              <td>{t("Tax") || "Tax (14%)"}</td>
-              <td style={{ textAlign: isArabic ? "left" : "right" }}>
-                {printOrderData.total_tax.toFixed(2)}
-              </td>
-            </tr>
-            {printOrderData.total_discount > 0 && (
-              <tr>
-                <td>{t("Discount") || "Discount"}</td>
-                <td style={{ textAlign: isArabic ? "left" : "right", color: "green" }}>
-                  -{printOrderData.total_discount.toFixed(2)}
-                </td>
-              </tr>
-            )}
-            <tr style={{ fontWeight: "bold", fontSize: "14px", borderTop: "2px solid #000", marginTop: "5px" }}>
-              <td style={{ paddingTop: "8px" }}>{t("Total") || "Total"}</td>
-              <td style={{ textAlign: isArabic ? "left" : "right", paddingTop: "8px" }}>
-                {printOrderData.amount.toFixed(2)} {isArabic ? "ج.م" : "EGP"}
-              </td>
-            </tr>
-          </tbody>
-        </table>
-
-        {/* Payment Status
-        <div style={{ textAlign: "center", marginTop: "15px", fontWeight: "bold", fontSize: "13px" }}>
-          {printOrderData.payment === "Paid" || printOrderData.status_payment === "paid" ?
-            <span style={{ color: "green" }}>تم الدفع - Paid</span> :
-            <span style={{ color: "red" }}>غير مدفوع - Unpaid</span>
-          }
-        </div> */}
-
-        {/* Footer
-        <div style={{ textAlign: "center", marginTop: "20px", fontSize: "10px", color: "#777", borderTop: "1px dashed #ccc", paddingTop: "10px" }}>
-          <p>تم إصدار الفاتورة بواسطة نظام [اسم النظام]</p>
-          <p>{new Date().toLocaleString(isArabic ? "ar-EG" : "en-US")}</p>
-        </div> */}
-      </div>
-    )}
-  </div>
-</div>
     </div>
   );
 }

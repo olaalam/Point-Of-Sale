@@ -68,6 +68,10 @@ const isDueModuleAllowed = (() => {
     "captain/discount_list"
   );
   const [selectedDiscountId, setSelectedDiscountId] = useState(null);
+  
+  // 🟢 إضافة state للـ free_discount
+  const [freeDiscount, setFreeDiscount] = useState("");
+
   // === QZ Tray Connection ===
   useEffect(() => {
     qz.security.setCertificatePromise(function (resolve, reject) {
@@ -135,6 +139,7 @@ const isDueModuleAllowed = (() => {
         (c.phone_2 && c.phone_2.includes(customerSearchQuery))
     );
   }, [dueUsersData, customerSearchQuery]);
+  
   const { selectedDiscountAmount, finalSelectedDiscountId } = useMemo(() => {
     const discountList = discountListData?.discount_list || [];
     const selectedDiscount = discountList.find(
@@ -179,6 +184,7 @@ const isDueModuleAllowed = (() => {
     }
   }, []);
 
+  // 🟢 حساب المبلغ بعد الخصم (مع إضافة free_discount)
   const discountedAmount = useMemo(() => {
     let totalDiscountValue = 0;
 
@@ -195,13 +201,18 @@ const isDueModuleAllowed = (() => {
       totalDiscountValue = selectedDiscountAmount;
     }
 
-    return amountToPay - totalDiscountValue;
+    // 4. 🟢 خصم الـ free_discount من المبلغ النهائي
+    const afterPercentageDiscount = amountToPay - totalDiscountValue;
+    const freeDiscountValue = parseFloat(freeDiscount) || 0;
+    
+    return Math.max(0, afterPercentageDiscount - freeDiscountValue);
   }, [
     amountToPay,
     orderType,
     discountData,
     appliedDiscount,
     selectedDiscountAmount,
+    freeDiscount,
   ]);
 
   const requiredTotal = useMemo(() => {
@@ -254,7 +265,6 @@ const isDueModuleAllowed = (() => {
     }
   }, []);
 
-  // Initialize default payment split
   // Initialize default payment split - اختيار Visa كافتراضي لو موجود
   useEffect(() => {
     if (
@@ -262,7 +272,6 @@ const isDueModuleAllowed = (() => {
       paymentSplits.length === 0 &&
       requiredTotal > 0
     ) {
-      // ابحث عن أول حساب فيه كلمة visa (غير حساس لحالة الأحرف)
       const visaAccount = financialAccounts.find((acc) =>
         acc.name?.toLowerCase().includes("visa")
       );
@@ -369,7 +378,7 @@ const isDueModuleAllowed = (() => {
               accountId: parseInt(accountId),
               checkout: "",
               transition_id: "",
-            } // 🟢 مسح transition_id
+            }
           : split
       )
     );
@@ -383,7 +392,6 @@ const isDueModuleAllowed = (() => {
     );
   };
 
-  // 🟢 دالة جديدة للتعامل مع رقم العملية
   const handleTransitionIdChange = (id, value) => {
     setPaymentSplits((prev) =>
       prev.map((split) =>
@@ -405,7 +413,7 @@ const isDueModuleAllowed = (() => {
         accountId: defaultAccountId,
         amount: remainingAmount > 0 ? remainingAmount : 0,
         checkout: "",
-        transition_id: "", // 🟢 إضافة حقل رقم العملية
+        transition_id: "",
       },
     ]);
   };
@@ -424,7 +432,6 @@ const isDueModuleAllowed = (() => {
     return acc?.description_status === 1;
   };
 
-  // 🟢 دالة جديدة للتحقق إذا كان الحساب Visa
   const isVisaAccount = (accountId) => {
     const acc = financialAccounts?.find((a) => a.id === parseInt(accountId));
     return acc?.name?.toLowerCase().includes("visa");
@@ -457,6 +464,9 @@ const isDueModuleAllowed = (() => {
       financialAccounts
     );
 
+    // 🟢 جلب module_id من sessionStorage
+    const moduleId = sessionStorage.getItem("module_id");
+
     let payload;
     if (hasDealItems) {
       payload = buildDealPayload(safeOrderItems, financialsPayload);
@@ -484,6 +494,8 @@ const isDueModuleAllowed = (() => {
         due: due,
         user_id: customer_id,
         discount_id: selectedDiscountId,
+        module_id: moduleId, // 🟢 إضافة module_id
+        free_discount: freeDiscount ? parseFloat(freeDiscount) : undefined, // 🟢 إضافة free_discount
         due_module: dueModuleValue > 0 ? dueModuleValue.toFixed(2) : undefined,
       });
     }
@@ -523,16 +535,16 @@ const isDueModuleAllowed = (() => {
 
         if (due === 0) {
           const receiptData = prepareReceiptData(
-safeOrderItems,         
-  amountToPay,
-  totalTax,
-  totalDiscount,
-  appliedDiscount,
-  discountData,
-  orderType,
-  requiredTotal,
-  response.success,        
-  response,
+            safeOrderItems,
+            amountToPay,
+            totalTax,
+            totalDiscount,
+            appliedDiscount,
+            discountData,
+            orderType,
+            requiredTotal,
+            response.success,
+            response
           );
 
           printReceiptSilently(receiptData, response, () => {
@@ -660,7 +672,7 @@ safeOrderItems,
                 </span>
               </div>
 
-              {/* 🟢 عرض الخصم المُطبق من الـ Discount Code */}
+              {/* عرض الخصم المُطبق من الـ Discount Code */}
               {appliedDiscount > 0 && (
                 <div className="flex justify-between mb-2">
                   <span>
@@ -673,7 +685,7 @@ safeOrderItems,
                 </div>
               )}
 
-              {/* 🟢 عرض الخصم المُطبق من الـ Module */}
+              {/* عرض الخصم المُطبق من الـ Module */}
               {discountData.module.includes(orderType) &&
                 appliedDiscount === 0 &&
                 selectedDiscountAmount === 0 && (
@@ -689,7 +701,7 @@ safeOrderItems,
                   </div>
                 )}
 
-              {/* 🟢 عرض الخصم المُطبق من الـ Discount List */}
+              {/* عرض الخصم المُطبق من الـ Discount List */}
               {selectedDiscountAmount > 0 &&
                 appliedDiscount === 0 &&
                 !discountData.module.includes(orderType) && (
@@ -700,6 +712,16 @@ safeOrderItems,
                     </span>
                   </div>
                 )}
+
+              {/* 🟢 عرض الخصم المجاني (free_discount) */}
+              {freeDiscount && parseFloat(freeDiscount) > 0 && (
+                <div className="flex justify-between mb-2 text-purple-600 font-medium">
+                  <span>{t("FreeDiscount")}:</span>
+                  <span>
+                    -{parseFloat(freeDiscount).toFixed(2)} {t("EGP")}
+                  </span>
+                </div>
+              )}
 
               <div className="flex justify-between mb-2 font-bold text-lg">
                 <span>{t("TotalAmount")}</span>
@@ -761,6 +783,25 @@ safeOrderItems,
               </p>
             </div>
 
+            {/* 🟢 حقل الخصم المجاني (Free Discount) */}
+            <div className="mb-6">
+              <label className="block text-sm font-medium mb-2">
+                {t("FreeDiscount")} ({t("EGP")})
+              </label>
+              <Input
+                type="number"
+                min="0"
+                step="0.01"
+                placeholder={t("EnterFreeDiscount")}
+                value={freeDiscount}
+                onChange={(e) => setFreeDiscount(e.target.value)}
+                className="w-full"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                {t("FreeDiscountHint")}
+              </p>
+            </div>
+
             {/* Discount Code */}
             <div className="mb-6">
               <label className="block text-sm mb-1">
@@ -791,16 +832,15 @@ safeOrderItems,
                 </p>
               )}
             </div>
-            {/* 🟢 اختيار الخصم من القائمة (Discount List) */}
+
+            {/* اختيار الخصم من القائمة (Discount List) */}
             <div className="mb-6">
               <label className="block text-sm mb-1">
                 {t("SelectDiscountFromList")}
               </label>
               <Select
-                // استخدام القيمة "0" لتمثيل حالة عدم وجود خصم (null) لتجنب الخطأ
                 value={String(selectedDiscountId || "0")}
                 onValueChange={(val) => {
-                  // إذا كانت القيمة "0" (بلا خصم)، اضبطها على null في الـ state
                   const id = val === "0" ? null : parseInt(val);
                   setSelectedDiscountId(id);
                 }}
@@ -812,7 +852,6 @@ safeOrderItems,
                   <SelectValue placeholder={t("ChooseDiscount")} />
                 </SelectTrigger>
                 <SelectContent>
-                  {/* 🟢 إضافة عنصر "بلا خصم" بقيمة "0" */}
                   <SelectItem key="none" value="0">
                     {t("NoDiscount")}
                   </SelectItem>
@@ -836,6 +875,7 @@ safeOrderItems,
                   </p>
                 )}
             </div>
+
             {/* Payment Splits */}
             <div className="space-y-6">
               {paymentSplits.map((split) => (
@@ -899,7 +939,7 @@ safeOrderItems,
                     )}
                   </div>
 
-                  {/* 🟢 حقل رقم العملية لو الحساب Visa */}
+                  {/* حقل رقم العملية لو الحساب Visa */}
                   {isVisaAccount(split.accountId) && (
                     <div className="ml-44 flex items-center gap-2">
                       <label className="text-sm text-gray-600 whitespace-nowrap">
