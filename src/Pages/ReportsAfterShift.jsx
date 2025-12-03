@@ -62,7 +62,7 @@ const PrintableReport = React.forwardRef(({ reportData, t, formatAmount, isArabi
         grandTotal += p.amount || 0;
       });
     } else {
-      grandCount += type.data?.count || 0;
+      grandCount += type.data?.order_count || 0;
       grandTotal += type.data?.amount || 0;
     }
   });
@@ -468,35 +468,96 @@ export default function EndShiftReportModal({ reportData, onClose, onConfirmClos
           )}
 
           {/* ─── الحسابات المالية ─── */}
-          <div className="space-y-4 mb-6 pt-4 border-t border-gray-100">
-            <SectionHeader icon={FaMoneyBillWave} title={t("FinancialSummary")} />
+{/* ─── الحسابات المالية مع التفاصيل ─── */}
+<div className="space-y-4 mb-6 pt-4 border-t border-gray-100">
+  <SectionHeader icon={FaMoneyBillWave} title={t("FinancialSummary")} />
+  
+  <div className="space-y-4">
+    {financial_accounts?.map((acc) => {
+      const total = 
+        (acc.total_amount_dine_in || 0) +
+        (acc.total_amount_take_away || 0) +
+        (acc.total_amount_delivery || 0);
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {financial_accounts?.map((acc) => (
-                <div
-                  key={acc.financial_id}
-                  className="flex justify-between items-center p-3 bg-gray-50 rounded-md border border-gray-200 text-sm"
-                >
-                  <span className="font-medium text-gray-700">{acc.financial_name}</span>
-                  <span className="font-bold text-gray-800">
-                    {formatAmount(acc.total_amount)}
-                  </span>
-                </div>
-              ))}
-            </div>
+      const hasDetails = total > 0 && (
+        acc.total_amount_dine_in > 0 ||
+        acc.total_amount_take_away > 0 ||
+        acc.total_amount_delivery > 0
+      );
 
-            {/* إجمالي النقدية في الشيفت */}
-            {totals && (
-              <div className="mt-4 pt-3 border-t border-gray-200">
-                <div className="flex justify-between items-center p-3 bg-gray-100 rounded-md text-base font-bold">
-                  <span>{t("TotalCashInShift")}</span>
-                  <span className="text-lg text-gray-800">
-                    {formatAmount(totals.grand_total)}
-                  </span>
-                </div>
+      return (
+        <div
+          key={acc.financial_id}
+          className="border border-gray-200 rounded-lg overflow-hidden bg-white shadow-sm"
+        >
+          {/* الصف الرئيسي للحساب */}
+          <div className="p-4 bg-gradient-to-r from-gray-50 to-gray-100 flex justify-between items-center">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-white rounded-full shadow">
+                <FaMoneyBillWave className="text-lg text-green-600" />
               </div>
-            )}
+              <div>
+                <h4 className="font-bold text-gray-800">{acc.financial_name}</h4>
+                {acc.count !== undefined && (
+                  <p className="text-xs text-gray-600">{acc.count} {t("Orders")}</p>
+                )}
+              </div>
+            </div>
+            <div className="text-right">
+              <p className="text-xl font-bold text-gray-800">
+                {formatAmount(total)}
+              </p>
+            </div>
           </div>
+
+          {/* التفاصيل الفرعية (Dine In, Take Away, Delivery) */}
+          {hasDetails && (
+            <div className="p-3 bg-gray-50 border-t border-gray-200">
+              <div className="grid grid-cols-3 gap-3 text-sm">
+                {acc.total_amount_dine_in > 0 && (
+                  <div className="text-center">
+                    <p className="text-xs text-gray-600">Dine In</p>
+                    <p className="font-semibold text-gray-800">
+                      {formatAmount(acc.total_amount_dine_in)}
+                    </p>
+                  </div>
+                )}
+                {acc.total_amount_take_away > 0 && (
+                  <div className="text-center">
+                    <p className="text-xs text-gray-600">Take Away</p>
+                    <p className="font-semibold text-gray-800">
+                      {formatAmount(acc.total_amount_take_away)}
+                    </p>
+                  </div>
+                )}
+                {acc.total_amount_delivery > 0 && (
+                  <div className="text-center">
+                    <p className="text-xs text-gray-600">Delivery</p>
+                    <p className="font-semibold text-gray-800">
+                      {formatAmount(acc.total_amount_delivery)}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    })}
+  </div>
+
+  {/* إجمالي النقدية في الشيفت */}
+  {totals && (
+    <div className="mt-6 pt-4 border-t-2 border-gray-300">
+      <div className="flex justify-between items-center p-4 bg-gray-900 text-white rounded-lg text-lg font-bold">
+        <span>{t("TotalCashInShift")}</span>
+        <span className="text-2xl">
+          {formatAmount(totals.grand_total)}
+        </span>
+      </div>
+    </div>
+  )}
+</div>
 
           {/* ─── الأقسام الكاملة (تظهر فقط في all) ─── */}
           {showFullReport && (
@@ -556,10 +617,6 @@ export default function EndShiftReportModal({ reportData, onClose, onConfirmClos
                                 }));
                               }
                             }
-
-                            grandTotal += typeTotal;
-                            grandCount += typeCount;
-
                             if (typeCount === 0) return null;
 
                             return (
@@ -614,7 +671,7 @@ export default function EndShiftReportModal({ reportData, onClose, onConfirmClos
                           <div className="flex items-center justify-between">
                             <div>
                               <p className="text-sm opacity-80 mb-1">{t("TotalAllOrders")}</p>
-                              <p className="text-2xl font-black">{grandCount || 0} {t("Orders")}</p>
+                              <p className="text-2xl font-black"> {t("Orders")} {reportData?.order_count || 0} </p>
                             </div>
                             <div className="text-right">
                               <p className="text-sm opacity-80 mb-1">{t("TotalAmount")}</p>
