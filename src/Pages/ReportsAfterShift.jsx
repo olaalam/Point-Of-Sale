@@ -120,31 +120,24 @@ const PrintableReport = React.forwardRef(({ reportData, t, formatAmount, isArabi
     }
 
     .print-table th {
-      background-color: #222 !important;
-      color: white !important;
+      color: black !important;
       font-weight: bold;
       font-size: 10px;
       text-align: center !important;
     }
 
-    .print-table td {
-      background-color: #fafafa;
-    }
 
-    .print-table tbody tr:nth-child(even) td {
-      background-color: #f0f0f0 !important;
-    }
+
+
 
     .print-table tbody tr:last-child {
-      background-color: #222 !important;
-      color: white !important;
+      color: black !important;
       font-weight: bold;
       font-size: 11px;
     }
 
     .print-table tbody tr:last-child td {
-      background-color: #222 !important;
-      color: white !important;
+      color: black !important;
     }
 
     /* ─── تحسين باقي العناصر ─── */
@@ -153,8 +146,7 @@ const PrintableReport = React.forwardRef(({ reportData, t, formatAmount, isArabi
     }
 
     .print-section-title {
-      background: #000 !important;
-      color: white !important;
+      color: black !important;
       padding: 6px 4px !important;
       text-align: center;
       font-weight: bold;
@@ -180,11 +172,10 @@ const PrintableReport = React.forwardRef(({ reportData, t, formatAmount, isArabi
     }
 
     .print-total-box {
-      background: #000 !important;
-      color: white !important;
+      color: black !important;
       padding: 12px 8px !important;
       text-align: center;
-      border: 3px double white;
+      border: 3px  black;
       border-radius: 6px;
       margin: 12px 0 !important;
     }
@@ -318,7 +309,7 @@ const PrintableReport = React.forwardRef(({ reportData, t, formatAmount, isArabi
                       </tr>
                     );
                   })}
-                  <tr style={{ background: '#f0f0f0', fontWeight: 'bold' }}>
+                  <tr style={{  fontWeight: 'bold' }}>
                     <td>{t("Total")}</td>
                     <td style={{ textAlign: 'center' }}>{grandCount}</td>
                     <td>{formatAmount(grandTotal)}</td>
