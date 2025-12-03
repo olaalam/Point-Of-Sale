@@ -78,7 +78,7 @@ const formatCashierReceipt = (receiptData) => {
           margin: 0 !important;
           padding: 0 !important;
           width: 100% !important;
-          background-color: #fff;
+          
           font-family: 'Arial', 'Tahoma', sans-serif;
           color: #000;
           direction: ${isArabic ? "rtl" : "ltr"};
@@ -110,7 +110,7 @@ const formatCashierReceipt = (receiptData) => {
           box-sizing: border-box; /* عشان البوردر مايخرجش برة الصفحة */
         }
         .customer-header {
-          background-color: #e0e0e0;
+          
           border-bottom: 2px solid #000;
           text-align: center;
           font-weight: bold;
@@ -130,7 +130,7 @@ const formatCashierReceipt = (receiptData) => {
           padding: 5px 0;
           font-size: 15px;
           text-align: center;
-          background-color: #f2f2f2;
+          
         }
         .items-table td {
           padding: 6px 0;
@@ -158,7 +158,7 @@ const formatCashierReceipt = (receiptData) => {
           width: 70%;
         }
         table { width: 100%; border-collapse: collapse; margin-bottom: 5px; font-size: 10px; }
-        th { background-color: #eee; border: 1px solid #000; padding: 3px 1px; text-align: center; }
+        th {  border: 1px solid #000; padding: 3px 1px; text-align: center; }
         td { border: 1px solid #000; padding: 2px 1px; text-align: center; vertical-align: middle; }
         .footer { text-align: center; margin-top: 10px; font-size: 12px; font-weight: bold; padding-bottom: 20px;}
       </style>

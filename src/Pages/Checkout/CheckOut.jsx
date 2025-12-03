@@ -29,6 +29,7 @@ import {
   printReceiptSilently,
 } from "../utils/printReceipt";
 import { useTranslation } from "react-i18next";
+import { useIsDueModuleAllowed } from "../utils/dueModuleUtils";
 
 const CheckOut = ({
   amountToPay,
@@ -47,7 +48,23 @@ const CheckOut = ({
   const tableId = sessionStorage.getItem("table_id") || null;
   const baseUrl = import.meta.env.VITE_API_BASE_URL;
   const { t } = useTranslation();
-  const { data: discountListData, loading: discountsLoading } = useGet(
+  const lastSelectedGroup = sessionStorage.getItem("last_selected_group") 
+  const [dueModuleAmount, setDueModuleAmount] = useState(0);
+  const { data: groupData } = useGet("cashier/group_product"); // الـ API اللي جبته
+const groupProducts = groupData?.group_product || [];
+
+const isDueModuleAllowed = (() => {
+  if (!orderType || !groupProducts || groupProducts.length === 0) return false;
+
+  const lastSelectedGroupId = sessionStorage.getItem("last_selected_group");
+  if (!lastSelectedGroupId || lastSelectedGroupId === "all") return false;
+
+  const groupId = parseInt(lastSelectedGroupId);
+  if (isNaN(groupId)) return false;
+
+  const selectedGroup = groupProducts.find(g => g.id === groupId);
+  return selectedGroup?.due === 1;
+})();  const { data: discountListData, loading: discountsLoading } = useGet(
     "captain/discount_list"
   );
   const [selectedDiscountId, setSelectedDiscountId] = useState(null);
@@ -415,7 +432,8 @@ const CheckOut = ({
 
   const proceedWithOrderSubmission = async (
     due = 0,
-    customer_id = undefined
+    customer_id = undefined,
+    dueModuleValue = 0
   ) => {
     const safeOrderItems = Array.isArray(orderItems) ? orderItems : [];
 
@@ -466,6 +484,7 @@ const CheckOut = ({
         due: due,
         user_id: customer_id,
         discount_id: selectedDiscountId,
+        due_module: dueModuleValue > 0 ? dueModuleValue.toFixed(2) : undefined,
       });
     }
 
@@ -707,7 +726,24 @@ safeOrderItems,
                 </div>
               )}
             </div>
+{/* Due Module - الباقي كله للمنصة (الطريقة اللي عايزها الكاشير) */}
+{isDueModuleAllowed && remainingAmount > 0.01 && (
+  <div className="mt-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+    <div className="text-center mb-4">
+      <p className="text-lg font-bold text-red-600">
+        المنصة هتدفع الباقي (Due Module): <strong>{remainingAmount.toFixed(2)} {t("EGP")}</strong>
+      </p>
+    </div>
 
+    <Button
+      className="w-full text-white text-lg font-bold py-6 bg-red-600 hover:bg-red-700"
+      disabled={loading}
+      onClick={() => proceedWithOrderSubmission(0, undefined, remainingAmount)}
+    >
+      تأكيد الطلب مع Due Module ({remainingAmount.toFixed(2)} {t("EGP")})
+    </Button>
+  </div>
+)}
             {/* Order Notes Section */}
             <div className="mb-6">
               <label className="block text-sm font-medium mb-2">
@@ -939,6 +975,8 @@ safeOrderItems,
                 {t("MarkAsDueOrder")}
               </label>
             </div>
+
+
 
             {/* الأزرار */}
             <div className="flex space-x-4 mt-6">

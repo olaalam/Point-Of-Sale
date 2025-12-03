@@ -145,7 +145,8 @@ export const buildOrderPayload = ({
   tableId,
   customerPaid,
   due = 0,           // ← هنا المهم: due بيجي من الـ Checkout (0 أو 1)
-  user_id,       // ← جديد: للطلبات الآجلة
+  user_id, 
+  due_module,      // ← جديد: للطلبات الآجلة
 }) => {
   const basePayload = {
     amount: amountToPay.toString(),
@@ -155,7 +156,8 @@ export const buildOrderPayload = ({
     source: source,
     financials: financialsPayload,
     cashier_id: cashierId.toString(),
-    due: due.toString(),                    // ← دايمًا موجود: 0 أو 1
+    due: due.toString(),
+    ...(due_module ? { due_module: due_module.toString() } : {}),                   // ← دايمًا موجود: 0 أو 1
     order_pending: due === 1 ? "0" : "0",   // ← الحل السحري للـ validation
   };
 
