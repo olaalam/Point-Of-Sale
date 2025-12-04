@@ -21,7 +21,7 @@ export default function ExpensesList() {
             className="p-4 border rounded-lg flex justify-between items-center bg-white"
           >
             <div>
-              <p className="font-bold">{item.expense?.name}</p>
+              <p className="font-bold">{item.expense}</p>
               <p>Price: {item.amount}</p>
               <p>Category: {item.category?.name}</p>
               <p>Note: {item.note || "-"}</p>
