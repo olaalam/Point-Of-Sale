@@ -390,7 +390,13 @@ const formatCashierReceipt = (receiptData) => {
                 <span>${isArabic ? "رسوم التوصيل" : "Delivery Fee"}</span>
                 <span>${receiptData.deliveryFees.toFixed(2)}</span>
             </div>` : ""}
-
+<!-- Service Fees -->
+${Number(receiptData.serviceFees) > 0 ? `
+<div class="totals-row">
+    <span>${isArabic ? "رسوم الخدمة" : "Service Fees"}</span>
+    <span>${Number(receiptData.serviceFees).toFixed(2)}</span>
+</div>
+` : ""}
             <!-- Grand Total -->
             <div class="grand-total">
                 <span style="font-size: 18px;">${isArabic ? "الإجمالي الكلي" : "GRAND TOTAL"}</span>
@@ -753,6 +759,8 @@ export const prepareReceiptData = (
 
   return {
     invoiceNumber: response?.order_id || response?.order_number,
+    serviceFees: Number(response?.service_fees || response?.service_fee || 0),
+
     dateFormatted: dateFormatted,
     timeFormatted: timeFormatted,
     table: sessionStorage.getItem("table_id") || "N/A",
@@ -789,6 +797,7 @@ export const prepareReceiptData = (
     restaurantName: finalRestaurantName,
     restaurantAddress:
       sessionStorage.getItem("restaurant_address") || "العنوان",
+
     restaurantPhone: sessionStorage.getItem("restaurant_phone") || "",
     receiptFooter: sessionStorage.getItem("receipt_footer") || "شكراً لزيارتكم",
   };
