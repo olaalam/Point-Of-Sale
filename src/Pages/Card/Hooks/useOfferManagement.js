@@ -1,3 +1,4 @@
+// Hooks/useOfferManagement.js
 import { useState } from "react";
 import { toast } from "react-toastify";
 
@@ -5,95 +6,121 @@ export function useOfferManagement(orderItems, updateOrderItems, postData, t) {
   const [showOfferModal, setShowOfferModal] = useState(false);
   const [offerCode, setOfferCode] = useState("");
   const [pendingOfferApproval, setPendingOfferApproval] = useState(null);
+  const [approvedOfferData, setApprovedOfferData] = useState(null);
 
   const handleApplyOffer = async () => {
-    if (!offerCode.trim()) {
+    const code = offerCode.trim();
+    if (!code) {
       toast.warning(t("Pleaseenteranoffercode"));
       return;
     }
 
     const formData = new FormData();
-    formData.append("code", offerCode.trim());
+    formData.append("code", code);
 
     try {
       const response = await postData("cashier/offer/check_order", formData);
-      let offerData = response?.offer || response?.data?.offer;
-      if (offerData && !Array.isArray(offerData)) {
-        offerData = [offerData];
+
+      // الـ response عندك هو { offer: { ... } }
+      const offerRecord = response?.offer || response?.data?.offer || response;
+
+      if (!offerRecord || !offerRecord.id) {
+        toast.error(t("InvalidorExpiredOfferCode"));
+        return;
       }
 
-      const appliedOfferDetails =
-        Array.isArray(offerData) && offerData.length > 0 ? offerData[0] : null;
+      // أهم حاجة: offer_order_id هو offerRecord.id (يعني 1)
+      const offer_order_id = offerRecord.id; // ده اللي هنبعته للـ approve
+      const user_id = offerRecord.user_id;
+      const productName = offerRecord.offer?.product || offerRecord.product || "Free Item";
+      const points = offerRecord.offer?.points || offerRecord.points || 0;
 
-      if (appliedOfferDetails) {
-        const offerInfo = appliedOfferDetails.offer;
-        const productName = offerInfo?.product || appliedOfferDetails.product;
-        const pointsRequired =
-          offerInfo?.points || appliedOfferDetails.points || 0;
-
-        if (productName) {
-          toast.success(t("OffervalidatedsuccessfullyPleaseconfirm"));
-          setPendingOfferApproval({
-            offer_order_id: appliedOfferDetails.id,
-            user_id: appliedOfferDetails.user_id,
-            product: productName,
-            points: pointsRequired,
-          });
-          setShowOfferModal(false);
-        } else {
-          toast.error(t("Offerdetailsareincompleteintheresponse"));
-        }
-      } else {
-        toast.error(t("Offerdetailsareincompleteintheresponse"));
+      if (!offer_order_id || !user_id) {
+        toast.error("بيانات العرض ناقصة");
+        return;
       }
+
+      toast.success(t("OffervalidatedsuccessfullyPleaseconfirm"));
+
+      setPendingOfferApproval({
+        offer_order_id: offer_order_id.toString(),
+        user_id: user_id.toString(),
+        product: productName,
+        points,
+        code: offerRecord.code, // اختياري: عشان نعرضه في الرسالة لو عايز
+      });
+
+      setShowOfferModal(false);
     } catch (err) {
-      if (err.response?.status === 404 || err.response?.status === 400) {
-        toast.error(
-          err.response?.data?.message || t("Failedtofetchdiscountdata")
-        );
-      } else {
-        toast.error(t("FailedtovalidateofferPleasetryagain"));
-      }
+      const msg = err.response?.data?.message || t("InvalidorExpiredOfferCode");
+      toast.error(msg);
     }
   };
 
-  const handleApproveOffer = async () => {
+  const handleApproveOffer = () => {
     if (!pendingOfferApproval) return;
 
     const { offer_order_id, user_id, product } = pendingOfferApproval;
 
+    setApprovedOfferData({
+      offer_order_id,
+      user_id,
+      product,
+    });
+
+    const freeItem = {
+      temp_id: `reward-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      name: `${product} (${t("RewardItem")})`,
+      name_ar: `${product} (مكافأة)`,
+      price: 0,
+      originalPrice: 0,
+      count: 1,
+      quantity: 1,
+      is_reward: true,
+      reward_offer_id: offer_order_id, // 1
+    };
+
+    updateOrderItems(prev => [...prev, freeItem]);
+    toast.success(t("RewardItemAddedToOrder"));
+
+    setPendingOfferApproval(null);
+    setOfferCode("");
+  };
+
+  const applyApprovedOffer = async () => {
+    if (!approvedOfferData) return false;
+
+    const { offer_order_id, user_id } = approvedOfferData;
+
     const formData = new FormData();
-    formData.append("offer_order_id", offer_order_id.toString());
-    formData.append("user_id", user_id.toString());
+    formData.append("offer_order_id", offer_order_id); // هنا بيتبعت 1 (الـ id الصحيح)
+    formData.append("user_id", user_id);
 
     try {
-      const response = await postData("cashier/offer/approve_offer", formData);
-      if (response?.success) {
-        toast.success(t("RewardAdded", { product }));
-        const freeItem = {
-          temp_id: `reward-${Date.now()}-${Math.random()
-            .toString(36)
-            .substr(2, 9)}`,
-          id: offer_order_id,
-          name: product + " (Reward Item)",
-          price: 0.0,
-          count: 1,
-          is_reward: true,
-          applied_discount: 0,
-        };
-        updateOrderItems([...orderItems, freeItem]);
-        setPendingOfferApproval(null);
-        setOfferCode("");
+      const res = await postData("cashier/offer/approve_offer", formData);
+
+      if (res?.success || res?.message?.toLowerCase().includes("success")) {
+        toast.success(t("OfferAppliedSuccessfully"));
+        setApprovedOfferData(null);
+        return true;
       } else {
-        toast.error(response.message || t("Failedtoapproveoffer"));
+        throw new Error("Failed");
       }
     } catch (err) {
-      const errorMessage =
-        err.response?.data?.message ||
-        err.response?.data?.exception ||
-        t("Failedtoapproveoffer");
-      toast.error(errorMessage);
+      toast.error(err.response?.data?.message || t("FailedToApplyOffer"));
+      return false;
     }
+  };
+
+  const cancelApprovedOffer = () => {
+    if (!approvedOfferData) return;
+
+    updateOrderItems(prev =>
+      prev.filter(item => !(item.is_reward && item.reward_offer_id === approvedOfferData.offer_order_id))
+    );
+
+    setApprovedOfferData(null);
+    toast.info(t("OfferCancelled"));
   };
 
   return {
@@ -102,8 +129,10 @@ export function useOfferManagement(orderItems, updateOrderItems, postData, t) {
     offerCode,
     setOfferCode,
     pendingOfferApproval,
-    setPendingOfferApproval,
     handleApplyOffer,
     handleApproveOffer,
+    approvedOfferData,
+    applyApprovedOffer,
+    cancelApprovedOffer,
   };
 }

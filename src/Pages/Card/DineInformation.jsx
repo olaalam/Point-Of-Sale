@@ -8,7 +8,12 @@ const DineInformation = () => {
 
   const hallName = sessionStorage.getItem("hall_name");
   const tableNumber = sessionStorage.getItem("table_number");
+  const orderType = sessionStorage.getItem("order_type"); // 🟢 جبنا نوع الطلب
 
+  // 🛑 إخفاء المكوّن إذا لم يكن Dine In
+  if (orderType !== "dine_in") return null;
+
+  // 🛑 إخفاء إذا لا يوجد بيانات
   if (!hallName && !tableNumber) return null;
 
   return (
@@ -29,7 +34,6 @@ const DineInformation = () => {
         </div>
       </div>
 
-      {/* Divider */}
       <div className="w-px h-10 bg-red-300" />
 
       {/* Table */}

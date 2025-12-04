@@ -1,6 +1,7 @@
 import React, { useRef } from "react";
 import { Button } from "@/components/ui/button";
 import SummaryRow from "./SummaryRow";
+import Loading from "@/components/Loading";
 
 // مكون الطباعة بنفس ديزاين الكاشير ريسيبت
 const PrintableOrder = React.forwardRef(({ orderItems, calculations, orderType, tableId, t, restaurantInfo }, ref) => {
@@ -238,7 +239,6 @@ const PrintableOrder = React.forwardRef(({ orderItems, calculations, orderType, 
         <p style={{ fontWeight: 'bold' }}>
           {isArabic ? 'شكراً لزيارتكم' : 'Thank You For Your Visit'}
         </p>
-
       </div>
     </div>
   );
@@ -257,13 +257,14 @@ export default function OrderSummary({
   selectedPaymentCount,
   onCheckout,
   onSaveAsPending,
+  offerManagement,
   isLoading,
   orderItemsLength,
   allItemsDone,
   orderItems,
   tableId,
   t,
-  onPrint: externalOnPrint, // في حالة تم تمرير onPrint من الخارج
+  onPrint: externalOnPrint,
 }) {
   const printRef = useRef();
 
@@ -315,7 +316,6 @@ export default function OrderSummary({
     amountToPay,
   };
 
-  // معلومات المطعم (يمكن جلبها من API أو Context)
   const restaurantInfo = {
     name: localStorage.getItem('restaurant_name') || 'Restaurant Name',
     address: localStorage.getItem('restaurant_address') || 'Restaurant Address'
@@ -360,13 +360,6 @@ export default function OrderSummary({
             value={totalOtherCharge}
           />
         )}
-        {["dine_in", "take_away"].includes(orderType) &&
-          totalOtherCharge > 0 && (
-            <SummaryRow
-              label={`${t("ServiceFee")} (${serviceFeeData.amount}%)`}
-              value={totalOtherCharge}
-            />
-          )}{" "}
       </div>
 
       {orderType === "dine_in" && (
@@ -396,39 +389,65 @@ export default function OrderSummary({
         </p>
       </div>
 
-      <div className="flex justify-center gap-4">
+      {/* ✅ الجزء المعدّل: نشيل الـ Checkout ونظهر Apply Offer */}
+<div className="flex flex-col items-center gap-4">
+  {/* إذا كان في عرض معتمد → زر Apply Offer فقط */}
+  {offerManagement.approvedOfferData ? (
+    <div className="w-full max-w-md">
+      <div className="bg-green-50 border border-green-300 rounded-lg p-4 mb-4 text-center">
+        <p className="font-bold text-green-800">
+          {t("RewardItem")}: {offerManagement.approvedOfferData.product}
+        </p>
+      </div>
+
+      <div className="flex gap-3 justify-center">
         <Button
-          onClick={onCheckout}
-          className="bg-bg-primary text-white hover:bg-red-700 text-lg px-8 py-3"
-          disabled={
-            isLoading ||
-            orderItemsLength === 0 ||
-            (orderType === "dine_in" && selectedPaymentCount === 0)
-          }
+          onClick={async () => {
+            const success = await offerManagement.applyApprovedOffer();
+            if (success && onCheckout) onCheckout(); // نروح للدفع فورًا
+          }}
+          className="bg-green-600 hover:bg-green-700 text-white text-lg px-10 py-6 font-bold flex-1"
+          disabled={isLoading}
         >
-          {t("Checkout")}
+          {isLoading ? <Loading /> : <>Apply Offer & Checkout</>}
         </Button>
 
-        {orderType === "dine_in" && allItemsDone && (
-          <Button
-            onClick={handlePrint}
-            disabled={!allItemsDone}
-            className="bg-blue-600 text-white hover:bg-blue-700 text-lg px-8 py-3"
-          >
-            🖨️ {t("Print")}
-          </Button>
-        )}
-
-        {orderType === "take_away" && (
-          <Button
-            onClick={onSaveAsPending}
-            className="bg-orange-600 text-white hover:bg-orange-700 text-lg px-8 py-3"
-            disabled={isLoading || orderItemsLength === 0}
-          >
-            {t("SaveasPending")}
-          </Button>
-        )}
+        <Button
+          onClick={offerManagement.cancelApprovedOffer}
+          variant="outline"
+          className="border-red-500 text-red-600 hover:bg-red-50"
+          disabled={isLoading}
+        >
+          {t("Cancel")}
+        </Button>
       </div>
+    </div>
+  ) : (
+    /* الحالة العادية: Checkout */
+    <>
+      <Button
+        onClick={onCheckout}
+        className="bg-bg-primary text-white hover:bg-red-700 text-lg px-8 py-3"
+        disabled={isLoading || orderItemsLength === 0 || (orderType === "dine_in" && selectedPaymentCount === 0)}
+      >
+        {t("Checkout")}
+      </Button>
+
+      {/* باقي الأزرار */}
+      {orderType === "dine_in" && allItemsDone && (
+        <Button onClick={handlePrint} className="bg-blue-600 text-white hover:bg-blue-700 text-lg px-8 py-3">
+          Print
+        </Button>
+      )}
+
+      {(orderType === "take_away" || orderType === "delivery") && (
+        <Button onClick={onSaveAsPending} className="bg-orange-600 text-white hover:bg-orange-700 text-lg px-8 py-3">
+          {t("SaveasPending")}
+        </Button>
+      )}
+    </>
+  )}
+</div>
     </div>
   );
 }

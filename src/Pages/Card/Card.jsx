@@ -359,30 +359,27 @@ onVoidItem={(itemId) => {
       </div>
 
       {/* Order Summary */}
-      <OrderSummary
-        orderType={orderType}
-        subTotal={calculations.subTotal}
-        totalTax={calculations.totalTax}
-        totalOtherCharge={calculations.totalOtherCharge}
-        serviceFeeData={serviceFeeData} // ← جديد: نبعتله البيانات كاملة
-        taxDetails={calculations.taxDetails}
-        totalAmountDisplay={calculations.totalAmountDisplay}
-        amountToPay={calculations.amountToPay}
-        selectedPaymentCount={selectedPaymentItems.length}
-        onCheckout={handleCheckOut}
-        onSaveAsPending={() =>
-          orderActions.handleSaveAsPending(
-            calculations.amountToPay,
-            calculations.totalTax
-          )
-        }
-        isLoading={apiLoading}
-        orderItemsLength={orderItems.length}
-        allItemsDone={allItemsDone}
-        t={t}
-        onPrint={handlePrint}
-        orderItems={orderItems} 
-      />
+<OrderSummary
+  orderType={orderType}
+  subTotal={calculations.subTotal}
+  totalTax={calculations.totalTax}
+  totalOtherCharge={calculations.totalOtherCharge}
+  serviceFeeData={serviceFeeData}
+  taxDetails={calculations.taxDetails}
+  totalAmountDisplay={calculations.totalAmountDisplay}
+  amountToPay={calculations.amountToPay}
+  selectedPaymentCount={selectedPaymentItems.length}
+  onCheckout={handleCheckOut}
+  onSaveAsPending={() => orderActions.handleSaveAsPending(calculations.amountToPay, calculations.totalTax)}
+  offerManagement={offerManagement}   // ده المهم
+  isLoading={apiLoading}
+  orderItemsLength={orderItems.length}
+  allItemsDone={allItemsDone}
+  t={t}
+  onPrint={handlePrint}
+  orderItems={orderItems}
+  tableId={tableId}
+/>
 
       {/* Modals */}
       <VoidItemModal
