@@ -92,8 +92,7 @@ const formatCashierReceipt = (receiptData) => {
         /* 2. شارة نوع الطلب (مميزة جداً) */
         .order-badge {
             border: 2px solid #000;
-            background-color: #000;
-            color: #fff;
+            color: black;
             text-align: center;
             font-size: 18px;
             font-weight: 900;
@@ -230,25 +229,71 @@ const formatCashierReceipt = (receiptData) => {
                   ? item.nameAr || item.name_ar || item.name
                   : item.nameEn || item.name_en || item.name;
 
-                let addonsHTML = "";
-                if (item.addons && item.addons.length > 0) {
-                    addonsHTML = item.addons.map(add => 
-                        `<div class="addon-row">+ ${add.name} (${Number(add.price).toFixed(2)})</div>`
-                    ).join("");
-                }
+// === دالة مساعدة لتحويل أي شيء إلى نص آمن ===
+const safeName = (item) => {
+  if (!item) return "";
+  if (typeof item === "string") return item;
+  if (item.name) return item.name;
+  if (item.option) return item.option;  // بعض الأنظمة بتبعت option
+  if (item.variation) return item.variation;
+  return String(item); // آخر حماية
+};
 
-                return `
-                <tr>
-                    <td class="item-qty">${item.qty}</td>
-                    <td class="item-name" style="text-align: ${isArabic ? "right" : "left"};">
-                        ${productName}
-                        ${addonsHTML}
-                        ${item.notes ? `<div class="notes-row">(${item.notes})</div>` : ""}
-                    </td>
-                    <td class="item-total">${item.total.toFixed(2)}</td>
-                </tr>
-                `;
-            }).join("")}
+// Addons
+const addonsHTML = (item.addons || [])
+  .map(add => {
+    const name = safeName(add);
+    const price = add.price ? ` (${Number(add.price).toFixed(2)})` : "";
+    return name ? `<div class="addon-row">+ ${name}${price}</div>` : "";
+  })
+  .filter(Boolean)
+  .join("");
+
+// Extras
+const extrasHTML = (item.extras || [])
+  .map(extra => {
+    const name = safeName(extra);
+    return name ? `<div class="addon-row">+ ${name}</div>` : "";
+  })
+  .filter(Boolean)
+  .join("");
+
+// Excludes
+const excludesHTML = (item.excludes || [])
+  .map(exc => {
+    const name = safeName(exc);
+    return name ? `<div class="addon-row" style="color:#d00;">- ${name}</div>` : "";
+  })
+  .filter(Boolean)
+  .join("");
+
+const getVariationsArray = (v) => 
+  Array.isArray(v) ? v : (v && typeof v === "object" ? Object.values(v).flat() : []);
+
+const variationsHTML = getVariationsArray(item.variations)
+  .flatMap(group => 
+    group.options 
+      ? [`• ${group.options.join(", ")}`] 
+      : []
+  )
+  .map(text => `<div class="addon-row">${text}</div>`)
+  .join("");
+
+  const modifiersHTML = [addonsHTML, extrasHTML, excludesHTML, variationsHTML]
+    .filter(Boolean).join("");
+
+  return `
+  <tr>
+    <td class="item-qty">${item.qty}</td>
+    <td class="item-name" style="text-align: ${isArabic ? "right" : "left"};">
+      ${productName}
+      ${modifiersHTML ? `<div style="margin-top:4px;">${modifiersHTML}</div>` : ""}
+      ${item.notes ? `<div class="notes-row">(${item.notes})</div>` : ""}
+    </td>
+    <td class="item-total">${item.total.toFixed(2)}</td>
+  </tr>
+  `;
+}).join("")}
             </tbody>
         </table>
 
@@ -326,7 +371,7 @@ const formatKitchenReceipt = (receiptData, productsList = []) => {
           .big-number { font-size: ${isDineIn ? "40px" : "24px"}; font-weight: 900; line-height: 1; margin-bottom: 5px; }
           .customer-name { font-size: 12px; font-weight: bold; text-align: center; }
           
-          .title-strip { background: #000; color: #fff; text-align: center; font-weight: bold; font-size: 12px; padding: 2px 0; margin-bottom: 5px; }
+          .title-strip { color: black; text-align: center; font-weight: bold; font-size: 12px; padding: 2px 0; margin-bottom: 5px; }
           
           table { width: 100%; border-collapse: collapse; border: 2px solid #000; }
           th { border: 2px solid #000; background: #ddd; padding: 5px; font-size: 10px; }
@@ -360,31 +405,74 @@ const formatKitchenReceipt = (receiptData, productsList = []) => {
           </thead>
 
           <tbody>
-            ${receiptData.items.map((item) => {
-                let finalName = item.name;
-                if (isArabic && productsList.length > 0) {
-                  const original = productsList.find((p) => p.id == item.id);
-                  if (original) finalName = original.name_ar || original.nameAr || item.name;
-                }
+${receiptData.items.map((item) => {
+  let finalName = item.name;
+  if (isArabic && productsList.length > 0) {
+    const original = productsList.find((p) => p.id == item.id);
+    if (original) finalName = original.name_ar || original.nameAr || item.name;
+  }
 
-                // تجهيز HTML للإضافات للمطبخ
-                let addonsHTML = "";
-                if (item.addons && item.addons.length > 0) {
-                    addonsHTML = item.addons.map(add => `
-                        <div style="font-size: 10px; font-weight: normal; margin-top: 2px;">+ ${add.name}</div>
-                    `).join("");
-                }
+// === دالة مساعدة لتحويل أي شيء إلى نص آمن ===
+const safeName = (item) => {
+  if (!item) return "";
+  if (typeof item === "string") return item;
+  if (item.name) return item.name;
+  if (item.option) return item.option;  // بعض الأنظمة بتبعت option
+  if (item.variation) return item.variation;
+  return String(item); // آخر حماية
+};
 
-                return `
-              <tr>
-                <td class="qty-col" style="vertical-align: top;">${item.qty}</td>
-                <td class="item-col">
-                  ${finalName}
-                  ${item.notes ? `<br><span style="font-size:10px; font-weight:normal;">(${item.notes})</span>` : ""}
-                  ${addonsHTML ? `<br>${addonsHTML}` : ""}
-                </td>
-              </tr>`;
-              }).join("")}
+// Addons
+const addonsHTML = (item.addons || [])
+  .map(add => {
+    const name = safeName(add);
+    const price = add.price ? ` (${Number(add.price).toFixed(2)})` : "";
+    return name ? `<div class="addon-row">+ ${name}${price}</div>` : "";
+  })
+  .filter(Boolean)
+  .join("");
+
+// Extras
+const extrasHTML = (item.extras || [])
+  .map(extra => {
+    const name = safeName(extra);
+    return name ? `<div class="addon-row">+ ${name}</div>` : "";
+  })
+  .filter(Boolean)
+  .join("");
+
+// Excludes
+const excludesHTML = (item.excludes || [])
+  .map(exc => {
+    const name = safeName(exc);
+    return name ? `<div class="addon-row" style="color:#d00;">- ${name}</div>` : "";
+  })
+  .filter(Boolean)
+  .join("");
+
+const getVariationsArray = (v) => 
+  Array.isArray(v) ? v : (v && typeof v === "object" ? Object.values(v).flat() : []);
+
+const variationsHTML = getVariationsArray(item.variations)
+  .flatMap(g => 
+    g.options ? [`• ${g.options.join(", ")}`] : []
+  )
+  .map(text => `<div style="font-size:10px;margin:2px 0;">${text}</div>`)
+  .join("");
+
+  const allModifiers = [addonsHTML, extrasHTML, excludesHTML, variationsHTML]
+    .filter(Boolean).join("");
+
+  return `
+  <tr>
+    <td class="qty-col" style="vertical-align: top;">${item.qty}</td>
+    <td class="item-col">
+      ${finalName}
+      ${item.notes ? `<br><span style="font-size:10px;">(${item.notes})</span>` : ""}
+      ${allModifiers ? `<br>${allModifiers}` : ""}
+    </td>
+  </tr>`;
+}).join("")}
           </tbody>
         </table>
   
@@ -566,8 +654,12 @@ export const prepareReceiptData = (
       notes: item.notes || "",
       category_id: item.category_id || item.product?.category_id,
       id: item.id || item.product_id, // Important for kitchen mapping
-      // إضافة الـ Addons هنا
-      addons: item.addons || [], 
+// === الجديد هنا ===
+  addons: item.addons || [],
+  extras: item.extras || [],         // زي Medium Crab
+  excludes: item.excludes || [],
+  variations: item.variations || [], // زي الحجم: كبير
+  // ====================
     })),
     customer: response?.customer || null,
     address: response?.address || null,
@@ -624,6 +716,7 @@ export const printReceiptSilently = async (
     }
 
     // 2. المطبخ
+    // 2. المطبخ - مع الحفاظ على كل التفاصيل (addons, extras, variations, excludes)
     const kitchens = apiResponse?.kitchen_items || [];
     for (const kitchen of kitchens) {
       if (
@@ -634,21 +727,34 @@ export const printReceiptSilently = async (
         continue;
 
       const kitchenReceiptData = {
-        ...receiptData,
-        items: kitchen.order.map((item) => ({
-          qty: item.count || "1",
-          name: item.name,
-          price: 0,
-          total: 0,
-          notes: item.notes || "",
-          category_id: item.category_id,
-        })),
+        ...receiptData, // نأخذ كل البيانات الأساسية من الـ receiptData الأصلي
+        items: kitchen.order.map((kitchenItem) => {
+          // نجيب الصنف الأصلي من الـ success عشان نجيب معاه كل الـ addons والـ variations
+          const originalItem = receiptData.items.find(
+            orig => orig.id == kitchenItem.id || orig.id == kitchenItem.product_id
+          );
+
+          return {
+            qty: kitchenItem.count || "1",
+            name: kitchenItem.name || originalItem?.name || "غير معروف",
+            notes: kitchenItem.notes || originalItem?.notes || "",
+
+            // ننقل كل التفاصيل من الصنف الأصلي
+            addons: originalItem?.addons || [],
+            extras: originalItem?.extras || [],
+            excludes: originalItem?.excludes || [],
+            variations: originalItem?.variations || [],
+
+            id: kitchenItem.id || kitchenItem.product_id,
+          };
+        }),
       };
 
       const kitchenHtml = getReceiptHTML(kitchenReceiptData, {
         design: "kitchen",
-        type: kitchen.name,
+        type: "kitchen",
       });
+
       const config = qz.configs.create(kitchen.print_name);
       printJobs.push(
         qz.print(config, [
