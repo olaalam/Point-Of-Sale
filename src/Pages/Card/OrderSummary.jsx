@@ -390,10 +390,10 @@ export default function OrderSummary({
       </div>
 
       {/* ✅ الجزء المعدّل: نشيل الـ Checkout ونظهر Apply Offer */}
-<div className="flex flex-col items-center gap-4">
+<div className="flex  items-center gap-4 w-full">
   {/* إذا كان في عرض معتمد → زر Apply Offer فقط */}
   {offerManagement.approvedOfferData ? (
-    <div className="w-full max-w-md">
+    <div className="w-full">
       <div className="bg-green-50 border border-green-300 rounded-lg p-4 mb-4 text-center">
         <p className="font-bold text-green-800">
           {t("RewardItem")}: {offerManagement.approvedOfferData.product}
@@ -424,7 +424,7 @@ export default function OrderSummary({
     </div>
   ) : (
     /* الحالة العادية: Checkout */
-    <>
+    <div className="flex gap-4 w-full">
       <Button
         onClick={onCheckout}
         className="bg-bg-primary text-white hover:bg-red-700 text-lg px-8 py-3"
@@ -445,7 +445,7 @@ export default function OrderSummary({
           {t("SaveasPending")}
         </Button>
       )}
-    </>
+    </div>
   )}
 </div>
     </div>

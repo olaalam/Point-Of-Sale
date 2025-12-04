@@ -22,9 +22,6 @@ const PRINTER_CONFIG = {
   },
 };
 
-
-
-
 // ===================================================================
 // 4. تصميم إيصال الكاشير (نسخة بريميوم / مودرن)
 // ===================================================================
@@ -40,7 +37,9 @@ const formatCashierReceipt = (receiptData) => {
   if (currentOrderType === "dine_in") {
     orderTypeLabel = isArabic ? "صالة" : "DINE IN";
     if (receiptData.table && receiptData.table !== "N/A") {
-        tableLabel = isArabic ? `طاولة: ${receiptData.table}` : `Table: ${receiptData.table}`;
+      tableLabel = isArabic
+        ? `طاولة: ${receiptData.table}`
+        : `Table: ${receiptData.table}`;
     }
   } else if (currentOrderType === "delivery") {
     orderTypeLabel = isArabic ? "توصيل" : "DELIVERY";
@@ -184,14 +183,36 @@ const formatCashierReceipt = (receiptData) => {
 
         <table class="meta-grid">
             <tr>
-                <td width="50%" style="border-${isArabic ? "left" : "right"}: 1px dotted #000; padding: 0 5px;">
-                    <div class="meta-label">${isArabic ? "رقم الفاتورة" : "ORDER NO"}</div>
-                    <div class="meta-value" style="font-size: 18px;">#${receiptData.invoiceNumber}</div>
+                <td width="50%" style="border-${
+                  isArabic ? "left" : "right"
+                }: 1px dotted #000; padding: 0 5px;">
+                    <div class="meta-label">${
+                      isArabic ? "رقم الفاتورة" : "ORDER NO"
+                    }</div>
+                    <div class="meta-value" style="font-size: 18px;">#${
+                      receiptData.invoiceNumber
+                    }</div>
+                    ${
+                      receiptData.orderType === "dine_in" &&
+                      receiptData.preparationNum
+                        ? `<div style="font-size: 14px;  color: #d00; margin-top: 4px;">
+                           Prep: ${receiptData.preparationNum}
+                         </div>`
+                        : ""
+                    }
                 </td>
-                <td width="50%" style="padding: 0 5px; text-align: ${isArabic ? "left" : "right"};">
-                    <div class="meta-label">${isArabic ? "التاريخ / الوقت" : "DATE / TIME"}</div>
-                    <div style="font-weight: bold; font-size: 11px;">${receiptData.dateFormatted}</div>
-                    <div style="font-weight: bold; font-size: 11px;">${receiptData.timeFormatted}</div>
+                <td width="50%" style="padding: 0 5px; text-align: ${
+                  isArabic ? "left" : "right"
+                };">
+                    <div class="meta-label">${
+                      isArabic ? "التاريخ / الوقت" : "DATE / TIME"
+                    }</div>
+                    <div style="font-weight: bold; font-size: 11px;">${
+                      receiptData.dateFormatted
+                    }</div>
+                    <div style="font-weight: bold; font-size: 11px;">${
+                      receiptData.timeFormatted
+                    }</div>
                 </td>
             </tr>
         </table>
@@ -199,16 +220,38 @@ const formatCashierReceipt = (receiptData) => {
         ${
           showCustomerInfo && receiptData.customer
             ? `
-            <div class="section-header">${isArabic ? "بيانات العميل" : "CUSTOMER INFO"}</div>
+            <div class="section-header">${
+              isArabic ? "بيانات العميل" : "CUSTOMER INFO"
+            }</div>
             <div class="cust-info">
-                <div>${receiptData.customer.name || receiptData.customer.f_name}</div>
-                <div style="direction: ltr; text-align: ${isArabic ? "right" : "left"};">${receiptData.customer.phone || ""}</div>
-                ${receiptData.address ? `<div style="font-weight: normal; margin-top: 3px; border-top: 1px dotted #ccc; padding-top:2px;">
+                <div>${
+                  receiptData.customer.name || receiptData.customer.f_name
+                }</div>
+                <div style="direction: ltr; text-align: ${
+                  isArabic ? "right" : "left"
+                };">${receiptData.customer.phone || ""}</div>
+                ${
+                  receiptData.address
+                    ? `<div style="font-weight: normal; margin-top: 3px; border-top: 1px dotted #ccc; padding-top:2px;">
                     ${receiptData.address.address || ""} 
-                    ${receiptData.address.building_num ? `, B:${receiptData.address.building_num}` : ""}
-                    ${receiptData.address.floor_num ? `, F:${receiptData.address.floor_num}` : ""}
-                    ${receiptData.address.apartment ? `, Apt:${receiptData.address.apartment}` : ""}
-                </div>` : ""}
+                    ${
+                      receiptData.address.building_num
+                        ? `, B:${receiptData.address.building_num}`
+                        : ""
+                    }
+                    ${
+                      receiptData.address.floor_num
+                        ? `, F:${receiptData.address.floor_num}`
+                        : ""
+                    }
+                    ${
+                      receiptData.address.apartment
+                        ? `, Apt:${receiptData.address.apartment}`
+                        : ""
+                    }
+                </div>`
+                    : ""
+                }
             </div>
             `
             : ""
@@ -219,108 +262,147 @@ const formatCashierReceipt = (receiptData) => {
             <thead>
                 <tr>
                     <th width="10%">${isArabic ? "ع" : "Qt"}</th>
-                    <th width="65%" style="text-align: ${isArabic ? "right" : "left"};">${isArabic ? "الصنف" : "Item"}</th>
+                    <th width="65%" style="text-align: ${
+                      isArabic ? "right" : "left"
+                    };">${isArabic ? "الصنف" : "Item"}</th>
                     <th width="25%">${isArabic ? "إجمالي" : "Total"}</th>
                 </tr>
             </thead>
             <tbody>
-            ${receiptData.items.map((item) => {
+            ${receiptData.items
+              .map((item) => {
                 const productName = isArabic
                   ? item.nameAr || item.name_ar || item.name
                   : item.nameEn || item.name_en || item.name;
 
-// === دالة مساعدة لتحويل أي شيء إلى نص آمن ===
-const safeName = (item) => {
-  if (!item) return "";
-  if (typeof item === "string") return item;
-  if (item.name) return item.name;
-  if (item.option) return item.option;  // بعض الأنظمة بتبعت option
-  if (item.variation) return item.variation;
-  return String(item); // آخر حماية
-};
+                // === دالة مساعدة لتحويل أي شيء إلى نص آمن ===
+                const safeName = (item) => {
+                  if (!item) return "";
+                  if (typeof item === "string") return item;
+                  if (item.name) return item.name;
+                  if (item.option) return item.option; // بعض الأنظمة بتبعت option
+                  if (item.variation) return item.variation;
+                  return String(item); // آخر حماية
+                };
 
-// Addons
-const addonsHTML = (item.addons || [])
-  .map(add => {
-    const name = safeName(add);
-    const price = add.price ? ` (${Number(add.price).toFixed(2)})` : "";
-    return name ? `<div class="addon-row">+ ${name}${price}</div>` : "";
-  })
-  .filter(Boolean)
-  .join("");
+                // Addons
+                const addonsHTML = (item.addons || [])
+                  .map((add) => {
+                    const name = safeName(add);
+                    const price = add.price
+                      ? ` (${Number(add.price).toFixed(2)})`
+                      : "";
+                    return name
+                      ? `<div class="addon-row">+ ${name}${price}</div>`
+                      : "";
+                  })
+                  .filter(Boolean)
+                  .join("");
 
-// Extras
-const extrasHTML = (item.extras || [])
-  .map(extra => {
-    const name = safeName(extra);
-    return name ? `<div class="addon-row">+ ${name}</div>` : "";
-  })
-  .filter(Boolean)
-  .join("");
+                // Extras
+                const extrasHTML = (item.extras || [])
+                  .map((extra) => {
+                    const name = safeName(extra);
+                    return name ? `<div class="addon-row">+ ${name}</div>` : "";
+                  })
+                  .filter(Boolean)
+                  .join("");
 
-// Excludes
-const excludesHTML = (item.excludes || [])
-  .map(exc => {
-    const name = safeName(exc);
-    return name ? `<div class="addon-row" style="color:#d00;">- ${name}</div>` : "";
-  })
-  .filter(Boolean)
-  .join("");
+                // Excludes
+                const excludesHTML = (item.excludes || [])
+                  .map((exc) => {
+                    const name = safeName(exc);
+                    return name
+                      ? `<div class="addon-row" style="color:#d00;">- ${name}</div>`
+                      : "";
+                  })
+                  .filter(Boolean)
+                  .join("");
 
-const getVariationsArray = (v) => 
-  Array.isArray(v) ? v : (v && typeof v === "object" ? Object.values(v).flat() : []);
+                const getVariationsArray = (v) =>
+                  Array.isArray(v)
+                    ? v
+                    : v && typeof v === "object"
+                    ? Object.values(v).flat()
+                    : [];
 
-const variationsHTML = getVariationsArray(item.variations)
-  .flatMap(group => 
-    group.options 
-      ? [`• ${group.options.join(", ")}`] 
-      : []
-  )
-  .map(text => `<div class="addon-row">${text}</div>`)
-  .join("");
+                const variationsHTML = getVariationsArray(item.variations)
+                  .flatMap((group) =>
+                    group.options ? [`• ${group.options.join(", ")}`] : []
+                  )
+                  .map((text) => `<div class="addon-row">${text}</div>`)
+                  .join("");
 
-  const modifiersHTML = [addonsHTML, extrasHTML, excludesHTML, variationsHTML]
-    .filter(Boolean).join("");
+                const modifiersHTML = [
+                  addonsHTML,
+                  extrasHTML,
+                  excludesHTML,
+                  variationsHTML,
+                ]
+                  .filter(Boolean)
+                  .join("");
 
-  return `
+                return `
   <tr>
     <td class="item-qty">${item.qty}</td>
     <td class="item-name" style="text-align: ${isArabic ? "right" : "left"};">
       ${productName}
-      ${modifiersHTML ? `<div style="margin-top:4px;">${modifiersHTML}</div>` : ""}
+      ${
+        modifiersHTML
+          ? `<div style="margin-top:4px;">${modifiersHTML}</div>`
+          : ""
+      }
       ${item.notes ? `<div class="notes-row">(${item.notes})</div>` : ""}
     </td>
     <td class="item-total">${item.total.toFixed(2)}</td>
   </tr>
   `;
-}).join("")}
+              })
+              .join("")}
             </tbody>
         </table>
 
-        <div style="border-top: 2px solid #000; margin-top: 5px; padding-top: 5px;">
+               <div style="border-top: 2px solid #000; margin-top: 8px; padding-top: 8px; font-size: 13px;">
+
+            <!-- Subtotal -->
             <div class="totals-row">
-                <span>${isArabic ? "المجموع" : "Subtotal"}</span>
-                <span>${receiptData.subtotal}</span>
+                <span>${isArabic ? "المجموع الفرعي" : "Subtotal"}</span>
+                <span>${Number(receiptData.subtotal).toFixed(2)}</span>
             </div>
-            ${receiptData.discount > 0 ? `
-            <div class="totals-row">
+
+            <!-- Discount -->
+            ${Number(receiptData.discount) > 0 ? `
+            <div class="totals-row" style="color: #d00;">
                 <span>${isArabic ? "الخصم" : "Discount"}</span>
                 <span>-${receiptData.discount}</span>
             </div>` : ""}
+
+            <!-- Tax -->
+            ${Number(receiptData.tax) > 0 ? `
+            <div class="totals-row">
+                <span>${isArabic ? "الضريبة (VAT)" : "Tax (VAT)"}</span>
+                <span>${receiptData.tax}</span>
+            </div>` : ""}
+
+            <!-- Delivery Fees -->
             ${receiptData.deliveryFees > 0 ? `
             <div class="totals-row">
-                <span>${isArabic ? "التوصيل" : "Delivery"}</span>
+                <span>${isArabic ? "رسوم التوصيل" : "Delivery Fee"}</span>
                 <span>${receiptData.deliveryFees.toFixed(2)}</span>
             </div>` : ""}
-            
+
+            <!-- Grand Total -->
             <div class="grand-total">
-                <span style="font-size: 16px;">${isArabic ? "الإجمالي" : "TOTAL"}</span>
-                <span>${receiptData.total}</span>
+                <span style="font-size: 18px;">${isArabic ? "الإجمالي الكلي" : "GRAND TOTAL"}</span>
+                <span style="font-size: 24px;">${Number(receiptData.total).toFixed(2)}</span>
             </div>
+
         </div>
 
         <div style="text-align: center; margin-top: 15px; font-size: 11px;">
-            <p style="margin: 0; font-weight: bold;">${receiptData.receiptFooter}</p>
+            <p style="margin: 0; font-weight: bold;">${
+              receiptData.receiptFooter
+            }</p>
             <p style="margin: 5px 0 0 0;">*** شكراً لزيارتكم ***</p>
         </div>
 
@@ -334,41 +416,48 @@ const variationsHTML = getVariationsArray(item.variations)
 // ===================================================================
 const formatKitchenReceipt = (receiptData, productsList = []) => {
   if (!Array.isArray(productsList)) productsList = [];
-    const isArabic = localStorage.getItem("language") === "ar";
-    const currentOrderType = (receiptData.orderType || "").toLowerCase();
-  
-    let orderTypeLabel = isArabic ? "تيك اواي" : "Takeaway";
-    let displayBigNumber = isArabic ? "تيك اواي" : "To Go";
-    let isDineIn = false;
-    let tableNumber = receiptData.table;
-    
-    if (!tableNumber || tableNumber === "N/A" || tableNumber === "null") tableNumber = "";
-  
-    if (currentOrderType === "dine_in") {
-      orderTypeLabel = isArabic ? "صالة" : "Dine In";
-      displayBigNumber = tableNumber;
-      isDineIn = true;
-    } else if (currentOrderType === "delivery") {
-      orderTypeLabel = isArabic ? "توصيل" : "Delivery";
-      displayBigNumber = isArabic ? "توصيل" : "Delivery";
-    } else if (currentOrderType === "take_away") {
-      orderTypeLabel = isArabic ? "تيك أواي" : "Takeaway";
-      displayBigNumber = isArabic ? "تيك اواي" : "Takeaway";
-    }
-  
-    return `
+  const isArabic = localStorage.getItem("language") === "ar";
+  const currentOrderType = (receiptData.orderType || "").toLowerCase();
+
+  let orderTypeLabel = isArabic ? "تيك اواي" : "Takeaway";
+  let displayBigNumber = isArabic ? "تيك اواي" : "To Go";
+  let isDineIn = false;
+  let tableNumber = receiptData.table;
+
+  if (!tableNumber || tableNumber === "N/A" || tableNumber === "null")
+    tableNumber = "";
+
+  if (currentOrderType === "dine_in") {
+    orderTypeLabel = isArabic ? "صالة" : "Dine In";
+    displayBigNumber = tableNumber;
+    isDineIn = true;
+  } else if (currentOrderType === "delivery") {
+    orderTypeLabel = isArabic ? "توصيل" : "Delivery";
+    displayBigNumber = isArabic ? "توصيل" : "Delivery";
+  } else if (currentOrderType === "take_away") {
+    orderTypeLabel = isArabic ? "تيك أواي" : "Takeaway";
+    displayBigNumber = isArabic ? "تيك اواي" : "Takeaway";
+  }
+
+  return `
     <html>
       <head>
         <style>
           * { box-sizing: border-box; }
-          body, html { width: 100%; margin: 0; padding: 0; font-family: 'Tahoma', sans-serif; direction: ${isArabic ? "rtl" : "ltr"}; }
+          body, html { width: 100%; margin: 0; padding: 0; font-family: 'Tahoma', sans-serif; direction: ${
+            isArabic ? "rtl" : "ltr"
+          }; }
           .header-box { border: 3px solid #000; display: flex; margin-bottom: 10px; }
-          .box-left { width: 60%; border-${isArabic ? "left" : "right"}: 3px solid #000; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 5px; }
+          .box-left { width: 60%; border-${
+            isArabic ? "left" : "right"
+          }: 3px solid #000; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 5px; }
           .box-right { width: 40%; display: flex; flex-direction: column; justify-content: space-between; }
           .row-label { border-bottom: 1px solid #000; padding: 5px; text-align: center; font-weight: bold; flex-grow: 1; display: flex; align-items: center; justify-content: center; font-size: 14px; }
           .row-label:last-child { border-bottom: none; }
           
-          .big-number { font-size: ${isDineIn ? "40px" : "24px"}; font-weight: 900; line-height: 1; margin-bottom: 5px; }
+          .big-number { font-size: ${
+            isDineIn ? "40px" : "24px"
+          }; font-weight: 900; line-height: 1; margin-bottom: 5px; }
           .customer-name { font-size: 12px; font-weight: bold; text-align: center; }
           
           .title-strip { color: black; text-align: center; font-weight: bold; font-size: 12px; padding: 2px 0; margin-bottom: 5px; }
@@ -386,15 +475,23 @@ const formatKitchenReceipt = (receiptData, productsList = []) => {
         <div class="header-box">
           <div class="box-left">
             <div class="big-number">${displayBigNumber}</div>
-            <div class="customer-name">${isDineIn ? orderTypeLabel : receiptData.customerName || orderTypeLabel}</div>
+            <div class="customer-name">${
+              isDineIn
+                ? orderTypeLabel
+                : receiptData.customerName || orderTypeLabel
+            }</div>
           </div>
           <div class="box-right">
-            <div class="row-label">${isArabic ? "رقم الفاتورة" : "Order #"} ${receiptData.invoiceNumber}</div>
+            <div class="row-label">${isArabic ? "رقم الفاتورة" : "Order #"} ${
+    receiptData.invoiceNumber
+  }</div>
             <div class="row-label">${receiptData.timeFormatted}</div> 
           </div>
         </div>
   
-        <div class="title-strip">${orderTypeLabel} ${tableNumber ? "#" + tableNumber : ""}</div>
+        <div class="title-strip">${orderTypeLabel} ${
+    tableNumber ? "#" + tableNumber : ""
+  }</div>
   
         <table>
           <thead>
@@ -405,74 +502,86 @@ const formatKitchenReceipt = (receiptData, productsList = []) => {
           </thead>
 
           <tbody>
-${receiptData.items.map((item) => {
-  let finalName = item.name;
-  if (isArabic && productsList.length > 0) {
-    const original = productsList.find((p) => p.id == item.id);
-    if (original) finalName = original.name_ar || original.nameAr || item.name;
-  }
+${receiptData.items
+  .map((item) => {
+    let finalName = item.name;
+    if (isArabic && productsList.length > 0) {
+      const original = productsList.find((p) => p.id == item.id);
+      if (original)
+        finalName = original.name_ar || original.nameAr || item.name;
+    }
 
-// === دالة مساعدة لتحويل أي شيء إلى نص آمن ===
-const safeName = (item) => {
-  if (!item) return "";
-  if (typeof item === "string") return item;
-  if (item.name) return item.name;
-  if (item.option) return item.option;  // بعض الأنظمة بتبعت option
-  if (item.variation) return item.variation;
-  return String(item); // آخر حماية
-};
+    // === دالة مساعدة لتحويل أي شيء إلى نص آمن ===
+    const safeName = (item) => {
+      if (!item) return "";
+      if (typeof item === "string") return item;
+      if (item.name) return item.name;
+      if (item.option) return item.option; // بعض الأنظمة بتبعت option
+      if (item.variation) return item.variation;
+      return String(item); // آخر حماية
+    };
 
-// Addons
-const addonsHTML = (item.addons || [])
-  .map(add => {
-    const name = safeName(add);
-    const price = add.price ? ` (${Number(add.price).toFixed(2)})` : "";
-    return name ? `<div class="addon-row">+ ${name}${price}</div>` : "";
-  })
-  .filter(Boolean)
-  .join("");
+    // Addons
+    const addonsHTML = (item.addons || [])
+      .map((add) => {
+        const name = safeName(add);
+        const price = add.price ? ` (${Number(add.price).toFixed(2)})` : "";
+        return name ? `<div class="addon-row">+ ${name}${price}</div>` : "";
+      })
+      .filter(Boolean)
+      .join("");
 
-// Extras
-const extrasHTML = (item.extras || [])
-  .map(extra => {
-    const name = safeName(extra);
-    return name ? `<div class="addon-row">+ ${name}</div>` : "";
-  })
-  .filter(Boolean)
-  .join("");
+    // Extras
+    const extrasHTML = (item.extras || [])
+      .map((extra) => {
+        const name = safeName(extra);
+        return name ? `<div class="addon-row">+ ${name}</div>` : "";
+      })
+      .filter(Boolean)
+      .join("");
 
-// Excludes
-const excludesHTML = (item.excludes || [])
-  .map(exc => {
-    const name = safeName(exc);
-    return name ? `<div class="addon-row" style="color:#d00;">- ${name}</div>` : "";
-  })
-  .filter(Boolean)
-  .join("");
+    // Excludes
+    const excludesHTML = (item.excludes || [])
+      .map((exc) => {
+        const name = safeName(exc);
+        return name
+          ? `<div class="addon-row" style="color:#d00;">- ${name}</div>`
+          : "";
+      })
+      .filter(Boolean)
+      .join("");
 
-const getVariationsArray = (v) => 
-  Array.isArray(v) ? v : (v && typeof v === "object" ? Object.values(v).flat() : []);
+    const getVariationsArray = (v) =>
+      Array.isArray(v)
+        ? v
+        : v && typeof v === "object"
+        ? Object.values(v).flat()
+        : [];
 
-const variationsHTML = getVariationsArray(item.variations)
-  .flatMap(g => 
-    g.options ? [`• ${g.options.join(", ")}`] : []
-  )
-  .map(text => `<div style="font-size:10px;margin:2px 0;">${text}</div>`)
-  .join("");
+    const variationsHTML = getVariationsArray(item.variations)
+      .flatMap((g) => (g.options ? [`• ${g.options.join(", ")}`] : []))
+      .map((text) => `<div style="font-size:10px;margin:2px 0;">${text}</div>`)
+      .join("");
 
-  const allModifiers = [addonsHTML, extrasHTML, excludesHTML, variationsHTML]
-    .filter(Boolean).join("");
+    const allModifiers = [addonsHTML, extrasHTML, excludesHTML, variationsHTML]
+      .filter(Boolean)
+      .join("");
 
-  return `
+    return `
   <tr>
     <td class="qty-col" style="vertical-align: top;">${item.qty}</td>
     <td class="item-col">
       ${finalName}
-      ${item.notes ? `<br><span style="font-size:10px;">(${item.notes})</span>` : ""}
+      ${
+        item.notes
+          ? `<br><span style="font-size:10px;">(${item.notes})</span>`
+          : ""
+      }
       ${allModifiers ? `<br>${allModifiers}` : ""}
     </td>
   </tr>`;
-}).join("")}
+  })
+  .join("")}
           </tbody>
         </table>
   
@@ -489,7 +598,7 @@ const variationsHTML = getVariationsArray(item.variations)
 // 6. تصميم إيصال الباريستا
 // ===================================================================
 const formatBaristaReceipt = (receiptData) => {
-    return `
+  return `
     <html>
       <head>
         <style>
@@ -509,16 +618,20 @@ const formatBaristaReceipt = (receiptData) => {
           </div>
           <div class="line"></div>
           
-          ${receiptData.items.map((item) => {
+          ${receiptData.items
+            .map((item) => {
               const productName = item.nameAr || item.name_ar || item.name;
               return `
             <div class="item-row">
               <div class="bold" style="font-size: 12px;">${productName}</div>
-              <div>العدد: <span class="bold" style="font-size: 12px;">${item.qty}</span></div>
+              <div>العدد: <span class="bold" style="font-size: 12px;">${
+                item.qty
+              }</span></div>
               ${item.notes ? `<div>ملاحظة: ${item.notes}</div>` : ""}
             </div>
           `;
-            }).join("")}
+            })
+            .join("")}
       </body>
     </html>
     `;
@@ -531,7 +644,7 @@ const getReceiptHTML = (receiptData, printerConfig) => {
   switch (printerConfig.design) {
     case "kitchen":
       // التعديل هنا: حذف المعامل الثاني لأنه كان يرسل نصاً بدلاً من القائمة
-      return formatKitchenReceipt(receiptData); 
+      return formatKitchenReceipt(receiptData);
     case "barista":
       return formatBaristaReceipt(receiptData);
     case "full":
@@ -555,6 +668,7 @@ export const prepareReceiptData = (
   requiredTotal,
   responseSuccess,
   response,
+
   cashierData = {}
 ) => {
   const finalDiscountValue =
@@ -581,10 +695,7 @@ export const prepareReceiptData = (
       detectedType = "delivery";
     } else if (typeStr.includes("dine") || typeStr.includes("صالة")) {
       detectedType = "dine_in";
-    } else if (
-      typeStr.includes("take") ||
-      typeStr.includes("تيك") 
-    ) {
+    } else if (typeStr.includes("take") || typeStr.includes("تيك")) {
       detectedType = "take_away";
     }
   } else {
@@ -593,7 +704,7 @@ export const prepareReceiptData = (
       response?.address &&
       (typeof response.address === "string" ||
         Object.keys(response.address).length > 0);
-        
+
     if (hasAddress) detectedType = "delivery";
   }
 
@@ -616,7 +727,10 @@ export const prepareReceiptData = (
   }
 
   const finalRestaurantName =
+    response?.reaturant_name || // الأولوية الأولى: من الـ API
+    response?.restaurant_name || // لو كان الاسم مكتوب صح
     sessionStorage.getItem("resturant_name") ||
+    sessionStorage.getItem("restaurant_name") ||
     cashierData.branch?.name ||
     "اسم المطعم";
 
@@ -654,26 +768,29 @@ export const prepareReceiptData = (
       notes: item.notes || "",
       category_id: item.category_id || item.product?.category_id,
       id: item.id || item.product_id, // Important for kitchen mapping
-// === الجديد هنا ===
-  addons: item.addons || [],
-  extras: item.extras || [],         // زي Medium Crab
-  excludes: item.excludes || [],
-  variations: item.variations || [], // زي الحجم: كبير
-  // ====================
+      // === الجديد هنا ===
+      addons: item.addons || [],
+      extras: item.extras || [], // زي Medium Crab
+      excludes: item.excludes || [],
+      variations: item.variations || [], // زي الحجم: كبير
+      // ====================
     })),
     customer: response?.customer || null,
     address: response?.address || null,
     subtotal: amountToPay,
     deliveryFees: deliveryFees,
-    discount: finalDiscountValue,
-    tax: totalTax,
+    tax: Number(response?.total_tax || totalTax || 0).toFixed(2),
+    discount: Number(
+      response?.total_discount || finalDiscountValue || 0
+    ).toFixed(2),
     total: finalTotal,
+    preparationNum:
+      response?.preparation_num || response?.preparation_number || null,
     restaurantName: finalRestaurantName,
     restaurantAddress:
       sessionStorage.getItem("restaurant_address") || "العنوان",
     restaurantPhone: sessionStorage.getItem("restaurant_phone") || "",
-    receiptFooter:
-      sessionStorage.getItem("receipt_footer") || "شكراً لزيارتكم",
+    receiptFooter: sessionStorage.getItem("receipt_footer") || "شكراً لزيارتكم",
   };
 };
 
@@ -731,7 +848,8 @@ export const printReceiptSilently = async (
         items: kitchen.order.map((kitchenItem) => {
           // نجيب الصنف الأصلي من الـ success عشان نجيب معاه كل الـ addons والـ variations
           const originalItem = receiptData.items.find(
-            orig => orig.id == kitchenItem.id || orig.id == kitchenItem.product_id
+            (orig) =>
+              orig.id == kitchenItem.id || orig.id == kitchenItem.product_id
           );
 
           return {
@@ -757,9 +875,7 @@ export const printReceiptSilently = async (
 
       const config = qz.configs.create(kitchen.print_name);
       printJobs.push(
-        qz.print(config, [
-          { type: "html", format: "plain", data: kitchenHtml },
-        ])
+        qz.print(config, [{ type: "html", format: "plain", data: kitchenHtml }])
       );
     }
 

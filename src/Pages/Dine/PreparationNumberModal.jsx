@@ -15,13 +15,18 @@ const PreparationNumberModal = ({
   const [preparationNum, setPreparationNum] = useState("");
   const { t } = useTranslation();
 
-  const handleSubmit = () => {
-    if (!preparationNum.trim()) {
-      toast.error(t("PleaseEnterPreparationNumber"));
-      return;
-    }
-    onSubmit(preparationNum);
-  };
+const handleSubmit = async () => {
+  if (!preparationNum.trim()) {
+    toast.error(t("PleaseEnterPreparationNumber"));
+    return;
+  }
+
+  const res = await onSubmit(preparationNum); // استني نتيجة API
+
+  if (res?.preparation_num) {
+    sessionStorage.setItem("preparation_num", res.preparation_num);
+  }
+};
 
   const handleCancel = () => {
     setPreparationNum("");
