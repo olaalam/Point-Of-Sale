@@ -133,6 +133,7 @@ export const buildOrderPayload = ({
   discount_id,
   module_id,
   free_discount,
+   service_fees,
   due_module,
 }) => {
   const basePayload = {
@@ -146,6 +147,9 @@ export const buildOrderPayload = ({
     due: due.toString(),
     order_pending: "0",
   };
+if (service_fees !== undefined && service_fees !== null) {
+  basePayload.service_fees = parseFloat(service_fees).toFixed(2);
+}
 
   // Due Module (المنصة تدفع الباقي)
   if (due_module > 0) {

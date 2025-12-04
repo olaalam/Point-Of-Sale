@@ -367,7 +367,7 @@ const formatCashierReceipt = (receiptData) => {
             <!-- Subtotal -->
             <div class="totals-row">
                 <span>${isArabic ? "المجموع الفرعي" : "Subtotal"}</span>
-                <span>${Number(receiptData.subtotal).toFixed(2)}</span>
+                <span>${Number(receiptData.total).toFixed(2)}</span>
             </div>
 
             <!-- Discount -->
@@ -400,7 +400,7 @@ ${Number(receiptData.serviceFees) > 0 ? `
             <!-- Grand Total -->
             <div class="grand-total">
                 <span style="font-size: 18px;">${isArabic ? "الإجمالي الكلي" : "GRAND TOTAL"}</span>
-                <span style="font-size: 24px;">${Number(receiptData.total).toFixed(2)}</span>
+                <span style="font-size: 24px;">${Number(receiptData.subtotal).toFixed(2)}</span>
             </div>
 
         </div>

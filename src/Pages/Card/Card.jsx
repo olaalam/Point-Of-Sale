@@ -480,6 +480,7 @@ onVoidItem={(itemId) => {
           onClearCart={clearCart}
           clearPaidItemsOnly={clearPaidItemsOnly}
           selectedPaymentItemIds={selectedPaymentItems}
+          service_fees={calculations.totalOtherCharge}
         />
       )}
 

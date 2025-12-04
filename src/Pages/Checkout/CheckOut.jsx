@@ -43,6 +43,7 @@ const CheckOut = ({
   selectedPaymentItemIds = [],
   clearPaidItemsOnly,
   onClearCart,
+   service_fees,
 }) => {
   const cashierId = sessionStorage.getItem("cashier_id");
   const tableId = sessionStorage.getItem("table_id") || null;
@@ -497,6 +498,7 @@ const isDueModuleAllowed = (() => {
         module_id: moduleId, // 🟢 إضافة module_id
         free_discount: freeDiscount ? parseFloat(freeDiscount) : undefined, // 🟢 إضافة free_discount
         due_module: dueModuleValue > 0 ? dueModuleValue.toFixed(2) : undefined,
+         service_fees,
       });
     }
 
