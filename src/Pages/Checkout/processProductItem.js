@@ -8,47 +8,65 @@ export const processProductItem = (item) => {
   const variations =
     item.variations?.map((group) => ({
       variation_id: group.id.toString(),
-      selected_option_id: Array.isArray(group.selected_option_id)
+      option_id: Array.isArray(group.selected_option_id)
         ? group.selected_option_id.map(id => id.toString())
         : group.selected_option_id
         ? [group.selected_option_id.toString()]
         : [],
-    })).filter(v => v.selected_option_id.length > 0) || [];
+    })).filter(v => v.option_id.length > 0) || [];
 
-  // 2. Addons & Extras - كلهم بيتبعتوا كـ addons مع quantity
+  // 2. Addons - مع الـ price المطلوب
   const addons = [];
 
   if (item.addons && Array.isArray(item.addons)) {
     item.addons.forEach((addon) => {
       if (addon.addon_id && addon.quantity > 0) {
+        // نجيب سعر الـ addon من المنتج الأصلي
+        let addonPrice = 0;
+        
+        // نبحث في allExtras أو addons
+        const sourceAddon = 
+          (item.addons_list || []).find(a => a.id === addon.addon_id);
+        
+        if (sourceAddon) {
+          addonPrice = parseFloat(
+            sourceAddon.price_after_discount || 
+            sourceAddon.price_after_tax || 
+            sourceAddon.price || 
+            0
+          );
+        }
+
+        // Object structure (مع price)
         addons.push({
           addon_id: addon.addon_id.toString(),
-          quantity: addon.quantity.toString(),
+          count: addon.quantity.toString(),
+          price: addonPrice.toFixed(2), // ← السعر المطلوب
         });
       }
     });
   }
+  
+const extra_id = (item.selectedExtras || [])
+  .filter(id => (item.allExtras || []).some(e => e.id === id))
+  .map(id => id.toString());
 
-  // 3. Excludes
-  const exclude_ids = (item.selectedExcludes || [])
+
+  const exclude_id = (item.selectedExcludes || [])
     .map(id => id.toString())
     .filter(Boolean);
 
-  // 4. Notes
-  const note = item.notes?.trim() || "";
+  const note = item.notes?.trim() || "No notes";
 
-  return {
+return {
     product_id: item.id.toString(),
     count: (item.count || 1).toString(),
-    quantity: item.weight_status === 1 ? item.quantity?.toString() : undefined,
-    note: note || "No notes",
-    price: parseFloat(item.price || 0).toFixed(2),
-
-    // الهيكل اللي الـ API بيحبه
+    note,
+    price: parseFloat(item.price || 0).toFixed(2), // السعر الأساسي + الـ extras بيضاف تلقائي من الباك إند
     variation: variations,
-    addons: addons,                    // [{ addon_id: "5", quantity: "2" }]
-    exclude_id: exclude_ids,           // ["3", "7"]
-    // extra_id: [] // لو الـ Backend بيستخدمه، أضفه، لكن معظم الأنظمة بتستخدم addons بس
+    addons,          // ← [] دايمًا
+    extra_id,        // ← ده المهم بقى!
+    exclude_id,
   };
 };
 
@@ -115,7 +133,7 @@ export const buildOrderPayload = ({
   discount_id,
   module_id,
   free_discount,
-  due_module, // ← القيمة اللي المنصة هتدفعها
+  due_module,
 }) => {
   const basePayload = {
     amount: parseFloat(amountToPay).toFixed(2),

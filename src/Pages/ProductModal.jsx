@@ -566,50 +566,75 @@ const { t , i18n } = useTranslation();
                 </div>
               )}
             </div>
-            <Button
-           data-enter
-              onClick={() => {
-                const totalUnitPrice = calculateProductTotalPrice(
-                  selectedProduct,
-                  selectedVariation,
-                  selectedExtras,
-                  1
-                );
+<Button
+  data-enter
+  onClick={() => {
+    const totalUnitPrice = calculateProductTotalPrice(
+      selectedProduct,
+      selectedVariation,
+      selectedExtras,
+      1
+    );
 
-                const enhancedProduct = {
-                  ...selectedProduct,
-                  temp_id: `item-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-                  selectedVariation,
-                  selectedExtras,
-                  selectedExcludes,
-                  quantity,
-                  notes: notes.trim(), // ✅ Add notes to product
-                  price: totalUnitPrice,
-                  originalPrice: selectedProduct.price,
-                  totalPrice: totalUnitPrice * quantity,
-                  addons: selectedExtras.map(id => {
-                    const extra = (selectedProduct.allExtras || []).find(e => e.id === id) ||
-                                  (selectedProduct.addons || []).find(a => a.id === id);
-                    return extra ? { ...extra } : null;
-                  }).filter(Boolean),
-                  variations: (selectedProduct.variations || []).map(group => ({
-                    ...group,
-                    selected_option_id: Array.isArray(selectedVariation[group.id])
-                      ? selectedVariation[group.id]
-                      : selectedVariation[group.id] || null
-                  }))
-                };
+    // 🟦 فلترة الـ extras: IDs موجودة فقط في allExtras
+    const filteredExtras = selectedExtras.filter(id => 
+      (selectedProduct.allExtras || []).some(e => e.id === id)
+    );
 
-                // ✅ Pass flag to check for duplicates
-                onAddFromModal(enhancedProduct, { checkDuplicate: true });
-                setNotes(""); // Clear notes after adding
-                onClose();
-              }}
-              disabled={orderLoading || hasErrors || (isWeightProduct && (!quantity || quantity <= 0))}
-              className="w-full"
-            >
-              {orderLoading ? t("Adding") : t("AddtoCart")}
-            </Button>
+    // 🟧 فلترة الـ addons: IDs موجودة فقط في addons_list
+    const filteredAddons = selectedExtras.filter(id => 
+      (selectedProduct.addons || []).some(a => a.id === id)
+    );
+
+    // 🟨 بناء addons للباك إند
+    const addonsForBackend = filteredAddons.map(addonId => {
+      const src = (selectedProduct.addons || []).find(a => a.id === addonId);
+      return {
+        addon_id: addonId,
+        quantity: 1,
+        price: src ? parseFloat(
+          src.price_after_discount ||
+          src.price_after_tax ||
+          src.price ||
+          0
+        ) : 0,
+      };
+    });
+
+    // 👇 بناء المنتج النهائي
+    const enhancedProduct = {
+      ...selectedProduct,
+      temp_id: `item-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      selectedVariation,
+      selectedExtras: filteredExtras,  // ← extras فقط
+      selectedExcludes,
+      quantity,
+      notes: notes.trim(),
+      price: totalUnitPrice,
+      originalPrice: selectedProduct.price,
+      totalPrice: totalUnitPrice * quantity,
+      addons: addonsForBackend,        // ← addons فقط
+      allExtras: selectedProduct.allExtras,
+      addons_list: selectedProduct.addons,
+      variations: (selectedProduct.variations || []).map(group => ({
+        ...group,
+        selected_option_id: Array.isArray(selectedVariation[group.id])
+          ? selectedVariation[group.id]
+          : selectedVariation[group.id] || null
+      })),
+    };
+
+    // إرسال للكارت
+    onAddFromModal(enhancedProduct, { checkDuplicate: true });
+    setNotes("");
+    onClose();
+  }}
+  disabled={orderLoading || hasErrors || (isWeightProduct && (!quantity || quantity <= 0))}
+  className="w-full"
+>
+  {orderLoading ? t("Adding") : t("AddtoCart")}
+</Button>
+
           </div>
         </div>
       </DialogContent>
