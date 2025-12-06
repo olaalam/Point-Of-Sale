@@ -39,9 +39,9 @@ const PrintableReport = React.forwardRef(({ reportData, t, formatAmount, isArabi
   const { shift, financial_accounts, totals, stats } = reportData;
   const showFullReport = reportData.report_role === "all";
   
-  // إصلاح الخطأ الحسابي هنا بإضافة ||
   const netCashInDrawer = ((reportData.total_amount || 0) - (reportData.expenses_total || 0));
 
+  // ✅ نفس المنطق من الـ UI الأصلي
   const orderTypes = [
     { key: "dine_in", label: t("DineIn"), icon: "🍽️", data: reportData.dine_in },
     { key: "take_away", label: t("TakeAway"), icon: "🥡", data: reportData.take_away },
@@ -49,33 +49,14 @@ const PrintableReport = React.forwardRef(({ reportData, t, formatAmount, isArabi
     { key: "online", label: t("OnlineOrders"), icon: "💻", data: reportData.online_order },
   ];
 
-  let grandTotal = 0;
-  let grandCount = 0;
-
-  // حساب الإجماليات للطباعة
-  orderTypes.forEach((type) => {
-    if (type.key === "online") {
-      const paid = type.data?.paid || [];
-      const unpaid = type.data?.un_paid || [];
-      grandCount += paid.length + unpaid.length;
-      [...paid, ...unpaid].forEach(p => {
-        grandTotal += p.amount || 0;
-      });
-    } else {
-      grandCount += type.data?.order_count || 0;
-      grandTotal += type.data?.amount || 0;
-    }
-  });
-
   return (
     <div ref={ref} className="print-report-container" style={{ display: 'none' }}>
 <style>
 {`
   @media print {
     @page {
-      size: 100% auto;
-      margin: 0;
-      padding: 0;
+      size: A4;
+      margin: 10mm;
     }
 
     * { 
@@ -86,12 +67,11 @@ const PrintableReport = React.forwardRef(({ reportData, t, formatAmount, isArabi
 
     html, body {
       width: 100% !important;
-      min-height: 100% !important;
       margin: 0 !important;
       padding: 0 !important;
       font-family: 'Tahoma', 'Arial', sans-serif;
-      font-size: 10px;
-      line-height: 1.4;
+      font-size: 11px;
+      line-height: 1.5;
       direction: ${isArabic ? "rtl" : "ltr"};
       background: white !important;
       color: black !important;
@@ -99,60 +79,92 @@ const PrintableReport = React.forwardRef(({ reportData, t, formatAmount, isArabi
 
     .print-wrapper {
       width: 100% !important;
-      padding: 3mm 2mm !important;
-      direction: ${isArabic ? 'rtl' : 'ltr'};
+      padding: 5mm !important;
     }
 
-    /* ─── الجدول يأخذ العرض الكامل + ديزاين فاخر ─── */
+    /* ─── الجدول ─── */
     .print-table {
       width: 100% !important;
       border-collapse: collapse;
-      margin: 6px 0 !important;
-      font-size: 9.5px;
-      background: white;
+      margin: 8px 0 !important;
+      font-size: 10px;
     }
 
     .print-table th,
     .print-table td {
-      border: 1px solid #000 !important;
-      padding: 6px 4px !important;
+      border: 1px solid #333 !important;
+      padding: 6px 8px !important;
       text-align: ${isArabic ? 'right' : 'left'} !important;
     }
 
     .print-table th {
+      background: white !important;
       color: black !important;
       font-weight: bold;
-      font-size: 10px;
       text-align: center !important;
+      border: 2px solid #333 !important;
     }
 
-
-
-
-
+    /* ✅ إزالة الخلفية السوداء من آخر صف */
     .print-table tbody tr:last-child {
+      background: white !important;
       color: black !important;
       font-weight: bold;
-      font-size: 11px;
+      border: 2px solid #333 !important;
     }
 
     .print-table tbody tr:last-child td {
-      color: black !important;
+      border: 2px solid #333 !important;
     }
 
-    /* ─── تحسين باقي العناصر ─── */
+    /* ─── بطاقة نوع الطلب ─── */
+    .print-order-card {
+      border: 2px solid #333;
+      margin: 8px 0;
+      page-break-inside: avoid;
+    }
+
+    .print-order-header {
+      background: white !important;
+      color: black !important;
+      padding: 8px;
+      border-bottom: 2px solid #333;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-weight: bold;
+    }
+
+    .print-payment-breakdown {
+      padding: 6px 8px;
+      background: white;
+    }
+
+    .print-payment-row {
+      display: flex;
+      justify-content: space-between;
+      padding: 3px 0;
+      font-size: 9px;
+      border-bottom: 1px dashed #ccc;
+    }
+
+    /* ─── باقي العناصر ─── */
     .print-section {
-      margin: 8px 0 !important;
+      margin: 10px 0 !important;
+      page-break-inside: avoid;
     }
 
+    /* ✅ إزالة الخلفية السوداء من العناوين */
     .print-section-title {
+      background: white !important;
       color: black !important;
-      padding: 6px 4px !important;
+      padding: 6px 8px !important;
       text-align: center;
       font-weight: bold;
       font-size: 12px;
-      border-radius: 4px;
-      margin-bottom: 6px !important;
+      margin-bottom: 8px !important;
+      border: 2px solid #333 !important;
+      text-transform: uppercase;
     }
 
     .print-row {
@@ -163,213 +175,286 @@ const PrintableReport = React.forwardRef(({ reportData, t, formatAmount, isArabi
       border-bottom: 1px dashed #999;
     }
 
-    .print-row-label { font-weight: normal; }
-    .print-row-value { font-weight: bold; }
-
     .print-divider {
-      border-top: 2px dashed #000 !important;
-      margin: 10px 0 !important;
+      border-top: 2px solid #333 !important;
+      margin: 8px 0 !important;
     }
 
+    /* ✅ إزالة الخلفية السوداء من صندوق الإجمالي */
     .print-total-box {
+      background: white !important;
       color: black !important;
-      padding: 12px 8px !important;
+      padding: 12px !important;
       text-align: center;
-      border: 3px  black;
-      border-radius: 6px;
       margin: 12px 0 !important;
-    }
-
-    .print-total-label {
-      font-size: 11px;
-      opacity: 0.9;
+      page-break-inside: avoid;
+      border: 3px solid #333 !important;
     }
 
     .print-total-value {
-      font-size: 22px !important;
+      font-size: 20px !important;
       font-weight: bold;
-      letter-spacing: 1px;
+      color: black !important;
     }
 
-    .print-header, .print-footer {
+    .print-header {
       text-align: center;
       padding: 8px 0;
+      border-bottom: 2px solid #333;
+      margin-bottom: 10px;
     }
 
     .print-title {
-      font-size: 16px;
+      font-size: 18px;
       font-weight: bold;
-      letter-spacing: 1px;
+      color: black !important;
     }
 
     .print-footer {
-      border-top: 3px double #000;
+      border-top: 2px solid #333;
       padding-top: 10px;
       margin-top: 15px;
+      text-align: center;
       font-size: 9px;
+      color: black !important;
     }
 
-    /* إخفاء أي شيء خارج الطباعة */
-    .print-report-container {
-      display: block !important;
+    /* ✅ جدول المصروفات بدون خلفية سوداء */
+    .print-expense-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 8px 0;
     }
-  }
 
-  /* لإخفاء المكون قبل الطباعة */
-  .print-report-container {
-    position: absolute;
-    left: -9999px;
-    top: 0;
+    .print-expense-table th,
+    .print-expense-table td {
+      border: 1px solid #333;
+      padding: 6px;
+      text-align: center;
+      background: white !important;
+      color: black !important;
+    }
+
+    .print-expense-table th {
+      font-weight: bold;
+      border: 2px solid #333 !important;
+    }
+
+    .print-expense-total {
+      background: white !important;
+      color: black !important;
+      font-weight: bold;
+      border: 2px solid #333 !important;
+    }
+
+    .print-expense-total td {
+      border: 2px solid #333 !important;
+    }
+
+    /* ✅ إزالة أي opacity */
+    * {
+      opacity: 1 !important;
+    }
   }
 `}
 </style>
+
       <div className="print-wrapper">
-        {/* محتوى التقرير المطبوع */}
+        {/* Header */}
         <div className="print-header">
           <div className="print-title">📋 {t("EndShiftReport")}</div>
-          <div className="print-subtitle">
+          <div style={{ fontSize: '10px', marginTop: '4px' }}>
             {new Date().toLocaleDateString(isArabic ? 'ar-EG' : 'en-US')} - {new Date().toLocaleTimeString(isArabic ? 'ar-EG' : 'en-US', { hour: '2-digit', minute: '2-digit' })}
           </div>
         </div>
 
-        {/* معلومات الشيفت */}
+        {/* Shift Info */}
         {showFullReport && shift && (
           <div className="print-section">
             <div className="print-section-title">📊 {t("ShiftInfo")}</div>
-            <div className="print-info-grid">
-              <div className="print-info-item">
-                <span>{t("Employee")}: </span>
-                <strong>{shift.employee_name}</strong>
-              </div>
-              <div className="print-info-item">
-                <span>{t("ShiftDuration")}: </span>
-                <strong>{shift.duration}</strong>
-              </div>
-              <div className="print-info-item">
-                <span>{t("TotalOrders")}: </span>
-                <strong>{stats?.total_orders ?? 0}</strong>
-              </div>
+            <div className="print-row">
+              <span>{t("Employee")}:</span>
+              <strong>{shift.employee_name}</strong>
+            </div>
+            <div className="print-row">
+              <span>{t("ShiftDuration")}:</span>
+              <strong>{shift.duration}</strong>
+            </div>
+            <div className="print-row">
+              <span>{t("TotalOrders")}:</span>
+              <strong>{reportData?.order_count || 0}</strong>
             </div>
           </div>
         )}
 
-        {/* الحسابات المالية */}
+        {/* Financial Accounts */}
         <div className="print-section">
           <div className="print-section-title">💰 {t("FinancialSummary")}</div>
-          {financial_accounts?.map((acc) => (
-            <div key={acc.financial_id} className="print-row">
-              <span className="print-row-label">{acc.financial_name}</span>
-              <span className="print-row-value">{formatAmount(acc.total_amount)}</span>
-            </div>
-          ))}
+          {financial_accounts?.map((acc) => {
+            const total = 
+              (acc.total_amount_dine_in || 0) +
+              (acc.total_amount_take_away || 0) +
+              (acc.total_amount_delivery || 0);
+
+            return (
+              <div key={acc.financial_id} style={{ marginBottom: '8px', border: '1px solid #333', padding: '6px' }}>
+                <div className="print-row" style={{ fontWeight: 'bold', borderBottom: 'none' }}>
+                  <span>{acc.financial_name}</span>
+                  <span>{formatAmount(total)}</span>
+                </div>
+                {(acc.total_amount_dine_in > 0 || acc.total_amount_take_away > 0 || acc.total_amount_delivery > 0) && (
+                  <div style={{ fontSize: '9px', marginTop: '4px', paddingTop: '4px', borderTop: '1px dashed #ccc' }}>
+                    {acc.total_amount_dine_in > 0 && (
+                      <div className="print-row" style={{ padding: '2px 0' }}>
+                        <span>Dine In</span>
+                        <span>{formatAmount(acc.total_amount_dine_in)}</span>
+                      </div>
+                    )}
+                    {acc.total_amount_take_away > 0 && (
+                      <div className="print-row" style={{ padding: '2px 0' }}>
+                        <span>Take Away</span>
+                        <span>{formatAmount(acc.total_amount_take_away)}</span>
+                      </div>
+                    )}
+                    {acc.total_amount_delivery > 0 && (
+                      <div className="print-row" style={{ padding: '2px 0' }}>
+                        <span>Delivery</span>
+                        <span>{formatAmount(acc.total_amount_delivery)}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
           <div className="print-divider" />
-          <div className="print-row" style={{ fontSize: '11px' }}>
-            <span><strong>{t("TotalCashInShift")}</strong></span>
-            <span><strong>{formatAmount(totals?.grand_total)}</strong></span>
+          <div className="print-row" style={{ fontSize: '12px', fontWeight: 'bold' }}>
+            <span>{t("TotalCashInShift")}</span>
+            <span>{formatAmount(totals?.grand_total)}</span>
           </div>
         </div>
 
-        {/* تفاصيل الطلبات */}
+        {/* Orders by Type with Payment Methods */}
         {showFullReport && (
           <>
             <div className="print-section">
               <div className="print-section-title">🛒 {t("OrdersSummaryByType")}</div>
-              <table className="print-table">
-                <thead>
-                  <tr>
-                    <th>{t("Type")}</th>
-                    <th style={{ textAlign: 'center' }}>{t("Count")}</th>
-                    <th>{t("Amount")}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {orderTypes.map((type) => {
-                    let typeTotal = 0;
-                    let typeCount = 0;
+              
+              {orderTypes.map((type) => {
+                let typeTotal = 0;
+                let typeCount = 0;
+                let paymentMethods = [];
 
-                    if (type.key === "online") {
-                      const paid = type.data?.paid || [];
-                      const unpaid = type.data?.un_paid || [];
-                      typeCount = paid.length + unpaid.length;
-                      [...paid, ...unpaid].forEach(p => {
-                        typeTotal += p.amount || 0;
-                      });
-                    } else {
-                      typeCount = type.data?.count || 0;
-                      typeTotal = type.data?.amount || 0;
+                // ✅ نفس المنطق من الـ UI
+                if (type.key === "online") {
+                  const paid = type.data?.paid || [];
+                  const unpaid = type.data?.un_paid || [];
+                  typeCount = paid.length + unpaid.length;
+                  const allPayments = [...paid, ...unpaid];
+                  const methodsMap = {};
+
+                  allPayments.forEach(p => {
+                    const methodName = p.payment_method || t("Unknown");
+                    if (!methodsMap[methodName]) {
+                      methodsMap[methodName] = { amount: 0, count: 0 };
                     }
+                    methodsMap[methodName].amount += p.amount || 0;
+                    methodsMap[methodName].count += 1;
+                    typeTotal += p.amount || 0;
+                  });
 
-                    if (typeCount === 0) return null;
+                  paymentMethods = Object.entries(methodsMap).map(([name, data]) => ({ name, ...data }));
+                } else {
+                  typeCount = type.data?.count || 0;
+                  typeTotal = type.data?.amount || 0;
 
-                    return (
-                      <tr key={type.key}>
-                        <td>{type.icon} {type.label}</td>
-                        <td style={{ textAlign: 'center' }}>{typeCount}</td>
-                        <td>{formatAmount(typeTotal)}</td>
-                      </tr>
-                    );
-                  })}
-                  <tr style={{  fontWeight: 'bold' }}>
-                    <td>{t("Total")}</td>
-                    <td style={{ textAlign: 'center' }}>{grandCount}</td>
-                    <td>{formatAmount(grandTotal)}</td>
-                  </tr>
-                </tbody>
-              </table>
+                  if (type.data?.financial_accounts) {
+                    paymentMethods = type.data.financial_accounts.map(acc => ({
+                      name: acc.financial_name || acc.payment_method,
+                      amount: acc.total_amount || acc.amount,
+                      count: acc.count || 1
+                    }));
+                  }
+                }
+
+                if (typeCount === 0) return null;
+
+                return (
+                  <div key={type.key} className="print-order-card">
+                    <div className="print-order-header">
+                      <div>
+                        <span style={{ marginRight: '4px' }}>{type.icon}</span>
+                        <strong>{type.label}</strong>
+                        <span style={{ fontSize: '9px', marginLeft: '6px' }}>({typeCount} {t("Orders")})</span>
+                      </div>
+                      <strong>{formatAmount(typeTotal)}</strong>
+                    </div>
+                    
+                    {paymentMethods.length > 0 && (
+                      <div className="print-payment-breakdown">
+                        {paymentMethods.map((method, idx) => (
+                          <div key={idx} className="print-payment-row">
+                            <span>{method.name}</span>
+                            <span>{formatAmount(method.amount)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
 
-            {/* المصروفات */}
+            {/* Expenses */}
             {reportData.expenses?.length > 0 && (
               <div className="print-section">
                 <div className="print-section-title">📝 {t("Expenses")}</div>
-                {reportData.expenses.map((exp, idx) => (
-                  <div key={idx} className="print-expense-row">
-                    <span>{exp.description || exp.name}</span>
-                    <span>-{formatAmount(exp.amount, "")}</span>
-                  </div>
-                ))}
-                <div className="print-divider" />
-                <div className="print-row" style={{ color: '#c00', fontWeight: 'bold' }}>
-                  <span>{t("TotalExpenses")}</span>
-                  <span>-{formatAmount(reportData.expenses_total)}</span>
-                </div>
+                <table className="print-expense-table">
+                  <thead>
+                    <tr>
+                      <th>#</th>
+                      <th>{t("Description")}</th>
+                      <th>{t("Amount")}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {reportData.expenses.map((exp, idx) => (
+                      <tr key={idx}>
+                        <td>{idx + 1}</td>
+                        <td>{exp.financial_account}</td>
+                        <td>-{formatAmount(exp.total, "")}</td>
+                      </tr>
+                    ))}
+                    <tr className="print-expense-total">
+                      <td colSpan="2">{t("TotalExpenses")}</td>
+                      <td>-{formatAmount(reportData.expenses_total)}</td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
             )}
 
-            {/* الإجمالي النهائي */}
+            {/* Net Cash */}
             <div className="print-total-box">
-              <div className="print-total-label">✅ {t("NetCashInDrawer")}</div>
+              <div style={{ fontSize: '11px', marginBottom: '6px' }}>✅ {t("NetCashInDrawer")}</div>
               <div className="print-total-value">{formatAmount(netCashInDrawer)}</div>
-            </div>
-
-            {/* إحصائيات إضافية */}
-            {stats && (
-              <div className="print-section">
-                <div className="print-row">
-                  <span>{t("TotalSales")}</span>
-                  <span>{formatAmount(stats.total_sales, "")}</span>
-                </div>
-                <div className="print-row">
-                  <span>{t("NetCash")}</span>
-                  <span>{formatAmount(stats.net_cash ?? totals?.grand_total, "")}</span>
-                </div>
+              <div style={{ fontSize: '9px', marginTop: '4px', opacity: 0.8 }}>
+                ({t("TotalCashInShift")} - {t("TotalExpenses")})
               </div>
-            )}
+            </div>
           </>
         )}
 
-        {/* تذييل */}
+        {/* Footer */}
         <div className="print-footer">
           <div>━━━━━━━━━━━━━━━━━━━━</div>
           <div style={{ margin: '4px 0' }}>🙏 {t("ThankYou") || "شكراً لكم"}</div>
           <div>{t("PoweredBy") || "Powered by POS"}</div>
-          <div>━━━━━━━━━━━━━━━━━━━━</div>
         </div>
       </div>
     </div>
   );
 });
-
 PrintableReport.displayName = 'PrintableReport';
 
 // ─── المكون الرئيسي ───
@@ -668,17 +753,17 @@ export default function EndShiftReportModal({ reportData, onClose, onConfirmClos
 
                         {/* Grand Total Card */}
                         <div className="mt-4 bg-gray-800 text-white rounded-lg p-5 shadow-md">
-                          <div className="flex items-center justify-between">
+                          <div className="flex items-center justify-center">
                             <div>
                               <p className="text-sm opacity-80 mb-1">{t("TotalAllOrders")}</p>
                               <p className="text-2xl font-black"> {t("Orders")} {reportData?.order_count || 0} </p>
                             </div>
-                            <div className="text-right">
+                            {/* <div className="text-right">
                               <p className="text-sm opacity-80 mb-1">{t("TotalAmount")}</p>
                               <p className="text-3xl font-black">
                                 {formatAmount(grandTotal, t("EGP"))}
                               </p>
-                            </div>
+                            </div> */}
                           </div>
                         </div>
                       </>
@@ -688,42 +773,60 @@ export default function EndShiftReportModal({ reportData, onClose, onConfirmClos
               </div>
 
               {/* ─── المصروفات ─── */}
-              {reportData.expenses?.length > 0 && (
-                <div>
-                  <SectionHeader icon={FaReceipt} title={`${t("Expenses")} (${reportData.expenses.length})`} />
+{reportData.expenses?.length > 0 && (
+  <div className="mt-6">
+    <SectionHeader 
+      icon={FaReceipt} 
+      title={`${t("Expenses")} (${reportData.expenses.length})`} 
+    />
 
-                  <div className="overflow-x-auto rounded-lg border border-gray-200">
-                    <table className="min-w-full bg-white text-sm">
-                      <thead className="bg-gray-100 border-b border-gray-200">
-                        <tr>
-                          <th className="px-4 py-2 text-right text-xs font-semibold text-gray-600 uppercase">#</th>
-                          <th className="px-4 py-2 text-right text-xs font-semibold text-gray-600 uppercase">{t("Description")}</th>
-                          <th className="px-4 py-2 text-right text-xs font-semibold text-gray-600 uppercase">{t("Note")}</th>
-                          <th className="px-4 py-2 text-left text-xs font-semibold text-gray-600 uppercase">{t("Amount")} ({t("EGP")})</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-100">
-                        {reportData.expenses.map((exp, idx) => (
-                          <tr key={idx} className="hover:bg-gray-50">
-                            <td className="px-4 py-2 text-right text-gray-600">{idx + 1}</td>
-                            <td className="px-4 py-2 text-right font-medium text-gray-800">{exp.description || exp.name}</td>
-                            <td className="px-4 py-2 text-right text-gray-500">{exp.note || "-"}</td>
-                            <td className="px-4 py-2 text-left font-bold text-red-600">
-                              -{formatAmount(exp.amount, "")}
-                            </td>
-                          </tr>
-                        ))}
-                        <tr className="bg-gray-800 text-white font-bold">
-                          <td colSpan={3} className="px-4 py-3 text-right text-base">{t("TotalExpenses")}</td>
-                          <td className="px-4 py-3 text-left text-lg">
-                            -{formatAmount(reportData.expenses_total)}
-                          </td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
+    <div className="overflow-x-auto rounded-xl border border-gray-300 shadow-sm">
+      <table className="min-w-full bg-white text-sm">
+        
+        {/* Header */}
+        <thead className="bg-gray-100 border-b border-gray-300">
+          <tr className="[&>th]:px-4 [&>th]:py-3 [&>th]:font-semibold [&>th]:uppercase text-xs text-gray-700">
+            <th className="text-center w-16">#</th>
+            <th className="text-center">{t("Description")}</th>
+            <th className="text-center">{t("Amount")} ({t("EGP")})</th>
+          </tr>
+        </thead>
+
+        {/* Body */}
+        <tbody className="divide-y divide-gray-100">
+          {reportData.expenses.map((exp, idx) => (
+            <tr 
+              key={idx}
+              className="hover:bg-gray-50 transition-colors duration-150 [&>td]:px-4 [&>td]:py-3"
+            >
+              <td className="text-center text-gray-700">{idx + 1}</td>
+
+              <td className="text-center font-medium text-gray-800">
+                {exp.financial_account}
+              </td>
+
+              <td className="text-center font-bold text-red-600">
+                -{formatAmount(exp.total, "")}
+              </td>
+            </tr>
+          ))}
+
+          {/* Total Row 👉 الآن مضبوط 100% */}
+          <tr className="bg-gray-800 text-white font-semibold">
+            <td colSpan={2} className="px-4 py-3 text-center text-base">
+              {t("TotalExpenses")}
+            </td>
+            <td className="px-4 py-3 text-center text-lg font-bold">
+              -{formatAmount(reportData.expenses_total)}
+            </td>
+          </tr>
+
+        </tbody>
+      </table>
+    </div>
+  </div>
+)}
+
 
               {/* ─── الإجمالي النهائي الصافي */}
               <div className="p-5 bg-gray-800 text-white rounded-lg text-center shadow-lg border border-gray-700">
