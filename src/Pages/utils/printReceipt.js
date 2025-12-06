@@ -842,7 +842,7 @@ export const printReceiptSilently = async (
           );
 
           return {
-            qty: kitchenItem.count || "1",
+            qty: kitchenItem.order_count || "1",
             name: kitchenItem.name || originalItem?.name || "غير معروف",
             notes: kitchenItem.notes || originalItem?.notes || "",
 
@@ -851,6 +851,8 @@ export const printReceiptSilently = async (
             extras: originalItem?.extras || [],
             excludes: originalItem?.excludes || [],
             variations: originalItem?.variations || [],
+
+
 
             id: kitchenItem.id || kitchenItem.product_id,
           };
