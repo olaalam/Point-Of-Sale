@@ -261,7 +261,7 @@ export default function VoidOrderModal({
               {t("ManagerID")} <span className="text-red-500">*</span>
             </label>
             <Input
-              type="text"
+              type="number"
               placeholder={t("EnterManagerID")}
               value={managerId}
               onChange={(e) => setManagerId(e.target.value)}
