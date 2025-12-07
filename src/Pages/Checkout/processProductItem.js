@@ -113,6 +113,7 @@ export const getOrderEndpoint = (orderType, orderItems, totalDineInItems, hasDea
   return "cashier/take_away_order";
 };
 
+
 /**
  * بناء الـ Payload الأساسي - مظبوط 100% بدون أخطاء
  */
@@ -133,8 +134,9 @@ export const buildOrderPayload = ({
   discount_id,
   module_id,
   free_discount,
-   service_fees,
+  service_fees,
   due_module,
+  password, // ← جديد: الباسوورد بتاع الـ free_discount
 }) => {
   const basePayload = {
     amount: parseFloat(amountToPay).toFixed(2),
@@ -147,9 +149,10 @@ export const buildOrderPayload = ({
     due: due.toString(),
     order_pending: "0",
   };
-if (service_fees !== undefined && service_fees !== null) {
-  basePayload.service_fees = parseFloat(service_fees).toFixed(2);
-}
+
+  if (service_fees !== undefined && service_fees !== null) {
+    basePayload.service_fees = parseFloat(service_fees).toFixed(2);
+  }
 
   // Due Module (المنصة تدفع الباقي)
   if (due_module > 0) {
@@ -164,9 +167,14 @@ if (service_fees !== undefined && service_fees !== null) {
     basePayload.module_id = module_id.toString();
   }
 
-  // Free Discount (نسبة المنصة)
-  if (free_discount > 0) {
+  // Free Discount + Password
+  if (free_discount && free_discount > 0) {
     basePayload.free_discount = free_discount.toString();
+    
+    // الباسوورد يتبعت فقط لو فيه free_discount
+    if (password && password.trim()) {
+      basePayload.password = password.trim(); // المفتاح اللي عايزاه بالظبط
+    }
   }
 
   // طلب آجل عادي (مش Due Module)
@@ -203,7 +211,6 @@ if (service_fees !== undefined && service_fees !== null) {
     products,
   };
 };
-
 /**
  * Deal Payload
  */

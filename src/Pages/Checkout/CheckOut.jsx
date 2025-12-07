@@ -29,7 +29,8 @@ import {
   printReceiptSilently,
 } from "../utils/printReceipt";
 import { useTranslation } from "react-i18next";
-import { useIsDueModuleAllowed } from "../utils/dueModuleUtils";
+// import { useIsDueModuleAllowed } from "../utils/dueModuleUtils";
+import FreeDiscountPasswordModal from "./FreeDiscountPasswordModal";
 
 const CheckOut = ({
   amountToPay,
@@ -50,10 +51,11 @@ const CheckOut = ({
   const baseUrl = import.meta.env.VITE_API_BASE_URL;
   const { t } = useTranslation();
   const lastSelectedGroup = sessionStorage.getItem("last_selected_group") 
-  const [dueModuleAmount, setDueModuleAmount] = useState(0);
+  // const [dueModuleAmount, setDueModuleAmount] = useState(0);
   const { data: groupData } = useGet("cashier/group_product"); // الـ API اللي جبته
 const groupProducts = groupData?.group_product || [];
-
+const [passwordModalOpen, setPasswordModalOpen] = useState(false);
+const [pendingFreeDiscountPassword, setPendingFreeDiscountPassword] = useState("");
 const isDueModuleAllowed = (() => {
   if (!orderType || !groupProducts || groupProducts.length === 0) return false;
 
@@ -438,131 +440,138 @@ const isDueModuleAllowed = (() => {
     return acc?.name?.toLowerCase().includes("visa");
   };
 
-  const proceedWithOrderSubmission = async (
-    due = 0,
-    customer_id = undefined,
-    dueModuleValue = 0
-  ) => {
-    const safeOrderItems = Array.isArray(orderItems) ? orderItems : [];
+const proceedWithOrderSubmission = async (
+  due = 0,
+  customer_id = undefined,
+  dueModuleValue = 0,
+  forcedPassword = null // جديد
+) => {
+  const freeDiscountValue = parseFloat(freeDiscount) || 0;
 
-    const isDineIn = orderType === "dine_in";
-    const hasSelectedItems = selectedPaymentItemIds.length > 0;
-    const totalItemsCount = orderItems.length;
-    const allItemsSelected =
-      hasSelectedItems && selectedPaymentItemIds.length === totalItemsCount;
+  // لو فيه free_discount ومفيش password (ولا تم ادخاله قبل كده)
+  if (freeDiscountValue > 0 && !forcedPassword && !pendingFreeDiscountPassword) {
+    setPasswordModalOpen(true);
+    return; // نوقف هنا لحد ما يدخل الباسوورد
+  }
 
-    const isPartialPayment = isDineIn && hasSelectedItems && !allItemsSelected;
+  const safeOrderItems = Array.isArray(orderItems) ? orderItems : [];
+  const isDineIn = orderType === "dine_in";
+  const hasSelectedItems = selectedPaymentItemIds.length > 0;
+  const totalItemsCount = orderItems.length;
+  const allItemsSelected =
+    hasSelectedItems && selectedPaymentItemIds.length === totalItemsCount;
+  const isPartialPayment = isDineIn && hasSelectedItems && !allItemsSelected;
+  const hasDealItems = safeOrderItems.some((item) => item.is_deal);
+  const endpoint = getOrderEndpoint(
+    orderType,
+    safeOrderItems,
+    totalDineInItems,
+    hasDealItems
+  );
+  const financialsPayload = buildFinancialsPayload(
+    paymentSplits,
+    financialAccounts
+  );
 
-    const hasDealItems = safeOrderItems.some((item) => item.is_deal);
-    const endpoint = getOrderEndpoint(
+  const moduleId = sessionStorage.getItem("module_id");
+  let payload;
+  if (hasDealItems) {
+    payload = buildDealPayload(safeOrderItems, financialsPayload);
+  } else {
+    const finalDiscountId =
+      selectedDiscountAmount > 0 ? finalSelectedDiscountId : null;
+
+    payload = buildOrderPayload({
       orderType,
-      safeOrderItems,
-      totalDineInItems,
-      hasDealItems
-    );
-    const financialsPayload = buildFinancialsPayload(
-      paymentSplits,
-      financialAccounts
-    );
+      orderItems: safeOrderItems,
+      amountToPay: requiredTotal,
+      totalTax,
+      totalDiscount:
+        appliedDiscount > 0
+          ? amountToPay * (appliedDiscount / 100)
+          : discountData.module.includes(orderType)
+          ? amountToPay * (discountData.discount / 100)
+          : totalDiscount,
+      notes: orderNotes.trim() || "No special instructions",
+      source,
+      financialsPayload,
+      cashierId,
+      tableId,
+      customerPaid: customerPaid || undefined,
+      discountCode: appliedDiscount > 0 ? discountCode : undefined,
+      due: due,
+      user_id: customer_id,
+      discount_id: selectedDiscountId,
+      module_id: moduleId,
+      free_discount: freeDiscountValue > 0 ? freeDiscountValue : undefined,
+      due_module: dueModuleValue > 0 ? dueModuleValue.toFixed(2) : undefined,
+      service_fees,
+      // الجديد: باسوورد الخصم المجاني
+      password: forcedPassword || pendingFreeDiscountPassword || undefined,
+    });
+  }
 
-    // 🟢 جلب module_id من sessionStorage
-    const moduleId = sessionStorage.getItem("module_id");
+  try {
+    const response = await postData(endpoint, payload, {
+      headers: { "Content-Type": "application/json" },
+    });
 
-    let payload;
-    if (hasDealItems) {
-      payload = buildDealPayload(safeOrderItems, financialsPayload);
-    } else {
-      const finalDiscountId =
-        selectedDiscountAmount > 0 ? finalSelectedDiscountId : null;
-      payload = buildOrderPayload({
-        orderType,
-        orderItems: safeOrderItems,
-        amountToPay: requiredTotal,
-        totalTax,
-        totalDiscount:
-          appliedDiscount > 0
-            ? amountToPay * (appliedDiscount / 100)
-            : discountData.module.includes(orderType)
-            ? amountToPay * (discountData.discount / 100)
-            : totalDiscount,
-        notes: orderNotes.trim() || "No special instructions",
-        source,
-        financialsPayload,
-        cashierId,
-        tableId,
-        customerPaid: customerPaid || undefined,
-        discountCode: appliedDiscount > 0 ? discountCode : undefined,
-        due: due,
-        user_id: customer_id,
-        discount_id: selectedDiscountId,
-        module_id: moduleId, // 🟢 إضافة module_id
-        free_discount: freeDiscount ? parseFloat(freeDiscount) : undefined, // 🟢 إضافة free_discount
-        due_module: dueModuleValue > 0 ? dueModuleValue.toFixed(2) : undefined,
-         service_fees,
-      });
-    }
+    if (response?.success) {
+      toast.success(due === 1 ? t("DueOrderCreated") : t("OrderPlaced"));
 
-    try {
-      const response = await postData(endpoint, payload, {
-        headers: { "Content-Type": "application/json" },
-      });
-
-      if (response?.success) {
-        toast.success(due === 1 ? t("DueOrderCreated") : t("OrderPlaced"));
-
-        const handleNavigation = () => {
-          if (orderType === "delivery") {
-            sessionStorage.removeItem("selected_user_id");
-            sessionStorage.removeItem("selected_user_data");
-            sessionStorage.removeItem("selected_address_id");
-            sessionStorage.removeItem("selected_address_data");
-            setDeliveryModelOpen(false);
-          }
-
-          if (orderType === "dine_in" && selectedPaymentItemIds.length > 0) {
-            clearPaidItemsOnly();
-          } else {
-            onClearCart();
-          }
-
-          sessionStorage.setItem("last_order_type", orderType);
-
-          if (orderType === "delivery" && response?.success?.id) {
-            setOrderId(response.success.id);
-            setDeliveryModelOpen(true);
-          } else {
-            onClose();
-          }
-        };
-
-        if (due === 0) {
-          const receiptData = prepareReceiptData(
-            safeOrderItems,
-            amountToPay,
-            totalTax,
-            totalDiscount,
-            appliedDiscount,
-            discountData,
-            orderType,
-            requiredTotal,
-            response.success,
-            response
-          );
-
-          printReceiptSilently(receiptData, response, () => {
-            handleNavigation();
-          });
-        } else {
-          handleNavigation();
+      // Reset password after success
+      setPendingFreeDiscountPassword("");
+      
+      const handleNavigation = () => {
+        // ... نفس الكود اللي عندك
+        if (orderType === "delivery") {
+          sessionStorage.removeItem("selected_user_id");
+          sessionStorage.removeItem("selected_user_data");
+          sessionStorage.removeItem("selected_address_id");
+          sessionStorage.removeItem("selected_address_data");
+          setDeliveryModelOpen(false);
         }
+        if (orderType === "dine_in" && selectedPaymentItemIds.length > 0) {
+          clearPaidItemsOnly();
+        } else {
+          onClearCart();
+        }
+        sessionStorage.setItem("last_order_type", orderType);
+        if (orderType === "delivery" && response?.success?.id) {
+          setOrderId(response.success.id);
+          setDeliveryModelOpen(true);
+        } else {
+          onClose();
+        }
+      };
+
+      if (due === 0) {
+        const receiptData = prepareReceiptData(
+          safeOrderItems,
+          amountToPay,
+          totalTax,
+          totalDiscount,
+          appliedDiscount,
+          discountData,
+          orderType,
+          requiredTotal,
+          response.success,
+          response
+        );
+        printReceiptSilently(receiptData, response, () => {
+          handleNavigation();
+        });
       } else {
-        toast.error(response?.message || t("FailedToProcessOrder"));
+        handleNavigation();
       }
-    } catch (e) {
-      console.error("Submit error:", e);
-      toast.error(e.message || t("SubmissionFailed"));
+    } else {
+      toast.error(response?.message || t("FailedToProcessOrder"));
     }
-  };
+  } catch (e) {
+    console.error("Submit error:", e);
+    toast.error(e.message || t("SubmissionFailed"));
+  }
+};
 
   const handleSelectCustomer = async (customer) => {
     if (requiredTotal > customer.can_debit) {
@@ -1039,6 +1048,27 @@ const isDueModuleAllowed = (() => {
           </div>
         </div>
       )}
+      <FreeDiscountPasswordModal
+  isOpen={passwordModalOpen}
+  onClose={() => {
+    setPasswordModalOpen(false);
+    setFreeDiscount(""); // إلغاء الخصم لو رفض
+    toast.info(t("FreeDiscountCancelled"));
+  }}
+  onConfirm={(password) => {
+    setPendingFreeDiscountPassword(password);
+    setPasswordModalOpen(false);
+    toast.success(t("PasswordAccepted"));
+
+    // نكمل الطلب بالباسوورد
+    proceedWithOrderSubmission(
+      isDueOrder ? 1 : 0,
+      selectedCustomer?.id,
+      remainingAmount > 0.01 && isDueModuleAllowed ? remainingAmount : 0,
+      password
+    );
+  }}
+/>
     </div>
   );
 };
