@@ -169,7 +169,6 @@ const filteredOrders = orders.filter((order) => {
  );
  };
 
- const shouldShowStatusDropdown = orderType !== "dine_in";
 
 
  return (
@@ -201,43 +200,25 @@ const filteredOrders = orders.filter((order) => {
   <h3 className="font-semibold text-lg">
   #{order.order_number}
   </h3>
-  {shouldShowStatusDropdown ? (
-  <DropdownMenu>
-   <DropdownMenuTrigger asChild>
-   <Button
-   variant="ghost"
-   className="h-auto p-1 text-xs space-x-1"
-   disabled={updatingStatus[order.id]}
-   >
-   {updatingStatus[order.id] ? (
-   <div className="flex items-center gap-1">
-   <Hourglass size={16} className="animate-spin text-gray-400" />
-   <span>{t("Updating")}</span>
-   </div>
-   ) : (
-   renderStatusBadge(statuses[order.id])
-   )}
-   <ChevronDownIcon className="h-4 w-4" />
-   </Button>
-   </DropdownMenuTrigger>
-   <DropdownMenuContent>
-   {Object.entries(getAvailableStatuses()).map(([key, value]) => (
-   <DropdownMenuItem
-   key={key}
-   onClick={() => handleStatusChange(order.id, key)}
-   disabled={updatingStatus[order.id]}
-   >
-   <div className="flex items-center gap-2">
-   <value.icon size={16} className={value.color} />
-   <span>{value.label}</span>
-   </div>
-   </DropdownMenuItem>
-   ))}
-   </DropdownMenuContent>
-  </DropdownMenu>
-  ) : (
-  <span className="text-sm text-gray-500">{t("DineIn")}</span>
-  )}
+<div className="flex gap-2 flex-wrap">
+  {Object.entries(getAvailableStatuses()).map(([key, value]) => {
+    const isActive = statuses[order.id] === key;
+    return (
+      <Button
+        key={key}
+        size="sm"
+        variant={isActive ? "default" : "outline"}
+        className={`${value.color}`}
+        disabled={updatingStatus[order.id]}
+        onClick={() => handleStatusChange(order.id, key)}
+      >
+        <value.icon size={16} className="mr-1" />
+        {value.label}
+      </Button>
+    );
+  })}
+</div>
+
   </div>
   <p className="text-sm text-gray-500">
   {order.order_date} — {order.date}
