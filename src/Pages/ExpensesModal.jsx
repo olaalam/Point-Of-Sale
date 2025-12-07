@@ -75,19 +75,23 @@ export default function ExpensesModal({ onClose, expense = null, refetchParent }
             note,
         };
 
-        try {
-            if (isEditMode) {
-                await postData(`cashier/expenses_list/update/${expense.id}`, body);
-                toast.success(t("ExpenseUpdated"));
-                if (refetchParent) refetchParent();
-            } else {
-                await postData("cashier/expenses_list/add", body);
-                toast.success(t("ExpenseAdded"));
-            }
-            onClose();
-        } catch (err) {
-            toast.error(err?.message || "Failed to save expense");
-        }
+try {
+    if (isEditMode) {
+        await postData(`cashier/expenses_list/update/${expense.id}`, body);
+        toast.success(t("ExpenseUpdated"));
+        if (refetchParent) refetchParent();
+    } else {
+        await postData("cashier/expenses_list/add", body);
+        toast.success(t("ExpenseAdded"));
+    }
+    onClose();
+} catch (err) {
+    // Axios error عادةً بيكون موجود هنا
+    const message = err?.response?.data?.errors || err?.message || "Failed to save expense";
+    toast.error(message);
+    console.error("Expense submit error:", err);
+}
+
     };
 
     if (loading) return null;
