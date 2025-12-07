@@ -2,6 +2,7 @@ import React, { useRef } from "react";
 import { Button } from "@/components/ui/button";
 import SummaryRow from "./SummaryRow";
 import Loading from "@/components/Loading";
+import { Phone } from "lucide-react";
 
 // مكون الطباعة بنفس ديزاين الكاشير ريسيبت
 const PrintableOrder = React.forwardRef(({ orderItems, calculations, orderType, tableId, t, restaurantInfo }, ref) => {
@@ -64,6 +65,7 @@ const PrintableOrder = React.forwardRef(({ orderItems, calculations, orderType, 
         <p style={{ fontSize: '11px', margin: '2px 0' }}>
           {restaurantInfo?.address || (isArabic ? 'عنوان المطعم' : 'Restaurant Address')}
         </p>
+
       </div>
 
       {/* Order Info Grid */}
@@ -76,6 +78,16 @@ const PrintableOrder = React.forwardRef(({ orderItems, calculations, orderType, 
             </span>
             <span style={{ fontSize: '18px', fontWeight: 'bold' }}>
               {tableId}
+            </span>
+          </div>
+        )}
+                {orderType === 'dine_in' && tableId && (
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '3px' }}>
+            <span style={{ fontSize: '12px', fontWeight: 'bold' }}>
+              {isArabic ? 'رقم التحضير' : 'preparation No.'}
+            </span>
+            <span style={{ fontSize: '18px', fontWeight: 'bold' }}>
+              {restaurantInfo?.prep}
             </span>
           </div>
         )}
@@ -238,7 +250,14 @@ const PrintableOrder = React.forwardRef(({ orderItems, calculations, orderType, 
       <div style={{ textAlign: 'center', marginTop: '15px', fontSize: '11px', borderTop: '1px dashed #000', paddingTop: '8px' }}>
         <p style={{ fontWeight: 'bold' }}>
           {isArabic ? 'شكراً لزيارتكم' : 'Thank You For Your Visit'}
+
         </p>
+        {restaurantInfo?.Phone && (
+          <p style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '4px', marginTop: '4px' }}>
+            <Phone size={12} /> 
+            {restaurantInfo.Phone}
+          </p>
+        )}  
       </div>
     </div>
   );
@@ -285,7 +304,7 @@ export default function OrderSummary({
               body { margin: 0; padding: 0; }
               @page { 
                 margin: 5mm;
-                size: 76mm auto;
+                size: 100% auto;
               }
             }
             * { box-sizing: border-box; }
@@ -317,8 +336,10 @@ export default function OrderSummary({
   };
 
   const restaurantInfo = {
-    name: localStorage.getItem('restaurant_name') || 'Restaurant Name',
-    address: localStorage.getItem('restaurant_address') || 'Restaurant Address'
+    name: sessionStorage.getItem('resturant_name') || 'Restaurant Name',
+    address: sessionStorage.getItem('restaurant_address') || 'Restaurant Address',
+    prep:sessionStorage.getItem("preparation_number"),
+    Phone: sessionStorage.getItem('restaurant_phone') || '',
   };
 
   return (
