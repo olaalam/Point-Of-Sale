@@ -16,7 +16,17 @@ const SinglePage = () => {
   const location = useLocation();
   const pathOrder = location.pathname;
   const orderNumPath = pathOrder.split("/").pop();
-  const apiUrl = import.meta.env.VITE_API_BASE_URL;
+const [showTransferModal, setShowTransferModal] = useState(false);
+const [selectedBranchId, setSelectedBranchId] = useState(null);
+
+// 🟢 جلب قائمة الـ Branches
+const { 
+  data: branchesData, 
+  isLoading: loadingBranches, 
+  refetch: fetchBranches 
+} = useGet(null, { useCache: true });
+
+// 🟢 جلب الـ branches عند فتح الـ Modal
 
   const role = localStorage.getItem("role");
 
@@ -25,6 +35,14 @@ const SinglePage = () => {
     loading: loadingDetailsOrder,
     data: dataDetailsOrder,
   } = useGet(`cashier/orders/order_item/${id}`);
+  // 🟢 جلب الـ branches عند فتح الـ Modal
+useEffect(() => {
+  if (showTransferModal) {
+    fetchBranches("cashier/orders/branches");
+  }
+}, [showTransferModal, fetchBranches]);
+
+const branches = branchesData?.branches || branchesData?.data || [];
 
   const { postData, loadingPost, response } = usePost();
 
@@ -59,21 +77,34 @@ const SinglePage = () => {
     refetchDetailsOrder(); // Refetch data when the component mounts or id or path changes
   }, [refetchDetailsOrder, orderNumPath, id, location.pathname]);
 
-  useEffect(() => {
-    if (dataDetailsOrder) {
-      console.log("Data Details Order:", dataDetailsOrder);
-      setDetailsData(dataDetailsOrder?.order);
-      setOrderStatusName(dataDetailsOrder?.order?.order_status);
-      const formattedOrderStatus = dataDetailsOrder?.order_status.map(
-        (status) => ({ name: status })
-      );
+// بدل الـ useEffect الكبير ده كله
+useEffect(() => {
+  if (!dataDetailsOrder) return;
 
-      setOrderStatus(formattedOrderStatus); // Update state with the transformed data
-      setDeliveries(dataDetailsOrder?.deliveries);
-      setDeliveriesFilter(dataDetailsOrder?.deliveries);
-      setPreparationTime(dataDetailsOrder?.preparing_time);
+  // استخدم batch update أو افصل الـ state
+  setDetailsData(dataDetailsOrder.order);
+  setOrderStatusName(dataDetailsOrder.order?.order_status || "");
+
+  // فقط لو order_status فعلاً اتغير
+  const newStatuses = (dataDetailsOrder.order_status || []).map(status => ({ name: status }));
+  setOrderStatus(prev => {
+    // مقارنة بسيطة عشان نتجنب re-render زيادة
+    if (JSON.stringify(prev) === JSON.stringify(newStatuses)) return prev;
+    return newStatuses;
+  });
+
+  setDeliveries(dataDetailsOrder.deliveries || []);
+  setDeliveriesFilter(dataDetailsOrder.deliveries || []);
+
+  // الأهم: setPreparationTime بس لو فعلاً اتغير
+  setPreparationTime(prev => {
+    if (JSON.stringify(prev) === JSON.stringify(dataDetailsOrder.preparing_time)) {
+      return prev;
     }
-  }, [dataDetailsOrder]);
+    return dataDetailsOrder.preparing_time;
+  });
+
+}, [dataDetailsOrder]);
 
   const timeString = dataDetailsOrder?.order?.date || "";
   const [olderHours, olderMinutes] = timeString.split(":").map(Number); // Extract hours and minutes as numbers
@@ -121,6 +152,34 @@ const SinglePage = () => {
 
     setDeliveriesFilter(filterDeliveries);
   };
+  // 🟢 دالة تحويل الطلب لفرع آخر
+const handleTransferOrder = async () => {
+  if (!selectedBranchId) {
+    toast.error(t("PleaseSelectBranch") || "Please select a branch");
+    return;
+  }
+
+  try {
+    const response = await updateStatus(
+      `cashier/orders/transfer_branch/${detailsData.id}?branch_id=${selectedBranchId}`,
+      {} // PUT request with empty body
+    );
+
+    if (response) {
+      toast.success(t("OrderTransferredSuccessfully") || "Order transferred successfully!");
+      setShowTransferModal(false);
+      setSelectedBranchId(null);
+      
+      // Refresh order details
+      setTimeout(() => {
+        refetchDetailsOrder();
+      }, 500);
+    }
+  } catch (error) {
+    console.error("Transfer Order Error:", error);
+    toast.error(error?.response?.data?.message || t("FailedToTransferOrder") || "Failed to transfer order");
+  }
+};
 
 const handleAssignDelivery = async (deliveryID, orderID, deliveryNumber) => {
   const formData = new FormData();
@@ -183,23 +242,23 @@ const handleAssignDelivery = async (deliveryID, orderID, deliveryNumber) => {
   };
 
   // Move handleChangeStaus outside the function
-  const handleChangeStaus = async (id, orderNumber, orderStatus, reason) => {
-    try {
-      const responseStatus = await updateStatus(`cashier/orders/status/${id}`, {
-        order_status: orderStatus,
-        order_number: orderNumber,
-        ...(orderStatus === "canceled" && { admin_cancel_reason: reason }), // Send reason if canceled
-      });
-      if (responseStatus) {
-        refetchDetailsOrder(); // Refetch the order details after successful status change
-        setShowReason(false);
-      }
-    } catch (error) {
-      if (error?.response?.data?.errors === "You can't change status") {
-        setShowStatusModal(true);
-      }
+const handleChangeStaus = async (id,orderStatus, reason) => {
+  try {
+    const responseStatus = await updateStatus(`cashier/orders/status/${id}`, {
+      order_status: orderStatus,
+      order_number: id,  // ✅ هيستخدم detailsData.order_number لو ماجاش parameter
+      ...(orderStatus === "canceled" && { admin_cancel_reason: reason }),
+    });
+    if (responseStatus) {
+      refetchDetailsOrder();
+      setShowReason(false);
     }
-  };
+  } catch (error) {
+    if (error?.response?.data?.errors === "You can't change status") {
+      setShowStatusModal(true);
+    }
+  }
+};
 
   useEffect(() => {
     const countdown = setInterval(() => {
@@ -866,7 +925,26 @@ const handleAssignDelivery = async (deliveryID, orderID, deliveryNumber) => {
                     </>
                   )}
                 </div>
-
+{/* 🟢 Transfer to Another Branch Button */}
+<button
+  onClick={() => setShowTransferModal(true)}
+  className="w-full mt-4 bg-green-600 text-white py-3 rounded-lg font-TextFontMedium hover:bg-green-700 transition-all shadow-md flex items-center justify-center gap-2"
+>
+  <svg 
+    className="w-5 h-5" 
+    fill="none" 
+    stroke="currentColor" 
+    viewBox="0 0 24 24"
+  >
+    <path 
+      strokeLinecap="round" 
+      strokeLinejoin="round" 
+      strokeWidth={2} 
+      d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" 
+    />
+  </svg>
+  {t("TransferToAnotherBranch") || "Transfer to Another Branch"}
+</button>
                 <div className="w-full p-4 mt-4 bg-white shadow-md rounded-xl">
                   <div className="flex flex-col gap-y-2">
                     <span className="text-lg font-TextFontSemiBold">
@@ -1573,6 +1651,122 @@ const handleAssignDelivery = async (deliveryID, orderID, deliveryNumber) => {
           )}
         </>
       )}
+      {/* 🟢 Transfer Order Modal */}
+<Dialog
+  open={showTransferModal}
+  onClose={() => setShowTransferModal(false)}
+  className="relative z-50"
+>
+  <DialogBackdrop className="fixed inset-0 bg-black/50" />
+  <div className="fixed inset-0 flex items-center justify-center p-4">
+    <DialogPanel className="w-full max-w-md bg-white rounded-xl shadow-2xl">
+      {/* Header */}
+      <div className="flex justify-between items-center p-5 border-b">
+        <h3 className="text-xl font-TextFontBold text-gray-900">
+          {t("TransferOrderToBranch") || "Transfer Order to Branch"}
+        </h3>
+        <button
+          onClick={() => setShowTransferModal(false)}
+          className="text-gray-400 hover:text-gray-600"
+        >
+          <IoClose className="h-6 w-6" />
+        </button>
+      </div>
+
+      {/* Content */}
+      <div className="p-5">
+        <p className="text-sm text-gray-600 mb-4">
+          {t("SelectBranchToTransfer") || "Select the branch you want to transfer this order to:"}
+        </p>
+
+        {/* Order Info */}
+        <div className="bg-gray-50 p-3 rounded-lg mb-4">
+          <p className="text-sm text-gray-700">
+            <span className="font-semibold">{t("Order")}:</span> #{detailsData.id}
+          </p>
+          <p className="text-sm text-gray-700">
+            <span className="font-semibold">{t("CurrentBranch")}:</span> {detailsData?.branch?.name}
+          </p>
+        </div>
+
+        {/* Branches List */}
+        {loadingBranches ? (
+          <div className="text-center py-8">
+            <Loading />
+          </div>
+        ) : branches.length === 0 ? (
+          <div className="text-center py-8 text-gray-500">
+            {t("NoBranchesAvailable") || "No branches available"}
+          </div>
+        ) : (
+          <div className="space-y-2 max-h-64 overflow-y-auto">
+            {branches
+              .filter(branch => branch.id !== detailsData?.branch_id) // ✅ استبعاد الفرع الحالي
+              .map((branch) => (
+                <div
+                  key={branch.id}
+                  onClick={() => setSelectedBranchId(branch.id)}
+                  className={`flex items-center justify-between p-3 rounded-lg cursor-pointer transition-all ${
+                    selectedBranchId === branch.id
+                      ? "bg-green-50 border-2 border-green-500"
+                      : "border border-gray-200 hover:border-gray-300"
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
+                      <span className="text-green-600 font-bold text-lg">
+                        {branch.name?.[0] || "?"}
+                      </span>
+                    </div>
+                    <span className="font-TextFontMedium text-gray-900">
+                      {branch.name}
+                    </span>
+                  </div>
+                  <input
+                    type="radio"
+                    name="branch"
+                    checked={selectedBranchId === branch.id}
+                    onChange={() => setSelectedBranchId(branch.id)}
+                    className="form-radio text-green-600 h-5 w-5"
+                  />
+                </div>
+              ))}
+          </div>
+        )}
+      </div>
+
+      {/* Footer */}
+      <div className="flex gap-3 p-5 border-t">
+        <button
+          onClick={() => {
+            setShowTransferModal(false);
+            setSelectedBranchId(null);
+          }}
+          className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 font-TextFontMedium hover:bg-gray-50"
+        >
+          {t("Cancel")}
+        </button>
+        <button
+          onClick={handleTransferOrder}
+          disabled={!selectedBranchId || updating}
+          className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg font-TextFontMedium hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+        >
+          {updating ? (
+            <span className="flex items-center justify-center gap-2">
+              <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
+              </svg>
+              {t("Processing")}
+            </span>
+          ) : (
+            t("TransferOrder") || "Transfer Order"
+          )}
+        </button>
+      </div>
+    </DialogPanel>
+  </div>
+</Dialog>
     </>
   );
 };

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -9,6 +9,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { usePost } from "@/Hooks/usePost";
+import { useGet } from "@/Hooks/useGet";
 import { toast } from "react-toastify";
 import { X, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
@@ -23,12 +24,32 @@ export default function VoidOrderModal({
   const [managerId, setManagerId] = useState("");
   const [managerPassword, setManagerPassword] = useState("");
   const [financialId, setFinancialId] = useState("");
+  const [voidId, setVoidId] = useState("");
+  const [voidReason, setVoidReason] = useState(""); // 🟢 هنا المستخدم يكتب السبب
+  
   const { t, i18n } = useTranslation();
   const isArabic = i18n.language === "ar";
   const { postData, loading } = usePost();
 
+  // 🟢 استخدام useGet لجلب void lists
+  const { 
+    data: voidListsData, 
+    isLoading: loadingVoidLists, 
+    refetch: fetchVoidLists 
+  } = useGet(null, { useCache: true });
+
   // 🟢 جلب الـ financial accounts من sessionStorage
   const financialAccounts = JSON.parse(sessionStorage.getItem("financial_account") || "[]");
+
+  // 🟢 جلب الـ void lists عند فتح الـ Modal
+  useEffect(() => {
+    if (isOpen) {
+      fetchVoidLists("cashier/orders/void_lists");
+    }
+  }, [isOpen, fetchVoidLists]);
+
+  // 🟢 استخراج قائمة الـ void reasons بالشكل الصحيح
+  const voidLists = voidListsData?.void_reasons || [];
 
   const handleVoidOrder = async () => {
     // Validation
@@ -48,6 +69,14 @@ export default function VoidOrderModal({
       toast.error(t("PleaseselectFinancialAccount"));
       return;
     }
+    if (!voidId.trim()) {
+      toast.error(t("PleaseselectVoidReason") || "Please select void reason");
+      return;
+    }
+    if (!voidReason.trim()) {
+      toast.error(t("PleaseenterVoidReason") || "Please enter void reason details");
+      return;
+    }
 
     try {
       const payload = {
@@ -55,6 +84,8 @@ export default function VoidOrderModal({
         financial_id: financialId,
         manager_id: managerId,
         manager_password: managerPassword,
+        void_id: voidId,
+        void_reason: voidReason, // 🟢 النص اللي المستخدم كتبه
       };
 
       console.log("Void Order Payload:", payload);
@@ -68,6 +99,8 @@ export default function VoidOrderModal({
         setManagerId("");
         setManagerPassword("");
         setFinancialId("");
+        setVoidId("");
+        setVoidReason("");
         
         // Close modal
         onClose();
@@ -77,37 +110,60 @@ export default function VoidOrderModal({
           if (onSuccess) onSuccess();
         }, 500);
       } else {
-        toast.error(response?.message || t("Failedtovoidorder"));
+        toast.error(response?.data?.errors || t("Failedtovoidorder"));
       }
     } catch (err) {
-      console.error("Void Order Error:", err);
-      
-      let errorMessage = t("Anunexpectederroroccurred");
-      
-      if (err.response?.data) {
-        const { data } = err.response;
-        if (data?.message) {
-          errorMessage = data.message;
-        } else if (data?.error) {
-          errorMessage = data.error;
-        }
-      }
-      
-      toast.error(errorMessage);
+  console.error("Void Order Error:", err);
+
+  // حاول تجيب الرسالة من الـ backend
+  let errorMessage = t("Anunexpectederroroccurred");
+
+  if (err.response?.data) {
+    const { data } = err.response;
+
+    // لو في field اسمه errors أو message
+    if (data.errors) {
+      errorMessage = data.errors;
+    } else if (data.message) {
+      errorMessage = data.message;
+    } else if (data.error) {
+      errorMessage = data.error;
     }
+  }
+
+  toast.error(errorMessage);
+}
+
   };
 
   const handleClose = () => {
     setManagerId("");
     setManagerPassword("");
     setFinancialId("");
+    setVoidId("");
+    setVoidReason("");
     onClose();
+  };
+
+  // 🟢 عند اختيار void من الـ dropdown، نملأ الـ text input تلقائياً
+  const handleVoidIdChange = (e) => {
+    const selectedId = e.target.value;
+    setVoidId(selectedId);
+    
+    // املأ الـ void_reason تلقائياً من الاختيار
+    const selectedVoid = voidLists.find(v => v.id.toString() === selectedId);
+    if (selectedVoid) {
+      setVoidReason(selectedVoid.void_reason);
+    } else {
+      setVoidReason(""); // لو اختار "Select" يفضي الحقل
+    }
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent 
-        className="sm:max-w-md bg-white"
+              className="w-[90vw] !max-w-[500px] p-4 rounded-2xl shadow-2xl overflow-y-auto max-h-[90vh] scrollbar-width-none [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+       
         dir={isArabic ? "rtl" : "ltr"}
       >
         {/* Close Button */}
@@ -133,6 +189,49 @@ export default function VoidOrderModal({
           <div className="bg-gray-50 p-3 rounded-lg">
             <p className="text-sm text-gray-600">
               {t("OrderNumber")}: <span className="font-semibold text-gray-800">#{orderNumber}</span>
+            </p>
+          </div>
+
+          {/* 🟢 Void Type/Category - Select Dropdown */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              {t("VoidType") || "Void Type"} <span className="text-red-500">*</span>
+            </label>
+            <select
+              value={voidId}
+              onChange={handleVoidIdChange}
+              disabled={loading || loadingVoidLists}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+            >
+              <option value="">
+                {loadingVoidLists 
+                  ? t("Loading") || "Loading..." 
+                  : t("SelectVoidType") || "Select Void Type"
+                }
+              </option>
+              {voidLists.map((voidItem) => (
+                <option key={voidItem.id} value={voidItem.id}>
+                  {voidItem.void_reason}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* 🟢 Void Reason - Text Input (editable) */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              {t("VoidReasonDetails") || "Void Reason Details"} <span className="text-red-500">*</span>
+            </label>
+            <Input
+              type="text"
+              placeholder={t("EnterVoidReasonDetails") || "Enter additional details..."}
+              value={voidReason}
+              onChange={(e) => setVoidReason(e.target.value)}
+              disabled={loading}
+              className="w-full"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              {t("VoidReasonHint") || "You can edit or add more details"}
             </p>
           </div>
 
@@ -162,7 +261,7 @@ export default function VoidOrderModal({
               {t("ManagerID")} <span className="text-red-500">*</span>
             </label>
             <Input
-              type="text"
+              type="number"
               placeholder={t("EnterManagerID")}
               value={managerId}
               onChange={(e) => setManagerId(e.target.value)}
