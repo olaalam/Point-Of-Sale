@@ -39,7 +39,7 @@ const PrintableReport = React.forwardRef(({ reportData, t, formatAmount, isArabi
   const { shift, financial_accounts, totals, stats } = reportData;
   const showFullReport = reportData.report_role === "all";
   
-  const netCashInDrawer = ((reportData.total_amount || 0) - (reportData.expenses_total || 0));
+  const netCashInDrawer = ((reportData.total_amount || 0));
 
   // ✅ نفس المنطق من الـ UI الأصلي
   const orderTypes = [
@@ -439,7 +439,7 @@ const PrintableReport = React.forwardRef(({ reportData, t, formatAmount, isArabi
               <div style={{ fontSize: '11px', marginBottom: '6px' }}>✅ {t("NetCashInDrawer")}</div>
               <div className="print-total-value">{formatAmount(netCashInDrawer)}</div>
               <div style={{ fontSize: '9px', marginTop: '4px', opacity: 0.8 }}>
-                ({t("TotalCashInShift")} - {t("TotalExpenses")})
+                ({t("TotalCashInShift")})
               </div>
             </div>
           </>
@@ -483,7 +483,7 @@ export default function EndShiftReportModal({ reportData, onClose, onConfirmClos
   };
 
   // إصلاح الحساب بإضافة || 0
-  const netCashInDrawer = ((reportData.total_amount || 0) - (reportData.expenses_total || 0));
+  const netCashInDrawer = ((reportData.total_amount || 0) );
 
   // دالة الطباعة (المعدلة والمبسطة)
   const handlePrint = () => {
@@ -661,8 +661,6 @@ export default function EndShiftReportModal({ reportData, onClose, onConfirmClos
                       { key: "online", label: t("OnlineOrders"), icon: "💻", data: reportData.online_order },
                     ];
 
-                    let grandTotal = 0;
-                    let grandCount = 0;
 
                     return (
                       <>
@@ -817,7 +815,7 @@ export default function EndShiftReportModal({ reportData, onClose, onConfirmClos
               {t("TotalExpenses")}
             </td>
             <td className="px-4 py-3 text-center text-lg font-bold">
-              -{formatAmount(reportData.expenses_total)}
+              {formatAmount(reportData.expenses_total)}
             </td>
           </tr>
 
@@ -843,7 +841,7 @@ export default function EndShiftReportModal({ reportData, onClose, onConfirmClos
               {/* ─── إحصائيات إضافية ─── */}
               {stats && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-4 border-t border-gray-100">
-                  <CompactStatCard icon={FaFileInvoiceDollar} title={t("TotalSales")} value={formatAmount(stats.total_sales, "")} />
+                  <CompactStatCard icon={FaFileInvoiceDollar} title={t("TotalSales")} value={formatAmount(stats.total_amount, "")} />
                   <CompactStatCard icon={FaDollarSign} title={t("NetCash")} value={formatAmount(stats.net_cash ?? totals?.grand_total, "")} />
                 </div>
               )}
