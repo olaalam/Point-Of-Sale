@@ -32,7 +32,9 @@ export default function ExpensesModal({ onClose, expense = null, refetchParent }
         } else if (parsed?.id) {
             initialFinancialId = parsed.id;
         }
-    } catch {}
+    } catch {
+        // Invalid JSON, ignore
+    }
 
     const [financial_account_id, setFinancialAccountId] = useState(initialFinancialId);
 
