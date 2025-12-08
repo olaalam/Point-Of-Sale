@@ -218,23 +218,11 @@ const isDueModuleAllowed = (() => {
     freeDiscount,
   ]);
 
+// CheckOut.jsx (الكود بعد التعديل)
   const requiredTotal = useMemo(() => {
-    if (orderType !== "dine_in") {
-      return discountedAmount;
-    }
-
-    if (selectedPaymentItemIds.length > 0) {
-      const selectedItems = orderItems.filter((item) =>
-        selectedPaymentItemIds.includes(item.temp_id)
-      );
-      return selectedItems.reduce((acc, item) => {
-        const quantity = item.count ?? item.quantity ?? 1;
-        return acc + item.price * quantity;
-      }, 0);
-    }
 
     return discountedAmount;
-  }, [orderItems, orderType, discountedAmount, selectedPaymentItemIds]);
+  }, [discountedAmount]); 
 
   const { totalScheduled, remainingAmount, changeAmount } = useMemo(() => {
     const sum = paymentSplits.reduce(
