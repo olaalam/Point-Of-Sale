@@ -414,7 +414,9 @@ const PrintableReport = React.forwardRef(({ reportData, t, formatAmount, isArabi
                     <tr>
                       <th>#</th>
                       <th>{t("Description")}</th>
+                      <th>{t("Category")}</th>
                       <th>{t("Amount")}</th>
+
                     </tr>
                   </thead>
                   <tbody>
@@ -422,11 +424,12 @@ const PrintableReport = React.forwardRef(({ reportData, t, formatAmount, isArabi
                       <tr key={idx}>
                         <td>{idx + 1}</td>
                         <td>{exp.financial_account}</td>
+                        <td>{exp.category || t("N/A")}</td>
                         <td>-{formatAmount(exp.total, "")}</td>
                       </tr>
                     ))}
                     <tr className="print-expense-total">
-                      <td colSpan="2">{t("TotalExpenses")}</td>
+                      <td colSpan="3">{t("TotalExpenses")}</td>
                       <td>-{formatAmount(reportData.expenses_total)}</td>
                     </tr>
                   </tbody>
@@ -786,6 +789,7 @@ export default function EndShiftReportModal({ reportData, onClose, onConfirmClos
           <tr className="[&>th]:px-4 [&>th]:py-3 [&>th]:font-semibold [&>th]:uppercase text-xs text-gray-700">
             <th className="text-center w-16">#</th>
             <th className="text-center">{t("Description")}</th>
+            <th className="text-center">{t("Category")}</th>
             <th className="text-center">{t("Amount")} ({t("EGP")})</th>
           </tr>
         </thead>
@@ -803,6 +807,9 @@ export default function EndShiftReportModal({ reportData, onClose, onConfirmClos
                 {exp.financial_account}
               </td>
 
+              <td className="text-center font-medium text-gray-800">
+                {exp.category || t("N/A")}
+              </td>
               <td className="text-center font-bold text-red-600">
                 -{formatAmount(exp.total, "")}
               </td>
@@ -811,7 +818,7 @@ export default function EndShiftReportModal({ reportData, onClose, onConfirmClos
 
           {/* Total Row 👉 الآن مضبوط 100% */}
           <tr className="bg-gray-800 text-white font-semibold">
-            <td colSpan={2} className="px-4 py-3 text-center text-base">
+            <td colSpan={3} className="px-4 py-3 text-center text-base">
               {t("TotalExpenses")}
             </td>
             <td className="px-4 py-3 text-center text-lg font-bold">
