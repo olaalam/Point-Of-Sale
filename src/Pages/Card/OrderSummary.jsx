@@ -461,7 +461,7 @@ export default function OrderSummary({
         </Button>
       )}
 
-      {(orderType === "take_away" || orderType === "delivery") && (
+      {(orderType === "take_away" ) && (
         <Button onClick={onSaveAsPending} className="bg-orange-600 text-white hover:bg-orange-700 text-lg px-8 py-3">
           {t("SaveasPending")}
         </Button>

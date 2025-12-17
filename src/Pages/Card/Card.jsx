@@ -33,6 +33,7 @@ export default function Card({
   allowQuantityEdit = true,
   orderType,
   tableId,
+  userId,
 }) {
   const navigate = useNavigate();
   const { t, i18n } = useTranslation();
@@ -258,7 +259,14 @@ const hasAnyItemInPreparationOrLater = () => {
         orderType={orderType}
         orderItems={orderItems}
         handleClearAllItems={handleClearAllItems}
-        handleViewOrders={() => navigate("/orders")}
+handleViewOrders={() => {
+
+navigate("/orders", { 
+    state: { 
+      orderType: orderType  // أو currentOrderType أو propOrderType حسب المتغير عندك
+    }
+  });
+}}
         handleViewPendingOrders={() => navigate("/pending-orders")}
         onShowOfferModal={() => offerManagement.setShowOfferModal(true)}
         onShowDealModal={() => dealManagement.setShowDealModal(true)}
