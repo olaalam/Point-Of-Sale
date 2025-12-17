@@ -152,7 +152,7 @@ export default function Item({
     if (!allModulesData) return [];
     return productType === "weight"
       ? allModulesData?.products_weight || []
-      : allModulesData?.products || [];
+      : allModulesData?.favourite_products || [];
   }, [allModulesData, productType]);
 
   // المنتجات اللي هتتعرض فعلياً (من المجموعة أو من الكل)
@@ -165,7 +165,6 @@ const filteredProducts = useMemo(() => {
 
   const query = searchQuery.trim().toLowerCase();
 
-  // فلترة البحث (بالاسم + الكود)
   if (query) {
     products = products.filter((p) => {
       const name = p.name?.toLowerCase() || "";
@@ -174,13 +173,15 @@ const filteredProducts = useMemo(() => {
     });
   }
 
-  // فلترة الكاتيجوري
-  if (selectedCategory !== "all") {
+  // إذا كنا في مجموعة (مش all) واخترنا كاتيجوري معينة → فلتر عادي
+  // إذا اخترنا "all" (Favorite) → مفيش فلتر كاتيجوري خالص
+  if (selectedGroup !== "all" && selectedCategory !== "all") {
     products = products.filter((p) => p.category_id === parseInt(selectedCategory));
   }
+  // لو selectedGroup === "all" → هنفلتر عادي زي ما كان (لأن الكاتيجوريات كلها موجودة)
 
   return products;
-}, [productsSource, selectedCategory, searchQuery]);
+}, [productsSource, selectedCategory, searchQuery, selectedGroup]);
 
   const productsToDisplay = filteredProducts.slice(0, visibleProductCount);
 
