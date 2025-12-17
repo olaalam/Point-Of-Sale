@@ -110,7 +110,7 @@ export default function Item({
     }
   }, [groupProducts]);
 
-  // جلب بيانات المجموعة المفضلة (Categories + favourite_products)
+  // جلب بيانات المجموعة (categories فقط عادةً)
   const { data: favouriteCategoriesData, isLoading: isFavCatLoading } = useQuery({
     queryKey: ["favouriteCategories", selectedGroup, branchIdState],
     queryFn: () =>
@@ -121,13 +121,19 @@ export default function Item({
     enabled: selectedGroup !== "all" && !!branchIdState,
     staleTime: 5 * 60 * 1000,
   });
+
+  const allModulesEndpoint = useMemo(() => {
+    return `captain/lists?branch_id=${branchIdState}&locale=${i18n.language}`;
+  }, [branchIdState, i18n.language]);
+
   const { data: allModulesData, isLoading: isAllDataLoading, error: allModulesError } = useQuery({
     queryKey: ["allData", branchIdState, i18n.language],
     queryFn: () => apiFetcher(allModulesEndpoint),
     enabled: !!branchIdState,
     staleTime: 5 * 60 * 1000,
   });
-  // الكاتيجوريز اللي هتتعرض (من المجموعة أو من الكل)
+
+  // الكاتيجوريز اللي هتتعرض
   const finalCategories = useMemo(() => {
     if (selectedGroup === "all" || !favouriteCategoriesData) {
       return allModulesData?.categories || [];
@@ -135,53 +141,63 @@ export default function Item({
     return favouriteCategoriesData.categories || [];
   }, [selectedGroup, allModulesData, favouriteCategoriesData]);
 
-  // المنتجات المفضلة من المجموعة (مهمة جداً)
+  // المنتجات المفضلة (من captain/lists دايمًا لأنه اللي بيرجع favourite_products)
   const favouriteProducts = useMemo(() => {
-    if (selectedGroup === "all" || !favouriteCategoriesData) return [];
-    return favouriteCategoriesData.favourite_products || [];
-  }, [selectedGroup, favouriteCategoriesData]);
+    if (!allModulesData) return [];
 
-  // جلب كل المنتجات والكاتيجوريز العادية (لما يكون Group = all)
-  const allModulesEndpoint = useMemo(() => {
-    return `captain/lists?branch_id=${branchIdState}&locale=${i18n.language}`;
-  }, [branchIdState, i18n.language]);
+    if (productType === "weight") {
+      return allModulesData.favourite_products_weight || [];
+    }
 
+    return allModulesData.favourite_products || [];
+  }, [allModulesData, productType]);
 
-
+  // كل المنتجات العادية (للـ Normal Prices فقط)
   const allProducts = useMemo(() => {
     if (!allModulesData) return [];
     return productType === "weight"
       ? allModulesData?.products_weight || []
-      : allModulesData?.favourite_products || [];
+      : allModulesData?.products || [];
   }, [allModulesData, productType]);
 
-  // المنتجات اللي هتتعرض فعلياً (من المجموعة أو من الكل)
-  const productsSource = useMemo(() => {
-    return selectedGroup === "all" ? allProducts : favouriteProducts;
-  }, [selectedGroup, allProducts, favouriteProducts]);
-
-const filteredProducts = useMemo(() => {
-  let products = productsSource;
-
-  const query = searchQuery.trim().toLowerCase();
-
-  if (query) {
-    products = products.filter((p) => {
-      const name = p.name?.toLowerCase() || "";
-      const code = p.product_code?.toString().toLowerCase() || "";
-      return name.includes(query) || code.includes(query);
-    });
+// مصدر المنتجات: صارم جدًا
+const productsSource = useMemo(() => {
+  // 1. داخل مجموعة (غير "all") → دايمًا favourite_products فقط
+  if (selectedGroup !== "all") {
+    return favouriteProducts;
   }
 
-  // إذا كنا في مجموعة (مش all) واخترنا كاتيجوري معينة → فلتر عادي
-  // إذا اخترنا "all" (Favorite) → مفيش فلتر كاتيجوري خالص
-  if (selectedGroup !== "all" && selectedCategory !== "all") {
-    products = products.filter((p) => p.category_id === parseInt(selectedCategory));
+  // 2. في Normal Prices (selectedGroup === "all")
+  if (selectedCategory === "all") {
+    // اختيار "Favorite" → نرجع المفضلة فقط
+    return favouriteProducts;
+  } else {
+    // اختيار كاتيجوري معينة → نرجع كل المنتجات ونفلتر بعدين بالكاتيجوري
+    return allProducts;
   }
-  // لو selectedGroup === "all" → هنفلتر عادي زي ما كان (لأن الكاتيجوريات كلها موجودة)
+}, [selectedGroup, selectedCategory, favouriteProducts, allProducts]);
 
-  return products;
-}, [productsSource, selectedCategory, searchQuery, selectedGroup]);
+  // الفلترة النهائية
+  const filteredProducts = useMemo(() => {
+    let products = productsSource;
+
+    // فلترة البحث
+    if (searchQuery.trim()) {
+      const query = searchQuery.trim().toLowerCase();
+      products = products.filter((p) => {
+        const name = p.name?.toLowerCase() || "";
+        const code = p.product_code?.toString().toLowerCase() || "";
+        return name.includes(query) || code.includes(query);
+      });
+    }
+
+    // فلترة الكاتيجوري
+    if (selectedCategory !== "all") {
+      products = products.filter((p) => p.category_id === parseInt(selectedCategory));
+    }
+
+    return products;
+  }, [productsSource, selectedCategory, searchQuery]);
 
   const productsToDisplay = filteredProducts.slice(0, visibleProductCount);
 
@@ -205,14 +221,13 @@ const filteredProducts = useMemo(() => {
   const handleGroupChange = (groupId) => {
     const id = groupId === "all" ? "all" : groupId.toString();
     sessionStorage.setItem("last_selected_group", id);
-    
-    // تخزين module_id للاستخدام في checkout
+
     if (groupId === "all") {
       sessionStorage.removeItem("module_id");
     } else {
       sessionStorage.setItem("module_id", id);
     }
-    
+
     setSelectedGroup(id);
     setSelectedCategory("all");
     setVisibleProductCount(PRODUCTS_TO_SHOW_INITIALLY);
@@ -222,7 +237,6 @@ const filteredProducts = useMemo(() => {
   const createTempId = (productId) =>
     `${productId}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-  // باقي الكود زي ما هو (handleAddToOrder + Modal + إلخ)
   const handleAddToOrder = useCallback(async (product, customQuantity = 1) => {
     const basePrice = parseFloat(
       product.price_after_discount || product.price || product.originalPrice || 0
@@ -330,7 +344,6 @@ const filteredProducts = useMemo(() => {
         });
 
         let cartId = null;
-        // دعم كل الأشكال الممكنة للـ response
         if (response?.cart_id) cartId = response.cart_id;
         else if (response?.id) cartId = response.id;
         else if (response?.success?.cart_id) cartId = response.success.cart_id;
@@ -368,7 +381,11 @@ const filteredProducts = useMemo(() => {
     handleAddToOrder(enhancedProduct, enhancedProduct.quantity, options);
   };
 
-  const isAnyLoading = isAllDataLoading || groupLoading || (selectedGroup !== "all" && isFavCatLoading);
+  // تحسين الـ loading
+  const isAnyLoading =
+    groupLoading ||
+    isAllDataLoading ||
+    (selectedGroup !== "all" && (isFavCatLoading || !favouriteCategoriesData || !allModulesData));
 
   if (isAnyLoading)
     return (
