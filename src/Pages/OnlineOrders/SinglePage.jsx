@@ -237,18 +237,23 @@ const handleAssignDelivery = async (deliveryID, orderID, deliveryNumber) => {
     } else if (targetStatus === "refund") {
       setShowRefundModal(true);
     } else {
-      handleChangeStaus(detailsData.id, "", targetStatus, "");
+      handleChangeStaus(detailsData.id, targetStatus);
+
     }
   };
 
   // Move handleChangeStaus outside the function
-const handleChangeStaus = async (id,orderStatus, reason) => {
+const handleChangeStaus = async (id, status, reason = "") => {
   try {
-    const responseStatus = await updateStatus(`cashier/orders/status/${id}`, {
-      order_status: orderStatus,
-      order_number: id,  // ✅ هيستخدم detailsData.order_number لو ماجاش parameter
-      ...(orderStatus === "canceled" && { admin_cancel_reason: reason }),
-    });
+    const responseStatus = await updateStatus(
+      `cashier/orders/status/${id}`,
+      {
+        order_status: status, // ✅ status الحقيقي
+        order_number: id,
+        ...(status === "canceled" && { admin_cancel_reason: reason }),
+      }
+    );
+
     if (responseStatus) {
       refetchDetailsOrder();
       setShowReason(false);
@@ -259,6 +264,7 @@ const handleChangeStaus = async (id,orderStatus, reason) => {
     }
   }
 };
+
 
   useEffect(() => {
     const countdown = setInterval(() => {
@@ -1268,12 +1274,8 @@ const handleChangeStaus = async (id,orderStatus, reason) => {
                                   );
                                   return;
                                 }
-                                handleChangeStaus(
-                                  detailsData.id,
-                                  "",
-                                  orderStatusName,
-                                  cancelReason
-                                );
+handleChangeStaus(detailsData.id, "canceled", cancelReason);
+
                                 setShowCancelModal(false);
                                 setCancelReason("");
                               }}
@@ -1315,12 +1317,8 @@ const handleChangeStaus = async (id,orderStatus, reason) => {
                             <button
                               type="button"
                               onClick={() => {
-                                handleChangeStaus(
-                                  detailsData.id,
-                                  "",
-                                  "refund",
-                                  ""
-                                );
+  handleChangeStaus(detailsData.id, "refund");
+
                                 setShowRefundModal(false);
                               }}
                               className="px-4 py-2 text-sm font-medium text-white border border-transparent rounded-md bg-bg-primary hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
