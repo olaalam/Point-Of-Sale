@@ -16,17 +16,17 @@ const SinglePage = () => {
   const location = useLocation();
   const pathOrder = location.pathname;
   const orderNumPath = pathOrder.split("/").pop();
-const [showTransferModal, setShowTransferModal] = useState(false);
-const [selectedBranchId, setSelectedBranchId] = useState(null);
+  const [showTransferModal, setShowTransferModal] = useState(false);
+  const [selectedBranchId, setSelectedBranchId] = useState(null);
 
-// 🟢 جلب قائمة الـ Branches
-const { 
-  data: branchesData, 
-  isLoading: loadingBranches, 
-  refetch: fetchBranches 
-} = useGet(null, { useCache: true });
+  // 🟢 جلب قائمة الـ Branches
+  const {
+    data: branchesData,
+    isLoading: loadingBranches,
+    refetch: fetchBranches,
+  } = useGet(null, { useCache: true });
 
-// 🟢 جلب الـ branches عند فتح الـ Modal
+  // 🟢 جلب الـ branches عند فتح الـ Modal
 
   const role = localStorage.getItem("role");
 
@@ -36,17 +36,18 @@ const {
     data: dataDetailsOrder,
   } = useGet(`cashier/orders/order_item/${id}`);
   // 🟢 جلب الـ branches عند فتح الـ Modal
-useEffect(() => {
-  if (showTransferModal) {
-    fetchBranches("cashier/orders/branches");
-  }
-}, [showTransferModal, fetchBranches]);
+  useEffect(() => {
+    if (showTransferModal) {
+      fetchBranches("cashier/orders/branches");
+    }
+  }, [showTransferModal, fetchBranches]);
 
-const branches = branchesData?.branches || branchesData?.data || [];
+  const branches = branchesData?.branches || branchesData?.data || [];
 
   const { postData, loadingPost, response } = usePost();
 
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const isArabic = i18n.language === "ar";
 
   const { putData: updateStatus, loading: updating } = usePut();
 
@@ -77,34 +78,37 @@ const branches = branchesData?.branches || branchesData?.data || [];
     refetchDetailsOrder(); // Refetch data when the component mounts or id or path changes
   }, [refetchDetailsOrder, orderNumPath, id, location.pathname]);
 
-// بدل الـ useEffect الكبير ده كله
-useEffect(() => {
-  if (!dataDetailsOrder) return;
+  // بدل الـ useEffect الكبير ده كله
+  useEffect(() => {
+    if (!dataDetailsOrder) return;
 
-  // استخدم batch update أو افصل الـ state
-  setDetailsData(dataDetailsOrder.order);
-  setOrderStatusName(dataDetailsOrder.order?.order_status || "");
+    // استخدم batch update أو افصل الـ state
+    setDetailsData(dataDetailsOrder.order);
+    setOrderStatusName(dataDetailsOrder.order?.order_status || "");
 
-  // فقط لو order_status فعلاً اتغير
-  const newStatuses = (dataDetailsOrder.order_status || []).map(status => ({ name: status }));
-  setOrderStatus(prev => {
-    // مقارنة بسيطة عشان نتجنب re-render زيادة
-    if (JSON.stringify(prev) === JSON.stringify(newStatuses)) return prev;
-    return newStatuses;
-  });
+    // فقط لو order_status فعلاً اتغير
+    const newStatuses = (dataDetailsOrder.order_status || []).map((status) => ({
+      name: status,
+    }));
+    setOrderStatus((prev) => {
+      // مقارنة بسيطة عشان نتجنب re-render زيادة
+      if (JSON.stringify(prev) === JSON.stringify(newStatuses)) return prev;
+      return newStatuses;
+    });
 
-  setDeliveries(dataDetailsOrder.deliveries || []);
-  setDeliveriesFilter(dataDetailsOrder.deliveries || []);
+    setDeliveries(dataDetailsOrder.deliveries || []);
+    setDeliveriesFilter(dataDetailsOrder.deliveries || []);
 
-  // الأهم: setPreparationTime بس لو فعلاً اتغير
-  setPreparationTime(prev => {
-    if (JSON.stringify(prev) === JSON.stringify(dataDetailsOrder.preparing_time)) {
-      return prev;
-    }
-    return dataDetailsOrder.preparing_time;
-  });
-
-}, [dataDetailsOrder]);
+    // الأهم: setPreparationTime بس لو فعلاً اتغير
+    setPreparationTime((prev) => {
+      if (
+        JSON.stringify(prev) === JSON.stringify(dataDetailsOrder.preparing_time)
+      ) {
+        return prev;
+      }
+      return dataDetailsOrder.preparing_time;
+    });
+  }, [dataDetailsOrder]);
 
   const timeString = dataDetailsOrder?.order?.date || "";
   const [olderHours, olderMinutes] = timeString.split(":").map(Number); // Extract hours and minutes as numbers
@@ -153,58 +157,64 @@ useEffect(() => {
     setDeliveriesFilter(filterDeliveries);
   };
   // 🟢 دالة تحويل الطلب لفرع آخر
-const handleTransferOrder = async () => {
-  if (!selectedBranchId) {
-    toast.error(t("PleaseSelectBranch") || "Please select a branch");
-    return;
-  }
-
-  try {
-    const response = await updateStatus(
-      `cashier/orders/transfer_branch/${detailsData.id}?branch_id=${selectedBranchId}`,
-      {} // PUT request with empty body
-    );
-
-    if (response) {
-      toast.success(t("OrderTransferredSuccessfully") || "Order transferred successfully!");
-      setShowTransferModal(false);
-      setSelectedBranchId(null);
-      
-      // Refresh order details
-      setTimeout(() => {
-        refetchDetailsOrder();
-      }, 500);
+  const handleTransferOrder = async () => {
+    if (!selectedBranchId) {
+      toast.error(t("PleaseSelectBranch") || "Please select a branch");
+      return;
     }
-  } catch (error) {
-    console.error("Transfer Order Error:", error);
-    toast.error(error?.response?.data?.message || t("FailedToTransferOrder") || "Failed to transfer order");
-  }
-};
 
-const handleAssignDelivery = async (deliveryID, orderID, deliveryNumber) => {
-  const formData = new FormData();
-  formData.append("delivery_id", deliveryID);
-  formData.append("order_id", orderID);
-  formData.append("order_number", deliveryNumber);
+    try {
+      const response = await updateStatus(
+        `cashier/orders/transfer_branch/${detailsData.id}?branch_id=${selectedBranchId}`,
+        {} // PUT request with empty body
+      );
 
-  try {
-    await postData(`cashier/orders/delivery`, formData);
+      if (response) {
+        toast.success(
+          t("OrderTransferredSuccessfully") || "Order transferred successfully!"
+        );
+        setShowTransferModal(false);
+        setSelectedBranchId(null);
 
-    toast.success("Delivery person assigned successfully!");
+        // Refresh order details
+        setTimeout(() => {
+          refetchDetailsOrder();
+        }, 500);
+      }
+    } catch (error) {
+      console.error("Transfer Order Error:", error);
+      toast.error(
+        error?.response?.data?.message ||
+          t("FailedToTransferOrder") ||
+          "Failed to transfer order"
+      );
+    }
+  };
 
-    // UI updates
-    handleCloseDeliveries();
-    setOrderStatusName("out_for_delivery");
-    setSearchDelivery("");
-    setOpenDeliveries(false);
-    setDeliveriesFilter(deliveries);
+  const handleAssignDelivery = async (deliveryID, orderID, deliveryNumber) => {
+    const formData = new FormData();
+    formData.append("delivery_id", deliveryID);
+    formData.append("order_id", orderID);
+    formData.append("order_number", deliveryNumber);
 
-    // Refresh order details on screen
-    refetchDetailsOrder();
-  } catch (error) {
-    toast.error(error?.message || "Failed to assign delivery person.");
-  }
-};
+    try {
+      await postData(`cashier/orders/delivery`, formData);
+
+      toast.success("Delivery person assigned successfully!");
+
+      // UI updates
+      handleCloseDeliveries();
+      setOrderStatusName("out_for_delivery");
+      setSearchDelivery("");
+      setOpenDeliveries(false);
+      setDeliveriesFilter(deliveries);
+
+      // Refresh order details on screen
+      refetchDetailsOrder();
+    } catch (error) {
+      toast.error(error?.message || "Failed to assign delivery person.");
+    }
+  };
 
   const handleOpenReceipt = (id) => {
     setOpenReceipt(id);
@@ -238,33 +248,28 @@ const handleAssignDelivery = async (deliveryID, orderID, deliveryNumber) => {
       setShowRefundModal(true);
     } else {
       handleChangeStaus(detailsData.id, targetStatus);
-
     }
   };
 
   // Move handleChangeStaus outside the function
-const handleChangeStaus = async (id, status, reason = "") => {
-  try {
-    const responseStatus = await updateStatus(
-      `cashier/orders/status/${id}`,
-      {
+  const handleChangeStaus = async (id, status, reason = "") => {
+    try {
+      const responseStatus = await updateStatus(`cashier/orders/status/${id}`, {
         order_status: status, // ✅ status الحقيقي
         order_number: id,
         ...(status === "canceled" && { admin_cancel_reason: reason }),
+      });
+
+      if (responseStatus) {
+        refetchDetailsOrder();
+        setShowReason(false);
       }
-    );
-
-    if (responseStatus) {
-      refetchDetailsOrder();
-      setShowReason(false);
+    } catch (error) {
+      if (error?.response?.data?.errors === "You can't change status") {
+        setShowStatusModal(true);
+      }
     }
-  } catch (error) {
-    if (error?.response?.data?.errors === "You can't change status") {
-      setShowStatusModal(true);
-    }
-  }
-};
-
+  };
 
   useEffect(() => {
     const countdown = setInterval(() => {
@@ -370,14 +375,17 @@ const handleChangeStaus = async (id, status, reason = "") => {
                       <div className="w-full px-2 py-4 rounded-lg shadow md:px-4 lg:px-4">
                         {/* Header */}
                         <div className="flex flex-col items-start justify-between pb-2 border-b border-gray-300">
-                          <div className="w-full">
+                          <div
+                            className="w-full"
+                            dir={isArabic ? "rtl" : "ltr"}
+                          >
                             <div className="flex flex-wrap items-center justify-between w-full">
                               <h1 className="text-2xl text-gray-800 font-TextFontMedium">
                                 {t("Order")}{" "}
                                 <span className="text-bg-primary">
                                   #{detailsData?.id || ""}
                                 </span>
-                              </h1>"
+                              </h1>
                             </div>
                             {detailsData?.address && (
                               <p className="mt-1 text-sm text-gray-700">
@@ -421,7 +429,10 @@ const handleChangeStaus = async (id, status, reason = "") => {
                         </div>
 
                         {/* Order Information */}
-                        <div className="flex items-start justify-center w-full gap-4 sm:flex-col xl:flex-row">
+                        <div
+                          className="flex items-start justify-center w-full gap-4 sm:flex-col xl:flex-row"
+                          dir={isArabic ? "rtl" : "ltr"}
+                        >
                           <div className="p-2 bg-white rounded-md shadow-md sm:w-full xl:w-6/12">
                             <p className="text-gray-800 text-md">
                               <span className="font-TextFontSemiBold text-bg-primary">
@@ -446,7 +457,7 @@ const handleChangeStaus = async (id, status, reason = "") => {
                                 </p>
                                 <p className="text-gray-800 text-md">
                                   <span className="font-TextFontSemiBold text-bg-primary">
-                                    {t("Transaction ID")}:
+                                    {t("TransactionID")}:
                                   </span>{" "}
                                   {detailsData?.transaction_id || ""}
                                 </p>
@@ -540,12 +551,18 @@ const handleChangeStaus = async (id, status, reason = "") => {
                       {/* Combined Orders Table */}
                       <div className="p-2 my-3 bg-white border border-gray-200 rounded-lg shadow-lg">
                         {/* Table Header */}
-                        <h2 className="mb-2 text-2xl font-bold text-gray-800">
-                          {t("Order Items")}
+                        <h2
+                          className="mb-2 text-2xl font-bold text-gray-800"
+                          dir={isArabic ? "rtl" : "ltr"}
+                        >
+                          {t("OrderItems")}
                         </h2>
 
                         {/* Table wrapped in a horizontal scroll container */}
-                        <div className="overflow-x-auto">
+                        <div
+                          className="overflow-x-auto"
+                          dir={isArabic ? "rtl" : "ltr"}
+                        >
                           <table className="min-w-full divide-y divide-gray-200">
                             <thead className="bg-gradient-to-r from-[#9E090F] to-[#D1191C] text-white">
                               <tr>
@@ -556,7 +573,7 @@ const handleChangeStaus = async (id, status, reason = "") => {
                                   {t("Products")}
                                 </th>
                                 <th className="px-3 py-2 text-xs font-medium tracking-wider text-left uppercase border-gray-300">
-                                  {t("variation")}
+                                  {t("variations")}
                                 </th>
                                 <th className="px-3 py-2 text-xs font-medium tracking-wider text-left uppercase border-gray-300">
                                   {t("Addons")}
@@ -771,7 +788,10 @@ const handleChangeStaus = async (id, status, reason = "") => {
                       </div>
 
                       {/* Order Summary */}
-                      <div className="flex flex-col p-2 my-2 gap-y-1">
+                      <div
+                        className="flex flex-col p-2 my-2 gap-y-1"
+                        dir={isArabic ? "rtl" : "ltr"}
+                      >
                         <p className="flex items-center justify-between w-full">
                           {(detailsData?.order_details || []).forEach(
                             (orderDetail) => {
@@ -799,7 +819,7 @@ const handleChangeStaus = async (id, status, reason = "") => {
                         </p>
 
                         <p className="flex items-center justify-between w-full">
-                          {t("Tax/VAT")}:
+                          {t("TaxVAT")}:
                           <span>{detailsData?.total_tax || 0}</span>
                         </p>
                         <p className="flex items-center justify-between w-full">
@@ -842,13 +862,16 @@ const handleChangeStaus = async (id, status, reason = "") => {
               </div>
 
               {/* Right Section */}
-              <div className="sm:w-full lg:w-4/12">
+              <div
+                className="sm:w-full lg:w-4/12"
+                dir={isArabic ? "rtl" : "ltr"}
+              >
                 <div className="w-full p-4 bg-white shadow-md rounded-xl">
                   <div className="flex items-center text-lg gap-x-2 font-TextFontSemiBold">
                     <span>
                       <FaUser className="text-bg-primary" />
                     </span>
-                    {t("Customer Information")}
+                    {t("CustomerInformation")}
                   </div>
                   <p className="text-sm">
                     {t("Name")}: {detailsData?.user?.f_name || "-"}{" "}
@@ -858,7 +881,7 @@ const handleChangeStaus = async (id, status, reason = "") => {
                     {t("Orders")}: {detailsData?.user?.count_orders || "-"}
                   </p>
                   <p className="flex items-center gap-2 text-sm">
-                    Contact:
+                    {t("Contact")}:
                     {detailsData?.user?.phone && (
                       <>
                         <a
@@ -931,30 +954,30 @@ const handleChangeStaus = async (id, status, reason = "") => {
                     </>
                   )}
                 </div>
-{/* 🟢 Transfer to Another Branch Button */}
-<button
-  onClick={() => setShowTransferModal(true)}
-  className="w-full mt-4 bg-green-600 text-white py-3 rounded-lg font-TextFontMedium hover:bg-green-700 transition-all shadow-md flex items-center justify-center gap-2"
->
-  <svg 
-    className="w-5 h-5" 
-    fill="none" 
-    stroke="currentColor" 
-    viewBox="0 0 24 24"
-  >
-    <path 
-      strokeLinecap="round" 
-      strokeLinejoin="round" 
-      strokeWidth={2} 
-      d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" 
-    />
-  </svg>
-  {t("TransferToAnotherBranch") || "Transfer to Another Branch"}
-</button>
+                {/* 🟢 Transfer to Another Branch Button */}
+                <button
+                  onClick={() => setShowTransferModal(true)}
+                  className="w-full mt-4 bg-green-600 text-white py-3 rounded-lg font-TextFontMedium hover:bg-green-700 transition-all shadow-md flex items-center justify-center gap-2"
+                >
+                  <svg
+                    className="w-5 h-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"
+                    />
+                  </svg>
+                  {t("TransferToAnotherBranch") || "Transfer to Another Branch"}
+                </button>
                 <div className="w-full p-4 mt-4 bg-white shadow-md rounded-xl">
                   <div className="flex flex-col gap-y-2">
                     <span className="text-lg font-TextFontSemiBold">
-                      {t("Change Order Status")}
+                      {t("ChangeOrderStatus")}
                     </span>
 
                     <div className="flex flex-col gap-3">
@@ -995,7 +1018,7 @@ const handleChangeStaus = async (id, status, reason = "") => {
                             },
                             {
                               name: "out_for_delivery",
-                              label: "Out for Delivery",
+                              label: "OutforDelivery",
                               icon: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2",
                             },
                             {
@@ -1005,7 +1028,7 @@ const handleChangeStaus = async (id, status, reason = "") => {
                             },
                             {
                               name: "faild_to_deliver",
-                              label: "Failed to Deliver",
+                              label: "FailedtoDeliver",
                               icon: "M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z",
                             },
                             {
@@ -1123,7 +1146,8 @@ const handleChangeStaus = async (id, status, reason = "") => {
                                     d={status.icon}
                                   />
                                 </svg>
-                                {status.label}
+                                {t(status.label)}
+                                {/* {status.label} */}
 
                                 {/* Checkmark for completed statuses */}
                                 {isPrevious && (
@@ -1160,7 +1184,7 @@ const handleChangeStaus = async (id, status, reason = "") => {
                     {showReason && (
                       <div className="p-4 mt-4 border border-gray-200 rounded-lg bg-gray-50">
                         <label className="block mb-2 text-sm font-medium text-gray-700">
-                          {t("Enter Cancel Reason")}:
+                          {t("EnterCancelReason")}:
                         </label>
                         <input
                           type="text"
@@ -1183,7 +1207,7 @@ const handleChangeStaus = async (id, status, reason = "") => {
                             onClick={() => {
                               if (!cancelReason.trim()) {
                                 toast.error(
-                                  t("Please enter a cancellation reason")
+                                  t("Pleaseenteracancellationreason")
                                 );
                                 return;
                               }
@@ -1197,7 +1221,7 @@ const handleChangeStaus = async (id, status, reason = "") => {
                             }}
                             className="px-4 py-2 text-white transition bg-red-600 rounded-lg hover:bg-red-700"
                           >
-                            {t("Confirm Cancellation")}
+                            {t("ConfirmCancellation")}
                           </button>
                         </div>
                       </div>
@@ -1209,7 +1233,7 @@ const handleChangeStaus = async (id, status, reason = "") => {
                         {detailsData.admin_cancel_reason && (
                           <div className="mb-3">
                             <p className="font-medium text-gray-800">
-                              {t("Admin Cancellation Reason")}:
+                              {t("AdminCancellationReason")}:
                             </p>
                             <p className="text-gray-600">
                               {detailsData.admin_cancel_reason}
@@ -1219,7 +1243,7 @@ const handleChangeStaus = async (id, status, reason = "") => {
                         {detailsData.customer_cancel_reason && (
                           <div>
                             <p className="font-medium text-gray-800">
-                              {t("Customer Cancellation Reason")}:
+                              {t("CustomerCancellationReason")}:
                             </p>
                             <p className="text-gray-600">
                               {detailsData.customer_cancel_reason}
@@ -1239,17 +1263,17 @@ const handleChangeStaus = async (id, status, reason = "") => {
                         <DialogPanel className="w-full max-w-md p-6 bg-white shadow-xl rounded-xl">
                           <div className="mb-4">
                             <h3 className="text-lg font-medium text-gray-900">
-                              {t("Cancel Order")}
+                              {t("CancelOrder")}
                             </h3>
                             <p className="mt-1 text-sm text-gray-500">
-                              {t("Confirm Cancellation")}{" "}
+                              {t("ConfirmCancellation")}{" "}
                             </p>
                           </div>
 
                           <textarea
                             value={cancelReason}
                             onChange={(e) => setCancelReason(e.target.value)}
-                            placeholder="Enter cancellation reason..."
+                            placeholder={t("Entercancellationreason")}
                             className="w-full p-2 border border-gray-300 rounded-md focus:border-bg-primary focus:ring-bg-primary"
                             rows={3}
                           />
@@ -1270,18 +1294,22 @@ const handleChangeStaus = async (id, status, reason = "") => {
                               onClick={() => {
                                 if (!cancelReason.trim()) {
                                   toast.error(
-                                    t("Please enter a cancellation reason")
+                                    t("Pleaseenteracancellationreason")
                                   );
                                   return;
                                 }
-handleChangeStaus(detailsData.id, "canceled", cancelReason);
+                                handleChangeStaus(
+                                  detailsData.id,
+                                  "canceled",
+                                  cancelReason
+                                );
 
                                 setShowCancelModal(false);
                                 setCancelReason("");
                               }}
                               className="px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500"
                             >
-                              {t("Confirm Cancellation")}
+                              {t("ConfirmCancellation")}
                             </button>
                           </div>
                         </DialogPanel>
@@ -1299,10 +1327,10 @@ handleChangeStaus(detailsData.id, "canceled", cancelReason);
                         <DialogPanel className="w-full max-w-md p-6 bg-white shadow-xl rounded-xl">
                           <div className="mb-4">
                             <h3 className="text-lg font-medium text-gray-900">
-                              {t("Confirm Refund")}
+                              {t("ConfirmRefund")}
                             </h3>
                             <p className="mt-1 text-sm text-gray-500">
-                              {t("Are you sure you want to refund this order?")}
+                              {t("Areyousureyouwanttorefundthisorder")}
                             </p>
                           </div>
 
@@ -1312,18 +1340,18 @@ handleChangeStaus(detailsData.id, "canceled", cancelReason);
                               onClick={() => setShowRefundModal(false)}
                               className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50"
                             >
-                              {t("No, Cancel")}
+                              {t("NoCancel")}
                             </button>
                             <button
                               type="button"
                               onClick={() => {
-  handleChangeStaus(detailsData.id, "refund");
+                                handleChangeStaus(detailsData.id, "refund");
 
                                 setShowRefundModal(false);
                               }}
                               className="px-4 py-2 text-sm font-medium text-white border border-transparent rounded-md bg-bg-primary hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
                             >
-                              {t("Yes, Refund")}
+                              {t("YesRefund")}
                             </button>
                           </div>
                         </DialogPanel>
@@ -1340,7 +1368,7 @@ handleChangeStaus(detailsData.id, "canceled", cancelReason);
                       className="w-full bg-bg-primary text-white py-2 rounded-md mt-4"
                       onClick={() => handleOpenDeliviers(detailsData.id)}
                     >
-                      {t("Assign Delivery Man")}
+                      {t("AssignDeliveryMan")}
                     </button>
                   )}
 
@@ -1358,7 +1386,7 @@ handleChangeStaus(detailsData.id, "canceled", cancelReason);
                           {/* Dialog Header (Title and Close Button) */}
                           <div className="flex justify-between items-center p-4 border-b">
                             <h2 className="text-xl font-TextFontBold text-gray-900">
-                              {t("Select Delivery Person")}
+                              {t("SelectDeliveryPerson")}
                             </h2>
                             <button
                               type="button"
@@ -1402,7 +1430,7 @@ handleChangeStaus(detailsData.id, "canceled", cancelReason);
                           <div className="flex-1 p-4 flex flex-col gap-3 overflow-y-auto">
                             {deliveriesFilter.length === 0 ? (
                               <div className="text-center py-8 font-TextFontMedium text-gray-500">
-                                {t("Not Found Delivery")}
+                                {t("NotFoundDelivery")}
                               </div>
                             ) : (
                               deliveriesFilter.map((delivery) => (
@@ -1458,7 +1486,7 @@ handleChangeStaus(detailsData.id, "canceled", cancelReason);
                               onClick={() => {
                                 if (!selectedDeliveryId) {
                                   toast.error(
-                                    t("Please select a delivery person")
+                                    t("Pleaseselectadeliveryperson")
                                   );
                                   return;
                                 }
@@ -1471,7 +1499,7 @@ handleChangeStaus(detailsData.id, "canceled", cancelReason);
                               // Primary Action Button
                               className="inline-flex w-full justify-center rounded-lg bg-bg-primary px-6 py-3 text-base font-TextFontMedium text-white shadow-md sm:w-auto hover:bg-bg-primary-dark focus:ring-4 focus:ring-bg-primary/50 transition duration-150"
                             >
-                              {t("Assign Delivery")}
+                              {t("AssignDelivery")}
                             </button>
                             <button
                               type="button"
@@ -1494,7 +1522,7 @@ handleChangeStaus(detailsData.id, "canceled", cancelReason);
                   detailsData.order_status === "out_for_delivery") && (
                   <div className="w-full p-4 mt-4 bg-white shadow-md rounded-xl">
                     <h3 className="text-lg font-TextFontSemiBold">
-                      {t("Food Preparation Time")}
+                      {t("FoodPreparationTime")}
                     </h3>
                     <div className="flex items-center">
                       <FaClock className="mr-2 text-gray-500" />
@@ -1545,7 +1573,7 @@ handleChangeStaus(detailsData.id, "canceled", cancelReason);
                         </>
                       ) : (
                         <span className="text-gray-400">
-                          {t("Preparing time not available")}
+                          {t("Preparingtimenotavailable")}
                         </span>
                       )}
                     </div>
@@ -1620,13 +1648,11 @@ handleChangeStaus(detailsData.id, "canceled", cancelReason);
                           </div>
                           <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
                             <h3 className="text-lg font-medium leading-6 text-gray-900">
-                              {t("Order in Use by Another Person")}
+                              {t("OrderinUsebyAnotherPerson")}
                             </h3>
                             <div className="mt-2">
                               <p className="text-sm text-gray-500">
-                                {t(
-                                  "Someone else is currently working on this order. Please wait until they finish before proceeding to avoid conflicts or duplication."
-                                )}
+                                {t("Someoneelseis")}
                               </p>
                             </div>
                           </div>
@@ -1650,121 +1676,140 @@ handleChangeStaus(detailsData.id, "canceled", cancelReason);
         </>
       )}
       {/* 🟢 Transfer Order Modal */}
-<Dialog
-  open={showTransferModal}
-  onClose={() => setShowTransferModal(false)}
-  className="relative z-50"
->
-  <DialogBackdrop className="fixed inset-0 bg-black/50" />
-  <div className="fixed inset-0 flex items-center justify-center p-4">
-    <DialogPanel className="w-full max-w-md bg-white rounded-xl shadow-2xl">
-      {/* Header */}
-      <div className="flex justify-between items-center p-5 border-b">
-        <h3 className="text-xl font-TextFontBold text-gray-900">
-          {t("TransferOrderToBranch") || "Transfer Order to Branch"}
-        </h3>
-        <button
-          onClick={() => setShowTransferModal(false)}
-          className="text-gray-400 hover:text-gray-600"
-        >
-          <IoClose className="h-6 w-6" />
-        </button>
-      </div>
+      <Dialog
+        open={showTransferModal}
+        onClose={() => setShowTransferModal(false)}
+        className="relative z-50"
+      >
+        <DialogBackdrop className="fixed inset-0 bg-black/50" />
+        <div className="fixed inset-0 flex items-center justify-center p-4">
+          <DialogPanel className="w-full max-w-md bg-white rounded-xl shadow-2xl">
+            {/* Header */}
+            <div className="flex justify-between items-center p-5 border-b">
+              <h3 className="text-xl font-TextFontBold text-gray-900">
+                {t("TransferOrderToBranch") || "Transfer Order to Branch"}
+              </h3>
+              <button
+                onClick={() => setShowTransferModal(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <IoClose className="h-6 w-6" />
+              </button>
+            </div>
 
-      {/* Content */}
-      <div className="p-5">
-        <p className="text-sm text-gray-600 mb-4">
-          {t("SelectBranchToTransfer") || "Select the branch you want to transfer this order to:"}
-        </p>
+            {/* Content */}
+            <div className="p-5">
+              <p className="text-sm text-gray-600 mb-4">
+                {t("SelectBranchToTransfer") ||
+                  "Select the branch you want to transfer this order to:"}
+              </p>
 
-        {/* Order Info */}
-        <div className="bg-gray-50 p-3 rounded-lg mb-4">
-          <p className="text-sm text-gray-700">
-            <span className="font-semibold">{t("Order")}:</span> #{detailsData.id}
-          </p>
-          <p className="text-sm text-gray-700">
-            <span className="font-semibold">{t("CurrentBranch")}:</span> {detailsData?.branch?.name}
-          </p>
-        </div>
+              {/* Order Info */}
+              <div className="bg-gray-50 p-3 rounded-lg mb-4">
+                <p className="text-sm text-gray-700">
+                  <span className="font-semibold">{t("Order")}:</span> #
+                  {detailsData.id}
+                </p>
+                <p className="text-sm text-gray-700">
+                  <span className="font-semibold">{t("CurrentBranch")}:</span>{" "}
+                  {detailsData?.branch?.name}
+                </p>
+              </div>
 
-        {/* Branches List */}
-        {loadingBranches ? (
-          <div className="text-center py-8">
-            <Loading />
-          </div>
-        ) : branches.length === 0 ? (
-          <div className="text-center py-8 text-gray-500">
-            {t("NoBranchesAvailable") || "No branches available"}
-          </div>
-        ) : (
-          <div className="space-y-2 max-h-64 overflow-y-auto">
-            {branches
-              .filter(branch => branch.id !== detailsData?.branch_id) // ✅ استبعاد الفرع الحالي
-              .map((branch) => (
-                <div
-                  key={branch.id}
-                  onClick={() => setSelectedBranchId(branch.id)}
-                  className={`flex items-center justify-between p-3 rounded-lg cursor-pointer transition-all ${
-                    selectedBranchId === branch.id
-                      ? "bg-green-50 border-2 border-green-500"
-                      : "border border-gray-200 hover:border-gray-300"
-                  }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
-                      <span className="text-green-600 font-bold text-lg">
-                        {branch.name?.[0] || "?"}
-                      </span>
-                    </div>
-                    <span className="font-TextFontMedium text-gray-900">
-                      {branch.name}
-                    </span>
-                  </div>
-                  <input
-                    type="radio"
-                    name="branch"
-                    checked={selectedBranchId === branch.id}
-                    onChange={() => setSelectedBranchId(branch.id)}
-                    className="form-radio text-green-600 h-5 w-5"
-                  />
+              {/* Branches List */}
+              {loadingBranches ? (
+                <div className="text-center py-8">
+                  <Loading />
                 </div>
-              ))}
-          </div>
-        )}
-      </div>
+              ) : branches.length === 0 ? (
+                <div className="text-center py-8 text-gray-500">
+                  {t("NoBranchesAvailable") || "No branches available"}
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-64 overflow-y-auto">
+                  {branches
+                    .filter((branch) => branch.id !== detailsData?.branch_id) // ✅ استبعاد الفرع الحالي
+                    .map((branch) => (
+                      <div
+                        key={branch.id}
+                        onClick={() => setSelectedBranchId(branch.id)}
+                        className={`flex items-center justify-between p-3 rounded-lg cursor-pointer transition-all ${
+                          selectedBranchId === branch.id
+                            ? "bg-green-50 border-2 border-green-500"
+                            : "border border-gray-200 hover:border-gray-300"
+                        }`}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
+                            <span className="text-green-600 font-bold text-lg">
+                              {branch.name?.[0] || "?"}
+                            </span>
+                          </div>
+                          <span className="font-TextFontMedium text-gray-900">
+                            {branch.name}
+                          </span>
+                        </div>
+                        <input
+                          type="radio"
+                          name="branch"
+                          checked={selectedBranchId === branch.id}
+                          onChange={() => setSelectedBranchId(branch.id)}
+                          className="form-radio text-green-600 h-5 w-5"
+                        />
+                      </div>
+                    ))}
+                </div>
+              )}
+            </div>
 
-      {/* Footer */}
-      <div className="flex gap-3 p-5 border-t">
-        <button
-          onClick={() => {
-            setShowTransferModal(false);
-            setSelectedBranchId(null);
-          }}
-          className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 font-TextFontMedium hover:bg-gray-50"
-        >
-          {t("Cancel")}
-        </button>
-        <button
-          onClick={handleTransferOrder}
-          disabled={!selectedBranchId || updating}
-          className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg font-TextFontMedium hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
-        >
-          {updating ? (
-            <span className="flex items-center justify-center gap-2">
-              <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"/>
-              </svg>
-              {t("Processing")}
-            </span>
-          ) : (
-            t("TransferOrder") || "Transfer Order"
-          )}
-        </button>
-      </div>
-    </DialogPanel>
-  </div>
-</Dialog>
+            {/* Footer */}
+            <div className="flex gap-3 p-5 border-t">
+              <button
+                onClick={() => {
+                  setShowTransferModal(false);
+                  setSelectedBranchId(null);
+                }}
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-gray-700 font-TextFontMedium hover:bg-gray-50"
+              >
+                {t("Cancel")}
+              </button>
+              <button
+                onClick={handleTransferOrder}
+                disabled={!selectedBranchId || updating}
+                className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg font-TextFontMedium hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed"
+              >
+                {updating ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <svg
+                      className="animate-spin h-4 w-4"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      />
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      />
+                    </svg>
+                    {t("Processing")}
+                  </span>
+                ) : (
+                  t("TransferOrder") || "Transfer Order"
+                )}
+              </button>
+            </div>
+          </DialogPanel>
+        </div>
+      </Dialog>
     </>
   );
 };
