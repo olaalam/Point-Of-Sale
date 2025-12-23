@@ -8,8 +8,11 @@ import {
 } from "@/components/ui/tabs";
 import OnlineOrders from "./OnlineOrders";
 import ExpensesList from "./ExpensesList";
+import { useTranslation } from "react-i18next";
 
 export default function OnlineTabs() {
+    const { t,i18n } = useTranslation();
+  
   return (
     <div className="w-full p-4">
       <Tabs defaultValue="orders" className="w-full">
@@ -20,14 +23,14 @@ export default function OnlineTabs() {
             value="orders"
             className="text-xs  data-[state=active]:bg-bg-primary data-[state=active]:text-white rounded-md"
           >
-            Online Orders
+            {t("OnlineOrders")}
           </TabsTrigger>
 
           <TabsTrigger
             value="expenses"
             className="text-xs  data-[state=active]:bg-bg-primary data-[state=active]:text-white rounded-md"
           >
-            Expenses
+            {t("Expenses")}
           </TabsTrigger>
         </TabsList>
 
