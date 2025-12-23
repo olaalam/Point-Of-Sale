@@ -6,25 +6,29 @@ import { Label } from "@/components/ui/label";
 
 export const PRIVACY_POLICY = `
 Privacy Policy
-Last updated: May 11, 2025
+Last updated: December 2025
 
-This Privacy Policy describes Our policies and procedures on the collection, use
-and disclosure of Your information when You use the Service and tells You about
-Your privacy rights and how the law protects You.
+This Privacy Policy describes our policies and procedures on the collection, use, and disclosure of Your information when You use the Service, and informs You about Your privacy rights and how the law protects You.
 
-Application refers to Food2go
-Country refers to: Egypt
+Application refers to Food2go POS.
+Country refers to: Egypt.
 
-Personal Data may include:
-- Email address
-- First name and last name
+Personal Data collected:
+
+- Name
 - Phone number
 - Address
 
-We may collect location information with your permission.
-You can enable or disable access through your device settings.
+Purpose of data collection:
 
-Security of Your Personal Data
+- Employee login credentials (User ID) are used solely for app access and functionality.
+- Customer contact information is collected only for order delivery purposes and optionally for saving for future orders.
+- Takeaway and dine-in orders do not require customer personal data.
+- All payments are processed externally via third-party providers. No customer payment information is collected or stored.
+- Collected data is not used for tracking, marketing, or shared with third parties.
+
+Security of Your Personal Data:
+
 We strive to protect Your Personal Data but cannot guarantee absolute security.
 `;
 
