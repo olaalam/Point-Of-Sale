@@ -21,6 +21,8 @@ import AllOrders from "./Pages/AllOrders/AllOrders";
 import Dine from "./Pages/Dine/Dine";
 import SinglePage from "./Pages/OnlineOrders/SinglePage";
 import OnlineTabs from "./Pages/OnlineOrders/OnlineTabs";
+import ContactSupport from "./Pages/ContactSupport";
+import Policy from "./Pages/Policy";
 
 const router = createBrowserRouter(
   [
@@ -219,6 +221,22 @@ const router = createBrowserRouter(
           element:(
             <ProtectedRoute>
               <SinglePage/>
+            </ProtectedRoute>
+          )
+        },
+                        {
+          path:"/support",
+          element:(
+            <ProtectedRoute>
+              <ContactSupport/>
+            </ProtectedRoute>
+          )
+        },
+                        {
+          path:"/policy",
+          element:(
+            <ProtectedRoute>
+              <Policy/>
             </ProtectedRoute>
           )
         },

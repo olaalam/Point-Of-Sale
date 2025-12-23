@@ -21,6 +21,13 @@ import ExpensesModal from "@/Pages/ExpensesModal";
 import PasswordConfirmModal from "@/Pages/PasswordConfirmModal";
 import EndShiftReportModal from "@/Pages/ReportsAfterShift";
 import Notifications from "@/components/Notifications";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@/components/ui/dropdown-menu";
+import { FaInfoCircle } from "react-icons/fa";
 
 export default function Navbar() {
   const navigate = useNavigate();
@@ -225,6 +232,36 @@ const handleClose = async () => {
             >
               <FaDollarSign className="text-2xl md:text-3xl" />
             </button>
+            <DropdownMenu>
+  <DropdownMenuTrigger asChild>
+    <button
+      className="text-gray-600 hover:text-[#910000] transition"
+      title={t("Information")}
+    >
+      <FaInfoCircle className="text-xl md:text-2xl" />
+    </button>
+  </DropdownMenuTrigger>
+
+  <DropdownMenuContent
+    align={isArabic ? "start" : "end"}
+    className="w-40"
+  >
+    <DropdownMenuItem
+      onClick={() => navigate("/support")}
+      className="cursor-pointer"
+    >
+      {t("Support")}
+    </DropdownMenuItem>
+
+    <DropdownMenuItem
+      onClick={() => navigate("/policy")}
+      className="cursor-pointer"
+    >
+      {t("Privacy Policy")}
+    </DropdownMenuItem>
+  </DropdownMenuContent>
+</DropdownMenu>
+
 
             <Tabs value={currentTab} onValueChange={handleTabChange}>
               <TabsList className="flex gap-2 bg-transparent p-0 ml-2">
