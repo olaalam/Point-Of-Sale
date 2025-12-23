@@ -227,17 +227,17 @@ const router = createBrowserRouter(
                         {
           path:"/support",
           element:(
-            <ProtectedRoute>
+           
               <ContactSupport/>
-            </ProtectedRoute>
+           
           )
         },
                         {
           path:"/policy",
           element:(
-            <ProtectedRoute>
+            
               <Policy/>
-            </ProtectedRoute>
+           
           )
         },
       ],
