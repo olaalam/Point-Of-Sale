@@ -252,7 +252,7 @@ export default function OrderPage({
           discountData={discountData}
         />
       </div>
-      <div className="w-full lg:w-1/2 mt-4 lg:mt-0">
+      <div className="w-full lg:w-1/2  lg:mt-0">
         <Item
           onAddToOrder={handleAddItem}
           fetchEndpoint={fetchEndpoint}

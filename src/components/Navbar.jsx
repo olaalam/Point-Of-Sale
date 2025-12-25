@@ -232,35 +232,7 @@ const handleClose = async () => {
             >
               <FaDollarSign className="text-2xl md:text-3xl" />
             </button>
-            <DropdownMenu>
-  <DropdownMenuTrigger asChild>
-    <button
-      className="text-gray-600 hover:text-[#910000] transition"
-      title={t("Information")}
-    >
-      <FaInfoCircle className="text-xl md:text-2xl" />
-    </button>
-  </DropdownMenuTrigger>
 
-  <DropdownMenuContent
-    align={isArabic ? "start" : "end"}
-    className="w-40"
-  >
-    <DropdownMenuItem
-      onClick={() => navigate("/support")}
-      className="cursor-pointer"
-    >
-      {t("Support")}
-    </DropdownMenuItem>
-
-    <DropdownMenuItem
-      onClick={() => navigate("/policy")}
-      className="cursor-pointer"
-    >
-      {t("Privacy Policy")}
-    </DropdownMenuItem>
-  </DropdownMenuContent>
-</DropdownMenu>
 
 
             <Tabs value={currentTab} onValueChange={handleTabChange}>

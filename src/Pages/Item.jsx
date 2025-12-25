@@ -59,6 +59,8 @@ export default function Item({
   const [branchIdState, setBranchIdState] = useState(sessionStorage.getItem("branch_id"));
   const [productType, setProductType] = useState("piece");
   const [selectedGroup, setSelectedGroup] = useState("all");
+  const [showCategories, setShowCategories] = useState(false); // التحكم في ظهور قائمة التصنيفات
+  
   const { t, i18n } = useTranslation();
   const orderType = sessionStorage.getItem("order_type") || "dine_in";
   const { deliveryUserData, userLoading, userError } = useDeliveryUser(orderType);
@@ -110,7 +112,6 @@ export default function Item({
     }
   }, [groupProducts]);
 
-  // جلب بيانات المجموعة (categories فقط عادةً)
   const { data: favouriteCategoriesData, isLoading: isFavCatLoading } = useQuery({
     queryKey: ["favouriteCategories", selectedGroup, branchIdState],
     queryFn: () =>
@@ -133,7 +134,6 @@ export default function Item({
     staleTime: 5 * 60 * 1000,
   });
 
-  // الكاتيجوريز اللي هتتعرض
   const finalCategories = useMemo(() => {
     if (selectedGroup === "all" || !favouriteCategoriesData) {
       return allModulesData?.categories || [];
@@ -141,18 +141,14 @@ export default function Item({
     return favouriteCategoriesData.categories || [];
   }, [selectedGroup, allModulesData, favouriteCategoriesData]);
 
-  // المنتجات المفضلة (من captain/lists دايمًا لأنه اللي بيرجع favourite_products)
   const favouriteProducts = useMemo(() => {
     if (!allModulesData) return [];
-
     if (productType === "weight") {
       return allModulesData.favourite_products_weight || [];
     }
-
     return allModulesData.favourite_products || [];
   }, [allModulesData, productType]);
 
-  // كل المنتجات العادية (للـ Normal Prices فقط)
   const allProducts = useMemo(() => {
     if (!allModulesData) return [];
     return productType === "weight"
@@ -160,28 +156,19 @@ export default function Item({
       : allModulesData?.products || [];
   }, [allModulesData, productType]);
 
-// مصدر المنتجات: صارم جدًا
-const productsSource = useMemo(() => {
-  // 1. داخل مجموعة (غير "all") → دايمًا favourite_products فقط
-  if (selectedGroup !== "all") {
-    return favouriteProducts;
-  }
+  const productsSource = useMemo(() => {
+    if (selectedGroup !== "all") {
+      return favouriteProducts;
+    }
+    if (selectedCategory === "all") {
+      return favouriteProducts;
+    } else {
+      return allProducts;
+    }
+  }, [selectedGroup, selectedCategory, favouriteProducts, allProducts]);
 
-  // 2. في Normal Prices (selectedGroup === "all")
-  if (selectedCategory === "all") {
-    // اختيار "Favorite" → نرجع المفضلة فقط
-    return favouriteProducts;
-  } else {
-    // اختيار كاتيجوري معينة → نرجع كل المنتجات ونفلتر بعدين بالكاتيجوري
-    return allProducts;
-  }
-}, [selectedGroup, selectedCategory, favouriteProducts, allProducts]);
-
-  // الفلترة النهائية
   const filteredProducts = useMemo(() => {
     let products = productsSource;
-
-    // فلترة البحث
     if (searchQuery.trim()) {
       const query = searchQuery.trim().toLowerCase();
       products = products.filter((p) => {
@@ -190,12 +177,9 @@ const productsSource = useMemo(() => {
         return name.includes(query) || code.includes(query);
       });
     }
-
-    // فلترة الكاتيجوري
     if (selectedCategory !== "all") {
       products = products.filter((p) => p.category_id === parseInt(selectedCategory));
     }
-
     return products;
   }, [productsSource, selectedCategory, searchQuery]);
 
@@ -221,15 +205,14 @@ const productsSource = useMemo(() => {
   const handleGroupChange = (groupId) => {
     const id = groupId === "all" ? "all" : groupId.toString();
     sessionStorage.setItem("last_selected_group", id);
-
     if (groupId === "all") {
       sessionStorage.removeItem("module_id");
     } else {
       sessionStorage.setItem("module_id", id);
     }
-
     setSelectedGroup(id);
     setSelectedCategory("all");
+    setShowCategories(false); // غلق الأقسام عند اختيار مجموعة
     setVisibleProductCount(PRODUCTS_TO_SHOW_INITIALLY);
     setSearchQuery("");
   };
@@ -381,7 +364,6 @@ const productsSource = useMemo(() => {
     handleAddToOrder(enhancedProduct, enhancedProduct.quantity, options);
   };
 
-  // تحسين الـ loading
   const isAnyLoading =
     groupLoading ||
     isAllDataLoading ||
@@ -407,24 +389,85 @@ const productsSource = useMemo(() => {
   const isArabic = i18n.language === "ar";
 
   return (
-    <div className={`${isArabic ? "text-right direction-rtl" : "text-left direction-ltr"}`} dir={isArabic ? "rtl" : "ltr"}>
-      <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 my-2">
-        <h2 className="text-bg-primary text-2xl font-bold mb-4 flex flex-wrap items-center gap-4">
-          {t("SelectCategory")}
-        </h2>
-        <select
-          value={selectedGroup}
-          onChange={(e) => handleGroupChange(e.target.value)}
-          disabled={groupLoading || !branchIdState}
-          className="px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-bg-primary bg-white text-gray-700 font-medium"
+    <div className={` ${isArabic ? "text-right" : "text-left"}`} dir={isArabic ? "rtl" : "ltr"}>
+      
+      {/* 1. الصف العلوي: البحث + النوع */}
+      <div className="flex flex-col md:flex-row justify-between items-center gap-4 mb-4">
+        <input
+          type="text"
+          placeholder={t("SearchByProductName")}
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="w-full md:w-1/3 px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-1 focus:ring-bg-primary"
+        />
+        
+        <h2 className="text-bg-primary text-2xl font-bold hidden md:block">{t("SelectProduct")}</h2>
+        
+        <div className="flex bg-gray-100 p-1 rounded-lg">
+          <button
+            onClick={() => handleProductTypeChange("piece")}
+            className={`px-4 py-1 rounded-md transition-all ${productType === "piece" ? "bg-white shadow text-bg-primary font-bold" : "text-gray-500"}`}
+          >
+            {t("ByPiece")}
+          </button>
+          <button
+            onClick={() => handleProductTypeChange("weight")}
+            className={`px-4 py-1 rounded-md transition-all ${productType === "weight" ? "bg-white shadow text-bg-primary font-bold" : "text-gray-500"}`}
+          >
+            {t("ByWeight")}
+          </button>
+        </div>
+      </div>
+
+      {/* 2. الصف المدمج (Favorite, Groups, Categories) */}
+      <div className="flex gap-4 overflow-x-auto pb-2 mb-4 scrollbar-hide">
+        
+        {/* زر Favorite */}
+        <Button
+          onClick={() => { handleGroupChange("all"); setSelectedCategory("all"); }}
+          className={`min-w-[120px] h-20 flex flex-col items-center justify-center rounded-xl border transition-all ${
+            selectedGroup === "all" && selectedCategory === "all" ? "bg-bg-primary text-white border-bg-primary" : "bg-white text-gray-700 border-gray-200"
+          }`}
         >
-          <option value="all">{t("NormalPrices") || "All Modules"}</option>
-          {groupProducts.map((group) => (
-            <option key={group.id} value={group.id}>
-              {group.name}
-            </option>
-          ))}
-        </select>
+          <span className="text-2xl mb-1">{selectedGroup === "all" && selectedCategory === "all" ? "❤️" : "🤍"}</span>
+          <span className="font-bold text-sm">{t("Favorite")}</span>
+        </Button>
+
+        {/* زر Normal Prices */}
+        <Button
+          onClick={() => handleGroupChange("all")}
+          className={`min-w-[120px] h-20 flex flex-col items-center justify-center rounded-xl border transition-all ${
+            selectedGroup === "all" && !showCategories ? "bg-bg-primary text-white border-bg-primary" : "bg-white text-gray-700 border-gray-200"
+          }`}
+        >
+          <img src="/path-to-your-icon/normal-price-icon.png" alt="Normal" className="w-8 h-8 mb-1 object-contain" />
+          <span className="font-bold text-sm">{t("NormalPrices")}</span>
+        </Button>
+
+        {/* المجموعات الديناميكية */}
+        {groupProducts.map((group) => (
+          <Button
+            key={group.id}
+            onClick={() => handleGroupChange(group.id)}
+            className={`min-w-[120px] h-20 flex flex-col items-center justify-center rounded-xl border transition-all ${
+              selectedGroup === group.id.toString() ? "bg-bg-primary text-white border-bg-primary" : "bg-white text-gray-700 border-gray-200"
+            }`}
+          >
+            <img src={group.image_link || "/path-to-your-icon/default-group.png"} alt={group.name} className="w-8 h-8 mb-1 object-contain" />
+            <span className="font-bold text-sm">{group.name}</span>
+          </Button>
+        ))}
+
+        {/* زر Categories */}
+        <Button
+          onClick={() => setShowCategories(!showCategories)}
+          className={`min-w-[120px] h-20 flex flex-col items-center justify-center rounded-xl border transition-all ${
+            showCategories ? "bg-bg-primary text-white border-bg-primary" : "bg-white text-gray-700 border-gray-200"
+          }`}
+        >
+          <span className="text-2xl mb-1">🍴</span>
+          <span className="font-bold text-sm">{t("Categories")}</span>
+        </Button>
       </div>
 
       <DeliveryInfo
@@ -435,70 +478,52 @@ const productsSource = useMemo(() => {
         onClose={onClose}
       />
 
-      <CategorySelector
-        categories={finalCategories}
-        selectedCategory={selectedCategory}
-        onCategorySelect={handleCategorySelect}
-      />
-
-      <div className="my-8">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 gap-4">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-            <h2 className="text-bg-primary text-2xl font-bold">{t("SelectProduct")}</h2>
-            <select
-              value={productType}
-              onChange={(e) => handleProductTypeChange(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-bg-primary bg-white text-gray-700 font-medium"
-            >
-              <option value="piece">{t("ByPiece")}</option>
-              <option value="weight">{t("ByWeight")}</option>
-            </select>
-          </div>
-          <input
-            type="text"
-            placeholder={t("SearchByProductName")}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full sm:w-auto px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-1 focus:ring-bg-primary"
+      {/* 3. عرض التصنيفات عند الضغط على الزر */}
+      {showCategories && (
+        <div className="mb-6 p-2 bg-gray-50 rounded-xl border border-dashed border-gray-300">
+          <CategorySelector
+            categories={finalCategories}
+            selectedCategory={selectedCategory}
+            onCategorySelect={handleCategorySelect}
           />
         </div>
+      )}
 
-        <div className="bg-gray-50 border border-gray-200 px-5 mb-8 rounded-lg max-h-[500px] overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-          {filteredProducts.length === 0 ? (
-            <div className="text-center text-gray-500 text-lg py-8">
-              {t("Noproductsfoundfor")} "
-              {selectedCategory === "all"
-                ? t("AllCategories")
-                : finalCategories.find((cat) => cat.id === parseInt(selectedCategory))?.name || t("SelectedCategory")
-              }" ({productType === "weight" ? t("ByWeight") : t("ByPiece")}).
+      {/* 4. حاوية المنتجات */}
+      <div className="bg-white border border-gray-200 rounded-xl p-2 min-h-[400px]">
+        <h3 className="text-lg font-bold mb-4 text-gray-700 border-b pb-2">{t("Products")}</h3>
+        
+        {filteredProducts.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-20 text-gray-400">
+            <span className="text-4xl mb-2">🍽️</span>
+            <p>{t("Noproductsfoundfor")}</p>
+          </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
+              {productsToDisplay.map((product) => (
+                <ProductCard
+                  key={product.id}
+                  product={product}
+                  onAddToOrder={handleAddToOrder}
+                  onOpenModal={openProductModal}
+                  orderLoading={orderLoading}
+                />
+              ))}
             </div>
-          ) : (
-            <>
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-4 gap-4 pb-4 py-3">
-                {productsToDisplay.map((product) => (
-                  <ProductCard
-                    key={product.id}
-                    product={product}
-                    onAddToOrder={handleAddToOrder}
-                    onOpenModal={openProductModal}
-                    orderLoading={orderLoading}
-                  />
-                ))}
-              </div>
 
-              {visibleProductCount < filteredProducts.length && (
-                <div className="flex justify-center my-3">
-                  <Button
-                    onClick={handleShowMoreProducts}
-                    className="bg-bg-primary text-white py-2 px-6 rounded-lg hover:bg-red-700 transition-colors"
-                  >
-                    {t("ShowMoreProducts")}
-                  </Button>
-                </div>
-              )}
-            </>
-          )}
-        </div>
+            {visibleProductCount < filteredProducts.length && (
+              <div className="flex justify-center mt-8">
+                <Button
+                  onClick={handleShowMoreProducts}
+                  className="bg-bg-primary text-white px-10 py-2 rounded-full hover:opacity-90 transition-opacity"
+                >
+                  {t("ShowMoreProducts")}
+                </Button>
+              </div>
+            )}
+          </>
+        )}
       </div>
 
       <ProductModal
@@ -521,7 +546,7 @@ const productsSource = useMemo(() => {
       />
 
       {orderLoading && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50">
           <Loading />
         </div>
       )}

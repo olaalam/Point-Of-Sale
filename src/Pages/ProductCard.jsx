@@ -39,32 +39,14 @@ const ProductCard = ({ product, onAddToOrder, onOpenModal }) => {
           alt={product.name}
           className="w-full h-32 object-cover"
         />
-        <div className="p-3">
+        <div className="px-3">
           <h3 className="text-base font-semibold text-gray-800 truncate">
             {product.name}
-            <p className="text-sm text-gray-500 font-medium">{t("code")}:{product.product_code} </p>
           </h3>
         </div>
       </div>
 
-      {/* Description button that opens modal */}
-      {product.description && product.description !== "null" && (
-        <div className="px-3 -mt-2">
-          <Dialog>
-            <DialogTrigger asChild>
-              <button className="text-xs text-bg-primary underline mt-1">
-                {t("Description")}
-              </button>
-            </DialogTrigger>
-            <DialogContent className="max-w-md">
-              <DialogHeader>
-                <DialogTitle>{t("Description")}</DialogTitle>
-                <DialogDescription>{product.description}</DialogDescription>
-              </DialogHeader>
-            </DialogContent>
-          </Dialog>
-        </div>
-      )}
+
 
       {/* Price */}
       <div className="px-3">
