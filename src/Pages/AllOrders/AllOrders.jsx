@@ -95,6 +95,7 @@ export default function AllOrders() {
     }
 
     const showCustomerInfo = orderType === "delivery" && data.user;
+    const restaurantName=sessionStorage.getItem("resturant_name") || (isArabic ? "اسم المطعم" : "Restaurant Name");
 
     // حساب الإجماليات
     const subtotal = (data.amount - data.total_tax - data.delivery_fees).toFixed(2);
@@ -177,7 +178,7 @@ export default function AllOrders() {
           <div class="container">
             
             <div class="header">
-              <h1>${data.branch?.name || (isArabic ? "اسم المطعم" : "Restaurant Name")}</h1>
+              <h1>${restaurantName}</h1>
               <p>${data.branch?.address || ""}</p>
               <div class="phone">${data.branch?.phone || ""}</div>
             </div>
