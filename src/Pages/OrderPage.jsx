@@ -16,6 +16,7 @@ export default function OrderPage({
   discountData = { discount: 0, module: [] },
 }) {
    const { i18n } = useTranslation()
+  const locale = i18n.language === "ar" ? "ar" : "en";
       const isArabic = i18n.language === "ar";
   const [ordersByTable, setOrdersByTable] = useState({});
   const [ordersByUser, setOrdersByUser] = useState({});
@@ -35,7 +36,7 @@ export default function OrderPage({
   const isDelivery = currentOrderType === "delivery" && !!currentUserId;
 
   const { data: dineInData, loading: dineInLoading, refetch: refetchDineIn } = useGet(
-    isDineIn && currentTableId ? `cashier/dine_in_table_order/${currentTableId}` : null
+    isDineIn && currentTableId ? `cashier/dine_in_table_order/${currentTableId}?locale=${locale}` : null
   );
 
   // ✅ FIXED: تحميل الطلب المتكرر من sessionStorage للـ take_away

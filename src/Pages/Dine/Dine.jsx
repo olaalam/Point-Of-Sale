@@ -172,7 +172,7 @@ const Dine = () => {
   const isArabic = i18n.language === "ar";
   const [selectedTable, setSelectedTable] = useState(null);
   const [selectedLocationId, setSelectedLocationId] = useState(null);
- 
+  const locale = isArabic ? "ar" : "en";
   // 🟢 State للـ Preparation Number Modal
   const [showPreparationModal, setShowPreparationModal] = useState(false);
   const [pendingTableSelection, setPendingTableSelection] = useState(null);
@@ -328,7 +328,7 @@ const Dine = () => {
       formData.append("table_id", table.id);
       cartIds.forEach((id, i) => formData.append(`cart_ids[${i}]`, id));
       try {
-        await postData("cashier/transfer_order", formData);
+        await postData(`cashier/transfer_order?locale=${locale}`, formData);
         toast.success(t("OrderTransferredSuccessfully"));
         [
           "transfer_cart_ids",

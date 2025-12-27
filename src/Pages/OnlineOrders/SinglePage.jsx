@@ -165,7 +165,7 @@ const SinglePage = () => {
 
     try {
       const response = await updateStatus(
-        `cashier/orders/transfer_branch/${detailsData.id}?branch_id=${selectedBranchId}`,
+        `cashier/orders/transfer_branch/${detailsData.id}?branch_id=${selectedBranchId}?locale=${isArabic ? "ar" : "en"}`,
         {} // PUT request with empty body
       );
 

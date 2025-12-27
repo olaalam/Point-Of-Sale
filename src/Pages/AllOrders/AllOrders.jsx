@@ -219,8 +219,8 @@ export default function AllOrders() {
             <table class="items-table">
               <thead>
                 <tr>
-                  <th width="10%">${isArabic ? "ع" : "Qt"}</th>
-                  <th width="65%" style="text-align: ${isArabic ? "right" : "left"};">${isArabic ? "الصنف" : "Item"}</th>
+                  <th width="25%">${isArabic ? "كمية" : "Qt"}</th>
+                  <th width="50%" style="text-align: ${isArabic ? "right" : "left"};">${isArabic ? "الصنف" : "Item"}</th>
                   <th width="25%">${isArabic ? "إجمالي" : "Total"}</th>
                 </tr>
               </thead>
