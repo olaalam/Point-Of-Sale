@@ -602,18 +602,27 @@ const { t , i18n } = useTranslation();
     });
 
     // 👇 بناء المنتج النهائي
-    const enhancedProduct = {
+const enhancedProduct = {
       ...selectedProduct,
       temp_id: `item-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       selectedVariation,
-      selectedExtras: filteredExtras,  // ← extras فقط
+      selectedExtras: filteredExtras,
       selectedExcludes,
       quantity,
       notes: notes.trim(),
-      price: totalUnitPrice,
+      
+      // ❌ الخطأ كان هنا: كنت ترسل السعر المحسوب (totalUnitPrice) كأنه السعر الأساسي
+      // price: totalUnitPrice, 
+
+      // ✅ الصح: أرسل السعر الأصلي للمنتج فقط، ودع Item.jsx يحسب الإضافات
+      price: selectedProduct.price_after_discount || selectedProduct.price || 0,
+
+      // يمكنك الاحتفاظ بالسعر المحسوب في متغير آخر لو احتجته للعرض فقط
+      modalCalculatedPrice: totalUnitPrice, 
+      
       originalPrice: selectedProduct.price,
-      totalPrice: totalUnitPrice * quantity,
-      addons: addonsForBackend,        // ← addons فقط
+      totalPrice: totalUnitPrice * quantity, // هذا للعرض فقط
+      addons: addonsForBackend,
       allExtras: selectedProduct.allExtras,
       addons_list: selectedProduct.addons,
       variations: (selectedProduct.variations || []).map(group => ({

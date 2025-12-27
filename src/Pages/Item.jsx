@@ -180,34 +180,53 @@ export default function Item({ onAddToOrder, onClose, refreshCartData }) {
 const handleAddToOrder = useCallback(async (product, options = {}) => {
   const { customQuantity = 1, checkDuplicate = false } = options;
   
-  // ✅ ابدأ بالسعر الأساسي
+  // ✅ ابدأ بالسعر الأساسي للمنتج
   let finalPrice = parseFloat(product.price || product.price_after_discount || 0);
   
-  // ✅ معالجة الـ variations بشكل صحيح
-  if (product.selectedVariation && product.variations) {
+  // ✅ معالجة الـ variations - دايماً نضيف على السعر الأساسي
+if (product.selectedVariation && product.variations) {
     product.variations.forEach(variation => {
       const selectedOption = product.selectedVariation[variation.id];
       
       if (selectedOption !== undefined && selectedOption !== null) {
+        
+        // -----------------------------------------------------
+        // التعديل يبدأ من هنا (للنوع Single)
+        // -----------------------------------------------------
         if (variation.type === 'single') {
           const option = variation.options?.find(opt => opt.id === selectedOption);
           if (option) {
-            // ✅ استخدم total_option_price إذا كان موجود (السعر الكامل)
-            // وإلا استخدم price_after_tax أو price (الإضافة فقط)
-            if (option.total_option_price !== undefined && option.total_option_price !== null) {
-              // ✅ total_option_price يحتوي على السعر النهائي الكامل
-              finalPrice = parseFloat(option.total_option_price);
+            // إذا كان الخيار يحتوي على total_option_price، فهذا يعني أنه السعر الإجمالي (شاملاً الأساسي)
+            if (option.total_option_price) {
+              const totalOptionPrice = parseFloat(option.total_option_price);
+              const baseProductPrice = parseFloat(product.price || product.price_after_discount || 0);
+              
+              // المعادلة الصحيحة: نضيف الفرق فقط بين سعر الخيار والسعر الأساسي
+              // مثال: 600 (سعر الكيلو) - 200 (سعر الربع) = 400 (الزيادة)
+              // النتيجة النهائية للـ finalPrice ستكون: 200 (موجودة أصلاً) + 400 = 600
+              finalPrice += (totalOptionPrice - baseProductPrice);
             } else {
-              // في حالة عدم وجود total_option_price، أضف السعر
-              finalPrice += parseFloat(option.price_after_tax || option.price || 0);
+              // إذا لم يوجد total_option_price، نستخدم السعر العادي كإضافة (additive)
+              const variationPrice = parseFloat(
+                option.price_after_tax || 
+                option.price || 
+                0
+              );
+              finalPrice += variationPrice;
             }
           }
         } else if (variation.type === 'multiple' && Array.isArray(selectedOption)) {
           selectedOption.forEach(optId => {
             const option = variation.options?.find(opt => opt.id === optId);
             if (option) {
-              // للـ multiple selections، نضيف السعر (مش نستبدل)
-              finalPrice += parseFloat(option.price_after_tax || option.price || 0);
+              // ✅ للـ multiple selections برضو نضيف
+              const variationPrice = parseFloat(
+                option.total_option_price || 
+                option.price_after_tax || 
+                option.price || 
+                0
+              );
+              finalPrice += variationPrice;
             }
           });
         }
@@ -216,22 +235,33 @@ const handleAddToOrder = useCallback(async (product, options = {}) => {
   }
   
   // ✅ أضف سعر الـ extras/addons (هذه دائماً إضافة)
-  if (product.selectedExtras && product.selectedExtras.length > 0) {
-    const extraCounts = {};
-    product.selectedExtras.forEach(id => {
-      extraCounts[id] = (extraCounts[id] || 0) + 1;
-    });
+// ✅ 1. أضف سعر الـ extras (الإضافات الاختيارية)
+if (product.selectedExtras && product.selectedExtras.length > 0) {
+  const extraCounts = {};
+  product.selectedExtras.forEach(id => {
+    extraCounts[id] = (extraCounts[id] || 0) + 1;
+  });
+  
+  Object.entries(extraCounts).forEach(([extraId, count]) => {
+    let extra = product.allExtras?.find(e => e.id === parseInt(extraId));
+    if (extra) {
+      finalPrice += parseFloat(extra.price_after_discount || extra.price || 0) * count;
+    }
+  });
+}
+
+// ✅ 2. أضف سعر الـ addons (الإضافات الإجبارية أو المختارة من قائمة addons)
+// هذا الجزء هو ما كان ينقصك
+if (product.addons && Array.isArray(product.addons)) {
+  product.addons.forEach(addon => {
+    // نستخدم السعر الموجود داخل كائن الـ addon الذي أرسله المودال
+    const addonPrice = parseFloat(addon.price || 0);
+    const addonQty = parseInt(addon.quantity || 1);
+    finalPrice += addonPrice * addonQty;
     
-    Object.entries(extraCounts).forEach(([extraId, count]) => {
-      let extra = product.allExtras?.find(e => e.id === parseInt(extraId));
-      if (!extra) {
-        extra = product.addons?.find(a => a.id === parseInt(extraId));
-      }
-      if (extra) {
-        finalPrice += parseFloat(extra.price_after_discount || extra.price || 0) * count;
-      }
-    });
-  }
+    console.log(`➕ Adding Addon: ${addon.addon_id}, Price: ${addonPrice}, Qty: ${addonQty}`);
+  });
+}
 
   const quantity = product.weight_status === 1 
     ? Number(product.quantity || customQuantity) 

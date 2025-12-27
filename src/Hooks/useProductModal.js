@@ -218,20 +218,26 @@ export const useProductModal = () => {
           }
         }
 
-        // Calculate prices for single-select variations
-if (variation.type === "single" && selectedOptions.length > 0) {
-  const selectedOption = variation.options.find(
-    (opt) => opt.id === selectedOptions[0]
-  );
-  if (selectedOption) {
-    // ✅ استخدم total_option_price إذا كان موجود
-    if (selectedOption.total_option_price !== undefined && selectedOption.total_option_price !== null) {
-      basePrice = selectedOption.total_option_price;
-    } else {
-      basePrice = selectedOption.price_after_tax ?? selectedOption.price ?? basePrice;
-    }
-  }
-}
+// Calculate prices for single-select variations
+        if (variation.type === "single" && selectedOptions.length > 0) {
+          const selectedOption = variation.options.find(
+            (opt) => opt.id === selectedOptions[0]
+          );
+          if (selectedOption) {
+            // التعديل هنا: نقوم بالإضافة على totalVariationsPrice بدلاً من استبدال basePrice
+            
+            let optionPrice = 0;
+            
+            if (selectedOption.total_option_price !== undefined && selectedOption.total_option_price !== null) {
+              optionPrice = parseFloat(selectedOption.total_option_price);
+            } else {
+              optionPrice = parseFloat(selectedOption.price_after_tax ?? selectedOption.price ?? 0);
+            }
+
+            // ✅ هنا الإضافة الصحيحة: نجمع السعر ولا نستبدله
+            totalVariationsPrice += optionPrice;
+          }
+        }
         // Calculate prices for multi-select variations
         else if (variation.type === "multiple" && selectedOptions.length > 0) {
           selectedOptions.forEach((optionId) => {
