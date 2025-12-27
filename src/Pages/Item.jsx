@@ -180,10 +180,10 @@ export default function Item({ onAddToOrder, onClose, refreshCartData }) {
 const handleAddToOrder = useCallback(async (product, options = {}) => {
   const { customQuantity = 1, checkDuplicate = false } = options;
   
-  // ✅ احسب السعر الصحيح (شامل variations + extras)
+  // ✅ ابدأ بالسعر الأساسي
   let finalPrice = parseFloat(product.price || product.price_after_discount || 0);
   
-  // ✅ أضف سعر الـ variations
+  // ✅ معالجة الـ variations بشكل صحيح
   if (product.selectedVariation && product.variations) {
     product.variations.forEach(variation => {
       const selectedOption = product.selectedVariation[variation.id];
@@ -192,13 +192,22 @@ const handleAddToOrder = useCallback(async (product, options = {}) => {
         if (variation.type === 'single') {
           const option = variation.options?.find(opt => opt.id === selectedOption);
           if (option) {
-            finalPrice += parseFloat(option.price || option.price_after_tax || 0);
+            // ✅ استخدم total_option_price إذا كان موجود (السعر الكامل)
+            // وإلا استخدم price_after_tax أو price (الإضافة فقط)
+            if (option.total_option_price !== undefined && option.total_option_price !== null) {
+              // ✅ total_option_price يحتوي على السعر النهائي الكامل
+              finalPrice = parseFloat(option.total_option_price);
+            } else {
+              // في حالة عدم وجود total_option_price، أضف السعر
+              finalPrice += parseFloat(option.price_after_tax || option.price || 0);
+            }
           }
         } else if (variation.type === 'multiple' && Array.isArray(selectedOption)) {
           selectedOption.forEach(optId => {
             const option = variation.options?.find(opt => opt.id === optId);
             if (option) {
-              finalPrice += parseFloat(option.price || option.price_after_tax || 0);
+              // للـ multiple selections، نضيف السعر (مش نستبدل)
+              finalPrice += parseFloat(option.price_after_tax || option.price || 0);
             }
           });
         }
@@ -206,7 +215,7 @@ const handleAddToOrder = useCallback(async (product, options = {}) => {
     });
   }
   
-  // ✅ أضف سعر الـ extras/addons
+  // ✅ أضف سعر الـ extras/addons (هذه دائماً إضافة)
   if (product.selectedExtras && product.selectedExtras.length > 0) {
     const extraCounts = {};
     product.selectedExtras.forEach(id => {
@@ -234,7 +243,8 @@ const handleAddToOrder = useCallback(async (product, options = {}) => {
     basePrice: product.price,
     finalPrice,
     quantity,
-    itemTotal
+    itemTotal,
+    selectedVariation: product.selectedVariation
   });
 
   const createTempId = (pId) => `${pId}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -243,10 +253,9 @@ const handleAddToOrder = useCallback(async (product, options = {}) => {
     const tableId = sessionStorage.getItem("table_id");
     if (!tableId) return toast.error(t("PleaseSelectTableFirst"));
 
-    // ✅ بناء الـ payload بالسعر الصحيح
     const processedItem = buildProductPayload({ 
       ...product, 
-      price: finalPrice,  // ✅ السعر الكامل شامل variations
+      price: finalPrice,
       count: quantity 
     });
 
@@ -264,7 +273,6 @@ const handleAddToOrder = useCallback(async (product, options = {}) => {
 
     console.log("📤 Final Payload:", payload);
 
-    // ✅ Validate
     if (isNaN(itemTotal)) {
       console.error("❌ itemTotal is NaN!", { product, finalPrice, quantity });
       toast.error(t("ErrorCalculatingPrice"));

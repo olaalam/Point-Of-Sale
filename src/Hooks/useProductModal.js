@@ -219,17 +219,19 @@ export const useProductModal = () => {
         }
 
         // Calculate prices for single-select variations
-        if (variation.type === "single" && selectedOptions.length > 0) {
-          const selectedOption = variation.options.find(
-            (opt) => opt.id === selectedOptions[0]
-          );
-          if (selectedOption) {
-            basePrice =
-              selectedOption.price_after_tax ??
-              selectedOption.price ??
-              basePrice;
-          }
-        }
+if (variation.type === "single" && selectedOptions.length > 0) {
+  const selectedOption = variation.options.find(
+    (opt) => opt.id === selectedOptions[0]
+  );
+  if (selectedOption) {
+    // ✅ استخدم total_option_price إذا كان موجود
+    if (selectedOption.total_option_price !== undefined && selectedOption.total_option_price !== null) {
+      basePrice = selectedOption.total_option_price;
+    } else {
+      basePrice = selectedOption.price_after_tax ?? selectedOption.price ?? basePrice;
+    }
+  }
+}
         // Calculate prices for multi-select variations
         else if (variation.type === "multiple" && selectedOptions.length > 0) {
           selectedOptions.forEach((optionId) => {
