@@ -1,83 +1,33 @@
 // src/services/productProcessor.js
+
 export const buildProductPayload = (item) => {
-  // 1. تجميع الـ Variations
-  const groupedVariations =
-    item.allSelectedVariations?.reduce((acc, variation) => {
-      const existing = acc.find(
-        (v) => v.variation_id === variation.variation_id
-      );
-      if (existing) {
-        existing.option_id = Array.isArray(existing.option_id)
-          ? [...existing.option_id, variation.option_id.toString()]
-          : [existing.option_id.toString(), variation.option_id.toString()];
-      } else {
-        acc.push({
-          variation_id: variation.variation_id.toString(),
-          option_id: [variation.option_id.toString()],
-        });
-      }
-      return acc;
-    }, []) || [];
+  // 1. تجميع الـ Variations (بناءً على الهيكل اللي بيبعته المودال)
+  // بنحول الـ Object { variation_id: option_id } لمصفوفة بيفهمها الـ API
+  const groupedVariations = Object.entries(item.selectedVariation || {}).map(([vId, oId]) => ({
+    variation_id: vId.toString(),
+    option_id: Array.isArray(oId) ? oId.map(id => id.toString()) : [oId.toString()]
+  }));
 
-  // 2. فصل Extras عن Addons
-  const realExtrasIds = [];
-  const addonItems = [];
+  // 2. الـ Addons (بناخدها جاهزة من اللي المودال بعته بدل ما نلف عليها تاني)
+  const addonItems = (item.addons || []).map(addon => ({
+    addon_id: addon.addon_id.toString(),
+    count: (addon.quantity || addon.count || 1).toString(),
+    price: (addon.price || 0).toString()
+  }));
 
-  if (item.selectedExtras?.length > 0) {
-    item.selectedExtras.forEach((id) => {
-      const isRealExtra = item.allExtras?.some((extra) => extra.id === id);
-      if (isRealExtra) {
-        realExtrasIds.push(id.toString());
-      } else {
-        const addon = item.addons?.find((a) => a.id === id);
-        if (addon) {
-          const existingAddon = addonItems.find(
-            (a) => a.addon_id === id.toString()
-          );
-          if (existingAddon) {
-            existingAddon.count = (
-              parseInt(existingAddon.count) + 1
-            ).toString();
-          } else {
-            addonItems.push({
-              addon_id: id.toString(),
-              count: "1",
-              price: (addon.price || 0).toString(),
-            });
-          }
-        }
-      }
-    });
-  }
+  // 3. الـ Extras (المعرفات فقط)
+  const extraIds = (item.selectedExtras || []).map(id => id.toString());
 
-  // 3. إضافة selectedAddons (إذا كانت موجودة بشكل منفصل)
-  if (item.selectedAddons?.length > 0) {
-    item.selectedAddons.forEach((addonData) => {
-      const existing = addonItems.find(
-        (a) => a.addon_id === addonData.addon_id.toString()
-      );
-      if (existing) {
-        existing.count = (
-          parseInt(existing.count) + (addonData.count || 1)
-        ).toString();
-      } else {
-        addonItems.push({
-          addon_id: addonData.addon_id.toString(),
-          count: (addonData.count || 1).toString(),
-        });
-      }
-    });
-  }
-
-  // 4. بناء الـ Payload النهائي
+  // 4. بناء الـ Payload النهائي المتوافق مع API الـ Cashier
   return {
     product_id: item.id.toString(),
-    count: (item.count || 1).toString(),
+    count: (item.quantity || item.count || 1).toString(),
     note: (item.notes || "").trim() || "No special instructions",
-    price: (item.price || item.finalPrice || item.total || 0).toString(),
+    // السعر هنا لازم يكون سعر الوحدة الواحدة شامل الإضافات والـ Variations
+    price: (item.price || 0).toString(), 
     addons: addonItems,
     variation: groupedVariations,
-    exclude_id: (item.selectedExcludes || []).map((id) => id.toString()),
-    extra_id: realExtrasIds,
+    exclude_id: (item.selectedExcludes || []).map(id => id.toString()),
+    extra_id: extraIds,
   };
 };

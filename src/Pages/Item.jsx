@@ -178,164 +178,77 @@ export default function Item({ onAddToOrder, onClose, refreshCartData }) {
   };
 
 const handleAddToOrder = useCallback(async (product, options = {}) => {
-  const { customQuantity = 1, checkDuplicate = false } = options;
-  
-  // ✅ ابدأ بالسعر الأساسي للمنتج
-  let finalPrice = parseFloat(product.price || product.price_after_discount || 0);
-  
-  // ✅ معالجة الـ variations - دايماً نضيف على السعر الأساسي
-if (product.selectedVariation && product.variations) {
-    product.variations.forEach(variation => {
-      const selectedOption = product.selectedVariation[variation.id];
-      
-      if (selectedOption !== undefined && selectedOption !== null) {
-        
-        // -----------------------------------------------------
-        // التعديل يبدأ من هنا (للنوع Single)
-        // -----------------------------------------------------
-        if (variation.type === 'single') {
-          const option = variation.options?.find(opt => opt.id === selectedOption);
-          if (option) {
-            // إذا كان الخيار يحتوي على total_option_price، فهذا يعني أنه السعر الإجمالي (شاملاً الأساسي)
-            if (option.total_option_price) {
-              const totalOptionPrice = parseFloat(option.total_option_price);
-              const baseProductPrice = parseFloat(product.price || product.price_after_discount || 0);
-              
-              // المعادلة الصحيحة: نضيف الفرق فقط بين سعر الخيار والسعر الأساسي
-              // مثال: 600 (سعر الكيلو) - 200 (سعر الربع) = 400 (الزيادة)
-              // النتيجة النهائية للـ finalPrice ستكون: 200 (موجودة أصلاً) + 400 = 600
-              finalPrice += (totalOptionPrice - baseProductPrice);
-            } else {
-              // إذا لم يوجد total_option_price، نستخدم السعر العادي كإضافة (additive)
-              const variationPrice = parseFloat(
-                option.price_after_tax || 
-                option.price || 
-                0
-              );
-              finalPrice += variationPrice;
-            }
-          }
-        } else if (variation.type === 'multiple' && Array.isArray(selectedOption)) {
-          selectedOption.forEach(optId => {
-            const option = variation.options?.find(opt => opt.id === optId);
-            if (option) {
-              // ✅ للـ multiple selections برضو نضيف
-              const variationPrice = parseFloat(
-                option.total_option_price || 
-                option.price_after_tax || 
-                option.price || 
-                0
-              );
-              finalPrice += variationPrice;
-            }
-          });
-        }
-      }
-    });
-  }
-  
-  // ✅ أضف سعر الـ extras/addons (هذه دائماً إضافة)
-// ✅ 1. أضف سعر الـ extras (الإضافات الاختيارية)
-if (product.selectedExtras && product.selectedExtras.length > 0) {
-  const extraCounts = {};
-  product.selectedExtras.forEach(id => {
-    extraCounts[id] = (extraCounts[id] || 0) + 1;
-  });
-  
-  Object.entries(extraCounts).forEach(([extraId, count]) => {
-    let extra = product.allExtras?.find(e => e.id === parseInt(extraId));
-    if (extra) {
-      finalPrice += parseFloat(extra.price_after_discount || extra.price || 0) * count;
+    const { customQuantity = 1 } = options;
+    
+    // 1️⃣ استخراج الكمية (سواء من المودال أو إضافة مباشرة)
+    const finalQuantity = product.quantity || customQuantity;
+
+    // 2️⃣ الاعتماد على السعر القادم من المودال (totalPrice) 
+    // أو حساب السعر الأساسي إذا كانت إضافة مباشرة من الكارد
+    // ملاحظة: totalPrice القادم من useProductModal يكون شامل الـ variations والـ extras
+    const pricePerUnit = product.totalPrice ? (product.totalPrice / finalQuantity) : parseFloat(product.price || product.price_after_discount || 0);
+    const totalAmount = pricePerUnit * finalQuantity;
+
+    if (isNaN(totalAmount)) {
+      console.error("❌ Error calculating price", { product, pricePerUnit, finalQuantity });
+      return toast.error(t("ErrorCalculatingPrice"));
     }
-  });
-}
 
-// ✅ 2. أضف سعر الـ addons (الإضافات الإجبارية أو المختارة من قائمة addons)
-// هذا الجزء هو ما كان ينقصك
-if (product.addons && Array.isArray(product.addons)) {
-  product.addons.forEach(addon => {
-    // نستخدم السعر الموجود داخل كائن الـ addon الذي أرسله المودال
-    const addonPrice = parseFloat(addon.price || 0);
-    const addonQty = parseInt(addon.quantity || 1);
-    finalPrice += addonPrice * addonQty;
-    
-    console.log(`➕ Adding Addon: ${addon.addon_id}, Price: ${addonPrice}, Qty: ${addonQty}`);
-  });
-}
-
-  const quantity = product.weight_status === 1 
-    ? Number(product.quantity || customQuantity) 
-    : parseInt(product.quantity || customQuantity);
-    
-  const itemTotal = finalPrice * quantity;
-
-  console.log("💰 Final Calculation:", {
-    basePrice: product.price,
-    finalPrice,
-    quantity,
-    itemTotal,
-    selectedVariation: product.selectedVariation
-  });
-
-  const createTempId = (pId) => `${pId}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-
-  if (orderType === "dine_in") {
-    const tableId = sessionStorage.getItem("table_id");
-    if (!tableId) return toast.error(t("PleaseSelectTableFirst"));
-
+    // 3️⃣ استخدام الـ Processor لبناء الـ Payload الموحد
+    // نمرر البيانات للـ processor وهو سيتكفل بتحويلها لشكل يفهمه الـ API
     const processedItem = buildProductPayload({ 
       ...product, 
-      price: finalPrice,
-      count: quantity 
+      price: pricePerUnit, // السعر للوحدة الواحدة شامل إضافاتها
+      count: finalQuantity 
     });
 
-    console.log("📦 Processed Item:", processedItem);
+    console.log("📦 Processed Item via Processor:", processedItem);
 
-    const payload = {
-      table_id: tableId,
-      cashier_id: sessionStorage.getItem("cashier_id"),
-      amount: itemTotal.toFixed(2),
-      total_tax: (itemTotal * 0.14).toFixed(2),
-      total_discount: "0.00",
-      source: "web",
-      products: [processedItem],
-    };
+    const createTempId = (pId) => `${pId}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-    console.log("📤 Final Payload:", payload);
+    if (orderType === "dine_in") {
+      const tableId = sessionStorage.getItem("table_id");
+      if (!tableId) return toast.error(t("PleaseSelectTableFirst"));
 
-    if (isNaN(itemTotal)) {
-      console.error("❌ itemTotal is NaN!", { product, finalPrice, quantity });
-      toast.error(t("ErrorCalculatingPrice"));
-      return;
-    }
+      const payload = {
+        table_id: tableId,
+        cashier_id: sessionStorage.getItem("cashier_id"),
+        amount: totalAmount.toFixed(2),
+        total_tax: (totalAmount * 0.14).toFixed(2), // مثال للضريبة
+        total_discount: "0.00",
+        source: "web",
+        products: [processedItem],
+      };
 
-    try {
-      await postOrder("cashier/dine_in_order", payload, {
-        headers: { Authorization: `Bearer ${sessionStorage.getItem("access_token")}` },
-      });
+      try {
+        await postOrder("cashier/dine_in_order", payload, {
+          headers: { Authorization: `Bearer ${sessionStorage.getItem("access_token")}` },
+        });
+        
+        onAddToOrder({
+          ...product,
+          temp_id: createTempId(product.id),
+          count: finalQuantity,
+          price: pricePerUnit,
+          totalPrice: totalAmount,
+        });
+        toast.success(t("ProductAddedToTable"));
+      } catch (err) {
+        console.error("❌ API Error:", err);
+        toast.error(t("FailedToAddToTable"));
+      }
+    } else {
+      // الـ Takeaway / Delivery
       onAddToOrder({
         ...product,
         temp_id: createTempId(product.id),
-        count: quantity,
-        price: finalPrice,
-        totalPrice: itemTotal,
+        count: finalQuantity,
+        price: pricePerUnit,
+        totalPrice: totalAmount,
       });
-      toast.success(t("ProductAddedToTable"));
-    } catch (err) {
-      console.error("❌ API Error:", err);
-      toast.error(t("FailedToAddToTable"));
+      toast.success(t("ProductAddedToCart"));
     }
-  } else {
-    onAddToOrder({
-      ...product,
-      temp_id: createTempId(product.id),
-      count: quantity,
-      price: finalPrice,
-      totalPrice: itemTotal,
-    });
-    toast.success(t("ProductAddedToCart"));
-  }
-}, [orderType, onAddToOrder, postOrder, t]);
+  }, [orderType, onAddToOrder, postOrder, t]);
 
   if (groupLoading || isAllDataLoading || (selectedGroup !== "all" && isFavCatLoading && !isNormalPrice)) {
     return <div className="flex justify-center items-center h-40"><Loading /></div>;
