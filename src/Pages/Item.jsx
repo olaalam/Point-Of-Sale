@@ -177,27 +177,127 @@ export default function Item({ onAddToOrder, onClose, refreshCartData }) {
     setSelectedCategory("all");
   };
 
-  const handleAddToOrder = useCallback(async (product, customQuantity = 1) => {
-    const basePrice = parseFloat(product.price_after_discount || product.price || 0);
-    const quantity = product.weight_status === 1 ? Number(product.quantity || customQuantity) : parseInt(customQuantity);
-    const itemTotal = basePrice * quantity;
-    const createTempId = (pId) => `${pId}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+const handleAddToOrder = useCallback(async (product, options = {}) => {
+  const { customQuantity = 1, checkDuplicate = false } = options;
+  
+  // ✅ احسب السعر الصحيح (شامل variations + extras)
+  let finalPrice = parseFloat(product.price || product.price_after_discount || 0);
+  
+  // ✅ أضف سعر الـ variations
+  if (product.selectedVariation && product.variations) {
+    product.variations.forEach(variation => {
+      const selectedOption = product.selectedVariation[variation.id];
+      
+      if (selectedOption !== undefined && selectedOption !== null) {
+        if (variation.type === 'single') {
+          const option = variation.options?.find(opt => opt.id === selectedOption);
+          if (option) {
+            finalPrice += parseFloat(option.price || option.price_after_tax || 0);
+          }
+        } else if (variation.type === 'multiple' && Array.isArray(selectedOption)) {
+          selectedOption.forEach(optId => {
+            const option = variation.options?.find(opt => opt.id === optId);
+            if (option) {
+              finalPrice += parseFloat(option.price || option.price_after_tax || 0);
+            }
+          });
+        }
+      }
+    });
+  }
+  
+  // ✅ أضف سعر الـ extras/addons
+  if (product.selectedExtras && product.selectedExtras.length > 0) {
+    const extraCounts = {};
+    product.selectedExtras.forEach(id => {
+      extraCounts[id] = (extraCounts[id] || 0) + 1;
+    });
+    
+    Object.entries(extraCounts).forEach(([extraId, count]) => {
+      let extra = product.allExtras?.find(e => e.id === parseInt(extraId));
+      if (!extra) {
+        extra = product.addons?.find(a => a.id === parseInt(extraId));
+      }
+      if (extra) {
+        finalPrice += parseFloat(extra.price_after_discount || extra.price || 0) * count;
+      }
+    });
+  }
 
-    if (orderType === "dine_in") {
-      const tableId = sessionStorage.getItem("table_id");
-      if (!tableId) return toast.error(t("PleaseSelectTableFirst"));
-      const processedItem = buildProductPayload({ ...product, price: basePrice, count: quantity });
-      const payload = { table_id: tableId, cashier_id: sessionStorage.getItem("cashier_id"), amount: itemTotal.toFixed(2), total_tax: (itemTotal * 0.14).toFixed(2), total_discount: "0.00", source: "web", products: [processedItem] };
-      try {
-        await postOrder("cashier/dine_in_order", payload, { headers: { Authorization: `Bearer ${sessionStorage.getItem("access_token")}` } });
-        onAddToOrder({ ...product, temp_id: createTempId(product.id), count: quantity, price: basePrice, totalPrice: itemTotal });
-        toast.success(t("ProductAddedToTable"));
-      } catch (err) { toast.error(t("FailedToAddToTable"),err); }
-    } else {
-      onAddToOrder({ ...product, temp_id: createTempId(product.id), count: quantity, price: basePrice, totalPrice: itemTotal });
-      toast.success(t("ProductAddedToCart"));
+  const quantity = product.weight_status === 1 
+    ? Number(product.quantity || customQuantity) 
+    : parseInt(product.quantity || customQuantity);
+    
+  const itemTotal = finalPrice * quantity;
+
+  console.log("💰 Final Calculation:", {
+    basePrice: product.price,
+    finalPrice,
+    quantity,
+    itemTotal
+  });
+
+  const createTempId = (pId) => `${pId}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+  if (orderType === "dine_in") {
+    const tableId = sessionStorage.getItem("table_id");
+    if (!tableId) return toast.error(t("PleaseSelectTableFirst"));
+
+    // ✅ بناء الـ payload بالسعر الصحيح
+    const processedItem = buildProductPayload({ 
+      ...product, 
+      price: finalPrice,  // ✅ السعر الكامل شامل variations
+      count: quantity 
+    });
+
+    console.log("📦 Processed Item:", processedItem);
+
+    const payload = {
+      table_id: tableId,
+      cashier_id: sessionStorage.getItem("cashier_id"),
+      amount: itemTotal.toFixed(2),
+      total_tax: (itemTotal * 0.14).toFixed(2),
+      total_discount: "0.00",
+      source: "web",
+      products: [processedItem],
+    };
+
+    console.log("📤 Final Payload:", payload);
+
+    // ✅ Validate
+    if (isNaN(itemTotal)) {
+      console.error("❌ itemTotal is NaN!", { product, finalPrice, quantity });
+      toast.error(t("ErrorCalculatingPrice"));
+      return;
     }
-  }, [orderType, onAddToOrder, postOrder, t]);
+
+    try {
+      await postOrder("cashier/dine_in_order", payload, {
+        headers: { Authorization: `Bearer ${sessionStorage.getItem("access_token")}` },
+      });
+      onAddToOrder({
+        ...product,
+        temp_id: createTempId(product.id),
+        count: quantity,
+        price: finalPrice,
+        totalPrice: itemTotal,
+      });
+      toast.success(t("ProductAddedToTable"));
+    } catch (err) {
+      console.error("❌ API Error:", err);
+      toast.error(t("FailedToAddToTable"));
+    }
+  } else {
+    onAddToOrder({
+      ...product,
+      temp_id: createTempId(product.id),
+      count: quantity,
+      price: finalPrice,
+      totalPrice: itemTotal,
+    });
+    toast.success(t("ProductAddedToCart"));
+  }
+}, [orderType, onAddToOrder, postOrder, t]);
 
   if (groupLoading || isAllDataLoading || (selectedGroup !== "all" && isFavCatLoading && !isNormalPrice)) {
     return <div className="flex justify-center items-center h-40"><Loading /></div>;
