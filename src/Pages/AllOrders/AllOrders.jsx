@@ -227,26 +227,34 @@ export default function AllOrders() {
               </thead>
               <tbody>
                 ${data.order_details.map(item => {
-                  const itemTotal = item.product.total_price + (item.addons?.reduce((s, a) => s + Number(a.total), 0) || 0);
-                  let addonsHTML = "";
-                  if (item.addons && item.addons.length > 0) {
-                    addonsHTML = item.addons.map(add => 
-                      `<div class="addon-row">+ ${add.name} (${Number(add.price).toFixed(2)})</div>`
-                    ).join("");
-                  }
+  // استخدام total_price للمنتج نفسه (والذي يمثل السعر * الكمية)
+  const productTotal = Number(item.product.total_price) || 0;
+  
+  // إضافة أسعار الإضافات (addons) إن وجدت للإجمالي
+  const addonsTotal = item.addons?.reduce((sum, addon) => sum + (Number(addon.total) || 0), 0) || 0;
+  
+  // الإجمالي النهائي لهذا السطر (المنتج بكافة إضافاته)
+  const rowTotal = productTotal + addonsTotal;
+
+  let addonsHTML = "";
+  if (item.addons && item.addons.length > 0) {
+    addonsHTML = item.addons.map(add => 
+      `<div class="addon-row">+ ${add.name} (${Number(add.price).toFixed(2)})</div>`
+    ).join("");
+  }
                   
-                  return `
-                    <tr>
-                      <td class="item-qty">${item.product.count}</td>
-                      <td class="item-name" style="text-align: ${isArabic ? "right" : "left"};">
-                        ${item.product.name}
-                        ${addonsHTML}
-                        ${item.notes ? `<div class="notes-row">(${item.notes})</div>` : ""}
-                      </td>
-                      <td class="item-total">${itemTotal.toFixed(2)}</td>
-                    </tr>
-                  `;
-                }).join("")}
+return `
+    <tr>
+      <td class="item-qty">${item.product.count}</td>
+      <td class="item-name" style="text-align: ${isArabic ? "right" : "left"};">
+        ${item.product.name}
+        ${addonsHTML}
+        ${item.notes ? `<div class="notes-row">(${item.notes})</div>` : ""}
+      </td>
+      <td class="item-total">${rowTotal.toFixed(2)}</td>
+    </tr>
+  `;
+}).join("")}
               </tbody>
             </table>
 
@@ -270,10 +278,10 @@ export default function AllOrders() {
                 </div>
               ` : ""}
 
-              <div class="grand-total">
-                <span style="font-size: 16px;">${isArabic ? "الإجمالي" : "TOTAL"}</span>
-                <span>${data.amount.toFixed(2)}</span>
-              </div>
+<div class="grand-total">
+  <span style="font-size: 16px;">${isArabic ? "الإجمالي" : "TOTAL"}</span>
+  <span>${Number(data.amount).toFixed(2)}</span> 
+</div>
             </div>
 
             <div style="text-align: center; margin-top: 15px; font-size: 11px;">

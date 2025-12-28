@@ -465,13 +465,24 @@ const proceedWithOrderSubmission = async (
   let payload;
   if (hasDealItems) {
     payload = buildDealPayload(safeOrderItems, financialsPayload);
-  } else {
-    const finalDiscountId =
-      selectedDiscountAmount > 0 ? finalSelectedDiscountId : null;
+} else {
+    // 1. حساب الـ ID الصحيح للخصم مرة واحدة فقط
+    const finalDiscountIdToSend = selectedDiscountAmount > 0 
+      ? finalSelectedDiscountId 
+      : selectedDiscountId;
 
+    // 2. تجهيز المنتجات لضمان إرسال الوزن (الكسور) في حقل count
+    const itemsForPayload = safeOrderItems.map(item => ({
+      ...item,
+      count: (item.weight_status === 1 || item.weight_status === "1") 
+        ? (item.quantity || item.count) 
+        : item.count
+    }));
+
+    // 3. بناء الـ Payload النهائي
     payload = buildOrderPayload({
       orderType,
-      orderItems: safeOrderItems,
+      orderItems: itemsForPayload, // استخدمنا المصفوفة المعدلة للوزن ✅
       amountToPay: requiredTotal,
       totalTax,
       totalDiscount:
@@ -489,12 +500,11 @@ const proceedWithOrderSubmission = async (
       discountCode: appliedDiscount > 0 ? discountCode : undefined,
       due: due,
       user_id: customer_id,
-      discount_id: selectedDiscountId,
+      discount_id: finalDiscountIdToSend, // استخدمنا الـ ID المحسوب صح ✅
       module_id: moduleId,
       free_discount: freeDiscountValue > 0 ? freeDiscountValue : undefined,
       due_module: dueModuleValue > 0 ? dueModuleValue.toFixed(2) : undefined,
       service_fees,
-      // الجديد: باسوورد الخصم المجاني
       password: forcedPassword || pendingFreeDiscountPassword || undefined,
     });
   }
@@ -534,18 +544,18 @@ const proceedWithOrderSubmission = async (
       };
 
       if (due === 0) {
-        const receiptData = prepareReceiptData(
-          safeOrderItems,
-          amountToPay,
-          totalTax,
-          totalDiscount,
-          appliedDiscount,
-          discountData,
-          orderType,
-          requiredTotal,
-          response.success,
-          response
-        );
+const receiptData = prepareReceiptData(
+  itemsForPayload, // ✅ نستخدم المصفوفة المعدلة هنا (الوزن 1.5)
+  amountToPay,     // البارامتر الثاني كما هو
+  totalTax,
+  totalDiscount,
+  appliedDiscount,
+  discountData,
+  orderType,
+  requiredTotal,
+  response.success,
+  response
+);
         printReceiptSilently(receiptData, response, () => {
           handleNavigation();
         });

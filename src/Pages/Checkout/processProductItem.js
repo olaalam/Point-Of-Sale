@@ -17,17 +17,11 @@ export const processProductItem = (item) => {
 
   // 2. Addons - مع الـ price المطلوب
   const addons = [];
-
   if (item.addons && Array.isArray(item.addons)) {
     item.addons.forEach((addon) => {
       if (addon.addon_id && addon.quantity > 0) {
-        // نجيب سعر الـ addon من المنتج الأصلي
         let addonPrice = 0;
-        
-        // نبحث في allExtras أو addons
-        const sourceAddon = 
-          (item.addons_list || []).find(a => a.id === addon.addon_id);
-        
+        const sourceAddon = (item.addons_list || []).find(a => a.id === addon.addon_id);
         if (sourceAddon) {
           addonPrice = parseFloat(
             sourceAddon.price_after_discount || 
@@ -36,21 +30,18 @@ export const processProductItem = (item) => {
             0
           );
         }
-
-        // Object structure (مع price)
         addons.push({
           addon_id: addon.addon_id.toString(),
           count: addon.quantity.toString(),
-          price: addonPrice.toFixed(2), // ← السعر المطلوب
+          price: addonPrice.toFixed(2),
         });
       }
     });
   }
   
-const extra_id = (item.selectedExtras || [])
-  .filter(id => (item.allExtras || []).some(e => e.id === id))
-  .map(id => id.toString());
-
+  const extra_id = (item.selectedExtras || [])
+    .filter(id => (item.allExtras || []).some(e => e.id === id))
+    .map(id => id.toString());
 
   const exclude_id = (item.selectedExcludes || [])
     .map(id => id.toString())
@@ -58,18 +49,25 @@ const extra_id = (item.selectedExtras || [])
 
   const note = item.notes?.trim() || "No notes";
 
-return {
+  // --- التعديل هنا لضبط الوزن ---
+  // نتحقق أولاً هل المنتج يباع بالوزن (weight_status === 1)
+  // إذا كان بالوزن نأخذ quantity (التي تقبل كسور مثل 1.5)
+  // إذا لم يكن بالوزن نأخذ count العادي
+  const finalCount = item.weight_status === 1 || item.weight_status === "1"
+    ? (item.quantity || item.count || 1)
+    : (item.count || 1);
+
+  return {
     product_id: item.id.toString(),
-    count: (item.count || 1).toString(),
+    count: finalCount.toString(), // سيتم إرسال "1.5" بدلاً من "1"
     note,
-    price: parseFloat(item.price || 0).toFixed(2), // السعر الأساسي + الـ extras بيضاف تلقائي من الباك إند
+    price: parseFloat(item.price || 0).toFixed(2),
     variation: variations,
-    addons,          // ← [] دايمًا
-    extra_id,        // ← ده المهم بقى!
+    addons,
+    extra_id,
     exclude_id,
   };
 };
-
 /**
  * بناء الـ financials payload - مظبوطة للفيزا والباقي
  */
