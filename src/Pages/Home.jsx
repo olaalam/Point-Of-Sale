@@ -163,24 +163,32 @@ const response = await postData("cashier/discount_module", {
     [postData, t]
   );
 
-  const handleTableSelect = useCallback((newTableId) => {
-    const { isTransferring, transferSourceTableId, transferCartIds } = state;
+const handleTableSelect = useCallback((newTableId) => {
+    // جلب أحدث البيانات من الـ storage مباشرة للتأكد
+    const sourceTableId = sessionStorage.getItem("transfer_source_table_id");
+    const cartIds = JSON.parse(sessionStorage.getItem("transfer_cart_ids"));
 
-    if (isTransferring) {
-      runTransferAPI(newTableId, transferSourceTableId, transferCartIds);
+    if (state.isTransferring) {
+      if (!sourceTableId || !cartIds || cartIds.length === 0) {
+        toast.error(t("Cannot transfer order: Table ID or Cart IDs are missing."));
+        clearTransferData();
+        setState(prev => ({ ...prev, isTransferring: false }));
+        return;
+      }
+      runTransferAPI(newTableId, sourceTableId, cartIds);
     } else {
+      // المنطق الطبيعي لاختيار طاولة
       setState((prevState) => ({
         ...prevState,
         tableId: newTableId,
         orderType: "dine_in",
         tabValue: "dine_in",
-        isTransferring: false,
       }));
       sessionStorage.setItem("table_id", newTableId);
       sessionStorage.setItem("order_type", "dine_in");
       sessionStorage.setItem("tab", "dine_in");
     }
-  }, [state.isTransferring, state.transferSourceTableId, state.transferCartIds, runTransferAPI]);
+  }, [state.isTransferring, runTransferAPI, t]);
 
   const handleDeliveryUserSelect = useCallback((id) => {
     setState((prevState) => ({

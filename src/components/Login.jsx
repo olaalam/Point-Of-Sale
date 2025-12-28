@@ -105,13 +105,14 @@ const vapidKey= import.meta.env.VITE_FIREBASE_VAPID_KEY
    let branchAddress = "عنوان مطعمك"; // (قيمة افتراضية)
    let branchPhone = "رقم التليفون"; // (قيمة افتراضية)
    let receiptFooter = "شكراً لزيارتكم"; // (قيمة افتراضية)
-
+let resturant_logo=res.data.resturant_logo||"";
    // الاحتمال الأول: البيانات داخل object اسمه branch
    if (cashierData.branch) {
     branchName = cashierData.branch.name || branchName;
     branchAddress = cashierData.branch.address || branchAddress;
     branchPhone = cashierData.branch.phone || branchPhone;
     receiptFooter = cashierData.branch.receipt_footer || receiptFooter;
+
    }
    // الاحتمال الثاني: البيانات موجودة مباشرة في الـ cashier object
    else {
@@ -123,6 +124,9 @@ const vapidKey= import.meta.env.VITE_FIREBASE_VAPID_KEY
 
    // (تخزين البيانات)
    sessionStorage.setItem("restaurant_name", branchName);
+      sessionStorage.setItem("resturant_logo", resturant_logo);
+
+   
    sessionStorage.setItem("restaurant_address", branchAddress);
    sessionStorage.setItem("restaurant_phone", branchPhone);
    sessionStorage.setItem("receipt_footer", receiptFooter);

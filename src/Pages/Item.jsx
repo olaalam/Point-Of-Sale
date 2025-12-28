@@ -15,7 +15,7 @@ import { ArrowLeft, LayoutGrid, Tag } from "lucide-react";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "https://bcknd.food2go.online/";
 const getAuthToken = () => sessionStorage.getItem("token");
-
+let resturant_logo = sessionStorage.getItem("resturant_logo");
 const apiFetcher = async (path) => {
   const url = `${API_BASE_URL}${path}`;
   const token = getAuthToken();
@@ -297,13 +297,24 @@ const handleAddToOrder = useCallback(async (product, options = {}) => {
         <div className="h-12 w-[2px] bg-gray-300 mx-1 flex-shrink-0 rounded-full" />
 
         {/* الأسعار العادية */}
-        <Button
-          onClick={handleNormalPricesClick}
-          className={`min-w-[110px] h-28 flex flex-col items-center justify-center rounded-xl border transition-all ${isNormalPrice ? "bg-bg-primary text-white border-bg-primary shadow-lg" : "bg-white text-gray-700 border-gray-200"}`}
-        >
-          <Tag className="mb-1" size={28} />
-          <span className="font-bold text-sm">{t("NormalPrices")}</span>
-        </Button>
+<Button
+  onClick={handleNormalPricesClick}
+  className={`group relative min-w-[110px] h-28 flex flex-col items-center justify-center rounded-xl border overflow-hidden p-0 transition-all duration-300 ${isNormalPrice ? "border-bg-primary ring-2 ring-bg-primary/50" : "border-gray-200"}`}
+>
+  {/* الصورة مع الطبقة الشفافة */}
+  <div className={`absolute inset-0 transition-opacity duration-300 ${isNormalPrice ? "opacity-100" : "opacity-40 group-hover:opacity-100"}`}>
+    <img src={resturant_logo} alt="logo" className="w-full h-full object-cover" />
+    {!isNormalPrice && <div className="absolute inset-0 bg-black/40 group-hover:bg-transparent" />}
+  </div>
+
+  {/* الاسم يظهر عند الـ Hover أو Active */}
+  <div className={`absolute bottom-0 w-full py-2 bg-black/70 backdrop-blur-sm text-white transition-transform duration-300 ${isNormalPrice ? "translate-y-0" : "translate-y-full group-hover:translate-y-0"}`}>
+    <span className="font-bold text-[10px] block px-1 truncate text-center uppercase">
+      {t("NormalPrices")}
+    </span>
+  </div>
+</Button>
+
 
         {/* المجموعات الديناميكية بالتصميم الجديد */}
         {groupProducts.map((group) => {
