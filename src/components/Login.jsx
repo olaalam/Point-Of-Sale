@@ -80,12 +80,15 @@ const vapidKey= import.meta.env.VITE_FIREBASE_VAPID_KEY
 
    console.log("Login Response:", res.data);
    toast.success(t("LoggedInSuccessfully"));
-
+   console.log(res.data.preparation_num_status);
    // ✅ تخزين البيانات في sessionStorage (الكود القديم)
    sessionStorage.setItem("token", res.data.token);
    sessionStorage.setItem("user", JSON.stringify(res.data.cashier));
    sessionStorage.setItem("branch_id", res.data.cashier.branch_id);
    sessionStorage.setItem("resturant_name",res.data.resturant_name);
+   sessionStorage.setItem("preparation_num_status", res.data.preparation_num_status);
+   console.log(res.data.preparation_num_status);
+   
    if (res.data.financial_account) {
     sessionStorage.setItem(
      "financial_account",

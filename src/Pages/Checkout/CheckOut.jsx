@@ -154,7 +154,7 @@ const isDueModuleAllowed = (() => {
     }
 
     let discountValue = 0;
-    if (selectedDiscount.type === "percentage") {
+    if (selectedDiscount.type === "precentage") {
       discountValue = amountToPay * (selectedDiscount.amount / 100);
     } else if (selectedDiscount.type === "value") {
       discountValue = selectedDiscount.amount;
@@ -432,17 +432,26 @@ const proceedWithOrderSubmission = async (
   due = 0,
   customer_id = undefined,
   dueModuleValue = 0,
-  forcedPassword = null // جديد
+  forcedPassword = null
 ) => {
   const freeDiscountValue = parseFloat(freeDiscount) || 0;
 
-  // لو فيه free_discount ومفيش password (ولا تم ادخاله قبل كده)
   if (freeDiscountValue > 0 && !forcedPassword && !pendingFreeDiscountPassword) {
     setPasswordModalOpen(true);
-    return; // نوقف هنا لحد ما يدخل الباسوورد
+    return;
   }
 
   const safeOrderItems = Array.isArray(orderItems) ? orderItems : [];
+  
+  // 🟢 الحل: تعريف المتغير هنا في البداية ليكون متاحاً للكل (للـ Payload وللطباعة)
+  const itemsForPayload = safeOrderItems.map((item) => ({
+    ...item,
+    count:
+      item.weight_status === 1 || item.weight_status === "1"
+        ? item.quantity || item.count
+        : item.count,
+  }));
+
   const isDineIn = orderType === "dine_in";
   const hasSelectedItems = selectedPaymentItemIds.length > 0;
   const totalItemsCount = orderItems.length;
@@ -463,26 +472,19 @@ const proceedWithOrderSubmission = async (
 
   const moduleId = sessionStorage.getItem("module_id");
   let payload;
+
   if (hasDealItems) {
+    // هنا ممكن تستخدم itemsForPayload المعدلة أو safeOrderItems حسب منطق الـ Deal عندك
     payload = buildDealPayload(safeOrderItems, financialsPayload);
-} else {
-    // 1. حساب الـ ID الصحيح للخصم مرة واحدة فقط
-    const finalDiscountIdToSend = selectedDiscountAmount > 0 
-      ? finalSelectedDiscountId 
-      : selectedDiscountId;
+  } else {
+    const finalDiscountIdToSend =
+      selectedDiscountAmount > 0 ? finalSelectedDiscountId : selectedDiscountId;
 
-    // 2. تجهيز المنتجات لضمان إرسال الوزن (الكسور) في حقل count
-    const itemsForPayload = safeOrderItems.map(item => ({
-      ...item,
-      count: (item.weight_status === 1 || item.weight_status === "1") 
-        ? (item.quantity || item.count) 
-        : item.count
-    }));
+    // 🟢 قمنا بحذف التعريف من هنا لأننا عرفناه فوق خلاص
 
-    // 3. بناء الـ Payload النهائي
     payload = buildOrderPayload({
       orderType,
-      orderItems: itemsForPayload, // استخدمنا المصفوفة المعدلة للوزن ✅
+      orderItems: itemsForPayload, // ✅ الآن المتغير معرف وقراءته صحيحة
       amountToPay: requiredTotal,
       totalTax,
       totalDiscount:
@@ -500,7 +502,7 @@ const proceedWithOrderSubmission = async (
       discountCode: appliedDiscount > 0 ? discountCode : undefined,
       due: due,
       user_id: customer_id,
-      discount_id: finalDiscountIdToSend, // استخدمنا الـ ID المحسوب صح ✅
+      discount_id: finalDiscountIdToSend,
       module_id: moduleId,
       free_discount: freeDiscountValue > 0 ? freeDiscountValue : undefined,
       due_module: dueModuleValue > 0 ? dueModuleValue.toFixed(2) : undefined,
@@ -514,14 +516,17 @@ const proceedWithOrderSubmission = async (
       headers: { "Content-Type": "application/json" },
     });
 
+    console.log("Response received from server:", response);
+
     if (response?.success) {
+      if (response.print_type) {
+        sessionStorage.setItem("print_type", response.print_type);
+      }
       toast.success(due === 1 ? t("DueOrderCreated") : t("OrderPlaced"));
 
-      // Reset password after success
       setPendingFreeDiscountPassword("");
-      
+
       const handleNavigation = () => {
-        // ... نفس الكود اللي عندك
         if (orderType === "delivery") {
           sessionStorage.removeItem("selected_user_id");
           sessionStorage.removeItem("selected_user_data");
@@ -534,6 +539,7 @@ const proceedWithOrderSubmission = async (
         } else {
           onClearCart();
         }
+
         sessionStorage.setItem("last_order_type", orderType);
         if (orderType === "delivery" && response?.success?.id) {
           setOrderId(response.success.id);
@@ -544,18 +550,19 @@ const proceedWithOrderSubmission = async (
       };
 
       if (due === 0) {
-const receiptData = prepareReceiptData(
-  itemsForPayload, // ✅ نستخدم المصفوفة المعدلة هنا (الوزن 1.5)
-  amountToPay,     // البارامتر الثاني كما هو
-  totalTax,
-  totalDiscount,
-  appliedDiscount,
-  discountData,
-  orderType,
-  requiredTotal,
-  response.success,
-  response
-);
+        // 🟢 الآن itemsForPayload مقروءة هنا لأنها معرفة في النطاق الخارجي
+        const receiptData = prepareReceiptData(
+          itemsForPayload, 
+          amountToPay,
+          totalTax,
+          totalDiscount,
+          appliedDiscount,
+          discountData,
+          orderType,
+          requiredTotal,
+          response.success,
+          response
+        );
         printReceiptSilently(receiptData, response, () => {
           handleNavigation();
         });
@@ -867,7 +874,7 @@ const receiptData = prepareReceiptData(
                   {discountListData?.discount_list?.map((discount) => (
                     <SelectItem key={discount.id} value={String(discount.id)}>
                       {discount.name} ({discount.amount}
-                      {discount.type === "percentage" ? "%" : t("EGP")})
+                      {discount.type === "precentage" ? "%" : t("EGP")})
                     </SelectItem>
                   ))}
                 </SelectContent>

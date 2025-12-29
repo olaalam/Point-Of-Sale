@@ -23,6 +23,7 @@ import SinglePage from "./Pages/OnlineOrders/SinglePage";
 import OnlineTabs from "./Pages/OnlineOrders/OnlineTabs";
 import ContactSupport from "./Pages/ContactSupport";
 import Policy from "./Pages/Policy";
+import FakeOrders from "./Pages/FakeOrders/FakeOrders";
 
 const router = createBrowserRouter(
   [
@@ -229,6 +230,14 @@ const router = createBrowserRouter(
           element:(
            
               <ContactSupport/>
+           
+          )
+        },
+                                {
+          path:"/Forders",
+          element:(
+           
+              <FakeOrders/>
            
           )
         },

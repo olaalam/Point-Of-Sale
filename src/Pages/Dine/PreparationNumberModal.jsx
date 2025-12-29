@@ -36,7 +36,7 @@ const handleSubmit = async () => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/70 p-4">
+    <div className="fixed inset-0 z-[99] flex items-center justify-center bg-black/70 p-4">
       <div className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl">
         {/* Header */}
         <div className="bg-gradient-to-r from-blue-600 to-blue-700 p-6 rounded-t-2xl">

@@ -33,6 +33,7 @@ export default function Card({
   allowQuantityEdit = true,
   orderType,
   tableId,
+  onClose,
   userId,
 }) {
   const navigate = useNavigate();
@@ -120,7 +121,9 @@ const clearPaidItemsOnly = () => {
   const remainingItems = orderItems.filter(
     (item) => !paidItemIds.has(item.temp_id)
   );
-
+if (orderType === "delivery") {
+        onClose(); // العودة لتبويب الديليفري الرئيسي بعد الدفع
+    }
   // نعمل تحديث للسلة بالعناصر الباقية فقط
   updateOrderItems(remainingItems);
 
@@ -253,7 +256,7 @@ const hasAnyItemInPreparationOrLater = () => {
       }`}
       dir={isArabic ? "rtl" : "ltr"}
     >
-      <DineInformation/>
+      <DineInformation onClose={onClose}/>
       {/* Header Section */}
       <CardHeader
         orderType={orderType}

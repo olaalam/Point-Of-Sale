@@ -135,14 +135,35 @@ export default function Item({ onAddToOrder, onClose, refreshCartData }) {
     return productType === "weight" ? allModulesData?.products_weight || [] : allModulesData?.products || [];
   }, [allModulesData, productType]);
 
-  const filteredProducts = useMemo(() => {
-    let products = (isNormalPrice) ? allProducts : (selectedCategory === "all" && selectedGroup === "all") ? favouriteProducts : allProducts;
+const filteredProducts = useMemo(() => {
+    // 1. تحديد مصدر البيانات
+    let products;
+
+    // 🟢 التعديل هنا:
+    // إذا كان هناك نص في البحث، نستخدم كل المنتجات (allProducts) فوراً
+    // هذا يضمن البحث في كل الفئات وليس المفضلة فقط
+    if (searchQuery.trim()) {
+      products = allProducts; 
+    } else {
+      // إذا لم يكن هناك بحث، نطبق المنطق العادي (مفضلة أو أسعار عادية)
+      products = (isNormalPrice) 
+        ? allProducts 
+        : (selectedCategory === "all" && selectedGroup === "all") 
+          ? favouriteProducts 
+          : allProducts;
+    }
     
+    // 2. تطبيق فلتر البحث
     if (searchQuery.trim()) {
       const query = searchQuery.trim().toLowerCase();
       products = products.filter((p) => (p.name?.toLowerCase() || "").includes(query) || (p.product_code?.toString().toLowerCase() || "").includes(query));
     }
-    if (selectedCategory !== "all") products = products.filter((p) => p.category_id === parseInt(selectedCategory));
+
+    // 3. تطبيق فلتر التصنيف (Category)
+    if (selectedCategory !== "all") {
+        products = products.filter((p) => p.category_id === parseInt(selectedCategory));
+    }
+    
     return products;
   }, [allProducts, favouriteProducts, selectedCategory, selectedGroup, searchQuery, isNormalPrice]);
 

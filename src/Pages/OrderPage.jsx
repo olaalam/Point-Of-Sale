@@ -13,6 +13,7 @@ export default function OrderPage({
   propOrderType,
   propTableId,
   propUserId,
+  onClose,
   discountData = { discount: 0, module: [] },
 }) {
    const { i18n } = useTranslation()
@@ -222,7 +223,15 @@ export default function OrderPage({
     updateOrderItems(updatedItems);
   };
 
-  const handleClose = () => {
+const handleClose = () => {
+    // إذا تم تمرير onClose من الأب (Home.jsx)، نستخدمها
+    // لأنها تحتوي على المنطق الصحيح للعودة لقائمة الديليفري دون تغيير التبويب
+    if (onClose) {
+      onClose();
+      return; 
+    }
+
+    // هذا الكود الاحتياطي يعمل فقط إذا لم يتم تمرير onClose
     sessionStorage.removeItem("selected_user_id");
     sessionStorage.removeItem("selected_address_id");
     sessionStorage.removeItem("order_type");
@@ -242,6 +251,7 @@ export default function OrderPage({
       <div className="w-full lg:w-1/2 sm:overflow-auto">
         <Card
           key={refreshTrigger}
+          onClose={onClose}
           orderItems={currentOrderItems}
           updateOrderItems={updateOrderItems}
           allowQuantityEdit={allowQuantityEdit}

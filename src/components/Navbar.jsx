@@ -100,6 +100,7 @@ export default function Navbar() {
   const handleTables = () => navigate("/tables", { replace: true });
   const handleDueUsers = () => navigate("/due");
   const handleAllOrders = () => navigate("/all-orders");
+  const handleFakeOrders = () => navigate("/Forders");
   const handleExpenses = () => setShowExpensesModal(true);
 
   // ===== إغلاق الشيفت بكل الخطوات =====
@@ -300,7 +301,13 @@ const handleClose = async () => {
                       {formatElapsedTime()}
                     </span>
                   </div>
-
+            <button
+              onClick={handleFakeOrders}
+              className="text-gray-600 hover:text-[#910000]"
+              title={t("Orders")}
+            >
+              <FaListAlt className="text-2xl md:text-3xl" />
+            </button>
                   <button
                     onClick={handleCloseShift}
                     disabled={loading || reportLoading}

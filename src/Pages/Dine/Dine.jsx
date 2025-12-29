@@ -17,7 +17,7 @@ import { usePost } from "@/Hooks/usePost";
 import { usePut } from "@/Hooks/usePut";
 import Loading from "@/components/Loading";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { toast } from "react-toastify";
+import { toast,ToastContainer } from "react-toastify";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -296,13 +296,19 @@ const Dine = () => {
       } else {
         toast.error(response?.message || t("FailedToSavePreparationNumber"));
       }
-    } catch (err) {
-      console.error("Preparation number error:", err);
-      toast.error(
-        err.response?.data?.message || t("FailedToSavePreparationNumber")
-      );
-    }
-  };
+    }catch (err) {
+    console.error("Preparation number error details:", err);
+
+    // استخراج الرسالة من هيكل Axios الصحيح كما يظهر في الكونسول لديك
+    const serverMessage = 
+      err.response?.data?.errors?.preparation_num?.[0] || // المسار الأول: errors.preparation_num[0]
+      err.response?.data?.message ||                       // المسار الثاني: message العامة
+      t("FailedToSavePreparationNumber");                 // المسار الثالث: نص احتياطي
+console.log(serverMessage);
+
+    toast.error(serverMessage);
+  }
+};
   // 🟢 دالة الإلغاء (Cancel) - التنقل بدون رقم تحضير
   const handleCancelPreparationModal = () => {
     setShowPreparationModal(false);
@@ -311,10 +317,11 @@ const Dine = () => {
       setPendingTableSelection(null);
     }
   };
-  const handleSelectTable = async (table) => {
+const handleSelectTable = async (table) => {
     const transferPending =
       sessionStorage.getItem("transfer_pending") === "true";
     const sourceTableId = sessionStorage.getItem("transfer_source_table_id");
+
     // 🟢 لو في عملية Transfer
     if (transferPending) {
       const cartIds = JSON.parse(
@@ -351,9 +358,17 @@ const Dine = () => {
         );
       }
     } else {
-      // 🟢 عرض الـ Modal لإدخال رقم التحضير
-      setPendingTableSelection(table);
-      setShowPreparationModal(true);
+      // 🟢 جلب الحالة من الـ sessionStorage
+      const prepStatus = sessionStorage.getItem("preparation_num_status");
+
+      // التحقق: إذا كانت الحالة "1" أظهر المودال، وإذا كانت "0" ادخل مباشرة
+      if (prepStatus === "1") {
+        setPendingTableSelection(table);
+        setShowPreparationModal(true);
+      } else {
+        // تنفيذ دالة الانتقال المباشر بدون المودال
+        proceedToOrderPage(table, null);
+      }
     }
   };
   const MergedTableCard = ({ table, onStatusChange }) => {
@@ -513,10 +528,24 @@ const Dine = () => {
   }
   return (
     <div className="w-full bg-gray-50 p-4" dir={isArabic ? "rtl" : "ltr"}>
+                    <ToastContainer
+                position="top-right"
+                autoClose={3000}
+                hideProgressBar={false}
+                newestOnTop={false}
+                closeOnClick
+                rtl={false}
+               style={{ zIndex: 999999 }}
+                pauseOnFocusLoss
+                draggable
+                pauseOnHover
+                theme="light"
+              />
       {/* 🟢 Preparation Number Modal */}
       <PreparationNumberModal
         isOpen={showPreparationModal}
         onClose={handleCancelPreparationModal}
+
         onSubmit={handleSubmitPreparationNumber}
         loading={preparationLoading}
         tableName={pendingTableSelection?.table_number || ""}
@@ -585,7 +614,9 @@ const Dine = () => {
           </div>
         )}
       </div>
+
     </div>
   );
+  
 };
 export default Dine;
