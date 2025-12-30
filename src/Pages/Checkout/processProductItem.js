@@ -115,6 +115,11 @@ export const getOrderEndpoint = (orderType, orderItems, totalDineInItems, hasDea
 /**
  * بناء الـ Payload الأساسي - مظبوط 100% بدون أخطاء
  */
+// utils/processProductItem.js
+
+/**
+ * بناء الـ Payload الأساسي - إضافة service_fee_id
+ */
 export const buildOrderPayload = ({
   orderType,
   orderItems,
@@ -132,9 +137,9 @@ export const buildOrderPayload = ({
   discount_id,
   module_id,
   free_discount,
-  service_fees,
+  service_fees, // القيمة المالية (الكمية)
   due_module,
-  password, // ← جديد: الباسوورد بتاع الـ free_discount
+  password,
 }) => {
   const basePayload = {
     amount: parseFloat(amountToPay).toFixed(2),
@@ -148,41 +153,41 @@ export const buildOrderPayload = ({
     order_pending: "0",
   };
 
+  // 1. إرسال قيمة مصاريف الخدمة (Amount)
   if (service_fees !== undefined && service_fees !== null) {
     basePayload.service_fees = parseFloat(service_fees).toFixed(2);
   }
 
-  // Due Module (المنصة تدفع الباقي)
+  // 🟢 2. إضافة الـ ID الخاص بمصاريف الخدمة من الـ sessionStorage
+  const storedServiceFeeId = sessionStorage.getItem("service_fee_id");
+  if (storedServiceFeeId) {
+    basePayload.service_fees_id = storedServiceFeeId.toString();
+  }
+
+  // --- بقية الـ Logic كما هو ---
   if (due_module > 0) {
     basePayload.due_module = parseFloat(due_module).toFixed(2);
   }
 
-  // خصم من القائمة
   if (discount_id) basePayload.discount_id = discount_id.toString();
 
-  // Module ID (للـ Due Module)
   if (module_id && module_id !== "all") {
     basePayload.module_id = module_id.toString();
   }
 
-  // Free Discount + Password
   if (free_discount && free_discount > 0) {
     basePayload.free_discount = free_discount.toString();
-    
-    // الباسوورد يتبعت فقط لو فيه free_discount
     if (password && password.trim()) {
-      basePayload.password = password.trim(); // المفتاح اللي عايزاه بالظبط
+      basePayload.password = password.trim();
     }
   }
 
-  // طلب آجل عادي (مش Due Module)
   if (due === 1 && user_id) {
     basePayload.user_id = user_id.toString();
   }
 
   const products = orderItems.map(processProductItem);
 
-  // Dine In
   if (orderType === "dine_in") {
     return {
       ...basePayload,
@@ -192,7 +197,6 @@ export const buildOrderPayload = ({
     };
   }
 
-  // Delivery
   if (orderType === "delivery") {
     return {
       ...basePayload,
@@ -203,7 +207,6 @@ export const buildOrderPayload = ({
     };
   }
 
-  // Take Away / Pickup
   return {
     ...basePayload,
     products,
