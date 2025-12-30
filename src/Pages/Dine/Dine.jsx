@@ -392,14 +392,16 @@ const handleSelectTable = async (table) => {
           <Link size={10} />
           <span className="font-bold">{t("MergedTable")}</span>
         </div>
-        <div className="text-center mb-2">
-          <div className="text-lg font-bold text-purple-800">
-            {table.table_number}
-          </div>
-          <div className="text-xs flex items-center justify-center gap-1">
-            <Users size={10} /> {table.capacity}
-          </div>
-        </div>
+<div className="text-center mb-2">
+  <div className="text-lg font-bold text-purple-800">
+    {table.table_number}
+  </div>
+  <div className="text-xs flex flex-col items-center justify-center gap-1">
+    <div className="flex items-center gap-1"><Users size={10} /> {table.capacity}</div>
+    {/* عرض التوقيت للطاولة المدمجة الأساسية إذا وجد */}
+    {table.current_status !== "available" && <LiveTimer startTime={table.start_timer} />}
+  </div>
+</div>
         <div className="grid grid-cols-2 gap-1 text-xs mb-2">
           {table.subTables.map((sub) => (
             <div
@@ -476,11 +478,18 @@ const handleSelectTable = async (table) => {
         `}
         onClick={() => !transferLoading && handleSelectTable(table)}
       >
-        <div className="text-2xl font-bold mb-1">{table.table_number}</div>
-        <div className="flex items-center justify-center gap-1 text-sm mb-2">
-          <Users size={14} />
-          <span>{table.capacity}</span>
-        </div>
+<div className="text-2xl font-bold mb-1">{table.table_number}</div>
+<div className="flex flex-col items-center justify-center gap-1 text-sm mb-2">
+  <div className="flex items-center gap-1">
+    <Users size={14} />
+    <span>{table.capacity}</span>
+  </div>
+  
+  {/* عرض العداد إذا كانت الطاولة غير متاحة (بها زبائن) */}
+  {table.current_status !== "available" && table.start_timer && (
+    <LiveTimer startTime={table.start_timer} />
+  )}
+</div>
         <CustomStatusSelect
           table={table}
           statusOptions={dynamicStatusOptions}
@@ -526,6 +535,39 @@ const handleSelectTable = async (table) => {
       </div>
     );
   }
+  const LiveTimer = ({ startTime }) => {
+  const [elapsed, setElapsed] = useState("");
+
+  useEffect(() => {
+    if (!startTime) return;
+
+    const calculateTime = () => {
+      const start = new Date(startTime.replace(/-/g, "/")); // لضمان التوافق مع كل المتصفحات
+      const now = new Date();
+      const diffInMs = Math.abs(now - start);
+
+      const hours = Math.floor(diffInMs / (1000 * 60 * 60));
+      const minutes = Math.floor((diffInMs % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((diffInMs % (1000 * 60)) / 1000);
+
+      // تنسيق العرض: 01:25:05
+      const display = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+      setElapsed(display);
+    };
+
+    calculateTime(); // حساب فوري عند التحميل
+    const timer = setInterval(calculateTime, 1000); // تحديث كل ثانية
+
+    return () => clearInterval(timer);
+  }, [startTime]);
+
+  return startTime ? (
+    <div className="flex items-center justify-center gap-1 text-[10px] font-mono bg-black/10 rounded px-1 mt-1 text-gray-700">
+      <Clock size={10} />
+      <span>{elapsed}</span>
+    </div>
+  ) : null;
+};
   return (
     <div className="w-full bg-gray-50 p-4" dir={isArabic ? "rtl" : "ltr"}>
                     <ToastContainer

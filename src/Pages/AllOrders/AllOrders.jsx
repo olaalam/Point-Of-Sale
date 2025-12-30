@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { usePost } from "@/Hooks/usePost";
 import { useGet } from "@/Hooks/useGet";
-import { toast } from "react-toastify";
+import { toast , ToastContainer } from "react-toastify";
 import { X, Trash2, Printer } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import VoidOrderModal from "./VoidOrderModal";
@@ -79,8 +79,9 @@ export default function AllOrders() {
         toast.error(t("Incorrectpassword"));
       }
     } catch (err) {
-      toast.error(t("totheserver") || "حدث خطأ أثناء الاتصال بالسيرفر");
-      console.error("Error fetching normal orders:", err);
+     let error=err.response?.data?.errors;
+      toast.error(error);
+      console.error("Error fetching normal orders:", err.response?.data?.errors);
     }
   };
 
@@ -448,6 +449,7 @@ export default function AllOrders() {
 
   return (
     <div className="p-4" dir={isArabic ? "rtl" : "ltr"}>
+        <ToastContainer/>
       {/* Password Modal */}
       <Dialog open={showModal} onOpenChange={setShowModal}>
         <DialogContent className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
@@ -641,6 +643,7 @@ export default function AllOrders() {
                 : "No orders match the current filters"}
             </p>
           )}
+        
         </>
       )}
 

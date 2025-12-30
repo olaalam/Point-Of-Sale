@@ -956,7 +956,7 @@ const proceedWithOrderSubmission = async (
                   </div>
 
                   {/* حقل رقم العملية لو الحساب Visa */}
-                  {isVisaAccount(split.accountId) && (
+                  {getDescriptionStatus(split.accountId) && (
                     <div className="ml-44 flex items-center gap-2">
                       <label className="text-sm text-gray-600 whitespace-nowrap">
                         {t("TransactionID")}:
