@@ -178,17 +178,23 @@ export default function OrderPage({
     ? ordersByUser[currentUserId] || []
     : takeAwayItems;
 
-  const updateOrderItems = (newItems) => {
+const updateOrderItems = (newItems) => {
     const safeNewItems = Array.isArray(newItems) ? newItems : [];
+    
+    // 1. تحديث الـ State حسب النوع
     if (isDineIn) {
       setOrdersByTable((prev) => ({ ...prev, [currentTableId]: safeNewItems }));
     } else if (isDelivery) {
       setOrdersByUser((prev) => ({ ...prev, [currentUserId]: safeNewItems }));
     } else {
       setTakeAwayItems(safeNewItems);
-      sessionStorage.setItem("cart", JSON.stringify(safeNewItems));
-      console.log("💾 Updated cart in sessionStorage:", safeNewItems);
     }
+
+    // 2. 🟢 المزامنة مع sessionStorage لكل الحالات لضمان وجود cart_id دائماً
+    // هذا السطر يضمن أن أي موديول آخر (مثل تغيير الحالة) يجد البيانات
+    sessionStorage.setItem("cart", JSON.stringify(safeNewItems));
+    
+    console.log("💾 Updated cart in sessionStorage (All Modes):", safeNewItems);
   };
 
   const handleAddItem = (product, options = {}) => {

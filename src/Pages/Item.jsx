@@ -136,27 +136,32 @@ export default function Item({ onAddToOrder, onClose, refreshCartData }) {
   }, [allModulesData, productType]);
 
 const filteredProducts = useMemo(() => {
-    // 1. تحديد مصدر البيانات
     let products;
 
-    // 🟢 التعديل هنا:
-    // إذا كان هناك نص في البحث، نستخدم كل المنتجات (allProducts) فوراً
-    // هذا يضمن البحث في كل الفئات وليس المفضلة فقط
+    // 1. تحديد مصدر البيانات
     if (searchQuery.trim()) {
-      products = allProducts; 
+        // في حالة البحث، نستخدم كل المنتجات
+        products = allProducts; 
+    } else if (isNormalPrice) {
+        // في حالة "الأسعار العادية"، نستخدم المصفوفة العامة
+        products = allProducts;
+    } else if (selectedGroup !== "all") {
+        // 🟢 هنا التعديل الأساسي:
+        // إذا اختار المستخدم Group Module، نأخذ المنتجات من البيانات القادمة من رابط favourite
+        // هذه المصفوفة تحتوي على الأسعار المعدلة لهذا الجروب
+        products = favouriteCategoriesData?.products || [];
     } else {
-      // إذا لم يكن هناك بحث، نطبق المنطق العادي (مفضلة أو أسعار عادية)
-      products = (isNormalPrice) 
-        ? allProducts 
-        : (selectedCategory === "all" && selectedGroup === "all") 
-          ? favouriteProducts 
-          : allProducts;
+        // إذا لم يختر جروب ولا أسعار عادية (الحالة الافتراضية - المفضلة)
+        products = favouriteProducts;
     }
     
-    // 2. تطبيق فلتر البحث
+    // 2. تطبيق فلتر البحث (إذا وجد نص)
     if (searchQuery.trim()) {
-      const query = searchQuery.trim().toLowerCase();
-      products = products.filter((p) => (p.name?.toLowerCase() || "").includes(query) || (p.product_code?.toString().toLowerCase() || "").includes(query));
+        const query = searchQuery.trim().toLowerCase();
+        products = products.filter((p) => 
+            (p.name?.toLowerCase() || "").includes(query) || 
+            (p.product_code?.toString().toLowerCase() || "").includes(query)
+        );
     }
 
     // 3. تطبيق فلتر التصنيف (Category)
@@ -165,7 +170,8 @@ const filteredProducts = useMemo(() => {
     }
     
     return products;
-  }, [allProducts, favouriteProducts, selectedCategory, selectedGroup, searchQuery, isNormalPrice]);
+    // أضفنا favouriteCategoriesData للمصفوفة لضمان التحديث عند تغير الجروب
+}, [allProducts, favouriteProducts, favouriteCategoriesData, selectedCategory, selectedGroup, searchQuery, isNormalPrice]);
 
   const productsToDisplay = filteredProducts.slice(0, visibleProductCount);
 
@@ -207,8 +213,10 @@ const handleAddToOrder = useCallback(async (product, options = {}) => {
     // 2️⃣ الاعتماد على السعر القادم من المودال (totalPrice) 
     // أو حساب السعر الأساسي إذا كانت إضافة مباشرة من الكارد
     // ملاحظة: totalPrice القادم من useProductModal يكون شامل الـ variations والـ extras
-    const pricePerUnit = product.totalPrice ? (product.totalPrice / finalQuantity) : parseFloat(product.price || product.price_after_discount || 0);
-    const totalAmount = pricePerUnit * finalQuantity;
+const pricePerUnit = product.totalPrice 
+    ? (product.totalPrice / finalQuantity) 
+    : parseFloat(product.price || product.price_after_discount || 0);
+        const totalAmount = pricePerUnit * finalQuantity;
 
     if (isNaN(totalAmount)) {
       console.error("❌ Error calculating price", { product, pricePerUnit, finalQuantity });
@@ -242,13 +250,14 @@ const handleAddToOrder = useCallback(async (product, options = {}) => {
       };
 
       try {
-        await postOrder("cashier/dine_in_order", payload, {
-          headers: { Authorization: `Bearer ${sessionStorage.getItem("access_token")}` },
-        });
-        
+const response = await postOrder("cashier/dine_in_order", payload, {
+    headers: { Authorization: `Bearer ${sessionStorage.getItem("access_token")}` },
+  });
+        const serverCartId = response?.data?.cart_id || response?.cart_id;
         onAddToOrder({
           ...product,
           temp_id: createTempId(product.id),
+          cart_id: serverCartId,
           count: finalQuantity,
           price: pricePerUnit,
           totalPrice: totalAmount,
