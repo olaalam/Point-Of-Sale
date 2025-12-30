@@ -42,9 +42,7 @@ export default function OrderTable({
             <th className="py-3 px-4 text-center text-gray-600 font-semibold">
               {t("Price")}
             </th>
-            <th className="py-3 px-4 text-center text-gray-600 font-semibold">
-              {t("Quantity")}
-            </th>
+
             {orderType === "dine_in" && (
               <th className="py-3 px-4 text-center text-gray-600 font-semibold">
                 {t("Preparation")}

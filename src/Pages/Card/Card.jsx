@@ -308,7 +308,7 @@ navigate("/orders", {
       )}
 
       {/* Order Table */}
-      <div className="flex-1 overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+      <div className=" overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
         {apiLoading && (
           <div className="flex justify-center items-center h-40">
             <Loading />
@@ -512,7 +512,6 @@ onVoidItem={(itemId) => {
       <thead>
         <tr>
           <th style={{ border: "1px solid #000", padding: "8px" }}>Product</th>
-          <th style={{ border: "1px solid #000", padding: "8px" }}>Qty</th>
           <th style={{ border: "1px solid #000", padding: "8px" }}>Price</th>
           <th style={{ border: "1px solid #000", padding: "8px" }}>Total</th>
         </tr>
@@ -521,7 +520,6 @@ onVoidItem={(itemId) => {
         {orderItems.map((item) => (
           <tr key={item.temp_id}>
             <td style={{ border: "1px solid #000", padding: "8px" }}>{item.name}</td>
-            <td style={{ border: "1px solid #000", padding: "8px" }}>{item.quantity}</td>
             <td style={{ border: "1px solid #000", padding: "8px" }}>{item.price.toFixed(2)}</td>
             <td style={{ border: "1px solid #000", padding: "8px" }}>{(item.price * item.quantity).toFixed(2)}</td>
           </tr>

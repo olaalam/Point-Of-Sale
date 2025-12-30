@@ -1,4 +1,5 @@
-// ItemRow.jsx - تم إصلاح مشكلة عدم احتساب Addons في Dine-in
+// ItemRow.jsx - نسخة معدلة: الكمية مدمجة مع الاسم وتصميم مبسط
+import React from "react";
 import { toast } from "react-toastify";
 import { PREPARATION_STATUSES } from "./constants";
 import { Trash2, FileText } from "lucide-react";
@@ -7,7 +8,6 @@ import ProductDetailModalWrapper from "./ProductDetailModalWrapper";
 // دالة لحساب السعر مع الإضافات (Addons + Extras) - خاصة بـ Dine-in
 const calculatePriceWithAddons = (item) => {
   let basePrice = Number(item.originalPrice || item.price || 0);
-
   let addonsTotal = 0;
 
   // حساب الـ Addons
@@ -24,7 +24,7 @@ const calculatePriceWithAddons = (item) => {
     });
   }
 
-  // حساب الـ Extras (لو موجودة بنفس الطريقة)
+  // حساب الـ Extras
   if (item.extras && Array.isArray(item.extras)) {
     item.extras.forEach((extra) => {
       addonsTotal += Number(extra.price || 0) * (extra.quantity || 1);
@@ -46,9 +46,9 @@ const ItemRow = ({
   handleVoidItem,
   handleRemoveFrontOnly,
   updateOrderItems,
-    handleIncrease,
+  handleIncrease,
   handleDecrease,
-   allowQuantityEdit,
+  allowQuantityEdit,
   orderItems
 }) => {
   console.log("ItemRow → Rendering item:", item);
@@ -61,35 +61,29 @@ const ItemRow = ({
 
   if (!item) return null;
 
-  // الحل السحري: نحسب السعر الصحيح في Dine-in بنفسنا
+  // حساب السعر النهائي للوحدة
   const finalUnitPrice = orderType === "dine_in"
-    ? calculatePriceWithAddons(item)  // نحسب Addons يدويًا
-    : Number(item.price) || 0;        // في Takeaway/Delivery السعر جاي مظبوط أصلًا
+    ? calculatePriceWithAddons(item)  
+    : Number(item.price) || 0;       
 
   const safePrice = Number(finalUnitPrice.toFixed(2));
-  const safeOriginalPrice = Number(item.originalPrice || item.price || 0).toFixed(2);
+    const safeOriginalPrice = Number(item.originalPrice || item.price || 0).toFixed(2);
 
-  // للمنتجات بالوزن (مثل اللحوم)
-  const displayQuantity = item.weight_status === 1 
-    ? `${item.count} kg` 
-    : item.count;
 
-  // الكمية المستخدمة في الحساب (weight أو count)
+  // الكمية المستخدمة في الحساب
   const quantityForCalc = item.weight_status === 1 
     ? Number(item.quantity || item.count || 1)
     : Number(item.count || 1);
 
-  // إجمالي السعر بعد الكمية
+  // إجمالي السعر النهائي للسطر
   const totalPrice = (safePrice * quantityForCalc).toFixed(2);
-  const totalOriginalPrice = hasDiscount 
-    ? (Number(safeOriginalPrice) * quantityForCalc).toFixed(2)
-    : null;
-
 
   return (
     <tr className={`border-b last:border-b-0 hover:bg-gray-50 ${item.type === "addon" ? "bg-blue-50" : ""} ${selectedPaymentItems.includes(item.temp_id) ? "bg-green-50" : ""}`}>
+      
+      {/* 1. اختيار العناصر (Dine-in Only) */}
       {orderType === "dine_in" && (
-        <td className="py-3 px-4 text-center align-top">
+        <td className="p-2 text-center align-middle">
           <input
             type="checkbox"
             checked={selectedItems.includes(item.temp_id)}
@@ -99,37 +93,50 @@ const ItemRow = ({
         </td>
       )}
 
-      {/* Product Name + Variations + Notes */}
-      <td className="py-3 px-4 text-left align-top">
+      {/* 2. اسم المنتج مدمج معه الكمية والـ Addons */}
+      <td className="p-2 text-left align-top">
         <ProductDetailModalWrapper
           product={item}
           updateOrderItems={updateOrderItems}
           orderItems={orderItems}
         >
           <div className="flex flex-col gap-1">
-            <span className="text-gray-800 font-medium hover:underline hover:text-red-600 cursor-pointer transition-colors">
-              {item.name}
-            </span>
+            <div className="text-gray-800 font-medium hover:text-red-600 cursor-pointer transition-colors leading-tight">
+              {/* عرض الكمية بجانب الاسم مباشرة */}
+              <span className="text-bg-primary font-bold mr-1.5 bg-red-50 px-1 rounded">
+                {item.weight_status === 1 ? `${item.quantity}kg` : `${item.count}x`}
+              </span>
+              <span className="text-[14px]">{item.name}</span>
+            </div>
 
-            {/* Variations */}
-            {item.variations?.map((group, i) => {
-              const selected = Array.isArray(group.selected_option_id)
-                ? group.options?.find(opt => group.selected_option_id.includes(opt.id))
-                : group.options?.find(opt => opt.id === group.selected_option_id);
-              return selected ? (
-                <div key={i} className="text-xs text-gray-600">
-                  {group.name}: <span className="font-medium">{selected.name}</span>
-                </div>
-              ) : null;
-            })}
+            {/* Variations & Addons في سطر واحد صغير لتوفير المساحة */}
+            <div className="flex flex-wrap gap-1 mt-0.5">
+              {item.variations?.map((group, i) => {
+                const selected = Array.isArray(group.selected_option_id)
+                  ? group.options?.find(opt => group.selected_option_id.includes(opt.id))
+                  : group.options?.find(opt => opt.id === group.selected_option_id);
+                return selected ? (
+                  <span key={i} className="text-[10px] text-gray-500 bg-gray-100 px-1 rounded">
+                    {selected.name}
+                  </span>
+                ) : null;
+              })}
+              
+              {/* عرض الـ Addons المختارة */}
+              {item.addons?.map((addon) => 
+                addon.options?.filter(opt => opt.selected || opt.quantity > 0).map((opt, idx) => (
+                  <span key={idx} className="text-[10px] text-blue-600 bg-blue-50 px-1 rounded">
+                    +{opt.name}
+                  </span>
+                ))
+              )}
+            </div>
 
-            {/* Notes */}
+            {/* الملاحظات بصورة مصغرة */}
             {item.notes && item.notes.trim() !== "" && (
-              <div className="mt-2 p-2 bg-orange-50 border border-orange-200 rounded-lg text-xs italic text-orange-700 flex items-start gap-1.5">
-                <FileText size={14} className="mt-0.5 flex-shrink-0" />
-                <span>
-                  <strong className="font-semibold">Note:</strong> {item.notes}
-                </span>
+              <div className="text-[10px] text-orange-600 italic flex items-center gap-1 mt-1">
+                <FileText size={10} />
+                <span>{item.notes}</span>
               </div>
             )}
           </div>
@@ -158,177 +165,45 @@ const ItemRow = ({
         </div>
       </td>
 
-{/* Quantity */}
-<td className="py-3 px-4 text-center align-top">
-  {item.weight_status === 1 ? (
-    <div className="flex items-center justify-center gap-1">
-      
-      {/* Minus */}
-      <button
-        onClick={() => {
-          const currentQty = parseFloat(item.quantity) || 0;
-          const newQty = Math.max(0.25, currentQty - 0.25);
-          const updatedItems = orderItems.map((i) =>
-            i.temp_id === item.temp_id ? { ...i, quantity: newQty.toFixed(2) } : i
-          );
-          updateOrderItems(updatedItems);
-        }}
-        className="px-2 py-1 bg-gray-200 rounded hover:bg-gray-300 transition-colors"
-      >
-        −
-      </button>
 
-      {/* Weight Input */}
-      <input
-        type="text"
-        value={item.quantity}
-        onChange={(e) => {
-          let val = e.target.value;
-
-          // 👇 يسمح بالأرقام + النقطة فقط (بدون تحديد عدد الخانات)
-          if (!/^\d*\.?\d*$/.test(val)) return;
-
-          // لو فاضي أو نقطة لوحدها، نسمح به مؤقتاً
-          if (val === "" || val === ".") {
-            const updatedItems = orderItems.map((i) =>
-              i.temp_id === item.temp_id ? { ...i, quantity: val } : i
-            );
-            updateOrderItems(updatedItems);
-            return;
-          }
-
-          // لو الرقم صح، نحدثه مباشرة بدون قيود
-          const updatedItems = orderItems.map((i) =>
-            i.temp_id === item.temp_id ? { ...i, quantity: val } : i
-          );
-          updateOrderItems(updatedItems);
-        }}
-        onBlur={() => {
-          // عند ترك الحقل → نتأكد من صحة الرقم
-          let num = parseFloat(item.quantity);
-          
-          // لو مش رقم صحيح أو أقل من 0.25، نحطه 0.25
-          if (isNaN(num) || num < 0.25) {
-            num = 0.25;
-          }
-          
-          const updatedItems = orderItems.map((i) =>
-            i.temp_id === item.temp_id
-              ? { ...i, quantity: num.toFixed(2) }
-              : i
-          );
-          updateOrderItems(updatedItems);
-        }}
-        onKeyDown={(e) => {
-          // لو ضغط Enter، نعمل blur عشان يتنسق الرقم
-          if (e.key === 'Enter') {
-            e.target.blur();
-          }
-        }}
-        className="w-20 text-center font-medium border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-bg-primary"
-        placeholder="0.00"
-      />
-
-      <span className="text-xs text-gray-600">kg</span>
-
-      {/* Plus */}
-      <button
-        onClick={() => {
-          const currentQty = parseFloat(item.quantity) || 0;
-          const newQty = currentQty + 0.25;
-          const updatedItems = orderItems.map((i) =>
-            i.temp_id === item.temp_id ? { ...i, quantity: newQty.toFixed(2) } : i
-          );
-          updateOrderItems(updatedItems);
-        }}
-        className="px-2 py-1 bg-gray-200 rounded hover:bg-gray-300 transition-colors"
-      >
-        +
-      </button>
-    </div>
-  ) :!(item.is_reward || item.is_deal) && allowQuantityEdit ? (
-          <div className="flex items-center justify-center gap-1">
-            <button
-              onClick={() => handleDecrease(item.temp_id)}
-              disabled={!allowQuantityEdit}
-              className={`px-2 py-1 rounded ${allowQuantityEdit ? "bg-gray-200 hover:bg-gray-300" : "bg-gray-100 cursor-not-allowed"}`}
-            >
-              −
-            </button>
-            <span className="min-w-[24px] text-center font-medium">{item.count}</span>
-            <button
-              onClick={() => handleIncrease(item.temp_id)}
-              className="px-2 py-1 bg-gray-200 rounded hover:bg-gray-300"
-            >
-              +
-            </button>
-          </div>
-        ) : (
-          <span className="min-w-[24px] text-center font-medium">1 (ثابت)</span>
-        )}
-</td>
-
-
-      {/* Preparation Status */}
+      {/* 3. حالة التحضير (Dine-in Only) */}
       {orderType === "dine_in" && (
-        <td className="py-3 px-4 text-center align-top">
-          <div className="flex items-center justify-center gap-2">
-            <button
-              onClick={() => {
-                if (!item?.temp_id) {
-                  toast.error("Item ID is missing.");
-                  return;
-                }
-                handleUpdatePreparationStatus(item.temp_id);
-              }}
-              title={`Change status to ${PREPARATION_STATUSES[statusInfo.nextStatus]?.label || "Pending"}`}
-              className={`p-2 rounded-full ${statusInfo.color} hover:bg-gray-200 transition-colors ${isItemLoading ? "opacity-50 cursor-not-allowed" : ""}`}
-              disabled={isItemLoading}
-            >
-              {isItemLoading ? (
-                <div className="w-5 h-5 border-2 border-gray-300 border-t-current rounded-full animate-spin"></div>
-              ) : (
-                <StatusIcon size={20} />
-              )}
-            </button>
-          </div>
+        <td className="p-2 text-center align-middle">
+          <button
+            onClick={() => handleUpdatePreparationStatus(item.temp_id)}
+            className={`p-1.5 rounded-full ${statusInfo.color} hover:bg-opacity-80 transition-colors ${isItemLoading ? "opacity-50 cursor-not-allowed" : ""}`}
+            disabled={isItemLoading}
+          >
+            {isItemLoading ? (
+              <div className="w-4 h-4 border-2 border-gray-300 border-t-current rounded-full animate-spin"></div>
+            ) : (
+              <StatusIcon size={16} />
+            )}
+          </button>
         </td>
       )}
 
-      {/* Payment Selection */}
-      {orderType === "dine_in" && (
-        <td className="py-3 px-4 text-center align-top">
-          {isDoneItem && (
-            <input
-              type="checkbox"
-              checked={selectedPaymentItems.includes(item.temp_id)}
-              onChange={() => toggleSelectPaymentItem(item.temp_id)}
-              className="w-4 h-4 accent-green-500"
-            />
+      {/* 4. السعر الإجمالي (Total) */}
+      <td className="p-2 text-center align-middle">
+        <div className="flex flex-col items-center">
+          <span className="font-bold text-gray-900 text-sm">
+            {totalPrice}
+          </span>
+          {/* إظهار علامة الضريبة لو وجدت بشكل مصغر */}
+          {item.tax_val > 0 && (
+            <span className="text-[9px] text-blue-500">inc. tax</span>
           )}
-        </td>
-      )}
-
-      {/* Total - الآن مظبوط تمامًا في Dine-in */}
-      <td className="py-3 px-4 text-center align-top">
-        <span className="font-semibold">
-          {totalPrice}
-        </span>
-        {hasDiscount && totalOriginalPrice && (
-          <div className="text-xs text-gray-500 line-through">
-            {totalOriginalPrice}
-          </div>
-        )}
+        </div>
       </td>
 
-      {/* Delete Item */}
-      <td className="py-3 px-4 text-center align-top">
+      {/* 5. حذف أو Void */}
+      <td className="p-2 text-center align-middle">
         <button
           onClick={() => orderType === "dine_in" ? handleVoidItem(item.temp_id) : handleRemoveFrontOnly(item.temp_id)}
-          className={`p-2 rounded-full text-red-500 hover:bg-red-100 transition-colors ${isItemLoading && orderType === "dine_in" ? "opacity-50 cursor-not-allowed" : ""}`}
+          className={`p-2 rounded-full text-red-500 hover:bg-red-50 transition-colors ${isItemLoading && orderType === "dine_in" ? "opacity-50 cursor-not-allowed" : ""}`}
           disabled={isItemLoading && orderType === "dine_in"}
         >
-          <Trash2 size={20} />
+          <Trash2 size={18} />
         </button>
       </td>
     </tr>

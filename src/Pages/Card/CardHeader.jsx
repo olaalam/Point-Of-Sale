@@ -14,7 +14,6 @@ export default function CardHeader({
 }) {
   return (
     <div className="flex-shrink-0">
-      <h2 className="text-bg-primary text-3xl font-bold mb-6">{t("OrderDetails")}</h2>
       <div className="!p-4 flex md:flex-row flex-col gap-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-grow">
           <Button

@@ -254,7 +254,7 @@ const handleClose = () => {
 
   return (
     <div className="flex flex-col-reverse lg:flex-row gap-4 p-4 h-full  w-full" dir={isArabic ? "rtl" : "ltr"}>
-      <div className="w-full lg:w-1/2 sm:overflow-auto">
+      <div className="w-full lg:w-1/3 sm:overflow-auto">
         <Card
           key={refreshTrigger}
           onClose={onClose}
@@ -269,7 +269,7 @@ const handleClose = () => {
           discountData={discountData}
         />
       </div>
-      <div className="w-full lg:w-1/2  lg:mt-0">
+      <div className="w-full lg:w-3/4  lg:mt-0">
         <Item
           onAddToOrder={handleAddItem}
           fetchEndpoint={fetchEndpoint}
