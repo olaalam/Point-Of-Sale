@@ -1,7 +1,7 @@
 // src/components/ProductDetailModalWrapper.jsx
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { toast } from "react-toastify";
-import { areProductsEqual } from "../ProductModal"; // نفس الفانكشن اللي عندك
+import { areProductsEqual } from "../ProductModal"; 
 import ProductModal from "../ProductModal";
 
 export default function ProductDetailModalWrapper({ children, product, updateOrderItems, orderItems }) {
@@ -10,44 +10,104 @@ export default function ProductDetailModalWrapper({ children, product, updateOrd
   const [selectedVariation, setSelectedVariation] = useState({});
   const [selectedExtras, setSelectedExtras] = useState([]);
   const [selectedExcludes, setSelectedExcludes] = useState([]);
+  const [notes, setNotes] = useState(""); 
   const [validationErrors, setValidationErrors] = useState({});
   const [orderLoading, setOrderLoading] = useState(false);
 
-  const handleAddToCart = (enhancedProduct, options = {}) => {
-    setOrderLoading(true);
+  // حالة للتمييز بين "إضافة جديد" و "تعديل موجود"
+  const [isExistingInCart, setIsExistingInCart] = useState(false);
 
-    // جلب السلة الحالية
-    const currentCart = [...orderItems];
-
-    // فحص التكرار
-    if (options.checkDuplicate) {
-      const exists = currentCart.some(item => areProductsEqual(item, enhancedProduct));
-      if (exists) {
-        toast.warning("هذا المنتج بنفس الإضافات موجود بالفعل في السلة!");
-        setOrderLoading(false);
-        return;
+  // مزامنة البيانات عند فتح المودال
+  useEffect(() => {
+    if (isOpen) {
+      // البحث عن المنتج في السلة الحالية بالـ ID
+      const existingItem = orderItems.find(item => item.id === product.id);
+      
+      if (existingItem) {
+        setIsExistingInCart(true);
+        setQuantity(existingItem.quantity || 1);
+        setNotes(existingItem.notes || "");
+        setSelectedVariation(existingItem.selectedVariation || {});
+        setSelectedExtras(existingItem.selectedExtras || []);
+        setSelectedExcludes(existingItem.selectedExcludes || []);
+      } else {
+        setIsExistingInCart(false);
+        resetState();
       }
     }
+  }, [isOpen, product.id, orderItems]);
 
-    // إضافة المنتج
-    const updatedItems = [...currentCart, enhancedProduct];
-    updateOrderItems(updatedItems);
+const handleAddToCart = (enhancedProduct) => {
+  setOrderLoading(true);
+  let currentCart = [...orderItems];
 
-    // حفظ في sessionStorage
-    sessionStorage.setItem("cart", JSON.stringify(updatedItems));
+  let existingIndex = -1;
 
-    toast.success("تم إضافة المنتج للسلة بنجاح!");
-    setIsOpen(false);
-    setOrderLoading(false);
+  // 1. تحديد طريقة البحث عن المنتج
+  if (isExistingInCart) {
+    // 🛑 حالة التعديل:
+    // بما أننا نعدل منتجاً موجوداً، نبحث عنه بالـ ID فقط
+    // حتى لو النوت تغيرت، نريد العثور على مكانه القديم لاستبداله
+    existingIndex = currentCart.findIndex(item => item.id === enhancedProduct.id);
+  } else {
+    // 🟢 حالة الإضافة الجديدة:
+    // نبحث عن منتج مطابق تماماً (نفس المواصفات والنوت) لدمج الكمية
+    existingIndex = currentCart.findIndex(item => areProductsEqual(item, enhancedProduct));
+  }
 
-    // إعادة تهيئة الحالة
+  if (existingIndex !== -1) {
+    if (isExistingInCart) {
+      // ✅ سيناريو التعديل (Update):
+      // نستبدل المنتج القديم بالجديد (بالنوت الجديدة والكمية الجديدة)
+      currentCart[existingIndex] = {
+        ...enhancedProduct,
+        quantity: Number(enhancedProduct.quantity), // نأخذ الكمية كما هي من المودال
+        count: Number(enhancedProduct.quantity)
+      };
+      toast.success("تم تحديث بيانات المنتج والملاحظات");
+    } else {
+      // ✅ سيناريو الدمج (Merge):
+      // وجدنا منتجاً مطابقاً تماماً، نزيد الكمية فقط
+      const oldQty = Number(currentCart[existingIndex].quantity || 0);
+      const addedQty = Number(enhancedProduct.quantity || 1);
+      
+      currentCart[existingIndex] = {
+        ...currentCart[existingIndex],
+        quantity: (oldQty + addedQty).toString(),
+        count: (oldQty + addedQty)
+      };
+      toast.success("تم دمج الكمية في السلة");
+    }
+  } else {
+    // 🆕 منتج جديد تماماً
+    const newProduct = {
+      ...enhancedProduct,
+      count: enhancedProduct.quantity
+    };
+    currentCart.push(newProduct);
+    toast.success("تم إضافة المنتج للسلة");
+  }
+
+  // تحديث السلة والتخزين
+  updateOrderItems(currentCart);
+  sessionStorage.setItem("cart", JSON.stringify(currentCart));
+
+  setIsOpen(false);
+  setOrderLoading(false);
+  resetState();
+};
+
+  const resetState = () => {
     setQuantity(1);
     setSelectedVariation({});
     setSelectedExtras([]);
     setSelectedExcludes([]);
+    setNotes("");
     setValidationErrors({});
+    setIsExistingInCart(false);
   };
 
+  // دوال التحكم بالإضافات والمتغيرات
   const handleVariationChange = (variationId, optionId, action = "set") => {
     setSelectedVariation(prev => {
       if (action === "add") {
@@ -62,50 +122,36 @@ export default function ProductDetailModalWrapper({ children, product, updateOrd
     });
   };
 
-  const handleExtraChange = (extraId) => {
-    setSelectedExtras(prev => [...prev, extraId]);
-  };
+  const handleExtraChange = (extraId) => setSelectedExtras(prev => [...prev, extraId]);
+  
+  const handleExtraDecrement = (extraId) => setSelectedExtras(prev => {
+    const index = prev.indexOf(extraId);
+    return index !== -1 ? prev.filter((_, i) => i !== index) : prev;
+  });
 
-  const handleExtraDecrement = (extraId) => {
-    setSelectedExtras(prev => {
-      const index = prev.indexOf(extraId);
-      if (index !== -1) {
-        return prev.filter((_, i) => i !== index);
-      }
-      return prev;
-    });
-  };
-
-  const handleExclusionChange = (excludeId) => {
-    setSelectedExcludes(prev =>
-      prev.includes(excludeId)
-        ? prev.filter(id => id !== excludeId)
-        : [...prev, excludeId]
-    );
-  };
+  const handleExclusionChange = (excludeId) => setSelectedExcludes(prev =>
+    prev.includes(excludeId) ? prev.filter(id => id !== excludeId) : [...prev, excludeId]
+  );
 
   return (
     <>
-      {/* اللي جواه هو اللي هتضغطي عليه (اسم المنتج، الصورة، الكارت كله...) */}
       <div onClick={() => setIsOpen(true)} className="cursor-pointer">
         {children}
       </div>
 
-      {/* الـ Modal نفسه */}
       <ProductModal
         isOpen={isOpen}
         onClose={() => {
           setIsOpen(false);
-          setQuantity(1);
-          setSelectedVariation({});
-          setSelectedExtras([]);
-          setSelectedExcludes([]);
+          resetState();
         }}
         selectedProduct={product}
         selectedVariation={selectedVariation}
         selectedExtras={selectedExtras}
         selectedExcludes={selectedExcludes}
         quantity={quantity}
+        notes={notes}
+        onNotesChange={setNotes}
         validationErrors={validationErrors}
         hasErrors={Object.keys(validationErrors).length > 0}
         onVariationChange={handleVariationChange}
