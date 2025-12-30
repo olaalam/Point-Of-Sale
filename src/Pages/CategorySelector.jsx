@@ -52,7 +52,7 @@ const CategorySelector = ({ categories, selectedCategory, onCategorySelect }) =>
           >
             <div className="w-12 h-12 mb-2 rounded-full overflow-hidden border-2 border-transparent shadow-sm">
                 <img
-                src={category.image_link || "https://via.placeholder.com/48"}
+                src={category.image_link }
                 alt={category.name}
                 className="w-full h-full object-cover"
                 />

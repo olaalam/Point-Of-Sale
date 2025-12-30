@@ -15,7 +15,7 @@ import { X, Trash2, Printer } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import VoidOrderModal from "./VoidOrderModal";
 import axiosInstance from "@/Pages/utils/axiosInstance";
-
+import { useNavigate } from "react-router-dom";
 export default function AllOrders() {
   const [showModal, setShowModal] = useState(true);
   const [password, setPassword] = useState("");
@@ -23,7 +23,7 @@ export default function AllOrders() {
   const [fakeOrders, setFakeOrders] = useState([]); // الطلبات الوهمية
   const [isFakeMode, setIsFakeMode] = useState(false);
   const [displayedOrders, setDisplayedOrders] = useState([]);
-
+const navigate = useNavigate();
   // فلاتر الإدخال (قبل الضغط على البحث)
   const [searchInput, setSearchInput] = useState("");
   const [dateFromInput, setDateFromInput] = useState(
@@ -446,21 +446,32 @@ export default function AllOrders() {
       setIsPrinting(false);
     }
   };
-
+const handleClose = () => {
+    // إخفاء المودال برمجياً
+    if (setShowModal) setShowModal(false); 
+    
+    // العودة للمسار الرئيسي (صفحة الكاشير)
+    // بما أن الـ Navbar يعتمد على sessionStorage.getItem("tab")
+    // فإنه سيفتح تلقائياً التبويب الذي كان المستخدم واقفاً عليه
+    navigate("/", { replace: true }); 
+  };
   return (
     <div className="p-4" dir={isArabic ? "rtl" : "ltr"}>
         <ToastContainer/>
       {/* Password Modal */}
-      <Dialog open={showModal} onOpenChange={setShowModal}>
-        <DialogContent className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
+<Dialog open={showModal} onOpenChange={(open) => { if (!open) handleClose(); }}>
+          <DialogContent className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
           <DialogClose
             asChild
             onClick={() => setShowModal(false)}
             className="absolute top-3 right-3 text-gray-500 hover:text-gray-700"
           >
-            <button aria-label="Close">
-              <X className="w-5 h-5" />
-            </button>
+<button 
+  onClick={handleClose} 
+  className="absolute top-3 right-3 text-gray-500 hover:text-gray-700 p-1"
+>
+  <X className="w-5 h-5" />
+</button>
           </DialogClose>
 
           <DialogHeader>
