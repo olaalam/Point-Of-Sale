@@ -169,7 +169,7 @@ const handleClearAllItems = () => {
   }
 };
 
-  const confirmClearAllWithManager = async () => {
+const confirmClearAllWithManager = async () => {
     if (!clearAllManagerId || !clearAllManagerPassword) {
       toast.error(t("PleasefillinallrequiredfieldsManagerIDandPassword"));
       return;
@@ -199,11 +199,20 @@ const handleClearAllItems = () => {
     try {
       setItemLoadingStates((prev) => ({ ...prev, clearAll: true }));
       await postData("cashier/order_void", formData);
-      clearPaidItemsOnly();
+      
+      clearPaidItemsOnly(); // مسح البيانات محلياً
       toast.success(t("Allitemsvoidedsuccessfully"));
+      
       setShowClearAllManagerModal(false);
       setClearAllManagerId("");
       setClearAllManagerPassword("");
+
+      // 🟢 إضافة عمل Reload للصفحة هنا
+      // نستخدم setTimeout بسيط لضمان أن المستخدم رأى رسالة النجاح
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000); 
+
     } catch (err) {
       let errorMessage = t("Failedtovoidallitems");
       if (err.response?.status === 401 || err.response?.status === 403) {
