@@ -188,7 +188,7 @@ const handleClose = async () => {
 
   return (
     <>
-      <div className="text-gray-800 px-4 py-5 md:px-6 mb-6 w-full z-50 bg-white shadow-md">
+      <div className="text-gray-800 px-4  md:px-6  w-full z-50 bg-white shadow-md">
         <div className="flex items-center justify-between gap-4">
           {/* الجزء الأيسر */}
           <div className="flex items-center gap-2">

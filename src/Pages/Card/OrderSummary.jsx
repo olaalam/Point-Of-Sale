@@ -135,7 +135,7 @@ const PrintableOrder = React.forwardRef(({ orderItems, calculations, orderType, 
           {orderItems.map((item, index) => {
             const finalUnitPrice = orderType === "dine_in"
               ? calculatePriceWithAddons(item)
-              : Number(item.price) || 0;
+              : Number(item.price_after_discount) || 0;
 
             const quantityForCalc = item.weight_status === 1 
               ? Number(item.quantity || item.count || 1)

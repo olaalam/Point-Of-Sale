@@ -48,6 +48,8 @@ const CheckOut = ({
 }) => {
   const cashierId = sessionStorage.getItem("cashier_id");
   const tableId = sessionStorage.getItem("table_id") || null;
+    const [appliedDiscount, setAppliedDiscount] = useState(0);
+
   const baseUrl = import.meta.env.VITE_API_BASE_URL;
   const { t } = useTranslation();
   const lastSelectedGroup = sessionStorage.getItem("last_selected_group") 
@@ -119,7 +121,17 @@ const isDueModuleAllowed = (() => {
 
   const { data: deliveryData } = useGet("cashier/delivery_lists");
   const { postData, loading } = usePost();
-
+  const discountData = useMemo(() => {
+    const storedDiscount = sessionStorage.getItem("discount_data");
+    try {
+      return storedDiscount
+        ? JSON.parse(storedDiscount)
+        : { discount: 0, module: [] };
+    } catch (error) {
+      console.error("Error parsing discount data from sessionStorage:", error);
+      return { discount: 0, module: [] };
+    }
+  }, []);
   const [orderNotes, setOrderNotes] = useState("");
   const [paymentSplits, setPaymentSplits] = useState([]);
   const [customerPaid, setCustomerPaid] = useState("");
@@ -142,7 +154,6 @@ const isDueModuleAllowed = (() => {
         (c.phone_2 && c.phone_2.includes(customerSearchQuery))
     );
   }, [dueUsersData, customerSearchQuery]);
-  
   const { selectedDiscountAmount, finalSelectedDiscountId } = useMemo(() => {
     const discountList = discountListData?.discount_list || [];
     const selectedDiscount = discountList.find(
@@ -165,29 +176,7 @@ const isDueModuleAllowed = (() => {
       finalSelectedDiscountId: selectedDiscount.id,
     };
   }, [discountListData, selectedDiscountId, amountToPay]);
-
-  const [deliveryModelOpen, setDeliveryModelOpen] = useState(false);
-  const [selectedDeliveryId, setSelectedDeliveryId] = useState(null);
-  const [orderId, setOrderId] = useState(null);
-  const [isDueOrder, setIsDueOrder] = useState(false);
-  const [discountCode, setDiscountCode] = useState("");
-  const [appliedDiscount, setAppliedDiscount] = useState(0);
-  const [discountError, setDiscountError] = useState(null);
-  const [isCheckingDiscount, setIsCheckingDiscount] = useState(false);
-
-  const discountData = useMemo(() => {
-    const storedDiscount = sessionStorage.getItem("discount_data");
-    try {
-      return storedDiscount
-        ? JSON.parse(storedDiscount)
-        : { discount: 0, module: [] };
-    } catch (error) {
-      console.error("Error parsing discount data from sessionStorage:", error);
-      return { discount: 0, module: [] };
-    }
-  }, []);
-
-  // 🟢 حساب المبلغ بعد الخصم (مع إضافة free_discount)
+    // 🟢 حساب المبلغ بعد الخصم (مع إضافة free_discount)
   const discountedAmount = useMemo(() => {
     let totalDiscountValue = 0;
 
@@ -217,6 +206,23 @@ const isDueModuleAllowed = (() => {
     selectedDiscountAmount,
     freeDiscount,
   ]);
+
+    const totalAppliedDiscount = useMemo(() => {
+    const additionalDiscount = amountToPay - discountedAmount;
+    const previousDiscount = totalDiscount || 0;
+    return parseFloat(additionalDiscount + previousDiscount).toFixed(2);
+  }, [amountToPay, discountedAmount, totalDiscount]);
+  const [deliveryModelOpen, setDeliveryModelOpen] = useState(false);
+  const [selectedDeliveryId, setSelectedDeliveryId] = useState(null);
+  const [orderId, setOrderId] = useState(null);
+  const [isDueOrder, setIsDueOrder] = useState(false);
+  const [discountCode, setDiscountCode] = useState("");
+  const [discountError, setDiscountError] = useState(null);
+  const [isCheckingDiscount, setIsCheckingDiscount] = useState(false);
+
+
+
+
 
 // CheckOut.jsx (الكود بعد التعديل)
   const requiredTotal = useMemo(() => {
@@ -485,14 +491,9 @@ const proceedWithOrderSubmission = async (
     payload = buildOrderPayload({
       orderType,
       orderItems: itemsForPayload, // ✅ الآن المتغير معرف وقراءته صحيحة
-      amountToPay: requiredTotal,
+      amountToPay: discountedAmount.toFixed(2),
       totalTax,
-      totalDiscount:
-        appliedDiscount > 0
-          ? amountToPay * (appliedDiscount / 100)
-          : discountData.module.includes(orderType)
-          ? amountToPay * (discountData.discount / 100)
-          : totalDiscount,
+totalDiscount: totalAppliedDiscount,
       notes: orderNotes.trim() || "No special instructions",
       source,
       financialsPayload,

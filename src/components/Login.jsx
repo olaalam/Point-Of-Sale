@@ -95,6 +95,11 @@ const vapidKey= import.meta.env.VITE_FIREBASE_VAPID_KEY
      JSON.stringify(res.data.financial_account)
     );
    }
+   if (res.data.receipt_design) {
+    sessionStorage.setItem("receipt_design", JSON.stringify(res.data.receipt_design));
+   } else {
+    sessionStorage.setItem("receipt_design", JSON.stringify({}));
+   }
    if (res.data.cashier?.id) {
     sessionStorage.setItem("cashier_id", res.data.cashier.id);
    }

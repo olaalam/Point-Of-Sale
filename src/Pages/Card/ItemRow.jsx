@@ -66,8 +66,8 @@ const ItemRow = ({
     ? calculatePriceWithAddons(item)  
     : Number(item.price) || 0;       
 
-  const safePrice = Number(finalUnitPrice.toFixed(2));
-    const safeOriginalPrice = Number(item.originalPrice || item.price || 0).toFixed(2);
+  const safePrice = Number(item.price.toFixed(2));
+    const safeOriginalPrice = Number(item.price_after_discount || item.price || 0).toFixed(2);
 
 
   // الكمية المستخدمة في الحساب
@@ -76,7 +76,7 @@ const ItemRow = ({
     : Number(item.count || 1);
 
   // إجمالي السعر النهائي للسطر
-  const totalPrice = (safePrice * quantityForCalc).toFixed(2);
+  const totalPrice = (safeOriginalPrice * quantityForCalc).toFixed(2);
 
   return (
     <tr className={`border-b last:border-b-0 hover:bg-gray-50 ${item.type === "addon" ? "bg-blue-50" : ""} ${selectedPaymentItems.includes(item.temp_id) ? "bg-green-50" : ""}`}>
@@ -147,12 +147,13 @@ const ItemRow = ({
       <td className="py-3 px-4 text-center align-top">
         <div>
           <span className={hasDiscount ? "text-green-600 font-semibold" : "font-medium"}>
-            {safePrice.toFixed(2)}
+           {safeOriginalPrice}
           </span>
           {hasDiscount && (
             <div>
               <span className="text-xs text-gray-500 line-through">
-                {safeOriginalPrice}
+                
+                 {safePrice.toFixed(2)}
               </span>
             </div>
           )}

@@ -53,32 +53,33 @@ const navigate = useNavigate();
   const { postData, loading } = usePost();
   const { refetch, loading: getLoading } = useGet();
 
-  const fetchNormalOrders = async () => {
-    try {
-      const res = await postData("cashier/orders/point_of_sale", { password });
+const fetchNormalOrders = async () => {
+  try {
+    const res = await postData("cashier/orders/point_of_sale", { password });
+    console.log(res?.orders);
 
-      if (res?.orders) {
-        if (res.state === 3) {
-          setIsFakeMode(true);
-          setOrders([]); // نضمن إن الطلبات العادية فاضية
-          toast.info(
-            isArabic ? "تم تفعيل وضع الطلبات الوهمية" : "Fake orders mode activated"
-          );
-          // لا نعرض شيء حتى يضغط على زر البحث
-          setDisplayedOrders([]);
-        } else {
-          setIsFakeMode(false);
-          setOrders(res.orders);
-          // في الوضع العادي نعرض الطلبات مباشرة بعد تسجيل الدخول
-          setDisplayedOrders(res.orders);
-        }
-
-        setShowModal(false);
-        toast.success(t("Accessgrantedsuccessfully"));
+    if (res?.orders) {
+      if (res.state === 3) {
+        setIsFakeMode(true);
+        // ⭐ التعديل الجديد: نعرض الطلبات الوهمية مباشرة
+        const fakeData = res.orders || [];
+        setFakeOrders(fakeData);
+        setDisplayedOrders(fakeData);  // هنا هتعرض في الجدول فورًا
+        toast.info(
+          isArabic ? "تم تفعيل وضع الطلباتة" : " orders mode activated"
+        );
       } else {
-        toast.error(t("Incorrectpassword"));
+        setIsFakeMode(false);
+        setOrders(res.orders);
+        setDisplayedOrders(res.orders);  // زي ما هو
       }
-    } catch (err) {
+
+      setShowModal(false);
+      toast.success(t("Accessgrantedsuccessfully"));
+    } else {
+      toast.error(t("Incorrectpassword"));
+    }
+  } catch (err) {
      let error=err.response?.data?.errors;
       toast.error(error);
       console.error("Error fetching normal orders:", err.response?.data?.errors);
@@ -95,10 +96,10 @@ const navigate = useNavigate();
       setFakeOrders(fakeData);
       setDisplayedOrders(fakeData);
     } catch (err) {
-      console.error("Error fetching fake orders:", err);
+      console.error("Error fetching orders:", err);
       const errorMsg =
         err.response?.data?.message ||
-        (isArabic ? "فشل جلب الطلبات الوهمية" : "Failed to load fake orders");
+        (isArabic ? "فشل جلب الطلبات " : "Failed to load orders");
       toast.error(errorMsg);
       setFakeOrders([]);
       setDisplayedOrders([]);
@@ -648,7 +649,7 @@ const handleClose = () => {
               {isFakeMode
                 ? isArabic
                   ? "لا توجد طلبات وهمية - اضغط بحث بعد تحديد التواريخ"
-                  : "No fake orders found - click Search after selecting dates"
+                  : "No  orders found - click Search after selecting dates"
                 : isArabic
                 ? "لا توجد طلبات مطابقة للفلاتر الحالية"
                 : "No orders match the current filters"}
