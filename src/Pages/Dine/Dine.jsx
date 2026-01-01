@@ -456,7 +456,9 @@ const handleSelectTable = async (table) => {
         );
         toast.success(t("StatusUpdated"));
       } catch (err) {
-        toast.error(err.response?.data?.message || "Failed");
+
+        toast.error(err.response?.data?.errors || "Failed");
+        console.log(err.response?.data?.errors )
       }
     };
     if (table.isMerged) {

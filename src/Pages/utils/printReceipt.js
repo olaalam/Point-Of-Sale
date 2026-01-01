@@ -533,6 +533,16 @@ const formatKitchenReceipt = (receiptData, productsList = []) => {
           .item-col { text-align: ${isArabic ? "right" : "left"}; }
           
           .footer-info { display: flex; justify-content: space-between; margin-top: 10px; font-size: 10px; font-weight: bold; }
+                    .order-note-box { 
+            border: 2px solid #d00; 
+            background: #ffe6e6; 
+            padding: 8px; 
+            margin: 10px 0; 
+            text-align: center; 
+            font-weight: bold; 
+            font-size: 14px;
+            color: #d00;
+          }
         </style>
       </head>
       <body>
@@ -548,7 +558,13 @@ const formatKitchenReceipt = (receiptData, productsList = []) => {
           </div>
         </div>
   
-
+        ${
+          receiptData.orderNote
+            ? `<div class="order-note-box">
+                 ${isArabic ? "📌 ملاحظة الطلب:" : "📌 Order Note:"} ${receiptData.orderNote}
+               </div>`
+            : ""
+        }
   
         <table>
           <thead>
@@ -826,6 +842,8 @@ export const prepareReceiptData = (
       price: Number(item.price),
       total: Number(item.total || item.price * item.count),
       notes: item.notes || "",
+          orderNote: response?.order_note || "", // ✅ إضافة ملاحظة الأوردر
+
       category_id: item.category_id || item.product?.category_id,
       id: item.id || item.product_id, // Important for kitchen mapping
       // === الجديد هنا ===
