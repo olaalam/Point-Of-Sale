@@ -1,6 +1,7 @@
 import { toast } from "react-toastify";
 import { buildProductPayload } from "@/services/productProcessor";
 import { PREPARATION_STATUSES } from "../constants";
+import { processProductItem } from "@/Pages/Checkout/processProductItem";
 
 export function useOrderActions({
   orderItems,
@@ -239,41 +240,48 @@ export function useOrderActions({
     });
   };
 
-  const handleSaveAsPending = async (amountToPay, totalTax) => {
-    if (orderItems.length === 0) {
-      toast.warning(t("Noitemstosaveaspending"));
-      return;
-    }
+const handleSaveAsPending = async (amountToPay, totalTax) => {
+  if (orderItems.length === 0) {
+    toast.warning(t("Noitemstosaveaspending"));
+    return;
+  }
 
-    const productsToSend = orderItems.map(buildProductPayload);
+  // ✅ استخدام المعالج (Processor) الخاص بك لتحويل المنتجات
+  // هذا المعالج يضمن تحويل المصفوفات (extra_id, variation) إلى نصوص/أرقام فقط
+  const productsToSend = orderItems.map(processProductItem);
 
-    const payload = {
-      amount: amountToPay.toString(),
-      total_tax: totalTax.toString(),
-      total_discount: "0",
-      notes: "Customer requested no plastic bag.",
-      source: "web",
-      financials: [],
-      order_pending: 1,
-      cashier_id: sessionStorage.getItem("cashier_id"),
-      products: productsToSend,
-    };
-
-    try {
-      await postData("cashier/take_away_order", payload, {
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${sessionStorage.getItem("access_token")}`,
-        },
-      });
-
-      toast.success(t("Ordersavedaspending"));
-      updateOrderItems([]);
-      sessionStorage.removeItem("cart");
-    } catch (e) {
-      toast.error(e.response?.data?.message || t("Failedtosaveaspending"));
-    }
+  const payload = {
+    amount: amountToPay.toString(),
+    total_tax: totalTax.toString(),
+    total_discount: "0",
+    notes: "Customer requested no plastic bag.",
+    source: "web",
+    financials: [],
+    order_pending: 1, // لإخباره أنه طلب معلق
+    cashier_id: sessionStorage.getItem("cashier_id") || "4",
+    products: productsToSend,
   };
+
+  // كونسول للتأكد قبل الإرسال أن المصفوفات ليست Objects
+  console.log("📦 Sending Pending Payload:", payload);
+
+  try {
+    await postData("cashier/take_away_order", payload, {
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${sessionStorage.getItem("access_token")}`,
+      },
+    });
+
+    toast.success(t("Ordersavedaspending"));
+    updateOrderItems([]); // تفريغ السلة
+    sessionStorage.removeItem("cart");
+    sessionStorage.removeItem("pending_order_info");
+  } catch (e) {
+    console.error("❌ Error Detail:", e.response?.data);
+    toast.error(e.response?.data?.message || t("Failedtosaveaspending"));
+  }
+};
 
   return {
     handleIncrease,

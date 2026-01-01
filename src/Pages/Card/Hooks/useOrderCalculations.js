@@ -11,7 +11,7 @@ export function useOrderCalculations(
     // 1. حساب SubTotal
     const subTotal = Array.isArray(orderItems)
       ? orderItems.reduce((acc, item) => {
-          const price = Number(item.price_after_discount ?? 0);
+const price = Number(item.price_after_discount > 0 ? item.price_after_discount : (item.price ?? 0));
           const qty =
             item.weight_status === 1
               ? Number(item.quantity ?? 1)

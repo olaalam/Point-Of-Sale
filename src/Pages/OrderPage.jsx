@@ -46,7 +46,10 @@ export default function OrderPage({
       const mappedItems = pendingOrder.orderDetails.map((detail, index) => ({
         id: detail.product_id || `pending_${index}`,
         temp_id: `pending_${detail.product_id || index}_${Date.now()}`,
-        name: detail.product_name || "Unknown Product",
+        name:     detail.name || 
+    detail.product_name || 
+    detail.product?.[0]?.product?.name || 
+    "Unknown Productييي",
         price: parseFloat(detail.price || 0),
         originalPrice: parseFloat(detail.price || 0),
         count: parseInt(detail.count || 1),

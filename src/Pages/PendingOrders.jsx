@@ -12,7 +12,7 @@ export default function PendingOrders() {
   const { data: pendingOrders, loading, error, refetch } = useGet("cashier/get_pending_orders");
   const [selectedOrderId, setSelectedOrderId] = useState(null);
   const [orderDetailsEndpoint, setOrderDetailsEndpoint] = useState(null);
-   const { t ,i18n } = useTranslation();
+  const { t, i18n } = useTranslation();
 
   const { 
     data: orderDetailsData, 
@@ -34,81 +34,70 @@ export default function PendingOrders() {
     }
   }, [orderError]);
 
-  useEffect(() => {
-    if (orderDetailsData && orderDetailsData.id) {
-      console.log("Found valid order details:", orderDetailsData);
-      const order = orderDetailsData; 
+// داخل useEffect الخاص بـ orderDetailsData في PendingOrders.jsx
+useEffect(() => {
+  if (orderDetailsData && orderDetailsData.id) {
+    const order = orderDetailsData;
+    const mappedOrderDetails = [];
 
-      // ✅ Better mapping - extract the actual product data
-      const mappedOrderDetails = [];
-      
-      if (order.order_details && Array.isArray(order.order_details)) {
-        order.order_details.forEach(detail => {
-          if (detail.product && Array.isArray(detail.product)) {
-            // Handle nested product structure
-            detail.product.forEach(productItem => {
-              if (productItem.product) {
-                mappedOrderDetails.push({
-                  product_id: productItem.product.id,
-                  product_name: productItem.product.name,
-                  price: parseFloat(productItem.product.price || 0),
-                  count: parseInt(productItem.count || 1),
-                  variation_name: productItem.variation_name || null,
-                  addons: productItem.addons || []
-                });
-              }
-            });
-          } else if (detail.product_name) {
-            // Handle direct structure
-            mappedOrderDetails.push({
-              product_id: detail.product_id || detail.id,
-              product_name: detail.product_name,
-              price: parseFloat(detail.price || 0),
-              count: parseInt(detail.count || 1),
-              variation_name: detail.variation_name || null,
-              addons: detail.addons || []
-            });
-          }
-        });
-      }
+    order.order_details?.forEach((detail) => {
+      detail.product?.forEach((productWrapper) => {
+        const actualProductData = productWrapper.product;
 
-      const orderData = {
-        orderId: order.id,
-        orderDetails: mappedOrderDetails,
-        orderNumber: order.order_number,
-        amount: order.amount,
-        notes: order.notes,
-        orderType: "take_away",
-        timestamp: new Date().toISOString()
-      };
-      
-      console.log("Mapped order details:", mappedOrderDetails);
-      
-      toast.success(`Order #${order.order_number} loaded successfully!`);
-      
-      // ✅ Clear any existing cart data first
-      sessionStorage.removeItem("cart");
-      sessionStorage.removeItem("pending_order_info");
-      
-      // ✅ Navigate with the pending order data - DON'T clear state immediately
-      navigate("/", { 
-        state: { 
-          activeTab: "takeaway",
-          orderType: "take_away",
-          pendingOrder: orderData 
-        } 
+        if (actualProductData) {
+          mappedOrderDetails.push({
+            // البيانات التي يتوقعها OrderPage.jsx
+            product_id: actualProductData.id,
+            product_name: actualProductData.name || "Unknown Product",
+            
+            // السعر والكمية بتنسيق عددي
+            price: parseFloat(actualProductData.price_after_discount || actualProductData.price || 0),
+            count: parseInt(productWrapper.count || 1),
+            
+            // حل مشكلة [object Object] في الإضافات
+            // نقوم باستخراج المعرفات فقط أو التأكد من بنية الكائن
+            addons: Array.isArray(actualProductData.addons) 
+              ? actualProductData.addons.map(addon => ({
+                  id: addon.id,
+                  name: addon.name,
+                  price: addon.price
+                })) 
+              : [],
+            
+            // الخيارات (Variations)
+            variation_name: detail.variations?.[0]?.name || null,
+            
+            // حقول إضافية مطلوبة في السلة
+            temp_id: `pending_${actualProductData.id}_${Math.random().toString(36).substr(2, 5)}`,
+            notes: productWrapper.notes || "",
+            preparation_status: "pending",
+            type: "main_item"
+          });
+        }
       });
-      
-      // ✅ Reset selection after navigation
-      setTimeout(() => {
-        setSelectedOrderId(null);
-        setOrderDetailsEndpoint(null);
-      }, 500);
-      
-    } else if (orderDetailsData) {
-        console.log("API response does not contain a valid order object:", orderDetailsData);
-    }
-  }, [orderDetailsData, selectedOrderId, navigate]);
+    });
+
+    const orderData = {
+      orderId: order.id,
+      orderDetails: mappedOrderDetails,
+      orderNumber: order.order_number,
+      totalAmount: order.amount,
+      notes: order.notes,
+      orderType: "take_away"
+    };
+
+    // حفظ السلة بالبنية الجديدة
+    sessionStorage.setItem("cart", JSON.stringify(mappedOrderDetails));
+
+    navigate("/", { 
+      state: { 
+        activeTab: "takeaway",
+        orderType: "take_away",
+        pendingOrder: orderData 
+      } 
+    });
+  }
+}, [orderDetailsData, navigate]);
 
   const handleSelectOrder = (orderId) => {
     if (orderLoading || selectedOrderId) return;
@@ -134,17 +123,14 @@ export default function PendingOrders() {
     const items = [];
     orderDetails.forEach(orderDetail => {
       if (orderDetail.product && Array.isArray(orderDetail.product)) {
-        // Handle nested product structure
         orderDetail.product.forEach(productItem => {
           if (productItem.product && productItem.product.name) {
             items.push(`${productItem.product.name} x${productItem.count || 1}`);
           }
         });
       } else if (orderDetail.product_name) {
-        // Handle direct product_name structure
         items.push(`${orderDetail.product_name} x${orderDetail.count || 1}`);
       } else if (orderDetail.name) {
-        // Handle name field
         items.push(`${orderDetail.name} x${orderDetail.count || 1}`);
       }
     });
@@ -255,7 +241,6 @@ export default function PendingOrders() {
                       </div>
                     )}
                     
-                    {/* ✅ Loading overlay */}
                     {selectedOrderId === order.id && orderLoading && (
                       <div className="absolute inset-0 bg-white bg-opacity-90 flex items-center justify-center rounded-lg">
                         <div className="flex flex-col items-center gap-3">
@@ -265,7 +250,6 @@ export default function PendingOrders() {
                       </div>
                     )}
                     
-                    {/* ✅ Click indicator */}
                     {!orderLoading && (
                       <div className="absolute bottom-4 right-4 opacity-60 group-hover:opacity-100 transition-opacity">
                         <div className="w-2 h-2 bg-orange-400 rounded-full animate-pulse"></div>
@@ -277,8 +261,6 @@ export default function PendingOrders() {
             )}
           </div>
         )}
-        
-
       </div>
     </div>
   );

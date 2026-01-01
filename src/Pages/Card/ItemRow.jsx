@@ -1,16 +1,13 @@
-// ItemRow.jsx - نسخة معدلة: الكمية مدمجة مع الاسم وتصميم مبسط
 import React from "react";
-import { toast } from "react-toastify";
 import { PREPARATION_STATUSES } from "./constants";
 import { Trash2, FileText } from "lucide-react";
 import ProductDetailModalWrapper from "./ProductDetailModalWrapper";
 
-// دالة لحساب السعر مع الإضافات (Addons + Extras) - خاصة بـ Dine-in
-const calculatePriceWithAddons = (item) => {
-  let basePrice = Number(item.originalPrice || item.price || 0);
+// دالة لحساب سعر الإضافات فقط
+const calculateAddonsTotal = (item) => {
   let addonsTotal = 0;
 
-  // حساب الـ Addons
+  // 1. Variations Addons
   if (item.addons && Array.isArray(item.addons)) {
     item.addons.forEach((addonGroup) => {
       if (addonGroup.options && Array.isArray(addonGroup.options)) {
@@ -24,14 +21,14 @@ const calculatePriceWithAddons = (item) => {
     });
   }
 
-  // حساب الـ Extras
+  // 2. Extras
   if (item.extras && Array.isArray(item.extras)) {
     item.extras.forEach((extra) => {
       addonsTotal += Number(extra.price || 0) * (extra.quantity || 1);
     });
   }
 
-  return basePrice + addonsTotal;
+  return addonsTotal;
 };
 
 const ItemRow = ({
@@ -46,42 +43,52 @@ const ItemRow = ({
   handleVoidItem,
   handleRemoveFrontOnly,
   updateOrderItems,
-  handleIncrease,
-  handleDecrease,
   allowQuantityEdit,
   orderItems
 }) => {
-  console.log("ItemRow → Rendering item:", item);
-  const statusInfo = PREPARATION_STATUSES[item.preparation_status] || PREPARATION_STATUSES.pending;
-  const StatusIcon = statusInfo.icon;
-
-  const hasDiscount = item.discount && typeof item.discount === "object";
-  const isItemLoading = itemLoadingStates[item.temp_id] || false;
-  const isDoneItem = item.preparation_status === "done";
-
   if (!item) return null;
 
-  // حساب السعر النهائي للوحدة
-  const finalUnitPrice = orderType === "dine_in"
-    ? calculatePriceWithAddons(item)  
-    : Number(item.price) || 0;       
+  const statusInfo = PREPARATION_STATUSES[item.preparation_status] || PREPARATION_STATUSES.pending;
+  const StatusIcon = statusInfo.icon;
+  const isItemLoading = itemLoadingStates[item.temp_id] || false;
 
-  const safePrice = Number(item.price.toFixed(2));
-    const safeOriginalPrice = Number(item.price_after_discount || item.price || 0).toFixed(2);
+  // ==========================================
+  // 🟢 1. تصحيح منطق الأسعار (The Fix)
+  // ==========================================
+  
+  // تحويل القيم لأرقام صريحة أولاً لتجنب مشكلة النصوص
+  const rawPrice = Number(item.price || 0); 
+  const rawDiscountPrice = Number(item.price_after_discount || 0);
 
+  // تحديد هل يوجد خصم فعلي؟ (لازم يكون رقم أكبر من صفر وأقل من السعر الأصلي)
+  const hasDiscount = rawDiscountPrice > 0 && rawDiscountPrice < rawPrice;
 
-  // الكمية المستخدمة في الحساب
-  const quantityForCalc = item.weight_status === 1 
+  // تحديد السعر الأساسي للوحدة (بدون إضافات)
+  // لو في خصم نستخدمه، غير كدة نستخدم السعر الأصلي
+  const baseUnitPrice = hasDiscount ? rawDiscountPrice : rawPrice;
+
+  // حساب سعر الإضافات (لطلبات الصالة Dine-in)
+  const addonsPrice = calculateAddonsTotal(item);
+
+  // السعر النهائي للوحدة (شامل الإضافات لو موجودة)
+  const finalUnitPrice = orderType === "dine_in" 
+    ? baseUnitPrice + addonsPrice 
+    : baseUnitPrice;
+
+  // الكمية
+  const quantity = item.weight_status === 1 
     ? Number(item.quantity || item.count || 1)
     : Number(item.count || 1);
 
-  // إجمالي السعر النهائي للسطر
-  const totalPrice = (safeOriginalPrice * quantityForCalc).toFixed(2);
+  // الإجمالي
+  const totalPrice = (finalUnitPrice * quantity).toFixed(2);
+
+  // ==========================================
 
   return (
     <tr className={`border-b last:border-b-0 hover:bg-gray-50 ${item.type === "addon" ? "bg-blue-50" : ""} ${selectedPaymentItems.includes(item.temp_id) ? "bg-green-50" : ""}`}>
       
-      {/* 1. اختيار العناصر (Dine-in Only) */}
+      {/* Checkbox for Dine-in */}
       {orderType === "dine_in" && (
         <td className="p-2 text-center align-middle">
           <input
@@ -93,7 +100,7 @@ const ItemRow = ({
         </td>
       )}
 
-      {/* 2. اسم المنتج مدمج معه الكمية والـ Addons */}
+      {/* Product Name & Details */}
       <td className="p-2 text-left align-top">
         <ProductDetailModalWrapper
           product={item}
@@ -102,14 +109,20 @@ const ItemRow = ({
         >
           <div className="flex flex-col gap-1">
             <div className="text-gray-800 font-medium hover:text-red-600 cursor-pointer transition-colors leading-tight">
-              {/* عرض الكمية بجانب الاسم مباشرة */}
               <span className="text-bg-primary font-bold mr-1.5 bg-red-50 px-1 rounded">
                 {item.weight_status === 1 ? `${item.quantity}kg` : `${item.count}x`}
               </span>
-              <span className="text-[14px]">{item.name}</span>
+{/* التعديل الجوهري لعرض الاسم */}
+<span className="text-[14px]">
+  {
+    item.name || 
+    item.product_name || 
+    item.product?.[0]?.product?.name || 
+    "Unknown Productييي"
+  }
+</span>
             </div>
 
-            {/* Variations & Addons في سطر واحد صغير لتوفير المساحة */}
             <div className="flex flex-wrap gap-1 mt-0.5">
               {item.variations?.map((group, i) => {
                 const selected = Array.isArray(group.selected_option_id)
@@ -122,7 +135,6 @@ const ItemRow = ({
                 ) : null;
               })}
               
-              {/* عرض الـ Addons المختارة */}
               {item.addons?.map((addon) => 
                 addon.options?.filter(opt => opt.selected || opt.quantity > 0).map((opt, idx) => (
                   <span key={idx} className="text-[10px] text-blue-600 bg-blue-50 px-1 rounded">
@@ -132,7 +144,6 @@ const ItemRow = ({
               )}
             </div>
 
-            {/* الملاحظات بصورة مصغرة */}
             {item.notes && item.notes.trim() !== "" && (
               <div className="text-[10px] text-orange-600 italic flex items-center gap-1 mt-1">
                 <FileText size={10} />
@@ -143,31 +154,30 @@ const ItemRow = ({
         </ProductDetailModalWrapper>
       </td>
 
-      {/* Price per Unit - الآن مظبوط في Dine-in و Takeaway */}
+      {/* Price Column */}
       <td className="py-3 px-4 text-center align-top">
-        <div>
-          <span className={hasDiscount ? "text-green-600 font-semibold" : "font-medium"}>
-           {safeOriginalPrice}
+        <div className="flex flex-col items-center">
+          {/* عرض السعر المستخدم حالياً (أحمر لو فيه خصم) */}
+          <span className={hasDiscount ? "text-red-600 font-bold" : "font-medium"}>
+            {finalUnitPrice.toFixed(2)}
           </span>
+          
+          {/* عرض السعر القديم مشطوب (لو فيه خصم) */}
           {hasDiscount && (
-            <div>
-              <span className="text-xs text-gray-500 line-through">
-                
-                 {safePrice.toFixed(2)}
-              </span>
-            </div>
+            <span className="text-xs text-gray-400 line-through">
+              {(rawPrice + (orderType === "dine_in" ? addonsPrice : 0)).toFixed(2)}
+            </span>
           )}
+
           {item.tax_obj && (
-            <div className="text-xs text-blue-600 mt-1">
-              {item.taxes === "excluded" ? "Tax Excluded" : "Tax Included"}
-              {item.tax_val > 0 && ` (+${item.tax_val.toFixed(2)})`}
+            <div className="text-[10px] text-blue-600 mt-1">
+              {item.taxes === "excluded" ? "+Tax" : "Inc. Tax"}
             </div>
           )}
         </div>
       </td>
 
-
-      {/* 3. حالة التحضير (Dine-in Only) */}
+      {/* Status (Dine-in only) */}
       {orderType === "dine_in" && (
         <td className="p-2 text-center align-middle">
           <button
@@ -184,20 +194,14 @@ const ItemRow = ({
         </td>
       )}
 
-      {/* 4. السعر الإجمالي (Total) */}
+      {/* Total Price */}
       <td className="p-2 text-center align-middle">
-        <div className="flex flex-col items-center">
-          <span className="font-bold text-gray-900 text-sm">
-            {totalPrice}
-          </span>
-          {/* إظهار علامة الضريبة لو وجدت بشكل مصغر */}
-          {item.tax_val > 0 && (
-            <span className="text-[9px] text-blue-500">inc. tax</span>
-          )}
-        </div>
+        <span className="font-bold text-gray-900 text-sm">
+          {totalPrice}
+        </span>
       </td>
 
-      {/* 5. حذف أو Void */}
+      {/* Actions */}
       <td className="p-2 text-center align-middle">
         <button
           onClick={() => orderType === "dine_in" ? handleVoidItem(item.temp_id) : handleRemoveFrontOnly(item.temp_id)}
