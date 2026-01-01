@@ -3,32 +3,41 @@ import { PREPARATION_STATUSES } from "./constants";
 import { Trash2, FileText } from "lucide-react";
 import ProductDetailModalWrapper from "./ProductDetailModalWrapper";
 
-// دالة لحساب سعر الإضافات فقط
+/**
+ * 🟢 دالة حساب الإضافات (Addons + Extras)
+ * تم تعديلها لتتعامل مع حالتين: 
+ * 1. الإضافات الموجودة مباشرة ككائنات في مصفوفة addons.
+ * 2. الـ Extras التي تأتي كـ IDs وتحتاج بحث في allExtras.
+ */
 const calculateAddonsTotal = (item) => {
-  let addonsTotal = 0;
+  let total = 0;
 
-  // 1. Variations Addons
+  // 1. حساب الـ Addons (مثل fries, sauce, etc.)
   if (item.addons && Array.isArray(item.addons)) {
-    item.addons.forEach((addonGroup) => {
-      if (addonGroup.options && Array.isArray(addonGroup.options)) {
-        addonGroup.options.forEach((option) => {
-          if (option.selected || option.quantity > 0) {
-            const qty = option.quantity || 1;
-            addonsTotal += Number(option.price || 0) * qty;
-          }
-        });
+    item.addons.forEach((ad) => {
+      // نتحقق أن الإضافة مختارة (بناءً على وجود selected أو كمية أو كونها مضافة يدوياً)
+      // في بيانات Margherita الأخيرة كانت الإضافات تظهر بدون selected، لذا نعتمد على الكمية أو منطق الـ UI
+      const isSelected = ad.selected === true || (ad.quantity > 0 && ad.price > 0);
+      
+      if (isSelected) {
+        // نستخدم price_after_tax لو وجد، وإلا السعر العادي
+        const adPrice = Number(ad.price_after_tax || ad.price || 0);
+        total += adPrice * Number(ad.quantity || 1);
       }
     });
   }
 
-  // 2. Extras
-  if (item.extras && Array.isArray(item.extras)) {
-    item.extras.forEach((extra) => {
-      addonsTotal += Number(extra.price || 0) * (extra.quantity || 1);
+  // 2. حساب الـ Extras (مثل Medium Shrimp, etc.)
+  if (item.selectedExtras && Array.isArray(item.selectedExtras)) {
+    item.selectedExtras.forEach((extraId) => {
+      const extraData = item.allExtras?.find((e) => e.id === extraId);
+      if (extraData) {
+        total += Number(extraData.price_after_tax || extraData.price_after_discount || extraData.price || 0);
+      }
     });
   }
 
-  return addonsTotal;
+  return total;
 };
 
 const ItemRow = ({
@@ -37,13 +46,11 @@ const ItemRow = ({
   selectedItems,
   toggleSelectItem,
   selectedPaymentItems,
-  toggleSelectPaymentItem,
   itemLoadingStates,
   handleUpdatePreparationStatus,
   handleVoidItem,
   handleRemoveFrontOnly,
   updateOrderItems,
-  allowQuantityEdit,
   orderItems
 }) => {
   if (!item) return null;
@@ -53,42 +60,52 @@ const ItemRow = ({
   const isItemLoading = itemLoadingStates[item.temp_id] || false;
 
   // ==========================================
-  // 🟢 1. تصحيح منطق الأسعار (The Fix)
+  // 🟢 حساب الأسعار بدقة (Logic)
   // ==========================================
-  
-  // تحويل القيم لأرقام صريحة أولاً لتجنب مشكلة النصوص
-  const rawPrice = Number(item.price || 0); 
-  const rawDiscountPrice = Number(item.price_after_discount || 0);
 
-  // تحديد هل يوجد خصم فعلي؟ (لازم يكون رقم أكبر من صفر وأقل من السعر الأصلي)
-  const hasDiscount = rawDiscountPrice > 0 && rawDiscountPrice < rawPrice;
+  // 1. استخراج سعر الـ Variation المختار (مثل حجم البيتزا)
+  const selectedOptionId = item.variations?.[0]?.selected_option_id;
+  const selectedOption = item.variations?.[0]?.options?.find(opt => opt.id === selectedOptionId);
 
-  // تحديد السعر الأساسي للوحدة (بدون إضافات)
-  // لو في خصم نستخدمه، غير كدة نستخدم السعر الأصلي
-  const baseUnitPrice = hasDiscount ? rawDiscountPrice : rawPrice;
+  let basePrice = Number(item.price || 0);
+  let hasDiscount = false;
+  let originalPriceForDisplay = Number(item.price || 0);
 
-  // حساب سعر الإضافات (لطلبات الصالة Dine-in)
-  const addonsPrice = calculateAddonsTotal(item);
+  if (selectedOption) {
+    // حالة الـ Variation: السعر الأساسي هو سعر الخيار المختار
+    basePrice = Number(selectedOption.total_option_price || selectedOption.after_disount || selectedOption.price || 0);
+    
+    // الخصم حقيقي فقط إذا كان discount_val أكبر من 0 (تجنباً لفرق سعر الأحجام)
+    hasDiscount = Number(selectedOption.discount_val || 0) > 0;
+    originalPriceForDisplay = hasDiscount ? (basePrice + Number(selectedOption.discount_val)) : basePrice;
+  } else {
+    // حالة المنتج العادي: نستخدم السعر بعد الخصم المباشر
+    const priceAfterDisc = Number(item.price_after_discount || 0);
+    const normalPrice = Number(item.price || 0);
+    
+    // إذا كان السعر بعد الخصم متاحاً وأقل من السعر الأصلي
+    hasDiscount = priceAfterDisc > 0 && priceAfterDisc < normalPrice;
+    basePrice = hasDiscount ? priceAfterDisc : normalPrice;
+    originalPriceForDisplay = normalPrice;
+  }
 
-  // السعر النهائي للوحدة (شامل الإضافات لو موجودة)
-  const finalUnitPrice = orderType === "dine_in" 
-    ? baseUnitPrice + addonsPrice 
-    : baseUnitPrice;
+  // 2. إضافة الإضافات والـ Extras للسعر
+  const addonsTotal = calculateAddonsTotal(item);
+  const finalUnitPrice = basePrice + addonsTotal;
+  const finalOriginalPrice = originalPriceForDisplay + addonsTotal;
 
-  // الكمية
-  const quantity = item.weight_status === 1 
-    ? Number(item.quantity || item.count || 1)
+  // 3. الكمية (الوزن أو العدد)
+  const quantity = (item.weight_status === 1 || item.weight_status === "1")
+    ? Number(item.quantity || 1)
     : Number(item.count || 1);
 
-  // الإجمالي
+  // 4. الإجمالي النهائي للسطر
   const totalPrice = (finalUnitPrice * quantity).toFixed(2);
 
-  // ==========================================
-
   return (
-    <tr className={`border-b last:border-b-0 hover:bg-gray-50 ${item.type === "addon" ? "bg-blue-50" : ""} ${selectedPaymentItems.includes(item.temp_id) ? "bg-green-50" : ""}`}>
+    <tr className={`border-b last:border-b-0 hover:bg-gray-50 ${item.type === "addon" ? "bg-blue-50" : ""} ${selectedPaymentItems?.includes(item.temp_id) ? "bg-green-50" : ""}`}>
       
-      {/* Checkbox for Dine-in */}
+      {/* اختيار العنصر (Dine-in) */}
       {orderType === "dine_in" && (
         <td className="p-2 text-center align-middle">
           <input
@@ -100,50 +117,37 @@ const ItemRow = ({
         </td>
       )}
 
-      {/* Product Name & Details */}
+      {/* اسم المنتج وتفاصيله */}
       <td className="p-2 text-left align-top">
-        <ProductDetailModalWrapper
-          product={item}
-          updateOrderItems={updateOrderItems}
-          orderItems={orderItems}
-        >
+        <ProductDetailModalWrapper product={item} updateOrderItems={updateOrderItems} orderItems={orderItems}>
           <div className="flex flex-col gap-1">
             <div className="text-gray-800 font-medium hover:text-red-600 cursor-pointer transition-colors leading-tight">
               <span className="text-bg-primary font-bold mr-1.5 bg-red-50 px-1 rounded">
-                {item.weight_status === 1 ? `${item.quantity}kg` : `${item.count}x`}
+                {item.weight_status === 1 ? `${quantity}kg` : `${quantity}x`}
               </span>
-{/* التعديل الجوهري لعرض الاسم */}
-<span className="text-[14px]">
-  {
-    item.name || 
-    item.product_name || 
-    item.product?.[0]?.product?.name || 
-    "Unknown Productييي"
-  }
-</span>
+              <span className="text-[14px]">{item.name || item.product_name || "Unknown Product"}</span>
             </div>
 
+            {/* تفاصيل الاختيارات (Variations/Addons/Extras) */}
             <div className="flex flex-wrap gap-1 mt-0.5">
-              {item.variations?.map((group, i) => {
-                const selected = Array.isArray(group.selected_option_id)
-                  ? group.options?.find(opt => group.selected_option_id.includes(opt.id))
-                  : group.options?.find(opt => opt.id === group.selected_option_id);
-                return selected ? (
-                  <span key={i} className="text-[10px] text-gray-500 bg-gray-100 px-1 rounded">
-                    {selected.name}
-                  </span>
-                ) : null;
-              })}
-              
-              {item.addons?.map((addon) => 
-                addon.options?.filter(opt => opt.selected || opt.quantity > 0).map((opt, idx) => (
-                  <span key={idx} className="text-[10px] text-blue-600 bg-blue-50 px-1 rounded">
-                    +{opt.name}
-                  </span>
-                ))
+              {selectedOption && (
+                <span className="text-[10px] text-gray-500 bg-gray-100 px-1 rounded">
+                  {selectedOption.name}
+                </span>
               )}
+              {item.addons?.filter(ad => ad.selected || ad.quantity > 0).map((ad, i) => (
+                <span key={i} className="text-[10px] text-blue-600 bg-blue-50 px-1 rounded">
+                  +{ad.name || item.addons_list?.find(l => l.id === ad.addon_id)?.name || 'Addon'}
+                </span>
+              ))}
+              {item.selectedExtras?.map((exId, i) => (
+                <span key={i} className="text-[10px] text-green-600 bg-green-50 px-1 rounded">
+                  +{item.allExtras?.find(e => e.id === exId)?.name || 'Extra'}
+                </span>
+              ))}
             </div>
 
+            {/* ملاحظات المنتج */}
             {item.notes && item.notes.trim() !== "" && (
               <div className="text-[10px] text-orange-600 italic flex items-center gap-1 mt-1">
                 <FileText size={10} />
@@ -154,39 +158,30 @@ const ItemRow = ({
         </ProductDetailModalWrapper>
       </td>
 
-      {/* Price Column */}
+      {/* عمود سعر الوحدة */}
       <td className="py-3 px-4 text-center align-top">
         <div className="flex flex-col items-center">
-          {/* عرض السعر المستخدم حالياً (أحمر لو فيه خصم) */}
           <span className={hasDiscount ? "text-red-600 font-bold" : "font-medium"}>
             {finalUnitPrice.toFixed(2)}
           </span>
-          
-          {/* عرض السعر القديم مشطوب (لو فيه خصم) */}
           {hasDiscount && (
             <span className="text-xs text-gray-400 line-through">
-              {(rawPrice + (orderType === "dine_in" ? addonsPrice : 0)).toFixed(2)}
+              {finalOriginalPrice.toFixed(2)}
             </span>
-          )}
-
-          {item.tax_obj && (
-            <div className="text-[10px] text-blue-600 mt-1">
-              {item.taxes === "excluded" ? "+Tax" : "Inc. Tax"}
-            </div>
           )}
         </div>
       </td>
 
-      {/* Status (Dine-in only) */}
+      {/* حالة التحضير (Dine-in) */}
       {orderType === "dine_in" && (
         <td className="p-2 text-center align-middle">
           <button
             onClick={() => handleUpdatePreparationStatus(item.temp_id)}
-            className={`p-1.5 rounded-full ${statusInfo.color} hover:bg-opacity-80 transition-colors ${isItemLoading ? "opacity-50 cursor-not-allowed" : ""}`}
+            className={`p-1.5 rounded-full ${statusInfo.color} transition-colors`}
             disabled={isItemLoading}
           >
             {isItemLoading ? (
-              <div className="w-4 h-4 border-2 border-gray-300 border-t-current rounded-full animate-spin"></div>
+              <div className="w-4 h-4 border-2 border-t-transparent animate-spin rounded-full" />
             ) : (
               <StatusIcon size={16} />
             )}
@@ -194,19 +189,16 @@ const ItemRow = ({
         </td>
       )}
 
-      {/* Total Price */}
+      {/* السعر الإجمالي للعنصر */}
       <td className="p-2 text-center align-middle">
-        <span className="font-bold text-gray-900 text-sm">
-          {totalPrice}
-        </span>
+        <span className="font-bold text-gray-900 text-sm">{totalPrice}</span>
       </td>
 
-      {/* Actions */}
+      {/* عمليات الحذف */}
       <td className="p-2 text-center align-middle">
         <button
           onClick={() => orderType === "dine_in" ? handleVoidItem(item.temp_id) : handleRemoveFrontOnly(item.temp_id)}
-          className={`p-2 rounded-full text-red-500 hover:bg-red-50 transition-colors ${isItemLoading && orderType === "dine_in" ? "opacity-50 cursor-not-allowed" : ""}`}
-          disabled={isItemLoading && orderType === "dine_in"}
+          className="p-2 text-red-500 hover:bg-red-50 rounded-full transition-colors"
         >
           <Trash2 size={18} />
         </button>
