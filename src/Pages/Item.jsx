@@ -55,9 +55,12 @@ export default function Item({ onAddToOrder, onClose }) {
     sessionStorage.getItem("branch_id")
   );
   const [productType, setProductType] = useState("piece");
-  const [selectedGroup, setSelectedGroup] = useState("all");
+  const [selectedGroup, setSelectedGroup] = useState("none");
+    // const [selectedGroup, setSelectedGroup] = useState("all");
   const [showCategories, setShowCategories] = useState(true);
-  const [isNormalPrice, setIsNormalPrice] = useState(false);
+  const [isNormalPrice, setIsNormalPrice] = useState(true);
+    // const [isNormalPrice, setIsNormalPrice] = useState(false);
+
   const { t, i18n } = useTranslation();
 
   const orderType = sessionStorage.getItem("order_type") || "dine_in";
@@ -137,40 +140,88 @@ export default function Item({ onAddToOrder, onClose }) {
       ? allModulesData?.products_weight || []
       : allModulesData?.products || [];
   }, [allModulesData, productType]);
-  const filteredProducts = useMemo(() => {
-    let products;
-    if (searchQuery.trim()) {
-      products = allProducts;
-    } else if (isNormalPrice) {
-      products = allProducts;
-    } else if (selectedGroup !== "all") {
-      products = favouriteCategoriesData?.products || [];
-    } else {
-      products = favouriteProducts;
-    }
-    if (searchQuery.trim()) {
-      const query = searchQuery.trim().toLowerCase();
-      products = products.filter(
-        (p) =>
-          (p.name?.toLowerCase() || "").includes(query) ||
-          (p.product_code?.toString().toLowerCase() || "").includes(query)
-      );
-    }
-    if (selectedCategory !== "all") {
-      products = products.filter(
-        (p) => p.category_id === parseInt(selectedCategory)
-      );
-    }
-    return products;
-  }, [
-    allProducts,
-    favouriteProducts,
-    favouriteCategoriesData,
-    selectedCategory,
-    selectedGroup,
-    searchQuery,
-    isNormalPrice,
-  ]);
+
+// 2. Updated Filtering Logic
+const filteredProducts = useMemo(() => {
+  let products = [];
+
+  // Priority 1: Search Query (Global Search)
+  if (searchQuery.trim()) {
+    const query = searchQuery.trim().toLowerCase();
+    return allProducts.filter(
+      (p) =>
+        (p.name?.toLowerCase() || "").includes(query) ||
+        (p.product_code?.toString().toLowerCase() || "").includes(query)
+    );
+  }
+
+  // Priority 2: Favorite Module (Standalone)
+  if (selectedGroup === "all" && !isNormalPrice) {
+    return favouriteProducts; 
+  }
+
+  // Priority 3: Group Products or All (Normal) Products
+  if (isNormalPrice) {
+    products = allProducts;
+  } else {
+    // This is for specific group modules
+    products = favouriteCategoriesData?.products || [];
+  }
+
+  // Priority 4: Sidebar Category Filter (Does not apply to "Favorite" mode)
+  if (selectedCategory !== "all") {
+    products = products.filter(
+      (p) => p.category_id === parseInt(selectedCategory)
+    );
+  }
+
+  return products;
+}, [
+  allProducts,
+  favouriteProducts,
+  favouriteCategoriesData,
+  selectedCategory,
+  selectedGroup,
+  searchQuery,
+  isNormalPrice,
+]);
+
+  // const filteredProducts = useMemo(() => {
+  //   let products;
+  //   if (searchQuery.trim()) {
+  //     products = allProducts;
+  //   } else if (isNormalPrice) {
+  //     products = allProducts;
+  //   } else if (selectedGroup !== "all") {
+  //     products = favouriteCategoriesData?.products || [];
+  //   } else {
+  //     products = favouriteProducts;
+  //   }
+  //   if (searchQuery.trim()) {
+  //     const query = searchQuery.trim().toLowerCase();
+  //     products = products.filter(
+  //       (p) =>
+  //         (p.name?.toLowerCase() || "").includes(query) ||
+  //         (p.product_code?.toString().toLowerCase() || "").includes(query)
+  //     );
+  //   }
+  //   if (selectedCategory !== "all") {
+  //     products = products.filter(
+  //       (p) => p.category_id === parseInt(selectedCategory)
+  //     );
+  //   }
+  //   return products;
+  // }, [
+  //   allProducts,
+  //   favouriteProducts,
+  //   favouriteCategoriesData,
+  //   selectedCategory,
+  //   selectedGroup,
+  //   searchQuery,
+  //   isNormalPrice,
+  // ]);
+
+
   const productsToDisplay = filteredProducts.slice(0, visibleProductCount);
   const handleCategorySelect = (categoryId) => {
     setSelectedCategory(categoryId);
