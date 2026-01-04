@@ -227,6 +227,10 @@ const filteredProducts = useMemo(() => {
     setSelectedCategory(categoryId);
     setShowCategories(false);
     setVisibleProductCount(PRODUCTS_TO_SHOW_INITIALLY);
+    // Reset to normal prices when "All" is selected
+    if(selectedGroup === "all" && !isNormalPrice){
+      setIsNormalPrice(true);
+    }
   };
   const handleNormalPricesClick = () => {
     setIsNormalPrice(true);
