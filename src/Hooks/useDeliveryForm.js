@@ -5,6 +5,7 @@ import { useLocation, useParams } from "react-router-dom";
 import { useGet } from "@/Hooks/useGet";
 import { addressSchema, adduserSchema } from "@/Pages/Delivery/addressSchema";
 import { parseCoordinates, tryGeocode } from "@/components/tryGeocode";
+import { useTranslation } from "react-i18next";
 
 export const useDeliveryForm = () => {
   const [selectedLocation, setSelectedLocation] = useState({
@@ -19,6 +20,7 @@ export const useDeliveryForm = () => {
 
   const { id } = useParams();
   const isEditMode = Boolean(id);
+    const { t ,i18n } = useTranslation();
 
   const location = useLocation();
   const searchParams = new URLSearchParams(location.search);
@@ -47,7 +49,7 @@ export const useDeliveryForm = () => {
   });
 
   // تحميل بيانات الـ lists (cities & zones)
-  const { data: addressListsData, isLoading: isLoadingLists } = useGet("cashier/user/address/lists");
+  const { data: addressListsData, isLoading: isLoadingLists } = useGet(`cashier/user/address/lists?${i18n.language === "ar"?`locale=ar`:"locale=en"}`);
   const cities = addressListsData?.cities || [];
   const allZones = addressListsData?.zones || [];
 
