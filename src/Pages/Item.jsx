@@ -12,7 +12,8 @@ import ProductModal from "./ProductModal";
 import { useTranslation } from "react-i18next";
 import { buildProductPayload } from "@/services/productProcessor";
 import { ArrowLeft, LayoutGrid, Tag } from "lucide-react";
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "https://bcknd.food2go.online/";
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL || "https://bcknd.food2go.online/";
 const getAuthToken = () => sessionStorage.getItem("token");
 let resturant_logo = sessionStorage.getItem("resturant_logo");
 const apiFetcher = async (path) => {
@@ -47,15 +48,21 @@ const PRODUCTS_TO_SHOW_INITIALLY = INITIAL_PRODUCT_ROWS * PRODUCTS_PER_ROW;
 export default function Item({ onAddToOrder, onClose }) {
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
-  const [visibleProductCount, setVisibleProductCount] = useState(PRODUCTS_TO_SHOW_INITIALLY);
-  const [branchIdState, setBranchIdState] = useState(sessionStorage.getItem("branch_id"));
+  const [visibleProductCount, setVisibleProductCount] = useState(
+    PRODUCTS_TO_SHOW_INITIALLY
+  );
+  const [branchIdState, setBranchIdState] = useState(
+    sessionStorage.getItem("branch_id")
+  );
   const [productType, setProductType] = useState("piece");
   const [selectedGroup, setSelectedGroup] = useState("all");
   const [showCategories, setShowCategories] = useState(true);
   const [isNormalPrice, setIsNormalPrice] = useState(false);
   const { t, i18n } = useTranslation();
+
   const orderType = sessionStorage.getItem("order_type") || "dine_in";
-  const { deliveryUserData, userLoading, userError } = useDeliveryUser(orderType);
+  const { deliveryUserData, userLoading, userError } =
+    useDeliveryUser(orderType);
   const { postData: postOrder, loading: orderLoading } = usePost();
   const {
     selectedProduct,
@@ -85,18 +92,22 @@ export default function Item({ onAddToOrder, onClose }) {
     enabled: !!branchIdState,
     staleTime: 5 * 60 * 1000,
   });
-  const groupProducts = useMemo(() => groupData?.group_product || [], [groupData]);
+  const groupProducts = useMemo(
+    () => groupData?.group_product || [],
+    [groupData]
+  );
   // 2. جلب تصنيفات المجموعة المختارة
-  const { data: favouriteCategoriesData, isLoading: isFavCatLoading } = useQuery({
-    queryKey: ["favouriteCategories", selectedGroup, branchIdState],
-    queryFn: () =>
-      apiPoster(`cashier/group_product/favourite`, {
-        group_id: parseInt(selectedGroup),
-        branch_id: parseInt(branchIdState),
-      }),
-    enabled: selectedGroup !== "all" && !!branchIdState && !isNormalPrice,
-    staleTime: 5 * 60 * 1000,
-  });
+  const { data: favouriteCategoriesData, isLoading: isFavCatLoading } =
+    useQuery({
+      queryKey: ["favouriteCategories", selectedGroup, branchIdState],
+      queryFn: () =>
+        apiPoster(`cashier/group_product/favourite`, {
+          group_id: parseInt(selectedGroup),
+          branch_id: parseInt(branchIdState),
+        }),
+      enabled: selectedGroup !== "all" && !!branchIdState && !isNormalPrice,
+      staleTime: 5 * 60 * 1000,
+    });
   // 3. جلب البيانات الأساسية
   const allModulesEndpoint = useMemo(() => {
     return `captain/lists?branch_id=${branchIdState}&locale=${i18n.language}`;
@@ -108,16 +119,23 @@ export default function Item({ onAddToOrder, onClose }) {
     staleTime: 5 * 60 * 1000,
   });
   const finalCategories = useMemo(() => {
-    if (isNormalPrice || selectedGroup === "all") return allModulesData?.categories || [];
-    return favouriteCategoriesData?.categories || allModulesData?.categories || [];
+    if (isNormalPrice || selectedGroup === "all")
+      return allModulesData?.categories || [];
+    return (
+      favouriteCategoriesData?.categories || allModulesData?.categories || []
+    );
   }, [selectedGroup, allModulesData, favouriteCategoriesData, isNormalPrice]);
   const favouriteProducts = useMemo(() => {
     if (!allModulesData) return [];
-    return productType === "weight" ? allModulesData.favourite_products_weight || [] : allModulesData.favourite_products || [];
+    return productType === "weight"
+      ? allModulesData.favourite_products_weight || []
+      : allModulesData.favourite_products || [];
   }, [allModulesData, productType]);
   const allProducts = useMemo(() => {
     if (!allModulesData) return [];
-    return productType === "weight" ? allModulesData?.products_weight || [] : allModulesData?.products || [];
+    return productType === "weight"
+      ? allModulesData?.products_weight || []
+      : allModulesData?.products || [];
   }, [allModulesData, productType]);
   const filteredProducts = useMemo(() => {
     let products;
@@ -132,16 +150,27 @@ export default function Item({ onAddToOrder, onClose }) {
     }
     if (searchQuery.trim()) {
       const query = searchQuery.trim().toLowerCase();
-      products = products.filter((p) =>
-        (p.name?.toLowerCase() || "").includes(query) ||
-        (p.product_code?.toString().toLowerCase() || "").includes(query)
+      products = products.filter(
+        (p) =>
+          (p.name?.toLowerCase() || "").includes(query) ||
+          (p.product_code?.toString().toLowerCase() || "").includes(query)
       );
     }
     if (selectedCategory !== "all") {
-      products = products.filter((p) => p.category_id === parseInt(selectedCategory));
+      products = products.filter(
+        (p) => p.category_id === parseInt(selectedCategory)
+      );
     }
     return products;
-  }, [allProducts, favouriteProducts, favouriteCategoriesData, selectedCategory, selectedGroup, searchQuery, isNormalPrice]);
+  }, [
+    allProducts,
+    favouriteProducts,
+    favouriteCategoriesData,
+    selectedCategory,
+    selectedGroup,
+    searchQuery,
+    isNormalPrice,
+  ]);
   const productsToDisplay = filteredProducts.slice(0, visibleProductCount);
   const handleCategorySelect = (categoryId) => {
     setSelectedCategory(categoryId);
@@ -162,66 +191,84 @@ export default function Item({ onAddToOrder, onClose }) {
     setShowCategories(true);
     setSelectedCategory("all");
   };
-  const handleAddToOrder = useCallback(async (product, options = {}) => {
-    const { customQuantity = 1 } = options;
-    const finalQuantity = product.quantity || customQuantity;
-    const pricePerUnit = product.totalPrice
-      ? (product.totalPrice / finalQuantity)
-      : parseFloat(product.price || product.price_after_discount || 0);
-    const totalAmount = pricePerUnit * finalQuantity;
-    if (isNaN(totalAmount)) {
-      console.error("❌ Error calculating price", { product, pricePerUnit, finalQuantity });
-      return toast.error(t("ErrorCalculatingPrice"));
-    }
-    const processedItem = buildProductPayload({
-      ...product,
-      price: pricePerUnit,
-      count: finalQuantity
-    });
-    const createTempId = (pId) => `${pId}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    if (orderType === "dine_in") {
-      const tableId = sessionStorage.getItem("table_id");
-      if (!tableId) return toast.error(t("PleaseSelectTableFirst"));
-      const payload = {
-        table_id: tableId,
-        cashier_id: sessionStorage.getItem("cashier_id"),
-        amount: totalAmount.toFixed(2),
-        total_tax: (totalAmount * 0.14).toFixed(2),
-        total_discount: "0.00",
-        source: "web",
-        products: [processedItem],
-      };
-      try {
-        const response = await postOrder("cashier/dine_in_order", payload, {
-          headers: { Authorization: `Bearer ${sessionStorage.getItem("access_token")}` },
+  const handleAddToOrder = useCallback(
+    async (product, options = {}) => {
+      const { customQuantity = 1 } = options;
+      const finalQuantity = product.quantity || customQuantity;
+      const pricePerUnit = product.totalPrice
+        ? (product.totalPrice / finalQuantity)
+        : parseFloat(product.price || product.price_after_discount || 0);
+      const totalAmount = pricePerUnit * finalQuantity;
+      if (isNaN(totalAmount)) {
+        console.error("❌ Error calculating price", {
+          product,
+          pricePerUnit,
+          finalQuantity,
         });
-        const serverCartId = response?.data?.cart_id || response?.cart_id;
+        return toast.error(t("ErrorCalculatingPrice"));
+      }
+      const processedItem = buildProductPayload({
+        ...product,
+        price: pricePerUnit,
+        count: finalQuantity,
+      });
+      const createTempId = (pId) =>
+        `${pId}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      if (orderType === "dine_in") {
+        const tableId = sessionStorage.getItem("table_id");
+        if (!tableId) return toast.error(t("PleaseSelectTableFirst"));
+        const payload = {
+          table_id: tableId,
+          cashier_id: sessionStorage.getItem("cashier_id"),
+          amount: totalAmount.toFixed(2),
+          total_tax: (totalAmount * 0.14).toFixed(2),
+          total_discount: "0.00",
+          source: "web",
+          products: [processedItem],
+        };
+        try {
+          const response = await postOrder("cashier/dine_in_order", payload, {
+            headers: {
+              Authorization: `Bearer ${sessionStorage.getItem("access_token")}`,
+            },
+          });
+          const serverCartId = response?.data?.cart_id || response?.cart_id;
+          onAddToOrder({
+            ...product,
+            temp_id: createTempId(product.id),
+            cart_id: serverCartId,
+            count: finalQuantity,
+            price: pricePerUnit,
+            totalPrice: totalAmount,
+          });
+          toast.success(t("ProductAddedToTable"));
+        } catch (err) {
+          console.error("❌ API Error:", err);
+          toast.error(t("FailedToAddToTable"));
+        }
+      } else {
         onAddToOrder({
           ...product,
           temp_id: createTempId(product.id),
-          cart_id: serverCartId,
           count: finalQuantity,
           price: pricePerUnit,
           totalPrice: totalAmount,
         });
-        toast.success(t("ProductAddedToTable"));
-      } catch (err) {
-        console.error("❌ API Error:", err);
-        toast.error(t("FailedToAddToTable"));
+        toast.success(t("ProductAddedToCart"));
       }
-    } else {
-      onAddToOrder({
-        ...product,
-        temp_id: createTempId(product.id),
-        count: finalQuantity,
-        price: pricePerUnit,
-        totalPrice: totalAmount,
-      });
-      toast.success(t("ProductAddedToCart"));
-    }
-  }, [orderType, onAddToOrder, postOrder, t]);
-  if (groupLoading || isAllDataLoading || (selectedGroup !== "all" && isFavCatLoading && !isNormalPrice)) {
-    return <div className="flex justify-center items-center h-40"><Loading /></div>;
+    },
+    [orderType, onAddToOrder, postOrder, t]
+  );
+  if (
+    groupLoading ||
+    isAllDataLoading ||
+    (selectedGroup !== "all" && isFavCatLoading && !isNormalPrice)
+  ) {
+    return (
+      <div className="flex justify-center items-center h-40">
+        <Loading />
+      </div>
+    );
   }
   const isArabic = i18n.language === "ar";
 
@@ -237,8 +284,26 @@ export default function Item({ onAddToOrder, onClose }) {
             className="w-full md:w-1/3 px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-1 focus:ring-bg-primary outline-none"
           />
           <div className="flex bg-gray-100 p-1 rounded-lg">
-            <button onClick={() => setProductType("piece")} className={`px-4 py-1 rounded-md transition-all ${productType === "piece" ? "bg-white shadow text-bg-primary font-bold" : "text-gray-500"}`}>{t("ByPiece")}</button>
-            <button onClick={() => setProductType("weight")} className={`px-4 py-1 rounded-md transition-all ${productType === "weight" ? "bg-white shadow text-bg-primary font-bold" : "text-gray-500"}`}>{t("ByWeight")}</button>
+            <button
+              onClick={() => setProductType("piece")}
+              className={`px-4 py-1 rounded-md transition-all ${
+                productType === "piece"
+                  ? "bg-white shadow text-bg-primary font-bold"
+                  : "text-gray-500"
+              }`}
+            >
+              {t("ByPiece")}
+            </button>
+            <button
+              onClick={() => setProductType("weight")}
+              className={`px-4 py-1 rounded-md transition-all ${
+                productType === "weight"
+                  ? "bg-white shadow text-bg-primary font-bold"
+                  : "text-gray-500"
+              }`}
+            >
+              {t("ByWeight")}
+            </button>
           </div>
         </div>
       </div>
@@ -246,39 +311,77 @@ export default function Item({ onAddToOrder, onClose }) {
   );
 
   const groupsBarSection = (
-    <div className={`flex gap-3 overflow-x-auto p-4 scrollbar-hide items-center ${isArabic ? "pr-4 justify-end" : "pl-4 justify-start"}`}>
+    <div
+      className={`flex gap-3 overflow-x-auto p-4 scrollbar-hide items-center`}
+    >
       <Button
-        onClick={() => { handleGroupChange("all"); setSelectedCategory("all"); }}
-        className={`min-w-[100px] h-20 flex flex-col items-center justify-center rounded-xl border transition-all ${selectedGroup === "all" && !isNormalPrice ? "bg-bg-primary text-white border-bg-primary" : "bg-white text-gray-700 border-gray-200"}`}
+        onClick={() => {
+          handleGroupChange("all");
+          setSelectedCategory("all");
+        }}
+        className={`min-w-[100px] h-20 flex flex-col items-center justify-center rounded-xl border transition-all ${
+          selectedGroup === "all" && !isNormalPrice
+            ? "bg-bg-primary text-white border-bg-primary"
+            : "bg-white text-gray-700 border-gray-200"
+        }`}
       >
         <span className="text-xl mb-1">❤️</span>
         <span className="font-bold text-xs">{t("Favorite")}</span>
       </Button>
       <Button
         onClick={handleNormalPricesClick}
-        className={`group relative min-w-[100px] h-20 flex flex-col items-center justify-center rounded-xl border overflow-hidden p-0 transition-all duration-300 ${isNormalPrice ? "border-bg-primary ring-2 ring-bg-primary/50" : "border-gray-200"}`}
+        className={`group relative min-w-[100px] h-20 flex flex-col items-center justify-center rounded-xl border overflow-hidden p-0 transition-all duration-300 ${
+          isNormalPrice
+            ? "border-bg-primary ring-2 ring-bg-primary/50"
+            : "border-gray-200"
+        }`}
       >
-        <div className={`absolute inset-0 transition-opacity duration-300 ${isNormalPrice ? "opacity-100" : "opacity-40 group-hover:opacity-100"}`}>
-          <img src={resturant_logo} alt="logo" className="w-full h-full object-cover" />
+        <div
+          className={`absolute inset-0 transition-opacity duration-300 ${
+            isNormalPrice ? "opacity-100" : "opacity-40 group-hover:opacity-100"
+          }`}
+        >
+          <img
+            src={resturant_logo}
+            alt="logo"
+            className="w-full h-full object-cover"
+          />
         </div>
         <div className="absolute bottom-0 w-full py-1 bg-black/70 backdrop-blur-sm text-white transition-transform duration-300">
-          <span className="font-bold text-[10px] block px-1 truncate text-center uppercase">{t("NormalPrices")}</span>
+          <span className="font-bold text-[10px] block px-1 truncate text-center uppercase">
+            {t("NormalPrices")}
+          </span>
         </div>
       </Button>
       <div className="h-10 w-[2px] bg-gray-300 mx-1 flex-shrink-0 rounded-full" />
       {groupProducts.map((group) => {
-        const isActive = selectedGroup === group.id.toString() && !isNormalPrice;
+        const isActive =
+          selectedGroup === group.id.toString() && !isNormalPrice;
         return (
           <Button
             key={group.id}
             onClick={() => handleGroupChange(group.id)}
-            className={`group relative min-w-[100px] h-20 flex flex-col items-center justify-center rounded-xl border overflow-hidden p-0 transition-all duration-300 ${isActive ? "border-bg-primary ring-2 ring-bg-primary/50" : "border-gray-200"}`}
+            className={`group relative min-w-[100px] h-20 flex flex-col items-center justify-center rounded-xl border overflow-hidden p-0 transition-all duration-300 ${
+              isActive
+                ? "border-bg-primary ring-2 ring-bg-primary/50"
+                : "border-gray-200"
+            }`}
           >
-            <div className={`absolute inset-0 transition-opacity duration-300 ${isActive ? "opacity-100" : "opacity-40 group-hover:opacity-100"}`}>
-              <img src={group.icon_link || "/default-group.png"} alt={group.name} className="w-full h-full object-cover" />
+            <div
+              className={`absolute inset-0 transition-opacity duration-300 ${
+                isActive ? "opacity-100" : "opacity-40 group-hover:opacity-100"
+              }`}
+            >
+              <img
+                src={group.icon_link || "/default-group.png"}
+                alt={group.name}
+                className="w-full h-full object-cover"
+              />
             </div>
             <div className="absolute bottom-0 w-full py-1 bg-black/70 backdrop-blur-sm text-white transition-transform duration-300">
-              <span className="font-bold text-[10px] block px-1 truncate text-center uppercase">{group.name}</span>
+              <span className="font-bold text-[10px] block px-1 truncate text-center uppercase">
+                {group.name}
+              </span>
             </div>
           </Button>
         );
@@ -287,7 +390,7 @@ export default function Item({ onAddToOrder, onClose }) {
   );
 
   const productsGridSection = (
-    <div className="flex-1 h-full pr-2 ">
+    <div className="flex-1 h-full pr-2" dir={isArabic ? "rtl" : "ltr"}>
       {searchAndToggleSection}
       {groupsBarSection}
       {filteredProducts.length === 0 ? (
@@ -310,7 +413,12 @@ export default function Item({ onAddToOrder, onClose }) {
           </div>
           {visibleProductCount < filteredProducts.length && (
             <div className="flex justify-center mt-8 pb-8">
-              <Button onClick={() => setVisibleProductCount(prev => prev + 10)} className="bg-bg-primary text-white px-10 rounded-full shadow-md hover:opacity-90 transition-opacity">{t("Load_More")}</Button>
+              <Button
+                onClick={() => setVisibleProductCount((prev) => prev + 10)}
+                className="bg-bg-primary text-white px-10 rounded-full shadow-md hover:opacity-90 transition-opacity"
+              >
+                {t("Load_More")}
+              </Button>
             </div>
           )}
         </>
@@ -318,38 +426,70 @@ export default function Item({ onAddToOrder, onClose }) {
     </div>
   );
 
-  const categoriesSection = (
-    <div className="w-1/4 min-w-[180px] bg-gray-50 rounded-xl overflow-y-auto border border-gray-200 p-2 space-y-2 scrollbar-width-none [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-      <h4 className="text-[10px] font-bold text-gray-400 uppercase px-2 mb-2 tracking-widest">{t("Categories")}</h4>
-     
-      <div
-        onClick={() => handleCategorySelect("all")}
-        className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all border ${selectedCategory === "all" ? "bg-bg-primary text-white border-bg-primary shadow-sm" : "bg-white text-gray-700 border-gray-100 hover:bg-red-50"}`}
-      >
-        <div className="w-15 h-15 bg-gray-100 rounded-lg flex items-center justify-center text-lg shadow-inner">🍽️</div>
-        <span className="font-bold text-sm">{t("All")}</span>
+ const categoriesSection = (
+  <div 
+    // Set the direction based on the language
+    dir={isArabic ? "rtl" : "ltr"} 
+    className="w-1/4 min-w-[180px] bg-gray-50 rounded-xl overflow-y-auto border border-gray-200 p-2 space-y-2 scrollbar-width-none [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+  >
+    <h4 className="text-[10px] font-bold text-gray-400 uppercase px-2 mb-2 tracking-widest text-start">
+      {t("Categories")}
+    </h4>
+
+    <div
+      onClick={() => handleCategorySelect("all")}
+      className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all border ${
+        selectedCategory === "all"
+          ? "bg-bg-primary text-white border-bg-primary shadow-sm"
+          : "bg-white text-gray-700 border-gray-100 hover:bg-red-50"
+      }`}
+    >
+      <div className="w-15 h-15 bg-gray-100 rounded-lg flex items-center justify-center text-lg shadow-inner">
+        🍽️
       </div>
-      {finalCategories.map((cat) => (
-        <div
-          key={cat.id}
-          onClick={() => handleCategorySelect(cat.id)}
-          className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all border ${selectedCategory === cat.id ? "bg-bg-primary text-white border-bg-primary shadow-sm" : "bg-white text-gray-700 border-gray-100 hover:bg-red-50"}`}
-        >
-          <img src={cat.image_link} alt={cat.name} className="w-15 h-15 rounded-lg object-cover shadow-sm" />
-          <span className="font-bold text-lg truncate">{cat.name}</span>
-        </div>
-      ))}
+      <span className="font-bold text-sm">{t("All")}</span>
     </div>
-  );
+
+    {finalCategories.map((cat) => (
+      <div
+        key={cat.id}
+        onClick={() => handleCategorySelect(cat.id)}
+        className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all border ${
+          selectedCategory === cat.id
+            ? "bg-bg-primary text-white border-bg-primary shadow-sm"
+            : "bg-white text-gray-700 border-gray-100 hover:bg-red-50"
+        }`}
+      >
+        <img
+          src={cat.image_link}
+          alt={cat.name}
+          className="w-15 h-15 rounded-lg object-cover shadow-sm"
+        />
+        <span className="font-bold text-lg truncate">{cat.name}</span>
+      </div>
+    ))}
+  </div>
+);
 
   return (
-    <div className={`flex flex-col h-full ${isArabic ? "text-right" : "text-left"}`} dir={isArabic ? "rtl" : "ltr"}>
-      <DeliveryInfo orderType={orderType} deliveryUserData={deliveryUserData} userLoading={userLoading} userError={userError} onClose={onClose} />
+    <div
+      className={`flex flex-col h-full ${
+        isArabic ? "text-right" : "text-left"
+      }`}
+      dir={isArabic ? "ltr" : "rtl"}
+    >
+      <DeliveryInfo
+        orderType={orderType}
+        deliveryUserData={deliveryUserData}
+        userLoading={userLoading}
+        userError={userError}
+        onClose={onClose}
+      />
       <div className="flex gap-4  ">
         {isArabic ? (
           <>
-            {categoriesSection}
             {productsGridSection}
+            {categoriesSection}
           </>
         ) : (
           <>
@@ -376,7 +516,11 @@ export default function Item({ onAddToOrder, onClose }) {
         orderLoading={orderLoading}
         productType={productType}
       />
-      {orderLoading && <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[100]"><Loading /></div>}
+      {orderLoading && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[100]">
+          <Loading />
+        </div>
+        )}
     </div>
   );
 }

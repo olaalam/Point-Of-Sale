@@ -256,7 +256,7 @@ const handleClose = () => {
   console.log("🎯 OrderPage Order Type:", currentOrderType);
 
   return (
-    <div className="flex flex-col-reverse lg:flex-row gap-4 p-4 h-full  w-full" dir={isArabic ? "rtl" : "ltr"}>
+    <div className="flex flex-col-reverse lg:flex-row gap-4 p-4 h-full  w-full" dir={isArabic ? "ltr" : "rtl"}>
       <div className="w-full lg:w-1/3 sm:overflow-auto">
         <Card
           key={refreshTrigger}
