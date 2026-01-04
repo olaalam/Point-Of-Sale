@@ -488,7 +488,7 @@ const formatCashierReceipt = (receiptData) => {
     <span style="font-size: 18px;">${
       isArabic ? "الإجمالي الكلي" : "GRAND TOTAL"
     }</span>
-    <span style="font-size: 24px;">${receiptData.grandTotal}</span>
+    <span style="font-size: 24px;">${grandTotal}</span>
   </div>
 
   <!-- ✅ طرق الدفع (Financials) -->
