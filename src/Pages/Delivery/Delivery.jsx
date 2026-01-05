@@ -39,26 +39,42 @@ const userIdFromUrl = queryParams.get("user_id");
 const { data, error, isLoading, refetch } = useGet("cashier/user", { useCache: true });
   const { postData, loading } = usePost();
 
+// في ملف Delivery.jsx
+
 useEffect(() => {
   if (data?.users) {
-    setFilteredusers(data.users);
     
-    // 🟢 فحص لو في parameter refetch في الـ URL
+    // 1. شوف لو في بحث متسجل في الـ Session
+    const savedQuery = sessionStorage.getItem("delivery_search_query");
+    
+    // 2. لو في بحث، طبق الفلتر على الداتا "الجديدة" فوراً
+    if (savedQuery) {
+      setSearchQuery(savedQuery);
+      
+      const lowerCaseQuery = savedQuery.toLowerCase();
+      const filtered = data.users.filter((user) => {
+        const fullName = `${user.f_name} ${user.l_name}`.toLowerCase();
+        const matchesName = fullName.includes(lowerCaseQuery);
+        const matchesPhone = user.phone && String(user.phone).includes(lowerCaseQuery);
+        return matchesName || matchesPhone;
+      });
+      
+      setFilteredusers(filtered); // اعرض المتفلتر بس
+    } else {
+      // 3. لو مفيش بحث، اعرض كله عادي
+      setFilteredusers(data.users);
+    }
+    
+    // --- باقي الكود زي ما هو ---
+    
+    // 🟢 معالجة الـ refetch
     const refetchParam = queryParams.get("refetch");
     if (refetchParam === "true") {
-      refetch(); // إعادة جلب البيانات
-      // امسح الـ parameter من الـ URL عشان ميعملش refetch كل مرة
+      refetch();
       navigate(location.pathname + location.search.replace(/[?&]refetch=true/, ''), { replace: true });
     }
 
-    // استرجاع البحث المحفوظ
-    const savedQuery = sessionStorage.getItem("delivery_search_query");
-    if (savedQuery && savedQuery !== searchQuery) {
-      setSearchQuery(savedQuery);
-      handleInstantSearch(savedQuery);
-    }
-
-    // باقي الكود بتاع السكرول لليوزر
+    // كود السكرول (Scroll)
     const savedUserId = userIdFromUrl || sessionStorage.getItem("last_selected_user_id");
     if (savedUserId) {
       setTimeout(() => {
@@ -71,7 +87,7 @@ useEffect(() => {
       }, 500);
     }
   }
-}, [data, userIdFromUrl, location.search]); // ضيفي location.search في الـ dependencies
+}, [data, userIdFromUrl, location.search]);
 
 
 
