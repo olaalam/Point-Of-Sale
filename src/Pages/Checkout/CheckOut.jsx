@@ -44,36 +44,39 @@ const CheckOut = ({
   selectedPaymentItemIds = [],
   clearPaidItemsOnly,
   onClearCart,
-   service_fees,
+  service_fees,
 }) => {
   const cashierId = sessionStorage.getItem("cashier_id");
   const tableId = sessionStorage.getItem("table_id") || null;
-    const [appliedDiscount, setAppliedDiscount] = useState(0);
+  const [appliedDiscount, setAppliedDiscount] = useState(0);
 
   const baseUrl = import.meta.env.VITE_API_BASE_URL;
   const { t } = useTranslation();
-  const lastSelectedGroup = sessionStorage.getItem("last_selected_group") 
+  const lastSelectedGroup = sessionStorage.getItem("last_selected_group");
   // const [dueModuleAmount, setDueModuleAmount] = useState(0);
   const { data: groupData } = useGet("cashier/group_product"); // الـ API اللي جبته
-const groupProducts = groupData?.group_product || [];
-const [passwordModalOpen, setPasswordModalOpen] = useState(false);
-const [pendingFreeDiscountPassword, setPendingFreeDiscountPassword] = useState("");
-const isDueModuleAllowed = (() => {
-  if (!orderType || !groupProducts || groupProducts.length === 0) return false;
+  const groupProducts = groupData?.group_product || [];
+  const [passwordModalOpen, setPasswordModalOpen] = useState(false);
+  const [pendingFreeDiscountPassword, setPendingFreeDiscountPassword] =
+    useState("");
+  const isDueModuleAllowed = (() => {
+    if (!orderType || !groupProducts || groupProducts.length === 0)
+      return false;
 
-  const lastSelectedGroupId = sessionStorage.getItem("last_selected_group");
-  if (!lastSelectedGroupId || lastSelectedGroupId === "all") return false;
+    const lastSelectedGroupId = sessionStorage.getItem("last_selected_group");
+    if (!lastSelectedGroupId || lastSelectedGroupId === "all") return false;
 
-  const groupId = parseInt(lastSelectedGroupId);
-  if (isNaN(groupId)) return false;
+    const groupId = parseInt(lastSelectedGroupId);
+    if (isNaN(groupId)) return false;
 
-  const selectedGroup = groupProducts.find(g => g.id === groupId);
-  return selectedGroup?.due === 1;
-})();  const { data: discountListData, loading: discountsLoading } = useGet(
+    const selectedGroup = groupProducts.find((g) => g.id === groupId);
+    return selectedGroup?.due === 1;
+  })();
+  const { data: discountListData, loading: discountsLoading } = useGet(
     "captain/discount_list"
   );
   const [selectedDiscountId, setSelectedDiscountId] = useState(null);
-  
+
   // 🟢 إضافة state للـ free_discount
   const [freeDiscount, setFreeDiscount] = useState("");
 
@@ -176,7 +179,7 @@ const isDueModuleAllowed = (() => {
       finalSelectedDiscountId: selectedDiscount.id,
     };
   }, [discountListData, selectedDiscountId, amountToPay]);
-    // 🟢 حساب المبلغ بعد الخصم (مع إضافة free_discount)
+  // 🟢 حساب المبلغ بعد الخصم (مع إضافة free_discount)
   const discountedAmount = useMemo(() => {
     let totalDiscountValue = 0;
 
@@ -196,7 +199,7 @@ const isDueModuleAllowed = (() => {
     // 4. 🟢 خصم الـ free_discount من المبلغ النهائي
     const afterPercentageDiscount = amountToPay - totalDiscountValue;
     const freeDiscountValue = parseFloat(freeDiscount) || 0;
-    
+
     return Math.max(0, afterPercentageDiscount - freeDiscountValue);
   }, [
     amountToPay,
@@ -207,7 +210,7 @@ const isDueModuleAllowed = (() => {
     freeDiscount,
   ]);
 
-    const totalAppliedDiscount = useMemo(() => {
+  const totalAppliedDiscount = useMemo(() => {
     const additionalDiscount = amountToPay - discountedAmount;
     const previousDiscount = totalDiscount || 0;
     return parseFloat(additionalDiscount + previousDiscount).toFixed(2);
@@ -220,15 +223,10 @@ const isDueModuleAllowed = (() => {
   const [discountError, setDiscountError] = useState(null);
   const [isCheckingDiscount, setIsCheckingDiscount] = useState(false);
 
-
-
-
-
-// CheckOut.jsx (الكود بعد التعديل)
+  // CheckOut.jsx (الكود بعد التعديل)
   const requiredTotal = useMemo(() => {
-
     return discountedAmount;
-  }, [discountedAmount]); 
+  }, [discountedAmount]);
 
   const { totalScheduled, remainingAmount, changeAmount } = useMemo(() => {
     const sum = paymentSplits.reduce(
@@ -263,31 +261,34 @@ const isDueModuleAllowed = (() => {
   }, []);
 
   // Initialize default payment split - اختيار Visa كافتراضي لو موجود
-  useEffect(() => {
-    if (
-      financialAccounts?.length > 0 &&
-      paymentSplits.length === 0 &&
-      requiredTotal > 0
-    ) {
-      const visaAccount = financialAccounts.find((acc) =>
-        acc.name?.toLowerCase().includes("visa")
-      );
+ // Initialize default payment split - Default to Cash if available
+useEffect(() => {
+  if (
+    financialAccounts?.length > 0 &&
+    paymentSplits.length === 0 &&
+    requiredTotal > 0
+  ) {
+    // 🟢 Updated logic to look for "cash" instead of "visa"
+    const cashAccount = financialAccounts.find((acc) =>
+      acc.name?.toLowerCase().includes("cash") || 
+      acc.name?.includes("كاش") // Added Arabic support just in case
+    );
 
-      const defaultAccountId = visaAccount
-        ? visaAccount.id
-        : financialAccounts[0].id;
+    const defaultAccountId = cashAccount
+      ? cashAccount.id
+      : financialAccounts[0].id;
 
-      setPaymentSplits([
-        {
-          id: "split-1",
-          accountId: defaultAccountId,
-          amount: requiredTotal,
-          checkout: "",
-          transition_id: "",
-        },
-      ]);
-    }
-  }, [financialAccounts, requiredTotal, paymentSplits.length]);
+    setPaymentSplits([
+      {
+        id: "split-1",
+        accountId: defaultAccountId,
+        amount: requiredTotal,
+        checkout: "",
+        transition_id: "",
+      },
+    ]);
+  }
+}, [financialAccounts, requiredTotal, paymentSplits.length]);
 
   // Auto-update single split amount
   useEffect(() => {
@@ -434,150 +435,156 @@ const isDueModuleAllowed = (() => {
     return acc?.name?.toLowerCase().includes("visa");
   };
 
-const proceedWithOrderSubmission = async (
-  due = 0,
-  customer_id = undefined,
-  dueModuleValue = 0,
-  forcedPassword = null
-) => {
-  const freeDiscountValue = parseFloat(freeDiscount) || 0;
+  const proceedWithOrderSubmission = async (
+    due = 0,
+    customer_id = undefined,
+    dueModuleValue = 0,
+    forcedPassword = null
+  ) => {
+    const freeDiscountValue = parseFloat(freeDiscount) || 0;
 
-  if (freeDiscountValue > 0 && !forcedPassword && !pendingFreeDiscountPassword) {
-    setPasswordModalOpen(true);
-    return;
-  }
-
-  const safeOrderItems = Array.isArray(orderItems) ? orderItems : [];
-  
-  // 🟢 الحل: تعريف المتغير هنا في البداية ليكون متاحاً للكل (للـ Payload وللطباعة)
-  const itemsForPayload = safeOrderItems.map((item) => ({
-    ...item,
-    count:
-      item.weight_status === 1 || item.weight_status === "1"
-        ? item.quantity || item.count
-        : item.count,
-  }));
-
-  const isDineIn = orderType === "dine_in";
-  const hasSelectedItems = selectedPaymentItemIds.length > 0;
-  const totalItemsCount = orderItems.length;
-  const allItemsSelected =
-    hasSelectedItems && selectedPaymentItemIds.length === totalItemsCount;
-  const isPartialPayment = isDineIn && hasSelectedItems && !allItemsSelected;
-  const hasDealItems = safeOrderItems.some((item) => item.is_deal);
-  const endpoint = getOrderEndpoint(
-    orderType,
-    safeOrderItems,
-    totalDineInItems,
-    hasDealItems
-  );
-  const financialsPayload = buildFinancialsPayload(
-    paymentSplits,
-    financialAccounts
-  );
-
-  const moduleId = sessionStorage.getItem("module_id");
-  let payload;
-
-  if (hasDealItems) {
-    // هنا ممكن تستخدم itemsForPayload المعدلة أو safeOrderItems حسب منطق الـ Deal عندك
-    payload = buildDealPayload(safeOrderItems, financialsPayload);
-  } else {
-    const finalDiscountIdToSend =
-      selectedDiscountAmount > 0 ? finalSelectedDiscountId : selectedDiscountId;
-
-    // 🟢 قمنا بحذف التعريف من هنا لأننا عرفناه فوق خلاص
-
-    payload = buildOrderPayload({
-      orderType,
-      orderItems: itemsForPayload, // ✅ الآن المتغير معرف وقراءته صحيحة
-      amountToPay: discountedAmount.toFixed(2),
-      totalTax,
-totalDiscount: totalAppliedDiscount,
-      notes: orderNotes.trim() || "No special instructions",
-      source,
-      financialsPayload,
-      cashierId,
-      tableId,
-      customerPaid: customerPaid || undefined,
-      discountCode: appliedDiscount > 0 ? discountCode : undefined,
-      due: due,
-      user_id: customer_id,
-      discount_id: finalDiscountIdToSend,
-      module_id: moduleId,
-      free_discount: freeDiscountValue > 0 ? freeDiscountValue : undefined,
-      due_module: dueModuleValue > 0 ? dueModuleValue.toFixed(2) : undefined,
-      service_fees,
-      password: forcedPassword || pendingFreeDiscountPassword || undefined,
-    });
-  }
-
-  try {
-    const response = await postData(endpoint, payload, {
-      headers: { "Content-Type": "application/json" },
-    });
-
-    console.log("Response received from server:", response);
-
-    if (response?.success) {
-      if (response.print_type) {
-        sessionStorage.setItem("print_type", response.print_type);
-      }
-      toast.success(due === 1 ? t("DueOrderCreated") : t("OrderPlaced"));
-
-      setPendingFreeDiscountPassword("");
-
-      const handleNavigation = () => {
-        if (orderType === "delivery") {
-          sessionStorage.removeItem("selected_user_id");
-          sessionStorage.removeItem("selected_user_data");
-          sessionStorage.removeItem("selected_address_id");
-          sessionStorage.removeItem("selected_address_data");
-          setDeliveryModelOpen(false);
-        }
-        if (orderType === "dine_in" && selectedPaymentItemIds.length > 0) {
-          clearPaidItemsOnly();
-        } else {
-          onClearCart();
-        }
-
-        sessionStorage.setItem("last_order_type", orderType);
-        if (orderType === "delivery" && response?.success?.id) {
-          setOrderId(response.success.id);
-          setDeliveryModelOpen(true);
-        } else {
-          onClose();
-        }
-      };
-
-      if (due === 0) {
-        // 🟢 الآن itemsForPayload مقروءة هنا لأنها معرفة في النطاق الخارجي
-        const receiptData = prepareReceiptData(
-          itemsForPayload, 
-          amountToPay,
-          totalTax,
-          totalDiscount,
-          appliedDiscount,
-          discountData,
-          orderType,
-          requiredTotal,
-          response.success,
-          response
-        );
-        printReceiptSilently(receiptData, response, () => {
-          handleNavigation();
-        });
-      } else {
-        handleNavigation();
-      }
-    } else {
-      toast.error(response?.message || t("FailedToProcessOrder"));
+    if (
+      freeDiscountValue > 0 &&
+      !forcedPassword &&
+      !pendingFreeDiscountPassword
+    ) {
+      setPasswordModalOpen(true);
+      return;
     }
-  } catch (e) {
-    console.error("Submit error:", e);
-    toast.error(e.message || t("SubmissionFailed"));
-  }
-};
+
+    const safeOrderItems = Array.isArray(orderItems) ? orderItems : [];
+
+    // 🟢 الحل: تعريف المتغير هنا في البداية ليكون متاحاً للكل (للـ Payload وللطباعة)
+    const itemsForPayload = safeOrderItems.map((item) => ({
+      ...item,
+      count:
+        item.weight_status === 1 || item.weight_status === "1"
+          ? item.quantity || item.count
+          : item.count,
+    }));
+
+    const isDineIn = orderType === "dine_in";
+    const hasSelectedItems = selectedPaymentItemIds.length > 0;
+    const totalItemsCount = orderItems.length;
+    const allItemsSelected =
+      hasSelectedItems && selectedPaymentItemIds.length === totalItemsCount;
+    const isPartialPayment = isDineIn && hasSelectedItems && !allItemsSelected;
+    const hasDealItems = safeOrderItems.some((item) => item.is_deal);
+    const endpoint = getOrderEndpoint(
+      orderType,
+      safeOrderItems,
+      totalDineInItems,
+      hasDealItems
+    );
+    const financialsPayload = buildFinancialsPayload(
+      paymentSplits,
+      financialAccounts
+    );
+
+    const moduleId = sessionStorage.getItem("module_id");
+    let payload;
+
+    if (hasDealItems) {
+      // هنا ممكن تستخدم itemsForPayload المعدلة أو safeOrderItems حسب منطق الـ Deal عندك
+      payload = buildDealPayload(safeOrderItems, financialsPayload);
+    } else {
+      const finalDiscountIdToSend =
+        selectedDiscountAmount > 0
+          ? finalSelectedDiscountId
+          : selectedDiscountId;
+
+      // 🟢 قمنا بحذف التعريف من هنا لأننا عرفناه فوق خلاص
+
+      payload = buildOrderPayload({
+        orderType,
+        orderItems: itemsForPayload, // ✅ الآن المتغير معرف وقراءته صحيحة
+        amountToPay: discountedAmount.toFixed(2),
+        totalTax,
+        totalDiscount: totalAppliedDiscount,
+        notes: orderNotes.trim() || "No special instructions",
+        source,
+        financialsPayload,
+        cashierId,
+        tableId,
+        customerPaid: customerPaid || undefined,
+        discountCode: appliedDiscount > 0 ? discountCode : undefined,
+        due: due,
+        user_id: customer_id,
+        discount_id: finalDiscountIdToSend,
+        module_id: moduleId,
+        free_discount: freeDiscountValue > 0 ? freeDiscountValue : undefined,
+        due_module: dueModuleValue > 0 ? dueModuleValue.toFixed(2) : undefined,
+        service_fees,
+        password: forcedPassword || pendingFreeDiscountPassword || undefined,
+      });
+    }
+
+    try {
+      const response = await postData(endpoint, payload, {
+        headers: { "Content-Type": "application/json" },
+      });
+
+      console.log("Response received from server:", response);
+
+      if (response?.success) {
+        if (response.print_type) {
+          sessionStorage.setItem("print_type", response.print_type);
+        }
+        toast.success(due === 1 ? t("DueOrderCreated") : t("OrderPlaced"));
+
+        setPendingFreeDiscountPassword("");
+
+        const handleNavigation = () => {
+          if (orderType === "delivery") {
+            sessionStorage.removeItem("selected_user_id");
+            sessionStorage.removeItem("selected_user_data");
+            sessionStorage.removeItem("selected_address_id");
+            sessionStorage.removeItem("selected_address_data");
+            setDeliveryModelOpen(false);
+          }
+          if (orderType === "dine_in" && selectedPaymentItemIds.length > 0) {
+            clearPaidItemsOnly();
+          } else {
+            onClearCart();
+          }
+
+          sessionStorage.setItem("last_order_type", orderType);
+          if (orderType === "delivery" && response?.success?.id) {
+            setOrderId(response.success.id);
+            setDeliveryModelOpen(true);
+          } else {
+            onClose();
+          }
+        };
+
+        if (due === 0) {
+          // 🟢 الآن itemsForPayload مقروءة هنا لأنها معرفة في النطاق الخارجي
+          const receiptData = prepareReceiptData(
+            itemsForPayload,
+            amountToPay,
+            totalTax,
+            totalDiscount,
+            appliedDiscount,
+            discountData,
+            orderType,
+            requiredTotal,
+            response.success,
+            response
+          );
+          printReceiptSilently(receiptData, response, () => {
+            handleNavigation();
+          });
+        } else {
+          handleNavigation();
+        }
+      } else {
+        toast.error(response?.message || t("FailedToProcessOrder"));
+      }
+    } catch (e) {
+      console.error("Submit error:", e);
+      toast.error(e.message || t("SubmissionFailed"));
+    }
+  };
 
   const handleSelectCustomer = async (customer) => {
     if (requiredTotal > customer.can_debit) {
@@ -765,24 +772,30 @@ totalDiscount: totalAppliedDiscount,
                 </div>
               )}
             </div>
-{/* Due Module - الباقي كله للمنصة (الطريقة اللي عايزها الكاشير) */}
-{isDueModuleAllowed && remainingAmount > 0.01 && (
-  <div className="mt-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-    <div className="text-center mb-4">
-      <p className="text-lg font-bold text-red-600">
-        المنصة هتدفع الباقي (Due Module): <strong>{remainingAmount.toFixed(2)} {t("EGP")}</strong>
-      </p>
-    </div>
+            {/* Due Module - الباقي كله للمنصة (الطريقة اللي عايزها الكاشير) */}
+            {isDueModuleAllowed && remainingAmount > 0.01 && (
+              <div className="mt-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+                <div className="text-center mb-4">
+                  <p className="text-lg font-bold text-red-600">
+                    المنصة هتدفع الباقي (Due Module):{" "}
+                    <strong>
+                      {remainingAmount.toFixed(2)} {t("EGP")}
+                    </strong>
+                  </p>
+                </div>
 
-    <Button
-      className="w-full text-white text-lg font-bold py-6 bg-red-600 hover:bg-red-700"
-      disabled={loading}
-      onClick={() => proceedWithOrderSubmission(0, undefined, remainingAmount)}
-    >
-      تأكيد الطلب مع Due Module ({remainingAmount.toFixed(2)} {t("EGP")})
-    </Button>
-  </div>
-)}
+                <Button
+                  className="w-full text-white text-lg font-bold py-6 bg-red-600 hover:bg-red-700"
+                  disabled={loading}
+                  onClick={() =>
+                    proceedWithOrderSubmission(0, undefined, remainingAmount)
+                  }
+                >
+                  تأكيد الطلب مع Due Module ({remainingAmount.toFixed(2)}{" "}
+                  {t("EGP")})
+                </Button>
+              </div>
+            )}
             {/* Order Notes Section */}
             <div className="mb-6">
               <label className="block text-sm font-medium mb-2">
@@ -1033,8 +1046,6 @@ totalDiscount: totalAppliedDiscount,
               </label>
             </div>
 
-
-
             {/* الأزرار */}
             <div className="flex space-x-4 mt-6">
               <Button
@@ -1055,26 +1066,26 @@ totalDiscount: totalAppliedDiscount,
         </div>
       )}
       <FreeDiscountPasswordModal
-  isOpen={passwordModalOpen}
-  onClose={() => {
-    setPasswordModalOpen(false);
-    setFreeDiscount(""); // إلغاء الخصم لو رفض
-    toast.info(t("FreeDiscountCancelled"));
-  }}
-  onConfirm={(password) => {
-    setPendingFreeDiscountPassword(password);
-    setPasswordModalOpen(false);
-    toast.success(t("PasswordAccepted"));
+        isOpen={passwordModalOpen}
+        onClose={() => {
+          setPasswordModalOpen(false);
+          setFreeDiscount(""); // إلغاء الخصم لو رفض
+          toast.info(t("FreeDiscountCancelled"));
+        }}
+        onConfirm={(password) => {
+          setPendingFreeDiscountPassword(password);
+          setPasswordModalOpen(false);
+          toast.success(t("PasswordAccepted"));
 
-    // نكمل الطلب بالباسوورد
-    proceedWithOrderSubmission(
-      isDueOrder ? 1 : 0,
-      selectedCustomer?.id,
-      remainingAmount > 0.01 && isDueModuleAllowed ? remainingAmount : 0,
-      password
-    );
-  }}
-/>
+          // نكمل الطلب بالباسوورد
+          proceedWithOrderSubmission(
+            isDueOrder ? 1 : 0,
+            selectedCustomer?.id,
+            remainingAmount > 0.01 && isDueModuleAllowed ? remainingAmount : 0,
+            password
+          );
+        }}
+      />
     </div>
   );
 };
