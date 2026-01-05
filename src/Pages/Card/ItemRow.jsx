@@ -48,6 +48,7 @@ const ItemRow = ({
   selectedPaymentItems,
   itemLoadingStates,
   handleUpdatePreparationStatus,
+  toggleSelectPaymentItem,
   handleVoidItem,
   handleRemoveFrontOnly,
   updateOrderItems,
@@ -188,7 +189,21 @@ const ItemRow = ({
           </button>
         </td>
       )}
-
+{orderType === "dine_in" && (
+  <td className="p-2 text-center align-middle">
+    {/* يظهر الـ checkbox فقط إذا كانت الحالة 'done' */}
+    {item.preparation_status === "done" ? (
+      <input
+        type="checkbox"
+        checked={selectedPaymentItems?.includes(item.temp_id)}
+        onChange={() => toggleSelectPaymentItem(item.temp_id)}
+        className="w-5 h-5 accent-green-600 cursor-pointer"
+      />
+    ) : (
+      <span className="text-gray-300 text-xs italic">{("Wait")}</span>
+    )}
+  </td>
+)}
       {/* السعر الإجمالي للعنصر */}
       <td className="p-2 text-center align-middle">
         <span className="font-bold text-gray-900 text-sm">{totalPrice}</span>
