@@ -75,8 +75,7 @@ const formatCashierReceipt = (receiptData) => {
 
   // ✅ حساب الإجمالي الكلي (للـ Grand Total الصحيح)
   const grandTotal = (
-    Number(receiptData.subtotal) +
-    Number(receiptData.deliveryFees) 
+    Number(receiptData.subtotal) + Number(receiptData.deliveryFees)
   ).toFixed(2);
 
   const showCustomerInfo =
@@ -525,8 +524,158 @@ const formatCashierReceipt = (receiptData) => {
   `;
 };
 // ===================================================================
+// 10. تصميم إيصال بسيط لنسخة العميل (Take Away فقط)
+// ===================================================================
+// ===================================================================
+// 10. تصميم إيصال بسيط لنسخة العميل (Take Away فقط) - مشابه لديزاين المطبخ
+// ===================================================================
+const formatSimpleCustomerCopy = (receiptData) => {
+  const isArabic = localStorage.getItem("language") === "ar";
+  const restaurantLogo = sessionStorage.getItem("resturant_logo") || "";
+
+  const receiptDesignStr = sessionStorage.getItem("receipt_design") || "{}";
+  const receiptDesign = JSON.parse(receiptDesignStr);
+
+  // نستخدم نفس المنطق لتحديد النص الكبير زي الكيتشن (لكن هنا Take Away دائمًا)
+  const displayBigNumber = isArabic ? "تيك أواي" : "Takeaway";
+
+  return `
+  <!DOCTYPE html>
+  <html>
+    <head>
+      <meta charset="UTF-8">
+      <style>
+        * { box-sizing: border-box; }
+        body, html { 
+          width: 100%; 
+          margin: 0; 
+          padding: 10px 5px; 
+          font-family: 'Tahoma', sans-serif; 
+          direction: ${isArabic ? "rtl" : "ltr"}; 
+          font-size: 14px;
+        }
+
+        /* اللوجو في الأعلى (إذا مفعّل) */
+        .logo-top {
+          text-align: center;
+          margin-bottom: 15px;
+        }
+        .logo-top img {
+          max-width: 140px;
+          max-height: 90px;
+          object-fit: contain;
+        }
+
+        /* نفس الهيدر المستخدم في الكيتشن */
+        .header-box { 
+          border: 3px solid #000; 
+          display: flex; 
+          margin-bottom: 20px; 
+          min-height: 120px;
+        }
+        .box-left { 
+          width: 45%; 
+          border-${isArabic ? "left" : "right"}: 3px solid #000; 
+          display: flex; 
+          flex-direction: column; 
+          align-items: center; 
+          justify-content: center; 
+          padding: 5px; 
+        }
+        .box-right { 
+          width:55%; 
+          display: flex; 
+          flex-direction: column; 
+          justify-content: space-between; 
+        }
+        .row-label { 
+          border-bottom: 1px solid #000; 
+          padding: 8px; 
+          text-align: center; 
+          font-weight: bold; 
+          flex-grow: 1; 
+          display: flex; 
+          align-items: center; 
+          justify-content: center; 
+          font-size: 16px; 
+        }
+        .row-label:last-child { border-bottom: none; }
+
+        /* رقم الأوردر كبير جدًا في المنتصف (بدلاً من الرقم الصغير في الكيتشن) */
+        .big-order-number { 
+          font-size: 48px; 
+          font-weight: 900; 
+          line-height: 1; 
+          margin-bottom: 10px; 
+          color: #000;
+        }
+
+        /* نوع الطلب الكبير (Take Away) */
+        .big-type { 
+          font-size: 28px; 
+          font-weight: 900; 
+          line-height: 1; 
+        }
+
+        /* نص نسخة العميل */
+        .customer-copy-label {
+          text-align: center;
+          font-size: 20px;
+          font-weight: bold;
+          margin: 30px 0 20px;
+          padding: 10px;
+          border: 2px dashed #000;
+        }
+
+        /* شكرًا في الأسفل */
+        .thank-you {
+          text-align: center;
+          font-size: 14px;
+          font-weight: bold;
+          margin-top: 30px;
+        }
+      </style>
+    </head>
+    <body>
+      <!-- اللوجو في الأعلى إذا موجود ومفعّل -->
+      ${
+        receiptDesign.logo === 1 && restaurantLogo
+          ? `<div class="logo-top">
+             <img src="${restaurantLogo}" alt="Logo"/>
+           </div>`
+          : ""
+      }
+
+      <!-- الهيدر نفس ديزاين الكيتشن -->
+      <div class="header-box">
+        <div class="box-left">
+         <div class="row-label">${isArabic ? "رقم الفاتورة" : "Order #"} ${
+    receiptData.invoiceNumber
+  }</div>
+        </div>
+        <div class="box-right">
+                   <div class="big-type">${displayBigNumber}</div>
+
+          <div class="row-label">${receiptData.timeFormatted}<br>${
+    receiptData.dateFormatted
+  }</div>
+        </div>
+      </div>
+
+
+
+      <!-- شكرًا في الأسفل -->
+      <div class="thank-you">
+        *** ${isArabic ? "شكراً لزيارتكم" : "Thank you for your visit"} ***
+      </div>
+    </body>
+  </html>
+  `;
+};
+// ===================================================================
 // 5. تصميم إيصال المطبخ
 // ===================================================================
+
 const formatKitchenReceipt = (receiptData, productsList = []) => {
   if (!Array.isArray(productsList)) productsList = [];
   const isArabic = localStorage.getItem("language") === "ar";
@@ -552,6 +701,9 @@ const formatKitchenReceipt = (receiptData, productsList = []) => {
     displayBigNumber = isArabic ? "تيك اواي" : "Takeaway";
   }
 
+  // ✅ إجمالي الأصناف (orderCount) لو موجود في الـ receiptData
+  const totalItems = receiptData.orderCount || 0;
+
   return `
     <html>
       <head>
@@ -560,18 +712,27 @@ const formatKitchenReceipt = (receiptData, productsList = []) => {
           body, html { width: 100%; margin: 0; padding: 0; font-family: 'Tahoma', sans-serif; direction: ${
             isArabic ? "rtl" : "ltr"
           }; }
-          .header-box { border: 3px solid #000; display: flex; margin-bottom: 10px; }
+          .header-box { border: 3px solid #000; display: flex; margin-bottom: 10px; min-height: 140px; }
           .box-left { width: 60%; border-${
             isArabic ? "left" : "right"
           }: 3px solid #000; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 5px; }
           .box-right { width: 40%; display: flex; flex-direction: column; justify-content: space-between; }
-          .row-label { border-bottom: 1px solid #000; padding: 5px; text-align: center; font-weight: bold; flex-grow: 1; display: flex; align-items: center; justify-content: center; font-size: 14px; }
+          .row-label { 
+            border-bottom: 1px solid #000; 
+            padding: 8px; 
+            text-align: center; 
+            font-weight: bold; 
+            flex-grow: 1; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            font-size: 16px; 
+          }
           .row-label:last-child { border-bottom: none; }
           
           .big-number { font-size: ${
             isDineIn ? "40px" : "24px"
           }; font-weight: 900; line-height: 1; margin-bottom: 5px; }
-          .customer-name { font-size: 12px; font-weight: bold; text-align: center; }
           
           .title-strip { color: black; text-align: center; font-weight: bold; font-size: 12px; padding: 2px 0; margin-bottom: 5px; }
           
@@ -582,7 +743,7 @@ const formatKitchenReceipt = (receiptData, productsList = []) => {
           .item-col { text-align: ${isArabic ? "right" : "left"}; }
           
           .footer-info { display: flex; justify-content: space-between; margin-top: 10px; font-size: 10px; font-weight: bold; }
-                    .order-note-box { 
+          .order-note-box { 
             border: 2px solid #d00; 
             background: #ffe6e6; 
             padding: 8px; 
@@ -603,7 +764,9 @@ const formatKitchenReceipt = (receiptData, productsList = []) => {
             <div class="row-label">${isArabic ? "رقم الفاتورة" : "Order #"} ${
     receiptData.invoiceNumber
   }</div>
-            <div class="row-label">${receiptData.timeFormatted}</div> 
+            <div class="row-label">${receiptData.timeFormatted}<br>${receiptData.dateFormatted}</div>
+            <!-- ✅ إضافة إجمالي الأصناف -->
+            <div class="row-label">${isArabic ? "إجمالي الأصناف" : "Total Items"}: ${totalItems}</div>
           </div>
         </div>
   
@@ -635,17 +798,15 @@ ${receiptData.items
         finalName = original.name_ar || original.nameAr || item.name;
     }
 
-    // === دالة مساعدة لتحويل أي شيء إلى نص آمن ===
     const safeName = (item) => {
       if (!item) return "";
       if (typeof item === "string") return item;
       if (item.name) return item.name;
-      if (item.option) return item.option; // بعض الأنظمة بتبعت option
+      if (item.option) return item.option;
       if (item.variation) return item.variation;
-      return String(item); // آخر حماية
+      return String(item);
     };
 
-    // Addons
     const addonsHTML = (item.addons || [])
       .map((add) => {
         const name = safeName(add);
@@ -655,7 +816,6 @@ ${receiptData.items
       .filter(Boolean)
       .join("");
 
-    // Extras
     const extrasHTML = (item.extras || [])
       .map((extra) => {
         const name = safeName(extra);
@@ -664,7 +824,6 @@ ${receiptData.items
       .filter(Boolean)
       .join("");
 
-    // Excludes
     const excludesHTML = (item.excludes || [])
       .map((exc) => {
         const name = safeName(exc);
@@ -942,6 +1101,7 @@ export const printReceiptSilently = async (
     const printJobs = [];
 
     // 1. الكاشير
+    // 1. الكاشير - الإيصال الكامل
     try {
       const cashierPrinterName = await qz.printers.getDefault();
       if (!cashierPrinterName) throw new Error("No default printer found.");
@@ -952,76 +1112,104 @@ export const printReceiptSilently = async (
       });
       const cashierConfig = qz.configs.create(cashierPrinterName);
 
+      // طباعة إيصال الكاشير الأساسي (دائمًا مرة واحدة على الأقل)
       printJobs.push(
         qz.print(cashierConfig, [
           { type: "html", format: "plain", data: cashierHtml },
         ])
       );
+
+      // ==== الجديد: طباعة إضافية حسب نوع الطلب ====
+      const orderType = receiptData.orderType?.toLowerCase();
+
+      if (orderType === "delivery") {
+        // Delivery → طباعة إيصال الكاشير مرة ثانية
+        printJobs.push(
+          qz.print(cashierConfig, [
+            { type: "html", format: "plain", data: cashierHtml },
+          ])
+        );
+      } else if (orderType === "take_away" || orderType === "takeaway") {
+        // Take Away → طباعة إيصال بسيط (نسخة العميل)
+        const simpleHtml = formatSimpleCustomerCopy(receiptData);
+        printJobs.push(
+          qz.print(cashierConfig, [
+            { type: "html", format: "plain", data: simpleHtml },
+          ])
+        );
+      }
+      // Dine In أو غيره → لا طباعة إضافية
     } catch (err) {
       console.error(err);
       toast.error("خطأ في طابعة الكاشير");
     }
-
     // 2. المطبخ
     // 2. المطبخ - مع الحفاظ على كل التفاصيل (addons, extras, variations, excludes)
     const kitchens = apiResponse?.kitchen_items || [];
-for (const kitchen of kitchens) {
-  if (!kitchen.print_name || kitchen.print_status !== 1 || !kitchen.order?.length) 
-    continue;
+    for (const kitchen of kitchens) {
+      if (
+        !kitchen.print_name ||
+        kitchen.print_status !== 1 ||
+        !kitchen.order?.length
+      )
+        continue;
 
-  console.log("Kitchen:", kitchen.name);
-  console.log("Raw kitchen.order:", kitchen.order);
+      console.log("Kitchen:", kitchen.name);
+      console.log("Raw kitchen.order:", kitchen.order);
 
-  // === التجميع حسب id + notes ===
-  const grouped = new Map();
+      // === التجميع حسب id + notes ===
+      const grouped = new Map();
 
-  kitchen.order.forEach(item => {
-    const key = `${item.id || item.product_id || 'unknown'}|${item.notes || 'no-notes'}`;
+      kitchen.order.forEach((item) => {
+        const key = `${item.id || item.product_id || "unknown"}|${
+          item.notes || "no-notes"
+        }`;
 
-    if (!grouped.has(key)) {
-      grouped.set(key, {
-        ...item,
-        qty: 0
+        if (!grouped.has(key)) {
+          grouped.set(key, {
+            ...item,
+            qty: 0,
+          });
+        }
+
+        const entry = grouped.get(key);
+        // ← هنا التصليح المهم
+        entry.qty += Number(item.count || 1);
       });
+
+      const kitchenItems = Array.from(grouped.values()).map((group) => {
+        const original = receiptData.items.find(
+          (o) => o.id == group.id || o.id == group.product_id
+        );
+
+        return {
+          qty: group.qty, // الآن هيبقى 3 و 2 زي ما المفروض
+          name: group.name || original?.name || "غير معروف",
+          notes: group.notes || original?.notes || "",
+          addons: original?.addons || group.addons_selected || [],
+          extras: original?.extras || group.extras || [],
+          excludes: original?.excludes || group.excludes || [],
+          variations: original?.variations || group.variation_selected || [],
+          id: group.id || group.product_id,
+        };
+      });
+
+      const kitchenReceiptData = {
+        ...receiptData,
+        items: kitchenItems,
+        orderCount: kitchen.order_count ?? kitchenItems.reduce((sum, item) => sum + item.qty, 0),
+      };
+
+      const kitchenHtml = getReceiptHTML(kitchenReceiptData, {
+        design: "kitchen",
+        type: "kitchen",
+      });
+
+      const config = qz.configs.create(kitchen.print_name);
+      printJobs.push(
+        qz.print(config, [{ type: "html", format: "plain", data: kitchenHtml }])
+      );
     }
-
-    const entry = grouped.get(key);
-    // ← هنا التصليح المهم
-    entry.qty += Number(item.count || 1);  
-  });
-
-  const kitchenItems = Array.from(grouped.values()).map(group => {
-    const original = receiptData.items.find(
-      o => o.id == group.id || o.id == group.product_id
-    );
-
-    return {
-      qty: group.qty,   // الآن هيبقى 3 و 2 زي ما المفروض
-      name: group.name || original?.name || "غير معروف",
-      notes: group.notes || original?.notes || "",
-      addons: original?.addons || group.addons_selected || [],
-      extras: original?.extras || group.extras || [],
-      excludes: original?.excludes || group.excludes || [],
-      variations: original?.variations || group.variation_selected || [],
-      id: group.id || group.product_id,
-    };
-  });
-
-  const kitchenReceiptData = {
-    ...receiptData,
-    items: kitchenItems,
-  };
-
-  const kitchenHtml = getReceiptHTML(kitchenReceiptData, {
-    design: "kitchen",
-    type: "kitchen",
-  });
-
-  const config = qz.configs.create(kitchen.print_name);
-  printJobs.push(
-    qz.print(config, [{ type: "html", format: "plain", data: kitchenHtml }])
-  );
-}
 
     await Promise.all(printJobs);
     toast.success("✅ تم الطباعة");
