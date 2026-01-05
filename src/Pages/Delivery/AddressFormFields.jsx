@@ -23,10 +23,10 @@ const AddressFormFields = ({
   availableZones,
   handleCityChange,
   // إضافة props جديدة للتحكم في الـ switch من الأب
-  isAutoAddress = true,
+  isAutoAddress = false, // ✅ Default هو Manual (false)
   setIsAutoAddress,
 }) => {   
-   const { t ,i18n } = useTranslation();
+   const { t } = useTranslation();
 
   return (
     <>
@@ -38,7 +38,7 @@ const AddressFormFields = ({
             {isAutoAddress ? t("Automaticfrommaplocation") : t("Manualaddressentry")}
           </span>
         </div>
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center space-x-2 rtl:space-x-reverse"> {/* دعم RTL */}
           <span className={`text-sm ${!isAutoAddress ? 'text-blue-600 font-medium' : 'text-gray-500'}`}>
             {t("Manual")}
           </span>
@@ -58,11 +58,12 @@ const AddressFormFields = ({
               relative inline-flex h-6 w-11 items-center rounded-full transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2
               ${isAutoAddress ? 'bg-blue-600' : 'bg-gray-300'}
             `}
+            aria-pressed={isAutoAddress}
           >
             <span
               className={`
                 pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out
-                ${isAutoAddress ? 'translate-x-[-20px]' : 'translate-x-0'}
+                ${isAutoAddress ? 'translate-x-5' : 'translate-x-0.5'}
               `}
             />
           </button>

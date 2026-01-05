@@ -338,102 +338,119 @@ const formatCashierReceipt = (receiptData) => {
                     <th width="25%">${isArabic ? "إجمالي" : "Total"}</th>
                 </tr>
             </thead>
-            <tbody>
-            ${receiptData.items
-              .map((item) => {
-                const productName = isArabic
-                  ? item.nameAr || item.name_ar || item.name
-                  : item.nameEn || item.name_en || item.name;
+<tbody>
+  ${receiptData.items
+    .map((item) => {
+      const productName = isArabic
+        ? item.nameAr || item.name_ar || item.name
+        : item.nameEn || item.name_en || item.name;
 
-                // === دالة مساعدة لتحويل أي شيء إلى نص آمن ===
-                const safeName = (item) => {
-                  if (!item) return "";
-                  if (typeof item === "string") return item;
-                  if (item.name) return item.name;
-                  if (item.option) return item.option; // بعض الأنظمة بتبعت option
-                  if (item.variation) return item.variation;
-                  return String(item); // آخر حماية
-                };
+      // ✅ حساب إجمالي الـ addons (لأنها لها total أو price منفصل)
+      const addonsTotal = (item.addons || []).reduce((sum, add) => {
+        return sum + Number(add.total || add.price || 0);
+      }, 0);
 
-                // Addons
-                const addonsHTML = (item.addons || [])
-                  .map((add) => {
-                    const name = safeName(add);
-                    const price = add.price
-                      ? ` (${Number(add.price).toFixed(2)})`
-                      : "";
-                    return name
-                      ? `<div class="addon-row">+ ${name}${price}</div>`
-                      : "";
-                  })
-                  .filter(Boolean)
-                  .join("");
+      // إجمالي المنتج بعد الـ addons (extras و variations نفترض سعرهم مضاف في item.total بالفعل، لأنهم بدون price منفصل)
+      const calculatedTotal = Number(item.total || item.price * item.qty) + addonsTotal;
 
-                // Extras
-                const extrasHTML = (item.extras || [])
-                  .map((extra) => {
-                    const name = safeName(extra);
-                    return name ? `<div class="addon-row">+ ${name}</div>` : "";
-                  })
-                  .filter(Boolean)
-                  .join("");
+      // سعر الوحدة بعد الـ addons
+      const calculatedUnitPrice = item.qty > 0
+        ? (calculatedTotal / Number(item.qty)).toFixed(2)
+        : Number(item.price).toFixed(2);
 
-                // Excludes
-                const excludesHTML = (item.excludes || [])
-                  .map((exc) => {
-                    const name = safeName(exc);
-                    return name
-                      ? `<div class="addon-row" style="color:#d00;">- ${name}</div>`
-                      : "";
-                  })
-                  .filter(Boolean)
-                  .join("");
+      // === دالة مساعدة لتحويل أي شيء إلى نص آمن ===
+      const safeName = (addon) => {
+        if (!addon) return "";
+        if (typeof addon === "string") return addon;
+        if (addon.name) return addon.name;
+        if (addon.option) return addon.option;
+        if (addon.variation) return addon.variation;
+        return String(addon);
+      };
 
-                const getVariationsArray = (v) =>
-                  Array.isArray(v)
-                    ? v
-                    : v && typeof v === "object"
-                    ? Object.values(v).flat()
-                    : [];
+      // Addons مع السعر (مثل الـ API)
+      const addonsHTML = (item.addons || [])
+        .map((add) => {
+          const name = safeName(add);
+          const price = add.price || add.total
+            ? ` (${Number(add.price || add.total).toFixed(2)})`
+            : "";
+          return name
+            ? `<div class="addon-row">+ ${name}${price}</div>`
+            : "";
+        })
+        .filter(Boolean)
+        .join("");
 
-                const variationsHTML = getVariationsArray(item.variations)
-                  .flatMap((group) =>
-                    group.options ? [`• ${group.options.join(", ")}`] : []
-                  )
-                  .map((text) => `<div class="addon-row">${text}</div>`)
-                  .join("");
+      // Extras (بدون سعر منفصل في الـ API → نطبع الاسم فقط)
+      const extrasHTML = (item.extras || [])
+        .map((extra) => {
+          const name = safeName(extra);
+          return name ? `<div class="addon-row">+ ${name}</div>` : "";
+        })
+        .filter(Boolean)
+        .join("");
 
-                const modifiersHTML = [
-                  addonsHTML,
-                  extrasHTML,
-                  excludesHTML,
-                  variationsHTML,
-                ]
-                  .filter(Boolean)
-                  .join("");
-                const notesHTML = item.notes
-                  ? `<div style="margin-top: 6px; font-weight: bold; font-size: 13px; color: #d00;">(${item.notes})</div>`
-                  : "";
+      // Excludes
+      const excludesHTML = (item.excludes || [])
+        .map((exc) => {
+          const name = safeName(exc);
+          return name
+            ? `<div class="addon-row" style="color:#d00;">- ${name}</div>`
+            : "";
+        })
+        .filter(Boolean)
+        .join("");
 
-                return `
-  <tr>
-    <td class="item-qty">${item.qty}</td>
-    <td class="item-name" style="text-align: ${isArabic ? "right" : "left"};">
-      ${productName}
-      ${
-        modifiersHTML
-          ? `<div style="margin-top:4px;">${modifiersHTML}</div>`
-          : ""
-      }
-     ${notesHTML}
-    </td>
-    <td class="item-total">${item.price.toFixed(2)}</td>
-    <td class="item-total">${item.total.toFixed(2)}</td>
-  </tr>
-  `;
-              })
-              .join("")}
-            </tbody>
+      // Variations (بدون سعر منفصل → نطبع الخيار فقط)
+      const variationsHTML = (() => {
+        const getVariationsArray = (v) =>
+          Array.isArray(v)
+            ? v
+            : v && typeof v === "object"
+            ? Object.values(v).flat()
+            : [];
+
+        return getVariationsArray(item.variations)
+          .flatMap((group) => {
+            if (!group || !group.options) return [];
+            const optionText = group.options.join(", ");
+            return [`• ${optionText}`];
+          })
+          .map((text) => `<div class="addon-row">${text}</div>`)
+          .join("");
+      })();
+
+      const modifiersHTML = [
+        addonsHTML,
+        extrasHTML,
+        excludesHTML,
+        variationsHTML,
+      ]
+        .filter(Boolean)
+        .join("");
+
+      const notesHTML = item.notes
+        ? `<div style="margin-top: 6px; font-weight: bold; font-size: 13px; color: #d00;">(${item.notes})</div>`
+        : "";
+
+      return `
+<tr>
+  <td class="item-qty">${item.qty}</td>
+  <td class="item-name" style="text-align: ${isArabic ? "right" : "left"};">
+    ${productName}
+    ${modifiersHTML ? `<div style="margin-top:4px;">${modifiersHTML}</div>` : ""}
+    ${notesHTML}
+  </td>
+  <!-- ✅ السعر الآن شامل الـ addons (و extras/variations مضافين أصلاً في price المنتج) -->
+  <td class="item-total">${calculatedUnitPrice}</td>
+  <!-- ✅ الإجمالي شامل الـ addons -->
+  <td class="item-total">${calculatedTotal.toFixed(2)}</td>
+</tr>
+`;
+    })
+    .join("")}
+</tbody>
         </table>
 
 <div style="border-top: 2px solid #000; margin-top: 8px; padding-top: 8px; font-size: 13px;">
