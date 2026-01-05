@@ -20,7 +20,6 @@ export const useDeliveryForm = () => {
  const { t ,i18n } = useTranslation();
   const { id } = useParams();
   const isEditMode = Boolean(id);
-    const { t ,i18n } = useTranslation();
 
   const location = useLocation();
   const searchParams = new URLSearchParams(location.search);

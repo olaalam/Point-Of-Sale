@@ -36,7 +36,7 @@ const formatCashierReceipt = (receiptData) => {
 
   if (currentOrderType === "dine_in") {
     orderTypeLabel = isArabic ? "صالة" : "DINE IN";
-    if (receiptData.table && receiptData.table !== "N/A") {
+    if (receiptData.table_number && receiptData.table_number !== "N/A") {
       tableLabel = isArabic
         ? `طاولة: ${receiptData.table}`
         : `Table: ${receiptData.table}`;
@@ -879,10 +879,10 @@ export const prepareReceiptData = (
     invoiceNumber: response?.order_id || response?.order_number,
     serviceFees: Number(response?.service_fees || response?.service_fee || 0),
     table_number:
-      response?.table_number || sessionStorage.getItem("table_id") || "N/A",
+      response?.table_number || sessionStorage.getItem("table_number") || "N/A",
     dateFormatted: dateFormatted,
     timeFormatted: timeFormatted,
-    table: sessionStorage.getItem("table_id") || "N/A",
+    table: sessionStorage.getItem("table_number") || "N/A",
     orderType: finalOrderType,
     financials: response?.financials || [],
     items: itemsSource.map((item) => ({
@@ -965,49 +965,63 @@ export const printReceiptSilently = async (
     // 2. المطبخ
     // 2. المطبخ - مع الحفاظ على كل التفاصيل (addons, extras, variations, excludes)
     const kitchens = apiResponse?.kitchen_items || [];
-    for (const kitchen of kitchens) {
-      if (
-        !kitchen.print_name ||
-        kitchen.print_status !== 1 ||
-        !kitchen.order?.length
-      )
-        continue;
+for (const kitchen of kitchens) {
+  if (!kitchen.print_name || kitchen.print_status !== 1 || !kitchen.order?.length) 
+    continue;
 
-      const kitchenReceiptData = {
-        ...receiptData, // نأخذ كل البيانات الأساسية من الـ receiptData الأصلي
-        items: kitchen.order.map((kitchenItem) => {
-          // نجيب الصنف الأصلي من الـ success عشان نجيب معاه كل الـ addons والـ variations
-          const originalItem = receiptData.items.find(
-            (orig) =>
-              orig.id == kitchenItem.id || orig.id == kitchenItem.product_id
-          );
+  console.log("Kitchen:", kitchen.name);
+  console.log("Raw kitchen.order:", kitchen.order);
 
-          return {
-            qty: kitchenItem.order_count || "1",
-            name: kitchenItem.name || originalItem?.name || "غير معروف",
-            notes: kitchenItem.notes || originalItem?.notes || "",
+  // === التجميع حسب id + notes ===
+  const grouped = new Map();
 
-            // ننقل كل التفاصيل من الصنف الأصلي
-            addons: originalItem?.addons || [],
-            extras: originalItem?.extras || [],
-            excludes: originalItem?.excludes || [],
-            variations: originalItem?.variations || [],
+  kitchen.order.forEach(item => {
+    const key = `${item.id || item.product_id || 'unknown'}|${item.notes || 'no-notes'}`;
 
-            id: kitchenItem.id || kitchenItem.product_id,
-          };
-        }),
-      };
-
-      const kitchenHtml = getReceiptHTML(kitchenReceiptData, {
-        design: "kitchen",
-        type: "kitchen",
+    if (!grouped.has(key)) {
+      grouped.set(key, {
+        ...item,
+        qty: 0
       });
-
-      const config = qz.configs.create(kitchen.print_name);
-      printJobs.push(
-        qz.print(config, [{ type: "html", format: "plain", data: kitchenHtml }])
-      );
     }
+
+    const entry = grouped.get(key);
+    // ← هنا التصليح المهم
+    entry.qty += Number(item.count || 1);  
+  });
+
+  const kitchenItems = Array.from(grouped.values()).map(group => {
+    const original = receiptData.items.find(
+      o => o.id == group.id || o.id == group.product_id
+    );
+
+    return {
+      qty: group.qty,   // الآن هيبقى 3 و 2 زي ما المفروض
+      name: group.name || original?.name || "غير معروف",
+      notes: group.notes || original?.notes || "",
+      addons: original?.addons || group.addons_selected || [],
+      extras: original?.extras || group.extras || [],
+      excludes: original?.excludes || group.excludes || [],
+      variations: original?.variations || group.variation_selected || [],
+      id: group.id || group.product_id,
+    };
+  });
+
+  const kitchenReceiptData = {
+    ...receiptData,
+    items: kitchenItems,
+  };
+
+  const kitchenHtml = getReceiptHTML(kitchenReceiptData, {
+    design: "kitchen",
+    type: "kitchen",
+  });
+
+  const config = qz.configs.create(kitchen.print_name);
+  printJobs.push(
+    qz.print(config, [{ type: "html", format: "plain", data: kitchenHtml }])
+  );
+}
 
     await Promise.all(printJobs);
     toast.success("✅ تم الطباعة");

@@ -533,7 +533,7 @@ const orderSummary = useMemo(() => {
                               <span className="font-TextFontSemiBold text-bg-primary">
                                 {t("OrderNote")}:
                               </span>{" "}
-                              {detailsData?.notes || "No Notes"}
+                              {detailsData?.notes || ""}
                             </p>
                             {detailsData?.payment_method?.id !== 2 && (
                               <p className="text-gray-800 text-md">
@@ -822,7 +822,7 @@ const orderSummary = useMemo(() => {
             </div>
           </div>
         ) : (
-          <span className="text-gray-500">{t("No notes")}</span>
+          <span className="text-gray-500">{t("")}</span>
         )}
       </div>
     );

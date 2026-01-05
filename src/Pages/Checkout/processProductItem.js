@@ -47,7 +47,7 @@ export const processProductItem = (item) => {
     .map(id => id.toString())
     .filter(Boolean);
 
-  const note = item.notes?.trim() || "No notes";
+  const note = item.notes?.trim() || "";
 
   // --- التعديل هنا لضبط الوزن ---
   // نتحقق أولاً هل المنتج يباع بالوزن (weight_status === 1)
@@ -145,7 +145,7 @@ export const buildOrderPayload = ({
     amount: parseFloat(amountToPay).toFixed(2),
     total_tax: parseFloat(totalTax || 0).toFixed(2),
     total_discount: parseFloat(totalDiscount || 0).toFixed(2),
-    notes: notes?.trim() || "No notes",
+    notes: notes?.trim() || "",
     source,
     financials: financialsPayload,
     cashier_id: cashierId.toString(),
