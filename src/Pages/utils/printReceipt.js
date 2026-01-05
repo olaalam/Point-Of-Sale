@@ -851,17 +851,30 @@ ${receiptData.items
       .filter(Boolean)
       .join("");
 
-    const getVariationsArray = (v) =>
-      Array.isArray(v)
-        ? v
-        : v && typeof v === "object"
-        ? Object.values(v).flat()
-        : [];
 
-    const variationsHTML = getVariationsArray(item.variations)
-      .flatMap((g) => (g.options ? [`• ${g.options.join(", ")}`] : []))
-      .map((text) => `<div style="font-size:10px;margin:2px 0;">${text}</div>`)
-      .join("");
+
+// في دالة formatKitchenReceipt، استبدل كل الـ variationsHTML block بالكود ده بالكامل:
+
+const variationsHTML = (item.variations || item.variation_selected || [])
+  .map((group) => {
+    // لو مفيش group أو name، نتخطاه
+    if (!group || !group.name) return "";
+
+    // نستخرج أسماء الـ options الداخلية فقط (اللي هي الاختيارات الفعلية)
+    const optionsText = (group.options || [])
+      .map((opt) => opt.name || opt.option || String(opt)) // نأخذ الـ name أولاً
+      .filter(Boolean) // نتخلص من أي فارغ
+      .join(", ");
+
+    // لو مفيش options مختارة، نتخطاه
+    if (!optionsText) return "";
+
+    // نرجع النص النهائي: اسم الـ group + الـ options
+    return `• ${group.name}: ${optionsText}`;
+  })
+  .filter(Boolean) // نتخلص من أي فارغ
+  .map((text) => `<div style="font-size:10px;margin:2px 0;">${text}</div>`)
+  .join("");
 
     const allModifiers = [addonsHTML, extrasHTML, excludesHTML, variationsHTML]
       .filter(Boolean)
@@ -1174,42 +1187,69 @@ export const printReceiptSilently = async (
       console.log("Kitchen:", kitchen.name);
       console.log("Raw kitchen.order:", kitchen.order);
 
-      // === التجميع حسب id + notes ===
-      const grouped = new Map();
+// === التجميع حسب id + notes + selected variation options + addons + extras + excludes ===
+const grouped = new Map();
 
-      kitchen.order.forEach((item) => {
-        const key = `${item.id || item.product_id || "unknown"}|${
-          item.notes || "no-notes"
-        }`;
+const getModifierKey = (item) => {
+  // دالة بسيطة لـ addons/extras/excludes (arrays بسيطة أو objects)
+  const stringifySimple = (arr) => {
+    if (!Array.isArray(arr)) return "";
+    return arr
+      .map((o) => o.id || o.name || o.option || o.variation || String(o))
+      .filter(Boolean)
+      .sort()
+      .join(",");
+  };
 
-        if (!grouped.has(key)) {
-          grouped.set(key, {
-            ...item,
-            qty: 0,
-          });
-        }
+  const addons = stringifySimple(item.addons_selected || item.addons || []);
+  const extras = stringifySimple(item.extras || []);
+  const excludes = stringifySimple(item.excludes || []);
 
-        const entry = grouped.get(key);
-        // ← هنا التصليح المهم
-        entry.qty += Number(item.count || 1);
-      });
+  // المهم هنا: نستخرج الـ selected options الداخلية فقط (اللي بتميز الvariation)
+  const variationOptions = (item.variation_selected || item.variations || [])
+    .flatMap((group) => {
+      if (!group || !Array.isArray(group.options)) return [];
+      return group.options.map((opt) => opt.id || opt.name || "");
+    })
+    .filter(Boolean)
+    .sort()
+    .join(",");
 
-      const kitchenItems = Array.from(grouped.values()).map((group) => {
-        const original = receiptData.items.find(
-          (o) => o.id == group.id || o.id == group.product_id
-        );
+  return `${variationOptions}|${addons}|${extras}|${excludes}`;
+};
 
-        return {
-          qty: group.qty, // الآن هيبقى 3 و 2 زي ما المفروض
-          name: group.name || original?.name || "غير معروف",
-          notes: group.notes || original?.notes || "",
-          addons: original?.addons || group.addons_selected || [],
-          extras: original?.extras || group.extras || [],
-          excludes: original?.excludes || group.excludes || [],
-          variations: original?.variations || group.variation_selected || [],
-          id: group.id || group.product_id,
-        };
-      });
+kitchen.order.forEach((item) => {
+  const modifierKey = getModifierKey(item);
+  const baseKey = `${item.id || item.product_id || "unknown"}|${item.notes || "no-notes"}`;
+  const fullKey = `${baseKey}|${modifierKey}`;
+
+  if (!grouped.has(fullKey)) {
+    grouped.set(fullKey, {
+      ...item,       // نحتفظ بكل الdata الأصلية (بما فيها variation_selected كامل)
+      qty: 0,
+    });
+  }
+
+  const entry = grouped.get(fullKey);
+  entry.qty += Number(item.count || item.qty || 1);  // أضفنا item.qty كـ fallback
+});
+
+const kitchenItems = Array.from(grouped.values()).map((group) => {
+  const original = receiptData.items.find(
+    (o) => o.id == group.id || o.id == group.product_id
+  );
+
+  return {
+    qty: group.qty,
+    name: group.name || original?.name || "غير معروف",
+    notes: group.notes || original?.notes || "",
+    addons: group.addons_selected || original?.addons || [],
+    extras: group.extras || original?.extras || [],
+    excludes: group.excludes || original?.excludes || [],
+    variations: group.variation_selected || original?.variations || [],
+    id: group.id || group.product_id,
+  };
+});
 
       const kitchenReceiptData = {
         ...receiptData,
