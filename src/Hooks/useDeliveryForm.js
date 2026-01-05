@@ -5,7 +5,7 @@ import { useLocation, useParams } from "react-router-dom";
 import { useGet } from "@/Hooks/useGet";
 import { addressSchema, adduserSchema } from "@/Pages/Delivery/addressSchema";
 import { parseCoordinates, tryGeocode } from "@/components/tryGeocode";
-
+import { useTranslation } from "react-i18next";
 export const useDeliveryForm = () => {
   const [selectedLocation, setSelectedLocation] = useState({
     lat: 31.2001, // Default to Alexandria, Egypt
@@ -16,7 +16,7 @@ export const useDeliveryForm = () => {
   const [availableZones, setAvailableZones] = useState([]);
   const [formattedMapCoordinates, setFormattedMapCoordinates] = useState("");
   const [isAutoAddress, setIsAutoAddress] = useState(true);
-
+ const { t ,i18n } = useTranslation();
   const { id } = useParams();
   const isEditMode = Boolean(id);
 
@@ -47,8 +47,8 @@ export const useDeliveryForm = () => {
   });
 
   // تحميل بيانات الـ lists (cities & zones)
-  const { data: addressListsData, isLoading: isLoadingLists } = useGet("cashier/user/address/lists");
-  const cities = addressListsData?.cities || [];
+ const { data: addressListsData, isLoading: isLoadingLists } = useGet(`cashier/user/address/lists?${i18n.language === "ar"?`locale=ar`:"locale=en"}`);
+   const cities = addressListsData?.cities || [];
   const allZones = addressListsData?.zones || [];
 
   // تحميل بيانات التعديل

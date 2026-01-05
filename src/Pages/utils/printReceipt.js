@@ -76,10 +76,7 @@ const formatCashierReceipt = (receiptData) => {
   // ✅ حساب الإجمالي الكلي (للـ Grand Total الصحيح)
   const grandTotal = (
     Number(receiptData.subtotal) +
-    Number(receiptData.tax) +
-    Number(receiptData.serviceFees) +
-    Number(receiptData.deliveryFees) -
-    Number(receiptData.discount)
+    Number(receiptData.deliveryFees) 
   ).toFixed(2);
 
   const showCustomerInfo =
@@ -488,7 +485,7 @@ const formatCashierReceipt = (receiptData) => {
     <span style="font-size: 18px;">${
       isArabic ? "الإجمالي الكلي" : "GRAND TOTAL"
     }</span>
-    <span style="font-size: 24px;">${receiptData.grandTotal}</span>
+    <span style="font-size: 24px;">${grandTotal}</span>
   </div>
 
   <!-- ✅ طرق الدفع (Financials) -->
