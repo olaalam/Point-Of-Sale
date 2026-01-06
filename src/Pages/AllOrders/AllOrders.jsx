@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -26,12 +26,8 @@ export default function AllOrders() {
 const navigate = useNavigate();
   // فلاتر الإدخال (قبل الضغط على البحث)
   const [searchInput, setSearchInput] = useState("");
-  const [dateFromInput, setDateFromInput] = useState(
-    () => new Date().toISOString().split("T")[0]
-  );
-  const [dateToInput, setDateToInput] = useState(
-    () => new Date().toISOString().split("T")[0]
-  );
+  const [dateFromInput, setDateFromInput] = useState("");
+  const [dateToInput, setDateToInput] = useState("");
 
   // الفلاتر المطبقة فعلياً بعد الضغط على زر البحث
   const [appliedSearch, setAppliedSearch] = useState("");
@@ -52,6 +48,32 @@ const navigate = useNavigate();
 
   const { postData, loading } = usePost();
   const { refetch, loading: getLoading } = useGet();
+  
+  useEffect(() => {
+  if (isFakeMode || orders.length === 0) return;
+
+  const filtered = orders.filter((order) => {
+    const orderDateStr = order.created_at || order.date || "";
+    const orderDate = orderDateStr.split("T")[0];
+
+    const dateMatch =
+      (!dateFromInput || orderDate >= dateFromInput) &&
+      (!dateToInput || orderDate <= dateToInput);
+
+    if (!dateMatch) return false;
+
+    if (!searchInput.trim()) return true;
+
+    const searchLower = searchInput.toLowerCase();
+    const numberMatch = String(order.order_number || "").includes(searchInput);
+    const nameMatch = (order.user?.name || "").toLowerCase().includes(searchLower);
+    const phoneMatch = (order.user?.phone || "").includes(searchInput);
+
+    return numberMatch || nameMatch || phoneMatch;
+  });
+
+  setDisplayedOrders(filtered);
+}, [searchInput, dateFromInput, dateToInput, orders, isFakeMode]);
 
 const fetchNormalOrders = async () => {
   try {
@@ -112,22 +134,21 @@ const fetchNormalOrders = async () => {
   };
 
   // عند الضغط على زر البحث
-  const handleSearch = () => {
-    // حفظ القيم المطبقة
-    setAppliedSearch(searchInput);
-    setAppliedDateFrom(dateFromInput);
-    setAppliedDateTo(dateToInput);
+const handleSearch = () => {
+  // نحفظ القيم (مفيد للـ refresh بعد void في fake mode)
+  setAppliedSearch(searchInput);
+  setAppliedDateFrom(dateFromInput);
+  setAppliedDateTo(dateToInput);
 
-    if (isFakeMode) {
-      // وضع الطلبات الوهمية: ننادي الـ API
-      if (!dateFromInput || !dateToInput) {
-        toast.warning(
-          isArabic ? "يرجى تحديد نطاق التاريخ" : "Please select a date range"
-        );
-        return;
-      }
-      fetchFakeOrders(dateFromInput, dateToInput);
-    } else {
+  if (isFakeMode) {
+    if (!dateFromInput || !dateToInput) {
+      toast.warning(
+        isArabic ? "يرجى تحديد نطاق التاريخ" : "Please select a date range"
+      );
+      return;
+    }
+    fetchFakeOrders(dateFromInput, dateToInput);
+  } else {
       // الوضع العادي: فلترة الطلبات الموجودة محلياً
       const filtered = orders.filter((order) => {
         const orderDate = (order.created_at || "").split("T")[0];
