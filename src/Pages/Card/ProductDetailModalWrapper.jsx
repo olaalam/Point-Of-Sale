@@ -5,6 +5,7 @@ import { areProductsEqual } from "../ProductModal";
 import ProductModal from "../ProductModal";
 
 export default function ProductDetailModalWrapper({ children, product, updateOrderItems, orderItems }) {
+  console.log(product)
   const [isOpen, setIsOpen] = useState(false);
   const [quantity, setQuantity] = useState(1);
   const [selectedVariation, setSelectedVariation] = useState({});
@@ -16,27 +17,45 @@ export default function ProductDetailModalWrapper({ children, product, updateOrd
 
   // حالة للتمييز بين "إضافة جديد" و "تعديل موجود"
   const [isExistingInCart, setIsExistingInCart] = useState(false);
+useEffect(() => {
+  if (isOpen) {
+    const existingItem = orderItems.find(item => item.id === product.id);
+    
+    if (existingItem) {
+      setIsExistingInCart(true);
+      setQuantity(existingItem.quantity || 1);
+      setNotes(existingItem.notes || "");
+      setSelectedVariation(existingItem.selectedVariation || {});
+      setSelectedExcludes(existingItem.selectedExcludes || []);
 
-  // مزامنة البيانات عند فتح المودال
-  useEffect(() => {
-    if (isOpen) {
-      // البحث عن المنتج في السلة الحالية بالـ ID
-      const existingItem = orderItems.find(item => item.id === product.id);
-      
-      if (existingItem) {
-        setIsExistingInCart(true);
-        setQuantity(existingItem.quantity || 1);
-        setNotes(existingItem.notes || "");
-        setSelectedVariation(existingItem.selectedVariation || {});
-        setSelectedExtras(existingItem.selectedExtras || []);
-        setSelectedExcludes(existingItem.selectedExcludes || []);
-      } else {
-        setIsExistingInCart(false);
-        resetState();
+      // مصفوفة تجمع كل الـ IDs المختارة (Extras + Addons)
+      const recoveredExtras = [];
+
+      // 1. استعادة الـ Extras العادية
+      if (existingItem.selectedExtras && Array.isArray(existingItem.selectedExtras)) {
+        existingItem.selectedExtras.forEach(extraId => {
+          recoveredExtras.push(extraId);
+        });
       }
-    }
-  }, [isOpen, product.id, orderItems]);
 
+      // 2. استعادة الـ Addons بناءً على كميتها
+      // نستخدم addon_id ونكرره داخل المصفوفة ليظهر العداد في المودال بشكل صحيح
+      if (existingItem.addons && Array.isArray(existingItem.addons)) {
+        existingItem.addons.forEach(addon => {
+          const count = Number(addon.quantity || 0);
+          for (let i = 0; i < count; i++) {
+            recoveredExtras.push(addon.addon_id);
+          }
+        });
+      }
+
+      setSelectedExtras(recoveredExtras);
+    } else {
+      setIsExistingInCart(false);
+      resetState();
+    }
+  }
+}, [isOpen, product.id, orderItems]);
 const handleAddToCart = (enhancedProduct) => {
   setOrderLoading(true);
   let currentCart = [...orderItems];
@@ -145,7 +164,11 @@ const handleAddToCart = (enhancedProduct) => {
           setIsOpen(false);
           resetState();
         }}
-        selectedProduct={product}
+       selectedProduct={{
+    ...product,
+    // نضمن أن المودال لديه القائمة الكاملة للأسماء والأسعار
+    addons: product.addons_list || product.addons || [] 
+  }}
         selectedVariation={selectedVariation}
         selectedExtras={selectedExtras}
         selectedExcludes={selectedExcludes}
