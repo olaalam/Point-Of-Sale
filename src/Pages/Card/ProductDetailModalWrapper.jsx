@@ -17,9 +17,11 @@ export default function ProductDetailModalWrapper({ children, product, updateOrd
 
   // حالة للتمييز بين "إضافة جديد" و "تعديل موجود"
   const [isExistingInCart, setIsExistingInCart] = useState(false);
+
 useEffect(() => {
   if (isOpen) {
-    const existingItem = orderItems.find(item => item.id === product.id);
+    // ابحث بالـ temp_id
+    const existingItem = orderItems.find(item => item.temp_id === product.temp_id);
     
     if (existingItem) {
       setIsExistingInCart(true);
@@ -28,94 +30,69 @@ useEffect(() => {
       setSelectedVariation(existingItem.selectedVariation || {});
       setSelectedExcludes(existingItem.selectedExcludes || []);
 
-      // مصفوفة تجمع كل الـ IDs المختارة (Extras + Addons)
+      // كود استعادة الـ Addons اللي ظبطناه سوا
       const recoveredExtras = [];
-
-      // 1. استعادة الـ Extras العادية
-      if (existingItem.selectedExtras && Array.isArray(existingItem.selectedExtras)) {
-        existingItem.selectedExtras.forEach(extraId => {
-          recoveredExtras.push(extraId);
-        });
+      if (existingItem.selectedExtras) {
+        existingItem.selectedExtras.forEach(id => recoveredExtras.push(id));
       }
-
-      // 2. استعادة الـ Addons بناءً على كميتها
-      // نستخدم addon_id ونكرره داخل المصفوفة ليظهر العداد في المودال بشكل صحيح
-      if (existingItem.addons && Array.isArray(existingItem.addons)) {
+      if (existingItem.addons) {
         existingItem.addons.forEach(addon => {
-          const count = Number(addon.quantity || 0);
-          for (let i = 0; i < count; i++) {
+          for (let i = 0; i < addon.quantity; i++) {
             recoveredExtras.push(addon.addon_id);
           }
         });
       }
-
       setSelectedExtras(recoveredExtras);
     } else {
       setIsExistingInCart(false);
       resetState();
     }
   }
-}, [isOpen, product.id, orderItems]);
+}, [isOpen, product.temp_id, orderItems]); // التغيير هنا في الاعتماد على temp_id
 const handleAddToCart = (enhancedProduct) => {
   setOrderLoading(true);
-  let currentCart = [...orderItems];
 
-  let existingIndex = -1;
+  const currentCart = [...orderItems];
 
-  // 1. تحديد طريقة البحث عن المنتج
-  if (isExistingInCart) {
-    // 🛑 حالة التعديل:
-    // بما أننا نعدل منتجاً موجوداً، نبحث عنه بالـ ID فقط
-    // حتى لو النوت تغيرت، نريد العثور على مكانه القديم لاستبداله
-    existingIndex = currentCart.findIndex(item => item.id === enhancedProduct.id);
-  } else {
-    // 🟢 حالة الإضافة الجديدة:
-    // نبحث عن منتج مطابق تماماً (نفس المواصفات والنوت) لدمج الكمية
-    existingIndex = currentCart.findIndex(item => areProductsEqual(item, enhancedProduct));
-  }
+  // تأكد من تحديث count و quantity معاً لضمان ظهورها في الجدول
+  const updatedProduct = {
+    ...enhancedProduct,
+    quantity: enhancedProduct.quantity,
+    count: enhancedProduct.quantity // إضافة هذا السطر ليتوافق مع ItemRow
+  };
+
+  const existingIndex = currentCart.findIndex(
+    (item) => item.temp_id === product.temp_id
+  );
 
   if (existingIndex !== -1) {
-    if (isExistingInCart) {
-      // ✅ سيناريو التعديل (Update):
-      // نستبدل المنتج القديم بالجديد (بالنوت الجديدة والكمية الجديدة)
-      currentCart[existingIndex] = {
-        ...enhancedProduct,
-        quantity: Number(enhancedProduct.quantity), // نأخذ الكمية كما هي من المودال
-        count: Number(enhancedProduct.quantity)
-      };
-      toast.success("تم تحديث بيانات المنتج والملاحظات");
-    } else {
-      // ✅ سيناريو الدمج (Merge):
-      // وجدنا منتجاً مطابقاً تماماً، نزيد الكمية فقط
-      const oldQty = Number(currentCart[existingIndex].quantity || 0);
-      const addedQty = Number(enhancedProduct.quantity || 1);
-      
-      currentCart[existingIndex] = {
-        ...currentCart[existingIndex],
-        quantity: (oldQty + addedQty).toString(),
-        count: (oldQty + addedQty)
-      };
-      toast.success("تم دمج الكمية في السلة");
-    }
-  } else {
-    // 🆕 منتج جديد تماماً
-    const newProduct = {
-      ...enhancedProduct,
-      count: enhancedProduct.quantity
+    // تحديث السطر الموجود
+    currentCart[existingIndex] = {
+      ...updatedProduct,
+      temp_id: product.temp_id, 
     };
-    currentCart.push(newProduct);
-    toast.success("تم إضافة المنتج للسلة");
+    toast.success("تم تحديث الكارت بنجاح");
+  } else {
+    // إضافة جديد
+    const duplicateIndex = currentCart.findIndex((item) =>
+      areProductsEqual(item, updatedProduct)
+    );
+
+    if (duplicateIndex !== -1) {
+      // تحديث الكميات في حالة التكرار
+      currentCart[duplicateIndex].quantity += updatedProduct.quantity;
+      currentCart[duplicateIndex].count = (currentCart[duplicateIndex].count || 0) + updatedProduct.quantity;
+      toast.success("تم زيادة الكمية");
+    } else {
+      currentCart.push(updatedProduct);
+      toast.success("تم الإضافة للكارت");
+    }
   }
 
-  // تحديث السلة والتخزين
   updateOrderItems(currentCart);
-  sessionStorage.setItem("cart", JSON.stringify(currentCart));
-
   setIsOpen(false);
   setOrderLoading(false);
-  resetState();
 };
-
   const resetState = () => {
     setQuantity(1);
     setSelectedVariation({});

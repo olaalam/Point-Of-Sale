@@ -74,45 +74,36 @@ const calculateProductTotalPrice = (
   return totalPrice * quantity;
 };
 
-// Helper function to check if two products are identical
+// ✅ تحديث دالة المقارنة لتشمل الـ Addons
 export const areProductsEqual = (product1, product2) => {
-  // Check basic product ID
+  // 1. فحص الـ ID الأساسي
   if (product1.id !== product2.id) return false;
-  
-  // Check variations match
+
+  // 2. فحص المتغيرات (Variations)
   const vars1 = product1.selectedVariation || {};
   const vars2 = product2.selectedVariation || {};
+  if (JSON.stringify(vars1) !== JSON.stringify(vars2)) return false;
+
+  // 3. فحص الملاحظات (Notes)
+  if ((product1.notes || "").trim() !== (product2.notes || "").trim()) return false;
+
+  // 4. فحص المحذوفات (Excludes)
+  const excl1 = [...(product1.selectedExcludes || [])].sort().join(",");
+  const excl2 = [...(product2.selectedExcludes || [])].sort().join(",");
+  if (excl1 !== excl2) return false;
+
+  // 5. فحص الإضافات (Extras)
+  const ext1 = [...(product1.selectedExtras || [])].sort().join(",");
+  const ext2 = [...(product2.selectedExtras || [])].sort().join(",");
+  if (ext1 !== ext2) return false;
+
+  // 6. 🔥 الإصلاح المطلوب: فحص الـ Addons
+  // نحول الـ addons لشكل نصي مرتب للمقارنة (لأنها مصفوفة أوبجكتات)
+  const add1 = JSON.stringify((product1.addons || []).sort((a, b) => a.addon_id - b.addon_id));
+  const add2 = JSON.stringify((product2.addons || []).sort((a, b) => a.addon_id - b.addon_id));
   
-  const varKeys1 = Object.keys(vars1).sort();
-  const varKeys2 = Object.keys(vars2).sort();
-  
-  if (JSON.stringify(varKeys1) !== JSON.stringify(varKeys2)) return false;
-  
-  for (let key of varKeys1) {
-    const val1 = Array.isArray(vars1[key]) ? [...vars1[key]].sort() : vars1[key];
-    const val2 = Array.isArray(vars2[key]) ? [...vars2[key]].sort() : vars2[key];
-    
-    if (JSON.stringify(val1) !== JSON.stringify(val2)) return false;
-  }
-  
-  // Check extras match
-  const extras1 = [...(product1.selectedExtras || [])].sort();
-  const extras2 = [...(product2.selectedExtras || [])].sort();
-  
-  if (JSON.stringify(extras1) !== JSON.stringify(extras2)) return false;
-  
-  // Check excludes match
-  const excludes1 = [...(product1.selectedExcludes || [])].sort();
-  const excludes2 = [...(product2.selectedExcludes || [])].sort();
-  
-  if (JSON.stringify(excludes1) !== JSON.stringify(excludes2)) return false;
-  
-  // ✅ Check notes match
-  const notes1 = (product1.notes || "").trim();
-  const notes2 = (product2.notes || "").trim();
-  
-  if (notes1 !== notes2) return false;
-  
+  if (add1 !== add2) return false;
+
   return true;
 };
 
