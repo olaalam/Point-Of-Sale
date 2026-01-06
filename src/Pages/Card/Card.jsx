@@ -487,7 +487,13 @@ onVoidItem={(itemId) => {
       {showModal && (
         <CheckOut
           totalDineInItems={orderItems.length}
-          onClose={() => setShowModal(false)}
+         onClose={() => {
+      if (orderType === "delivery") {
+        onClose(); // تنفيذ الـ onClose الأصلية (التي تعود لتبويب الديليفري)
+      } else {
+        setShowModal(false); // إغلاق المودال فقط للبقاء في نفس الصفحة للأنواع الأخرى
+      }
+    }}
           amountToPay={calculations.amountToPay}
           orderItems={calculations.checkoutItems}
           updateOrderItems={updateOrderItems}
