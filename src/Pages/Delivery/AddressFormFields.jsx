@@ -118,10 +118,10 @@ const AddressFormFields = ({
       <div className="grid grid-cols-2 gap-4">
        
         {[
-  { name: "street", label: t("Street") },
-  { name: "building_num", label: t("BuildingNumber") },
-  { name: "floor_num", label: t("FloorNumber") },
-  { name: "apartment", label: t("Apartment") },
+  { name: "street", label: t("Street (optional)") },
+  { name: "building_num", label: t("BuildingNumber (optional)") },
+  { name: "floor_num", label: t("FloorNumber (optional)") },
+  { name: "apartment", label: t("Apartment (optional)") },
 ].map(({ name, label }) => (
   <FormField
     key={name}
@@ -206,9 +206,9 @@ const AddressFormFields = ({
                 </FormControl>
                 <SelectContent>
                   {availableZones.map((zone) => (
-                    <SelectItem key={zone.id} value={zone.id.toString()}>
-                      {zone.zone}
-                    </SelectItem>
+<SelectItem key={zone.id} value={zone.id.toString()}>
+  {zone.zone} • {zone?.price} EGP
+</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
