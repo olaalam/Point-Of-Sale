@@ -1,4 +1,4 @@
-// Navbar.js - النسخة الكاملة المحدثة والنهائية
+// Navbar.jsx - النسخة المحدثة مع إخفاء الـ Tabs حسب الـ permissions
 import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { usePost } from "@/Hooks/usePost";
@@ -48,6 +48,15 @@ export default function Navbar() {
   const [endShiftReport, setEndShiftReport] = useState(null);
   const [reportLoading, setReportLoading] = useState(false);
 
+  // ✅ جلب بيانات الكاشير وتحديد الـ permissions
+  const userData = JSON.parse(sessionStorage.getItem("user") || "{}");
+  const permissions = {
+    online_order: userData.online_order === 1,
+    take_away: userData.take_away === 1,
+    delivery: userData.delivery === 1,
+    dine_in: userData.dine_in === 1,
+  };
+
   const currentTab = sessionStorage.getItem("tab") || "take_away";
   const isArabic = i18n.language === "ar";
 
@@ -79,6 +88,12 @@ export default function Navbar() {
   };
 
   const handleTabChange = (value) => {
+    // منع التبديل لـ tab غير مسموح (للأمان الإضافي)
+    if (!permissions[value.replace("-", "_")]) {
+      toast.warn(t("You do not have permission for this section"));
+      return;
+    }
+
     sessionStorage.setItem("tab", value);
     sessionStorage.setItem("order_type", value);
 
@@ -97,7 +112,14 @@ export default function Navbar() {
     }
   };
 
-  const handleTables = () => navigate("/tables", { replace: true });
+  const handleTables = () => {
+    if (!permissions.dine_in) {
+      toast.warn(t("You do not have permission for tables"));
+      return;
+    }
+    navigate("/tables", { replace: true });
+  };
+
   const handleDueUsers = () => navigate("/due");
   const handleAllOrders = () => navigate("/all-orders");
   const handleExpenses = () => setShowExpensesModal(true);
@@ -111,7 +133,6 @@ export default function Navbar() {
     setShowPasswordModal(true);
   };
 
-  // Navbar.js - النسخة النظيفة جدًا باستخدام API واحد فقط
   const handlePasswordConfirmed = async (password) => {
     setShowPasswordModal(false);
     setReportLoading(true);
@@ -120,7 +141,6 @@ export default function Navbar() {
       const token = sessionStorage.getItem("token");
       const baseUrl = import.meta.env.VITE_API_BASE_URL;
 
-      // API واحدة بتعمل كل حاجة: تحقق الباسورد + تجيب التقرير
       const response = await axios.post(
         `${baseUrl}cashier/reports/end_shift_report`,
         { password },
@@ -129,8 +149,7 @@ export default function Navbar() {
         }
       );
 
-      // الـ API دي لازم ترجع التقرير جاهز
-      setEndShiftReport(response.data); // response.data يحتوي على reportData
+      setEndShiftReport(response.data);
       setShowReportModal(true);
     } catch (err) {
       const msg =
@@ -140,31 +159,26 @@ export default function Navbar() {
       setReportLoading(false);
     }
   };
-const handleClose = async () => {
+
+  const handleClose = async () => {
     try {
       setLoading(true);
 
       const token = sessionStorage.getItem("token");
-      const endpoint = `${import.meta.env.VITE_API_BASE_URL
-        }cashier/shift/close`;
+      const endpoint = `${import.meta.env.VITE_API_BASE_URL}cashier/shift/close`;
 
-      // ✅ استدعاء API لقفل الـ shift
       await axios.get(endpoint, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
 
-      // ✅ تحديث الـ context
       closeShift();
 
-      // ✅ مسح بيانات الـ shift من sessionStorage
       sessionStorage.removeItem("shift_start_time");
       sessionStorage.removeItem("shift_data");
       sessionStorage.clear();
 
-      // ✅ عرض رسالة النجاح
       toast.success(t("ShiftClosedSuccessfully"));
 
-      // ✅ الانتقال للـ home بعد ثانية
       navigate("/login");
     } catch (err) {
       console.error("Close shift error:", err);
@@ -173,7 +187,6 @@ const handleClose = async () => {
       setLoading(false);
     }
   };
-
 
   const handleLogout = async () => {
     try {
@@ -188,7 +201,7 @@ const handleClose = async () => {
 
   return (
     <>
-      <div className="text-gray-800 px-4  md:px-6  w-full z-50 bg-white shadow-md">
+      <div className="text-gray-800 px-4 md:px-6 w-full z-50 bg-white shadow-md">
         <div className="flex items-center justify-between gap-4">
           {/* الجزء الأيسر */}
           <div className="flex items-center gap-2">
@@ -233,42 +246,58 @@ const handleClose = async () => {
               <FaDollarSign className="text-2xl md:text-3xl" />
             </button>
 
-
-
             <Tabs value={currentTab} onValueChange={handleTabChange}>
               <TabsList className="flex gap-2 bg-transparent p-0 ml-2">
-                <TabsTrigger
-                  value="online-order"
-                  className="px-3 py-1 text-sm font-semibold bg-white text-bg-primary border border-bg-primary data-[state=active]:bg-bg-primary data-[state=active]:text-white transition-colors duration-200"
-                >
-                  {t("OnlineOrders")}
-                </TabsTrigger>
-                <TabsTrigger
-                  value="take_away"
-                  className="px-3 py-1 text-sm font-semibold bg-white text-bg-primary border border-bg-primary data-[state=active]:bg-bg-primary data-[state=active]:text-white transition-colors duration-200"
-                >
-                  {t("take_away")}
-                </TabsTrigger>
-                <TabsTrigger
-                  value="delivery"
-                  className="px-3 py-1 text-sm font-semibold bg-white text-bg-primary border border-bg-primary data-[state=active]:bg-bg-primary data-[state=active]:text-white transition-colors duration-200"
-                >
-                  {t("Delivery")}
-                </TabsTrigger>
-                <TabsTrigger
-                  value="dine_in"
-                  className="px-3 py-1 text-sm font-semibold bg-white text-bg-primary border border-bg-primary data-[state=active]:bg-bg-primary data-[state=active]:text-white transition-colors duration-200"
-                >
-                  {t("Dinein")}
-                </TabsTrigger>
+                {/* Online Orders */}
+                {permissions.online_order && (
+                  <TabsTrigger
+                    value="online-order"
+                    className="px-3 py-1 text-sm font-semibold bg-white text-bg-primary border border-bg-primary data-[state=active]:bg-bg-primary data-[state=active]:text-white transition-colors duration-200"
+                  >
+                    {t("OnlineOrders")}
+                  </TabsTrigger>
+                )}
 
-                <button
-                  onClick={handleTables}
-                  className="p-2 border border-bg-primary rounded-lg hover:bg-bg-primary hover:text-white text-bg-primary transition"
-                  title={t("Tables")}
-                >
-                  <FaTable className="text-lg" />
-                </button>
+                {/* Take Away */}
+                {permissions.take_away && (
+                  <TabsTrigger
+                    value="take_away"
+                    className="px-3 py-1 text-sm font-semibold bg-white text-bg-primary border border-bg-primary data-[state=active]:bg-bg-primary data-[state=active]:text-white transition-colors duration-200"
+                  >
+                    {t("take_away")}
+                  </TabsTrigger>
+                )}
+
+                {/* Delivery */}
+                {permissions.delivery && (
+                  <TabsTrigger
+                    value="delivery"
+                    className="px-3 py-1 text-sm font-semibold bg-white text-bg-primary border border-bg-primary data-[state=active]:bg-bg-primary data-[state=active]:text-white transition-colors duration-200"
+                  >
+                    {t("Delivery")}
+                  </TabsTrigger>
+                )}
+
+                {/* Dine In */}
+                {permissions.dine_in && (
+                  <TabsTrigger
+                    value="dine_in"
+                    className="px-3 py-1 text-sm font-semibold bg-white text-bg-primary border border-bg-primary data-[state=active]:bg-bg-primary data-[state=active]:text-white transition-colors duration-200"
+                  >
+                    {t("Dinein")}
+                  </TabsTrigger>
+                )}
+
+                {/* زر الطاولات - يظهر فقط إذا كان dine_in مسموح */}
+                {permissions.dine_in && (
+                  <button
+                    onClick={handleTables}
+                    className="p-2 border border-bg-primary rounded-lg hover:bg-bg-primary hover:text-white text-bg-primary transition"
+                    title={t("Tables")}
+                  >
+                    <FaTable className="text-lg" />
+                  </button>
+                )}
               </TabsList>
             </Tabs>
           </div>
@@ -337,7 +366,8 @@ const handleClose = async () => {
               </button>
               <span className="text-sm font-medium">EN</span>
             </div>
-  <Notifications />
+
+            <Notifications />
 
             <button
               onClick={handleLogout}
