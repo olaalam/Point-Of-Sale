@@ -240,9 +240,9 @@ if (response && response.success) {
               ? t("AddAnotherAddressforUser")
               : t("AddNewDeliveryUser")}
         </h2>
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div className="grid grid-cols-1  gap-8">
           {/* Left - Map */}
-          <MapComponent
+          {/* <MapComponent
             selectedLocation={selectedLocation}
             setSelectedLocation={setSelectedLocation}
             handleMarkerDragEnd={handleMarkerDragEnd}
@@ -250,7 +250,7 @@ if (response && response.success) {
             isMapClickEnabled={isAutoAddress}
             isMapInteractionEnabled={isAutoAddress}
             form={form}
-          />
+          /> */}
 
           {/* Right - Form */}
           <div className="bg-white rounded-2xl p-6 shadow-lg">
