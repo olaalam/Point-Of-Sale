@@ -17,61 +17,68 @@ const calculateProductTotalPrice = (
   baseProduct,
   selectedVariation = {},
   selectedExtras = [],
-  quantity = 1
+  quantity = 1,
+  productType = "piece"
 ) => {
-  let totalPrice = parseFloat(baseProduct.price_after_discount || 0);
+  const isWeightProduct = productType === "weight" || baseProduct.weight_status === 1;
 
-  // Add variation prices
+  // 1. السعر الأساسي + المتغيرات (هي اللي هتتضرب في الوزن)
+  let mainPrice = parseFloat(baseProduct.price_after_discount || baseProduct.price || 0);
+
+  // إضافة أسعار المتغيرات (Variations)
   if (baseProduct.variations && Object.keys(selectedVariation).length > 0) {
     baseProduct.variations.forEach(variation => {
-      const selectedOptions = selectedVariation[variation.id];
-      
-      if (selectedOptions !== undefined) {
+      const selected = selectedVariation[variation.id];
+      if (selected !== undefined) {
         if (variation.type === 'single') {
-          const selectedOption = variation.options?.find(opt => opt.id === selectedOptions);
-          if (selectedOption) {
-            totalPrice += parseFloat(selectedOption.price_after_tax || selectedOption.price || 0);
+          const opt = variation.options?.find(o => o.id === selected);
+          if (opt) {
+            mainPrice += parseFloat(opt.price_after_tax || opt.price || 0);
           }
         } else if (variation.type === 'multiple') {
-          const optionsArray = Array.isArray(selectedOptions) ? selectedOptions : [selectedOptions];
-          optionsArray.forEach(optionId => {
-            const option = variation.options?.find(opt => opt.id === optionId);
-            if (option) {
-              totalPrice += parseFloat(option.price_after_tax || option.price || 0);
-            }
+          const arr = Array.isArray(selected) ? selected : [selected];
+          arr.forEach(id => {
+            const opt = variation.options?.find(o => o.id === id);
+            if (opt) mainPrice += parseFloat(opt.price_after_tax || opt.price || 0);
           });
         }
       }
     });
   }
 
-  // Add extras and addons prices
-  if (selectedExtras && selectedExtras.length > 0) {
-    const extraCounts = {};
-    selectedExtras.forEach(extraId => {
-      extraCounts[extraId] = (extraCounts[extraId] || 0) + 1;
+  // 2. حساب الإضافات (Extras + Addons) → ثابتة في المنتجات بالوزن
+  let extrasPrice = 0;
+  if (selectedExtras?.length > 0) {
+    const counts = {};
+    selectedExtras.forEach(id => {
+      counts[id] = (counts[id] || 0) + 1;
     });
 
-    Object.entries(extraCounts).forEach(([extraId, count]) => {
-      let extraItem = baseProduct.allExtras?.find(extra => extra.id === parseInt(extraId));
-      
-      if (!extraItem) {
-        extraItem = baseProduct.addons?.find(addon => addon.id === parseInt(extraId));
-      }
+    Object.entries(counts).forEach(([idStr, count]) => {
+      const id = parseInt(idStr);
+      let item = baseProduct.allExtras?.find(e => e.id === id) ||
+                 baseProduct.addons?.find(a => a.id === id);
 
-      if (extraItem) {
-        const extraPrice = parseFloat(
-          extraItem.price_after_discount || 
-          extraItem.price_after_tax || 
-          extraItem.price || 
+      if (item) {
+        const price = parseFloat(
+          item.price_after_discount ||
+          item.price_after_tax ||
+          item.price ||
           0
         );
-        totalPrice += extraPrice * count;
+        extrasPrice += price * count;
       }
     });
   }
 
-  return totalPrice * quantity;
+  // 3. النتيجة النهائية
+  if (isWeightProduct) {
+    // المنتج + المتغيرات × الوزن + الإضافات (ثابتة)
+    return (mainPrice * quantity) + extrasPrice;
+  } else {
+    // كل شيء × الكمية
+    return (mainPrice + extrasPrice) * quantity;
+  }
 };
 
 // ✅ تحديث دالة المقارنة لتشمل الـ Addons
@@ -138,7 +145,8 @@ const { t , i18n } = useTranslation();
     selectedProduct,
     selectedVariation,
     selectedExtras,
-    quantity
+    quantity,
+    productType
   );
 
   const hasVariations =
@@ -418,57 +426,63 @@ const { t , i18n } = useTranslation();
             )}
 
             {/* Addons section - with counters */}
-            {hasAddons && (
-              <div className="mb-4">
-                <h4 className="text-sm font-semibold text-gray-700 mb-3">
-                  {t("AddonsOptional")} 
-                </h4>
-                <div className="space-y-3">
-                  {selectedProduct.addons.map((addon, index) => {
-                    const count = getExtraCount(addon.id);
+{hasAddons && (
+  <div className="mb-4">
+    <h4 className="text-sm font-semibold text-gray-700 mb-3">
+      {t("AddonsOptional")} 
+    </h4>
+    <div className="space-y-3">
+      {selectedProduct.addons.map((addon, index) => {
+        const count = getExtraCount(addon.id);
 
-                    return (
-                      <div
-                        key={`addon-${index}`}
-                        className="flex items-center justify-between p-3 border rounded-lg bg-gray-50"
-                      >
-                        <div className="flex-1">
-                          <span className="text-sm font-medium text-gray-700 capitalize">
-                            {addon.name}
-                          </span>
-                          <div className="text-xs text-gray-500">
-                            +{(
-                              addon.price_after_discount ??
-                              addon.price ??
-                              0
-                            ).toFixed(2)}{" "}
-                            {t('EGP')}
-                          </div>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <button
-                            className="bg-gray-200 text-red-600 p-1 rounded-full hover:bg-gray-300 transition-colors disabled:opacity-50"
-                            onClick={() => handleExtraDecrement(addon.id)}
-                            disabled={count === 0}
-                          >
-                            <Minus size={16} />
-                          </button>
-                          <span className="text-sm font-semibold w-8 text-center">
-                            {count}
-                          </span>
-                          <button
-                            className="bg-red-600 text-white p-1 rounded-full hover:bg-red-700 transition-colors"
-                            onClick={() => handleExtraIncrement(addon.id)}
-                          >
-                            <Plus size={16} />
-                          </button>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
+        return (
+          <div
+            key={`addon-${index}`}
+            className="flex items-center justify-between p-3 border rounded-lg bg-gray-50"
+          >
+            <div className="flex-1">
+              <span className="text-sm font-medium text-gray-700 capitalize">
+                {addon.name}
+              </span>
+              <div className="text-xs text-gray-500">
+                +{(
+                  addon.price_after_tax ??     
+                  addon.price_after_discount ??
+                  addon.price ??
+                  0
+                ).toFixed(2)}{" "}
+                {t('EGP')}
+                {addon.tax && (              
+                  <span className="ml-1 text-xs text-gray-400">
+                    ({t("inclTax")})       
+                  </span>
+                )}
               </div>
-            )}
+            </div>
+            <div className="flex items-center space-x-2">
+              <button
+                className="bg-gray-200 text-red-600 p-1 rounded-full hover:bg-gray-300 transition-colors disabled:opacity-50"
+                onClick={() => handleExtraDecrement(addon.id)}
+                disabled={count === 0}
+              >
+                <Minus size={16} />
+              </button>
+              <span className="text-sm font-semibold w-8 text-center">
+                {count}
+              </span>
+              <button
+                className="bg-red-600 text-white p-1 rounded-full hover:bg-red-700 transition-colors"
+                onClick={() => handleExtraIncrement(addon.id)}
+              >
+                <Plus size={16} />
+              </button>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  </div>
+)}
 
             {/* Excludes section */}
             {hasExcludes && (

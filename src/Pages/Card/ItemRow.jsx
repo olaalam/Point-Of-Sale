@@ -60,48 +60,75 @@ const ItemRow = ({
   const StatusIcon = statusInfo.icon;
   const isItemLoading = itemLoadingStates[item.temp_id] || false;
 
-  // ==========================================
-  // 🟢 حساب الأسعار بدقة (Logic)
-  // ==========================================
+// ==========================================
+// 🟢 حساب الأسعار بدقة (Logic) - النسخة المصححة
+// ==========================================
 
-  // 1. استخراج سعر الـ Variation المختار (مثل حجم البيتزا)
-  const selectedOptionId = item.variations?.[0]?.selected_option_id;
-  const selectedOption = item.variations?.[0]?.options?.find(opt => opt.id === selectedOptionId);
+// 1. هل المنتج بالوزن؟
+const isWeightProduct = item.weight_status === 1 || item.weight_status === "1";
+// 2. سعر الوحدة الأساسي (سعر الكيلو أو سعر القطعة الواحدة)
+let unitBasePrice = Number(item.price_after_discount || item.price || 0);
+// حالة الـ Variation (مثل Large / Small)
+const selectedOptionId = item.variations?.[0]?.selected_option_id;
+const selectedOption = item.variations?.[0]?.options?.find(opt => opt.id === selectedOptionId);
 
-  let basePrice = Number(item.price || 0);
-  let hasDiscount = false;
-  let originalPriceForDisplay = Number(item.price || 0);
+if (selectedOption) {
+  unitBasePrice = Number(
+    selectedOption.total_option_price ||
+    selectedOption.price_after_tax ||
+    selectedOption.price_after_discount ||
+    selectedOption.price ||
+    0
+  );
+}
 
-  if (selectedOption) {
-    // حالة الـ Variation: السعر الأساسي هو سعر الخيار المختار
-    basePrice = Number(selectedOption.total_option_price || selectedOption.after_disount || selectedOption.price || 0);
-    
-    // الخصم حقيقي فقط إذا كان discount_val أكبر من 0 (تجنباً لفرق سعر الأحجام)
-    hasDiscount = Number(selectedOption.discount_val || 0) > 0;
-    originalPriceForDisplay = hasDiscount ? (basePrice + Number(selectedOption.discount_val)) : basePrice;
-  } else {
-    // حالة المنتج العادي: نستخدم السعر بعد الخصم المباشر
-    const priceAfterDisc = Number(item.price_after_discount || 0);
-    const normalPrice = Number(item.price || 0);
-    
-    // إذا كان السعر بعد الخصم متاحاً وأقل من السعر الأصلي
-    hasDiscount = priceAfterDisc > 0 && priceAfterDisc < normalPrice;
-    basePrice = hasDiscount ? priceAfterDisc : normalPrice;
-    originalPriceForDisplay = normalPrice;
-  }
+let hasDiscount = false;
+let originalUnitBasePrice = Number(item.price || 0);
 
-  // 2. إضافة الإضافات والـ Extras للسعر
-  const addonsTotal = calculateAddonsTotal(item);
-  const finalUnitPrice = basePrice + addonsTotal;
-  const finalOriginalPrice = originalPriceForDisplay + addonsTotal;
+if (selectedOption) {
+  hasDiscount = Number(selectedOption.discount_val || 0) > 0;
+  originalUnitBasePrice = hasDiscount
+    ? unitBasePrice + Number(selectedOption.discount_val || 0)
+    : unitBasePrice;
+} else {
+  const priceAfterDisc = Number(item.price_after_discount || 0);
+  const normalPrice = Number(item.price || 0);
+  hasDiscount = priceAfterDisc > 0 && priceAfterDisc < normalPrice;
+  originalUnitBasePrice = normalPrice;
+}
 
-  // 3. الكمية (الوزن أو العدد)
-  const quantity = (item.weight_status === 1 || item.weight_status === "1")
-    ? Number(item.quantity || 1)
-    : Number(item.count || 1);
+// 3. حساب الإضافات (addons + extras) → ثابتة في حالة الوزن
+const addonsTotal = calculateAddonsTotal(item);
+let finalUnitPrice;
+// 4. سعر الوحدة النهائي اللي هيظهر في عمود "Price"
+//    ──────────────────────────────────────────────────────
+if (isWeightProduct) {
+  // ────────────────────── الحل المهم ──────────────────────
+  // سعر الكيلو + الإضافات الثابتة (مش بتتضرب في الوزن)
+  finalUnitPrice = unitBasePrice + addonsTotal;
+} else {
+  // المنتجات العادية: كل حاجة تتضرب في الكمية لاحقًا
+  finalUnitPrice = unitBasePrice + addonsTotal;
+}
+// 5. الكمية / الوزن
+const quantity = isWeightProduct 
+  ? Number(item.quantity || 0) 
+  : Number(item.count || 1);
 
-  // 4. الإجمالي النهائي للسطر
-  const totalPrice = (finalUnitPrice * quantity).toFixed(2);
+  let displayedUnitPrice = isWeightProduct
+  ? unitBasePrice  // بس سعر الكيلو الأساسي (بدون إضافات)
+  : unitBasePrice + addonsTotal;
+
+  let displayedOriginalUnitPrice = isWeightProduct
+  ? originalUnitBasePrice
+  : originalUnitBasePrice + addonsTotal;
+
+// 6. الإجمالي النهائي للسطر (اللي في عمود Total)
+const totalPrice = isWeightProduct
+  ? (unitBasePrice * quantity + addonsTotal).toFixed(2)
+  : (displayedUnitPrice * quantity).toFixed(2);
+
+
 
   return (
     <tr className={`border-b last:border-b-0 hover:bg-gray-50 ${item.type === "addon" ? "bg-blue-50" : ""} ${selectedPaymentItems?.includes(item.temp_id) ? "bg-green-50" : ""}`}>
@@ -160,19 +187,18 @@ const ItemRow = ({
       </td>
 
       {/* عمود سعر الوحدة */}
-      <td className="py-3 px-4 text-center align-top">
-        <div className="flex flex-col items-center">
-          <span className={hasDiscount ? "text-red-600 font-bold" : "font-medium"}>
-            {finalUnitPrice.toFixed(2)}
-          </span>
-          {hasDiscount && (
-            <span className="text-xs text-gray-400 line-through">
-              {finalOriginalPrice.toFixed(2)}
-            </span>
-          )}
-        </div>
-      </td>
-
+<td className="py-3 px-4 text-center align-top">
+  <div className="flex flex-col items-center">
+    <span className={hasDiscount ? "text-red-600 font-bold" : "font-medium"}>
+      {displayedUnitPrice.toFixed(2)}
+    </span>
+    {hasDiscount && (
+      <span className="text-xs text-gray-400 line-through">
+        {displayedOriginalUnitPrice.toFixed(2)}
+      </span>
+    )}
+  </div>
+</td>
       {/* حالة التحضير (Dine-in) */}
       {orderType === "dine_in" && (
         <td className="p-2 text-center align-middle">
@@ -205,9 +231,9 @@ const ItemRow = ({
   </td>
 )}
       {/* السعر الإجمالي للعنصر */}
-      <td className="p-2 text-center align-middle">
-        <span className="font-bold text-gray-900 text-sm">{totalPrice}</span>
-      </td>
+<td className="p-2 text-center align-middle">
+  <span className="font-bold text-gray-900 text-sm">{totalPrice}</span>
+</td>
 
       {/* عمليات الحذف */}
       <td className="p-2 text-center align-middle">
