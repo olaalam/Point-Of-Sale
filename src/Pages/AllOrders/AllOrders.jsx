@@ -577,34 +577,38 @@ const handleClose = () => {
           {/* Orders Table */}
           <div className="overflow-x-auto rounded-lg shadow-md border" dir={isArabic ? "rtl" : "ltr"}>
             <table className="min-w-full border-collapse">
-              <thead className="bg-gray-100 text-gray-700">
-                <tr>
-                  <th className={`border p-3 ${isArabic ? "text-right" : "text-left"}`}>
-                    {t("OrderNumber")}
-                  </th>
-                  <th className={`border p-3 ${isArabic ? "text-right" : "text-left"}`}>
-                    {t("Type")}
-                  </th>
-                  <th className={`border p-3 ${isArabic ? "text-right" : "text-left"}`}>
-                    {t("Amount")}
-                  </th>
-                  <th className={`border p-3 ${isArabic ? "text-right" : "text-left"}`}>
-                    {t("Status")}
-                  </th>
-                  <th className={`border p-3 ${isArabic ? "text-right" : "text-left"}`}>
-                    {t("Branch")}
-                  </th>
-                  <th className={`border p-3 ${isArabic ? "text-right" : "text-left"}`}>
-                    {t("DateTime")}
-                  </th>
-                  <th className={`border p-3 ${isArabic ? "text-right" : "text-left"}`}>
-                    {t("Print")}
-                  </th>
-                  <th className={`border p-3 ${isArabic ? "text-right" : "text-left"}`}>
-                    {t("Void")}
-                  </th>
-                </tr>
-              </thead>
+<thead className="bg-gray-100 text-gray-700">
+  <tr>
+    <th className={`border p-3 ${isArabic ? "text-right" : "text-left"}`}>
+      {t("OrderNumber")}
+    </th>
+    <th className={`border p-3 ${isArabic ? "text-right" : "text-left"}`}>
+      {t("Type")}
+    </th>
+    <th className={`border p-3 ${isArabic ? "text-right" : "text-left"}`}>
+      {t("Amount")}
+    </th>
+    {/* العمود الجديد */}
+    <th className={`border p-3 ${isArabic ? "text-right" : "text-left"}`}>
+      {isArabic ? "بيانات العميل" : "Customer Info"}
+    </th>
+    <th className={`border p-3 ${isArabic ? "text-right" : "text-left"}`}>
+      {t("Status")}
+    </th>
+    <th className={`border p-3 ${isArabic ? "text-right" : "text-left"}`}>
+      {t("Branch")}
+    </th>
+    <th className={`border p-3 ${isArabic ? "text-right" : "text-left"}`}>
+      {t("DateTime")}
+    </th>
+    <th className={`border p-3 ${isArabic ? "text-right" : "text-left"}`}>
+      {t("Print")}
+    </th>
+    <th className={`border p-3 ${isArabic ? "text-right" : "text-left"}`}>
+      {t("Void")}
+    </th>
+  </tr>
+</thead>
               <tbody className={getLoading ? "opacity-50 pointer-events-none" : ""}>
                 {displayedOrders.map((order) => (
                   <tr key={order.id || order.order_number} className="hover:bg-gray-50 transition-colors">
@@ -617,6 +621,26 @@ const handleClose = () => {
                     <td className={`border p-3 ${isArabic ? "text-right" : "text-left"}`}>
                       {order.amount || "—"}
                     </td>
+                    <td className={`border p-3 ${isArabic ? "text-right" : "text-left"} text-sm leading-relaxed`}>
+        {order.order_type === "delivery" && order.user ? (
+          <div className="flex flex-col gap-1">
+            <span className="font-medium">
+              {order.user.f_name} {order.user.l_name || ""}
+            </span>
+            <span dir="ltr" className="text-gray-700">
+              {order.user.phone || "—"}
+            </span>
+            {order.address?.zone?.zone && (
+              <span className="text-gray-600 text-xs mt-1">
+                {isArabic ? "المنطقة: " : "Zone: "}
+                {order.address.zone.zone}
+              </span>
+            )}
+          </div>
+        ) : (
+          "—"
+        )}
+      </td>
                     <td className={`border p-3 ${isArabic ? "text-right" : "text-left"}`}>
                       <span
                         className={`px-3 py-1 text-xs rounded-full ${
