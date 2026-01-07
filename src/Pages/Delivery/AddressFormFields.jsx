@@ -13,6 +13,25 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+
+// === الاستيرادات الجديدة المطلوبة للـ Combobox ===
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import { Check, ChevronsUpDown } from "lucide-react";
+
 import { useTranslation } from "react-i18next";
 
 const AddressFormFields = ({
@@ -22,11 +41,10 @@ const AddressFormFields = ({
   cities,
   availableZones,
   handleCityChange,
-  // إضافة props جديدة للتحكم في الـ switch من الأب
-  isAutoAddress = false, // ✅ Default هو Manual (false)
+  isAutoAddress = false,
   setIsAutoAddress,
-}) => {   
-   const { t } = useTranslation();
+}) => {
+  const { t } = useTranslation();
 
   return (
     <>
@@ -38,7 +56,7 @@ const AddressFormFields = ({
             {isAutoAddress ? t("Automaticfrommaplocation") : t("Manualaddressentry")}
           </span>
         </div>
-        <div className="flex items-center space-x-2 rtl:space-x-reverse"> {/* دعم RTL */}
+        <div className="flex items-center space-x-2 rtl:space-x-reverse">
           <span className={`text-sm ${!isAutoAddress ? 'text-blue-600 font-medium' : 'text-gray-500'}`}>
             {t("Manual")}
           </span>
@@ -49,7 +67,6 @@ const AddressFormFields = ({
               if (setIsAutoAddress) {
                 setIsAutoAddress(newValue);
               }
-              // مسح العنوان عند التبديل للوضع اليدوي
               if (!newValue) {
                 form.setValue("address", "");
               }
@@ -96,15 +113,11 @@ const AddressFormFields = ({
                   readOnly={false}
                 />
               ) : (
-                // وضع يدوي - المستخدم يكتب بنفسه - بدون تدخل من locationName
                 <Input
                   placeholder={t("Enteryouraddressmanually")}
                   {...field}
-                  onChange={(e) => {
-                    // لا نحدث locationName في الوضع اليدوي
-                    field.onChange(e.target.value);
-                  }}
-                  value={field.value || ""} // القيمة من الـ form فقط
+                  onChange={(e) => field.onChange(e.target.value)}
+                  value={field.value || ""}
                   className="bg-white border-gray-300"
                 />
               )}
@@ -114,122 +127,171 @@ const AddressFormFields = ({
         )}
       />
 
-      {/* Grid for number fields */}
+      {/* Grid for optional fields */}
       <div className="grid grid-cols-2 gap-4">
-       
         {[
-  { name: "street", label: t("Street (optional)") },
-  { name: "building_num", label: t("BuildingNumber (optional)") },
-  { name: "floor_num", label: t("FloorNumber (optional)") },
-  { name: "apartment", label: t("Apartment (optional)") },
-].map(({ name, label }) => (
-  <FormField
-    key={name}
-    control={form.control}
-    name={name}
-    render={({ field }) => (
-      <FormItem>
-        <FormLabel>{label}</FormLabel>
-        <FormControl>
-          <Input
-            type={name === "street" ? "text" : "number"}
-            {...field}
-            onChange={(e) => {
-              const value = e.target.value;
-              if (name === "street") {
-                field.onChange(value === "" ? null : value);
-              } else {
-                field.onChange(value === "" ? null : Number(value));
-              }
-            }}
-            value={field.value === null ? "" : field.value}
+          { name: "street", label: t("Street (optional)") },
+          { name: "building_num", label: t("BuildingNumber (optional)") },
+          { name: "floor_num", label: t("FloorNumber (optional)") },
+          { name: "apartment", label: t("Apartment (optional)") },
+        ].map(({ name, label }) => (
+          <FormField
+            key={name}
+            control={form.control}
+            name={name}
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>{label}</FormLabel>
+                <FormControl>
+                  <Input
+                    type={name === "street" ? "text" : "number"}
+                    {...field}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      if (name === "street") {
+                        field.onChange(value === "" ? null : value);
+                      } else {
+                        field.onChange(value === "" ? null : Number(value));
+                      }
+                    }}
+                    value={field.value === null ? "" : field.value}
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
           />
-        </FormControl>
-        <FormMessage />
-      </FormItem>
-    )}
-  />
-))}
-
+        ))}
       </div>
 
+      {/* City & Zone - Combobox مع بحث */}
       <div className="grid grid-cols-2 gap-4">
-        {/* City Selection */}
+        {/* City Combobox */}
         <FormField
           control={form.control}
           name="city_id"
           render={({ field }) => (
             <FormItem>
               <FormLabel>{t("City")}</FormLabel>
-              <Select 
-                onValueChange={(value) => {
-                  console.log("City select changed:", value);
-                  field.onChange(value);
-                  handleCityChange(value);
-                }} 
-                value={field.value || ""}
-              >
-                <FormControl>
-                  <SelectTrigger className="!w-full">
-                    <SelectValue placeholder={t("SelectCity")} />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  {cities.map((city) => (
-                    <SelectItem key={city.id} value={city.id.toString()}>
-                      {city.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <FormControl>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      className={cn("w-full justify-between", !field.value && "text-muted-foreground")}
+                    >
+                      {field.value
+                        ? cities.find((city) => city.id.toString() === field.value)?.name
+                        : t("SelectCity")}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </FormControl>
+                </PopoverTrigger>
+                <PopoverContent className="w-full p-0">
+                  <Command>
+                    <CommandInput placeholder={t("SearchCity")} autoFocus />
+                    <CommandList>
+                      <CommandEmpty>{t("NoCityFound")}</CommandEmpty>
+                      <CommandGroup>
+                        {cities.map((city) => (
+                          <CommandItem
+                            key={city.id}
+                            value={city.name}
+                            onSelect={() => {
+                              const newValue = city.id.toString();
+                              field.onChange(newValue);
+                              handleCityChange(newValue);
+                            }}
+                          >
+                            <Check
+                              className={cn(
+                                "mr-2 h-4 w-4",
+                                field.value === city.id.toString() ? "opacity-100" : "opacity-0"
+                              )}
+                            />
+                            {city.name}
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
               <FormMessage />
             </FormItem>
           )}
         />
 
-        {/* Zone Selection */}
+        {/* Zone Combobox */}
         <FormField
           control={form.control}
           name="zone_id"
           render={({ field }) => (
             <FormItem>
               <FormLabel>{t("Zone")}</FormLabel>
-              <Select
-                onValueChange={field.onChange}
-                value={field.value || ""}
-                disabled={availableZones.length === 0}
-              >
-                <FormControl>
-                  <SelectTrigger className="!w-full">
-                    <SelectValue placeholder={t("SelectZone")} />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  {availableZones.map((zone) => (
-<SelectItem key={zone.id} value={zone.id.toString()}>
-  {zone.zone} • {zone?.price} EGP
-</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <FormControl>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      disabled={availableZones.length === 0}
+                      className={cn("w-full justify-between", !field.value && "text-muted-foreground")}
+                    >
+                      {field.value
+                        ? availableZones.find((z) => z.id.toString() === field.value)
+                          ? `${availableZones.find((z) => z.id.toString() === field.value)?.zone} • ${
+                              availableZones.find((z) => z.id.toString() === field.value)?.price
+                            } EGP`
+                          : t("SelectZone")
+                        : t("SelectZone")}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </FormControl>
+                </PopoverTrigger>
+                <PopoverContent className="w-full p-0">
+                  <Command>
+                    <CommandInput placeholder={t("SearchZone")} autoFocus />
+                    <CommandList>
+                      <CommandEmpty>{t("NoZoneFound")}</CommandEmpty>
+                      <CommandGroup>
+                        {availableZones.map((zone) => (
+                          <CommandItem
+                            key={zone.id}
+                            value={`${zone.zone} ${zone.price}`}
+                            onSelect={() => field.onChange(zone.id.toString())}
+                          >
+                            <Check
+                              className={cn(
+                                "mr-2 h-4 w-4",
+                                field.value === zone.id.toString() ? "opacity-100" : "opacity-0"
+                              )}
+                            />
+                            {zone.zone} • {zone.price} EGP
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
               <FormMessage />
             </FormItem>
           )}
         />
       </div>
 
+      {/* Type - بقيت Select عادي لأن الخيارات قليلة */}
       <FormField
         control={form.control}
         name="type"
         render={({ field }) => (
           <FormItem>
             <FormLabel>{t("Type")}</FormLabel>
-            <Select 
-              onValueChange={field.onChange} 
-              value={field.value || ""}
-            >
+            <Select onValueChange={field.onChange} value={field.value || ""}>
               <FormControl>
-                <SelectTrigger className="!w-full">
+                <SelectTrigger className="w-full">
                   <SelectValue placeholder={t("SelectType")} />
                 </SelectTrigger>
               </FormControl>
@@ -244,6 +306,7 @@ const AddressFormFields = ({
         )}
       />
 
+      {/* Additional Data */}
       <FormField
         control={form.control}
         name="additional_data"
