@@ -113,11 +113,6 @@ export const getOrderEndpoint = (orderType, orderItems, totalDineInItems, hasDea
 
 
 /**
- * بناء الـ Payload الأساسي - مظبوط 100% بدون أخطاء
- */
-// utils/processProductItem.js
-
-/**
  * بناء الـ Payload الأساسي - إضافة service_fee_id
  */
 export const buildOrderPayload = ({
@@ -245,4 +240,63 @@ export const validatePaymentSplits = (paymentSplits, getDescriptionStatus) => {
   }
 
   return { valid: true, totalPaid: total };
+};
+/**
+ * حساب خصم عنصر واحد (base product/variation فقط، مش الـ addons/extras)
+ */
+export const calculateItemDiscount = (item) => {
+  if (!item) return 0;
+
+  // سعر الوحدة الأساسي بعد الخصم
+  let unitBasePrice = Number(item.price_after_discount || item.price || 0);
+
+  // السعر الأصلي قبل الخصم
+  let originalUnitBasePrice = Number(item.price || 0);
+
+  // حالة الـ Variation
+  const selectedOption = item.variations?.[0]?.options?.find(
+    (opt) => opt.id === item.variations?.[0]?.selected_option_id
+  );
+
+  if (selectedOption) {
+    unitBasePrice = Number(
+      selectedOption.total_option_price ||
+      selectedOption.price_after_tax ||
+      selectedOption.price_after_discount ||
+      selectedOption.price ||
+      0
+    );
+
+    const discountVal = Number(selectedOption.discount_val || 0);
+    if (discountVal > 0) {
+      originalUnitBasePrice = unitBasePrice + discountVal;
+    } else {
+      originalUnitBasePrice = unitBasePrice;
+    }
+  } else {
+    // غير variation: لو في price_after_discount أصغر من price
+    if (unitBasePrice < originalUnitBasePrice && unitBasePrice > 0) {
+      // original يبقى item.price
+    } else {
+      originalUnitBasePrice = unitBasePrice;
+    }
+  }
+
+  // الكمية (سواء وزن أو عادي)
+  const quantity =
+    item.weight_status === 1 || item.weight_status === "1"
+      ? Number(item.quantity || item.count || 1)
+      : Number(item.count || 1);
+
+  // الخصم لهذا العنصر
+  const discount = Math.max(0, originalUnitBasePrice - unitBasePrice) * quantity;
+
+  return parseFloat(discount.toFixed(2));
+};
+
+/**
+ * إجمالي خصومات كل المنتجات في السلة
+ */
+export const calculateTotalItemDiscounts = (orderItems = []) => {
+  return orderItems.reduce((sum, item) => sum + calculateItemDiscount(item), 0);
 };

@@ -23,6 +23,7 @@ import {
   buildOrderPayload,
   buildDealPayload,
   validatePaymentSplits,
+  calculateTotalItemDiscounts,
 } from "./processProductItem";
 import {
   prepareReceiptData,
@@ -135,28 +136,11 @@ const CheckOut = ({
       return { discount: 0, module: [] };
     }
   }, []);
-  const [orderNotes, setOrderNotes] = useState("");
-  const [paymentSplits, setPaymentSplits] = useState([]);
-  const [customerPaid, setCustomerPaid] = useState("");
-  const [customerSelectionOpen, setCustomerSelectionOpen] = useState(false);
-  const [selectedCustomer, setSelectedCustomer] = useState(null);
-  const [customerSearchQuery, setCustomerSearchQuery] = useState("");
-
-  const {
-    data: dueUsersData,
-    loading: customerSearchLoading,
-    refetch: refetchDueUsers,
-  } = useGet(`cashier/list_due_users?search=${customerSearchQuery}`);
-
-  const searchResults = useMemo(() => {
-    const users = dueUsersData?.users || [];
-    return users.filter(
-      (c) =>
-        c.name.toLowerCase().includes(customerSearchQuery.toLowerCase()) ||
-        c.phone.includes(customerSearchQuery) ||
-        (c.phone_2 && c.phone_2.includes(customerSearchQuery))
-    );
-  }, [dueUsersData, customerSearchQuery]);
+  // 🟢 حساب خصم المنتجات الفردية (item-level discounts)
+const itemDiscountsAmount = useMemo(
+  () => calculateTotalItemDiscounts(orderItems),
+  [orderItems]
+);
   const { selectedDiscountAmount, finalSelectedDiscountId } = useMemo(() => {
     const discountList = discountListData?.discount_list || [];
     const selectedDiscount = discountList.find(
@@ -179,6 +163,49 @@ const CheckOut = ({
       finalSelectedDiscountId: selectedDiscount.id,
     };
   }, [discountListData, selectedDiscountId, amountToPay]);
+// 🟢 حساب قيمة الخصم الـ percentage/value (كوبون أو قائمة أو module) - بدون الـ free
+const percentageDiscountAmount = useMemo(() => {
+  let val = 0;
+
+  if (appliedDiscount > 0) {
+    val = amountToPay * (appliedDiscount / 100);
+  } else if (discountData.module.includes(orderType)) {
+    val = amountToPay * (discountData.discount / 100);
+  } else if (selectedDiscountAmount > 0) {
+    val = selectedDiscountAmount;
+  }
+
+  return val;
+}, [amountToPay, appliedDiscount, discountData, orderType, selectedDiscountAmount, selectedDiscountAmount]);
+
+// 🟢 الـ total_discount النهائي اللي هنبعته للباك (item discounts + percentage discounts + أي totalDiscount سابق)
+const finalTotalDiscount = useMemo(() => {
+  const previous = parseFloat(totalDiscount || 0);
+  return (itemDiscountsAmount + percentageDiscountAmount + previous).toFixed(2);
+}, [itemDiscountsAmount, percentageDiscountAmount, totalDiscount]);
+  const [orderNotes, setOrderNotes] = useState("");
+  const [paymentSplits, setPaymentSplits] = useState([]);
+  const [customerPaid, setCustomerPaid] = useState("");
+  const [customerSelectionOpen, setCustomerSelectionOpen] = useState(false);
+  const [selectedCustomer, setSelectedCustomer] = useState(null);
+  const [customerSearchQuery, setCustomerSearchQuery] = useState("");
+
+  const {
+    data: dueUsersData,
+    loading: customerSearchLoading,
+    refetch: refetchDueUsers,
+  } = useGet(`cashier/list_due_users?search=${customerSearchQuery}`);
+
+  const searchResults = useMemo(() => {
+    const users = dueUsersData?.users || [];
+    return users.filter(
+      (c) =>
+        c.name.toLowerCase().includes(customerSearchQuery.toLowerCase()) ||
+        c.phone.includes(customerSearchQuery) ||
+        (c.phone_2 && c.phone_2.includes(customerSearchQuery))
+    );
+  }, [dueUsersData, customerSearchQuery]);
+
   // 🟢 حساب المبلغ بعد الخصم (مع إضافة free_discount)
   const discountedAmount = useMemo(() => {
     let totalDiscountValue = 0;
@@ -500,7 +527,7 @@ useEffect(() => {
         orderItems: itemsForPayload, // ✅ الآن المتغير معرف وقراءته صحيحة
         amountToPay: discountedAmount.toFixed(2),
         totalTax,
-        totalDiscount: totalAppliedDiscount,
+      totalDiscount: finalTotalDiscount,
         notes: orderNotes.trim() || "No special instructions",
         source,
         financialsPayload,
