@@ -40,7 +40,12 @@ export default function Card({
   const { t, i18n } = useTranslation();
   const isArabic = i18n.language === "ar";
   const { loading: apiLoading, postData } = usePost();
+const selectedUserData = JSON.parse(sessionStorage.getItem("selected_user_data") || "{}");
 
+// استخراج رسوم التوصيل (فقط في حالة delivery)
+const deliveryFee = orderType === "delivery" 
+  ? Number(selectedUserData?.selectedAddress?.zone?.price || 0)
+  : 0;
   // State Management
   const [showModal, setShowModal] = useState(false);
   const [selectedItems, setSelectedItems] = useState([]);
@@ -67,7 +72,8 @@ export default function Card({
     orderItems,
     selectedPaymentItems,
     orderType,
-    serviceFeeData
+    serviceFeeData,
+    deliveryFee
   );
   const offerManagement = useOfferManagement(
     orderItems,

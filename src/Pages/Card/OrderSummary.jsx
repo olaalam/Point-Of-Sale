@@ -363,6 +363,13 @@ const PrintableOrder = React.forwardRef(
               <span style={{ fontWeight: "bold" }}>
                 {calculations.totalOtherCharge.toFixed(2)}
               </span>
+              {/* ← إضافة رسوم التوصيل */}
+  {calculations.deliveryFee > 0 && (
+    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "3px", fontSize: "12px" }}>
+      <span>{isArabic ? "رسوم التوصيل" : "Delivery Fee"}</span>
+      <span style={{ fontWeight: "bold" }}>{calculations.deliveryFee.toFixed(2)}</span>
+    </div>
+  )}
             </div>
           )}
 
@@ -448,13 +455,19 @@ export default function OrderSummary({
 
   const realServiceFee = realSubTotal * 0.10; // 10% - يمكن تعديل النسبة أو جعلها ديناميكية من serviceFeeData
 
+const selectedUserData = JSON.parse(sessionStorage.getItem("selected_user_data") || "{}");
+const deliveryFee = orderType === "delivery" 
+  ? Number(selectedUserData?.selectedAddress?.zone?.price || 0) 
+  : 0;
+
   const printCalculations = {
     subTotal: Number(realSubTotal.toFixed(2)),
     totalTax: totalTax,
     totalOtherCharge: Number(realServiceFee.toFixed(2)),
     taxDetails: taxDetails,
+    deliveryFee: deliveryFee,
     amountToPay: Number(
-      (realSubTotal + realServiceFee + (totalTax || 0)).toFixed(2)
+      (realSubTotal + realServiceFee + (totalTax || 0) + deliveryFee).toFixed(2)
     ),
   };
 
@@ -542,6 +555,12 @@ export default function OrderSummary({
             value={totalOtherCharge}
           />
         )}
+        {deliveryFee > 0 && (
+  <SummaryRow 
+    label={`${t("Delivery Fee")} (${selectedUserData?.selectedAddress?.zone?.zone || "—"})`} 
+    value={deliveryFee} 
+  />
+)}
       </div>
 
       {orderType === "dine_in" && (
