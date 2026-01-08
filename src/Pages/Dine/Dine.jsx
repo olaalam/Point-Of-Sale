@@ -624,9 +624,7 @@ const handleSelectTable = async (table) => {
                   value={loc.id.toString()}
                   className="text-xs data-[state=active]:bg-bg-primary data-[state=active]:text-white rounded-md"
                 >
-                  {loc.name === "Main Hall"
-                    ? t("MainHall")
-                    : t("ReceptionHall")}
+{t(loc.name) || loc.name}
                 </TabsTrigger>
               ))}
             </TabsList>
