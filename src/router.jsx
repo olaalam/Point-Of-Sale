@@ -24,6 +24,7 @@ import OnlineTabs from "./Pages/OnlineOrders/OnlineTabs";
 import ContactSupport from "./Pages/ContactSupport";
 import Policy from "./Pages/Policy";
 import FakeOrders from "./Pages/FakeOrders/FakeOrders";
+import DeliveryOrder from "./Pages/DeliveryOrder/DeliveryOrder";
 
 const router = createBrowserRouter(
   [
@@ -247,6 +248,14 @@ const router = createBrowserRouter(
             
               <Policy/>
            
+          )
+        },
+                {
+          path:"/delivery-orders",
+          element:(
+            <ProtectedRoute>
+              <DeliveryOrder/>
+            </ProtectedRoute>
           )
         },
       ],

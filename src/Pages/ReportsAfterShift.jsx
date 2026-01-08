@@ -452,7 +452,7 @@ const PrintableReport = React.forwardRef(({ reportData, t, formatAmount, isArabi
         <div className="print-footer">
           <div>━━━━━━━━━━━━━━━━━━━━</div>
           <div style={{ margin: '4px 0' }}>🙏 {t("ThankYou") || "شكراً لكم"}</div>
-          <div>{t("PoweredBy") || "Powered by POS"}</div>
+          <div>{t("Powered by Food2Go - food2go.online")}</div>
         </div>
       </div>
     </div>

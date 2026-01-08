@@ -24,6 +24,42 @@ export default function Shift() {
   const userName = user?.user_name || "Cashier";
   const cashierId = sessionStorage.getItem("cashier_id");
 
+  // ✅ دالة لتحديد الـ default tab بناءً على الـ permissions
+  const setDefaultTabBasedOnPermissions = () => {
+    if (!user) return;
+
+    const permissions = {
+      online_order: user.online_order === 1 || user.online_order === "1",
+      delivery: user.delivery === 1 || user.delivery === "1",
+      dine_in: user.dine_in === 1 || user.dine_in === "1",
+      take_away: user.take_away === 1 || user.take_away === "1",
+    };
+
+    // 🟢 الأولوية (غيريها لو عاوزة ترتيب مختلف)
+    let defaultTab = "take_away"; // fallback
+
+    if (permissions.online_order) {
+      defaultTab = "online-order";
+    } else if (permissions.delivery) {
+      defaultTab = "delivery";
+    } else if (permissions.dine_in) {
+      defaultTab = "dine_in";
+    } else if (permissions.take_away) {
+      defaultTab = "take_away";
+    }
+
+    // تخزين الـ tab والـ order_type
+    sessionStorage.setItem("tab", defaultTab);
+
+    const orderTypeValue = defaultTab === "online-order" ? "online-order" : defaultTab.replace("_", "-");
+    sessionStorage.setItem("order_type", orderTypeValue);
+
+    // لو dine_in مش مسموح → نرست الـ group
+    if (!permissions.dine_in) {
+      sessionStorage.removeItem("last_selected_group");
+    }
+  };
+
   // ✅ فتح الشيفت (POST)
   const handleOpenShift = async () => {
     const endpoint = `${import.meta.env.VITE_API_BASE_URL}cashier/shift/open`;
@@ -31,26 +67,26 @@ export default function Shift() {
     try {
       setLoading(true);
 
-      // بناء البيانات المرسلة
       const payload = {};
       if (cashierId) payload.cashier_id = cashierId;
 
       const token = sessionStorage.getItem("token");
       const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
-      // ✅ هنا POST لفتح الشيفت
       await axios.post(endpoint, payload, { headers });
 
       openShift();
       setShiftStatus("Shift is open.");
 
+      // 🟢 تحديد الـ tab الافتراضي بناءً على permissions بعد فتح الشيفت
+      setDefaultTabBasedOnPermissions();
 
       // تنظيف الـ URL من ?action
       const params = new URLSearchParams(location.search);
       params.delete("action");
       navigate({ pathname: location.pathname, search: params.toString() }, { replace: true });
 
-      // بدء العد التنازلي للتحويل
+      // بدء العد التنازلي للتحويل إلى الصفحة الرئيسية
       let timeLeft = 3;
       setCountdown(timeLeft);
       const countdownInterval = setInterval(() => {
@@ -58,7 +94,7 @@ export default function Shift() {
         setCountdown(timeLeft);
         if (timeLeft <= 0) {
           clearInterval(countdownInterval);
-          navigate("/");
+          navigate("/"); // هيفتح على الـ tab اللي حددناه فوق
         }
       }, 1000);
     } catch (err) {
@@ -78,20 +114,16 @@ export default function Shift() {
       const token = sessionStorage.getItem("token");
       const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
-      // ✅ هنا GET لغلق الشيفت
       await axios.get(endpoint, { headers });
 
-      // ✅ تحديث الـ context
       closeShift();
       
-      // ✅ مسح البيانات من sessionStorage
       sessionStorage.removeItem("shift_start_time");
       sessionStorage.removeItem("shift_data");
       
       setShiftStatus("Shift is closed.");
       toast.success(t("ShiftClosedSuccessfully"));
 
-      // ✅ الانتقال للـ home
       setTimeout(() => {
         navigate("/", { replace: true });
       }, 1500);
@@ -113,9 +145,16 @@ export default function Shift() {
     }
   }, [location.search, isShiftOpen]);
 
+  // 🟢 لو الشيفت مفتوح بالفعل (يعني دخل الصفحة دي وهو شيفت مفتوح)، نحدد الـ tab كمان
+  useEffect(() => {
+    if (isShiftOpen) {
+      setDefaultTabBasedOnPermissions();
+    }
+  }, [isShiftOpen]);
+
   if (loading) return <Loading />;
 
-  // Framer Motion variants
+  // Framer Motion variants (مش متغيرة)
   const cardVariants = {
     hidden: { opacity: 0, scale: 0.8 },
     visible: { opacity: 1, scale: 1, transition: { duration: 0.5, type: "spring" } },
@@ -198,6 +237,7 @@ export default function Shift() {
               </motion.div>
             )}
 
+            {/* باقي الـ AnimatePresence زي ما هو */}
             {shiftStatus && (
               <motion.div
                 key="status-display"

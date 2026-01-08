@@ -81,6 +81,12 @@ const formatCashierReceipt = (receiptData) => {
   const showCustomerInfo =
     currentOrderType === "delivery" ||
     (receiptData.address && Object.keys(receiptData.address).length > 0);
+    // 🟢 الإضافة الجديدة: الجملة اللي عاوزاها قبل الـ footer مباشرة
+  const poweredByLine = `
+    <div style="text-align: center; font-weight: bold; font-size: 14px; margin: 15px 0 10px 0; padding: 8px 0; ">
+      Powered by Food2Go - food2go.online
+    </div>
+  `;
 
   return `
   <!DOCTYPE html>
@@ -525,13 +531,8 @@ const formatCashierReceipt = (receiptData) => {
       : ""
   }
 </div>
-
+${poweredByLine}
 <div style="text-align: center; margin-top: 15px; font-size: 11px;">
-  ${
-    design.footer === 1 && receiptData.receiptFooter
-      ? `<p style="margin: 0; font-weight: bold;">${receiptData.receiptFooter}</p>`
-      : ""
-  }
   <p style="margin: 5px 0 0 0;">*** شكراً لزيارتكم ***</p>
 </div>
 
@@ -717,7 +718,11 @@ const formatKitchenReceipt = (receiptData, productsList = []) => {
     orderTypeLabel = isArabic ? "تيك أواي" : "Takeaway";
     displayBigNumber = isArabic ? "تيك اواي" : "Takeaway";
   }
-
+const poweredByLine = `
+    <div style="text-align: center; font-weight: bold; font-size: 14px; margin: 15px 0 10px 0; padding: 8px 0; ">
+      Powered by Food2Go - food2go.online
+    </div>
+  `;
   // ✅ إجمالي الأصناف (orderCount) لو موجود في الـ receiptData
   const totalItems = receiptData.orderCount || 0;
 
@@ -902,6 +907,7 @@ const variationsHTML = (item.variations || item.variation_selected || [])
           <span>User: ${receiptData.cashier || "System"}</span>
           <span>Date: ${receiptData.dateFormatted}</span>
         </div>
+        ${poweredByLine}
       </body>
     </html>
     `;

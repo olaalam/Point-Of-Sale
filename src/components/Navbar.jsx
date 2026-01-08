@@ -10,6 +10,7 @@ import {
   FaListAlt,
   FaTable,
   FaDollarSign,
+  FaTruck
 } from "react-icons/fa";
 import { useTranslation } from "react-i18next";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -21,13 +22,7 @@ import ExpensesModal from "@/Pages/ExpensesModal";
 import PasswordConfirmModal from "@/Pages/PasswordConfirmModal";
 import EndShiftReportModal from "@/Pages/ReportsAfterShift";
 import Notifications from "@/components/Notifications";
-import {
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuItem,
-} from "@/components/ui/dropdown-menu";
-import { FaInfoCircle } from "react-icons/fa";
+
 
 export default function Navbar() {
   const navigate = useNavigate();
@@ -123,6 +118,7 @@ export default function Navbar() {
   const handleDueUsers = () => navigate("/due");
   const handleAllOrders = () => navigate("/all-orders");
   const handleExpenses = () => setShowExpensesModal(true);
+  const handleDeliveryOrder = () => navigate("/delivery-order");
 
   // ===== إغلاق الشيفت بكل الخطوات =====
   const handleCloseShift = () => {
@@ -298,6 +294,13 @@ export default function Navbar() {
                     <FaTable className="text-lg" />
                   </button>
                 )}
+                                  <button
+                    onClick={handleDeliveryOrder}
+                    className="p-2 border border-bg-primary rounded-lg hover:bg-bg-primary hover:text-white text-bg-primary transition"
+                    title={t("DeliveryOrder")}
+                  >
+                    <FaTruck className="text-lg" />
+                  </button>
               </TabsList>
             </Tabs>
           </div>
