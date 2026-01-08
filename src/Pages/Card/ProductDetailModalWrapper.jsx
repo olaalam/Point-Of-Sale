@@ -25,7 +25,7 @@ useEffect(() => {
     
     if (existingItem) {
       setIsExistingInCart(true);
-      setQuantity(existingItem.quantity || 1);
+      setQuantity(existingItem.count || 1);
       setNotes(existingItem.notes || "");
       setSelectedVariation(existingItem.selectedVariation || {});
       setSelectedExcludes(existingItem.selectedExcludes || []);
