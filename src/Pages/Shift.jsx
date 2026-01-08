@@ -25,40 +25,38 @@ export default function Shift() {
   const cashierId = sessionStorage.getItem("cashier_id");
 
   // ✅ دالة لتحديد الـ default tab بناءً على الـ permissions
-  const setDefaultTabBasedOnPermissions = () => {
-    if (!user) return;
+const setDefaultTabBasedOnPermissions = () => {
+  if (!user) return;
 
-    const permissions = {
-      online_order: user.online_order === 1 || user.online_order === "1",
-      delivery: user.delivery === 1 || user.delivery === "1",
-      dine_in: user.dine_in === 1 || user.dine_in === "1",
-      take_away: user.take_away === 1 || user.take_away === "1",
-    };
-
-    // 🟢 الأولوية (غيريها لو عاوزة ترتيب مختلف)
-    let defaultTab = "take_away"; // fallback
-
-    if (permissions.online_order) {
-      defaultTab = "online-order";
-    } else if (permissions.delivery) {
-      defaultTab = "delivery";
-    } else if (permissions.dine_in) {
-      defaultTab = "dine_in";
-    } else if (permissions.take_away) {
-      defaultTab = "take_away";
-    }
-
-    // تخزين الـ tab والـ order_type
-    sessionStorage.setItem("tab", defaultTab);
-
-    const orderTypeValue = defaultTab === "online-order" ? "online-order" : defaultTab.replace("_", "-");
-    sessionStorage.setItem("order_type", orderTypeValue);
-
-    // لو dine_in مش مسموح → نرست الـ group
-    if (!permissions.dine_in) {
-      sessionStorage.removeItem("last_selected_group");
-    }
+  const permissions = {
+    online_order: user.online_order === 1 || user.online_order === "1",
+    delivery: user.delivery === 1 || user.delivery === "1",
+    dine_in: user.dine_in === 1 || user.dine_in === "1",
+    take_away: user.take_away === 1 || user.take_away === "1",
   };
+
+  // الأولوية الجديدة: take_away أولاً → لو عنده كله هيفتح take_away
+  let defaultTab = "take_away"; // fallback عام
+
+  if (permissions.take_away) {
+    defaultTab = "take_away";
+  } else if (permissions.dine_in) {
+    defaultTab = "dine_in";
+  } else if (permissions.delivery) {
+    defaultTab = "delivery";
+  } else if (permissions.online_order) {
+    defaultTab = "online-order";
+  }
+
+  sessionStorage.setItem("tab", defaultTab);
+
+  const orderTypeValue = defaultTab === "online-order" ? "online-order" : defaultTab.replace("_", "-");
+  sessionStorage.setItem("order_type", orderTypeValue);
+
+  if (!permissions.dine_in) {
+    sessionStorage.removeItem("last_selected_group");
+  }
+};
 
   // ✅ فتح الشيفت (POST)
   const handleOpenShift = async () => {
