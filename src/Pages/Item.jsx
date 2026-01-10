@@ -46,20 +46,15 @@ const INITIAL_PRODUCT_ROWS = 2;
 const PRODUCTS_PER_ROW = 4;
 const PRODUCTS_TO_SHOW_INITIALLY = INITIAL_PRODUCT_ROWS * PRODUCTS_PER_ROW;
 export default function Item({ onAddToOrder, onClose }) {
-  const [selectedCategory, setSelectedCategory] = useState("all");
+  const [selectedMainCategory, setSelectedMainCategory] = useState("all");
+  const [selectedSubCategory, setSelectedSubCategory] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [visibleProductCount, setVisibleProductCount] = useState(
-    PRODUCTS_TO_SHOW_INITIALLY
-  );
-  const [branchIdState, setBranchIdState] = useState(
-    sessionStorage.getItem("branch_id")
-  );
+  const [visibleProductCount, setVisibleProductCount] = useState(PRODUCTS_TO_SHOW_INITIALLY);
+  const [branchIdState, setBranchIdState] = useState(sessionStorage.getItem("branch_id"));
   const [productType, setProductType] = useState("piece");
   const [selectedGroup, setSelectedGroup] = useState("none");
-    // const [selectedGroup, setSelectedGroup] = useState("all");
   const [showCategories, setShowCategories] = useState(true);
   const [isNormalPrice, setIsNormalPrice] = useState(true);
-    // const [isNormalPrice, setIsNormalPrice] = useState(false);
 
   const { t, i18n } = useTranslation();
 
@@ -141,111 +136,93 @@ export default function Item({ onAddToOrder, onClose }) {
       : allModulesData?.products || [];
   }, [allModulesData, productType]);
 
-// 2. Updated Filtering Logic
-const filteredProducts = useMemo(() => {
-  let products = [];
-
-  // Priority 1: Search Query (Global Search)
-  if (searchQuery.trim()) {
-    const query = searchQuery.trim().toLowerCase();
-    return allProducts.filter(
-      (p) =>
-        (p.name?.toLowerCase() || "").includes(query) ||
-        (p.product_code?.toString().toLowerCase() || "").includes(query)
+  const allSubCategories = useMemo(() => {
+    return finalCategories.flatMap(cat => 
+      (cat.sub_categories || []).map(sub => ({
+        ...sub,
+        main_category_id: cat.id,
+        main_category_name: cat.name
+      }))
     );
-  }
+  }, [finalCategories]);
 
-  // Priority 2: Favorite Module (Standalone)
-  if (selectedGroup === "all" && !isNormalPrice) {
-    return favouriteProducts; 
-  }
+  // 2. Updated Filtering Logic
+  const filteredProducts = useMemo(() => {
+    let products = [];
 
-  // Priority 3: Group Products or All (Normal) Products
-  if (isNormalPrice) {
-    products = allProducts;
-  } else {
-    // This is for specific group modules
-    products = favouriteCategoriesData?.products || [];
-  }
+    // Priority 1: Search Query
+    if (searchQuery.trim()) {
+      const query = searchQuery.trim().toLowerCase();
+      return allProducts.filter(
+        (p) =>
+          (p.name?.toLowerCase() || "").includes(query) ||
+          (p.product_code?.toString().toLowerCase() || "").includes(query)
+      );
+    }
 
-  // Priority 4: Sidebar Category Filter (Does not apply to "Favorite" mode)
-  if (selectedCategory !== "all") {
-    products = products.filter(
-      (p) => p.category_id === parseInt(selectedCategory)
-    );
-  }
+    // Priority 2: Determine products source
+    if (isNormalPrice || selectedGroup === "none") {
+      products = allProducts;
+    } else if (selectedGroup === "all") {
+      products = favouriteProducts;
+    } else {
+      products = favouriteCategoriesData?.products || [];
+    }
 
-  return products;
-}, [
-  allProducts,
-  favouriteProducts,
-  favouriteCategoriesData,
-  selectedCategory,
-  selectedGroup,
-  searchQuery,
-  isNormalPrice,
-]);
+    // Priority 3: Main Category Filter
+    if (selectedMainCategory !== "all") {
+      products = products.filter(p => p.category_id === parseInt(selectedMainCategory));
+    }
 
-  // const filteredProducts = useMemo(() => {
-  //   let products;
-  //   if (searchQuery.trim()) {
-  //     products = allProducts;
-  //   } else if (isNormalPrice) {
-  //     products = allProducts;
-  //   } else if (selectedGroup !== "all") {
-  //     products = favouriteCategoriesData?.products || [];
-  //   } else {
-  //     products = favouriteProducts;
-  //   }
-  //   if (searchQuery.trim()) {
-  //     const query = searchQuery.trim().toLowerCase();
-  //     products = products.filter(
-  //       (p) =>
-  //         (p.name?.toLowerCase() || "").includes(query) ||
-  //         (p.product_code?.toString().toLowerCase() || "").includes(query)
-  //     );
-  //   }
-  //   if (selectedCategory !== "all") {
-  //     products = products.filter(
-  //       (p) => p.category_id === parseInt(selectedCategory)
-  //     );
-  //   }
-  //   return products;
-  // }, [
-  //   allProducts,
-  //   favouriteProducts,
-  //   favouriteCategoriesData,
-  //   selectedCategory,
-  //   selectedGroup,
-  //   searchQuery,
-  //   isNormalPrice,
-  // ]);
+    // Priority 4: Sub Category Filter
+    if (selectedSubCategory) {
+      products = products.filter(p => p.sub_category_id === parseInt(selectedSubCategory));
+    }
 
+    return products;
+  }, [
+    allProducts,
+    favouriteProducts,
+    favouriteCategoriesData,
+    selectedMainCategory,
+    selectedSubCategory,
+    searchQuery,
+    isNormalPrice,
+    selectedGroup
+  ]);
 
   const productsToDisplay = filteredProducts.slice(0, visibleProductCount);
-  const handleCategorySelect = (categoryId) => {
-    setSelectedCategory(categoryId);
-    setShowCategories(false);
-    setVisibleProductCount(PRODUCTS_TO_SHOW_INITIALLY);
-    // Reset to normal prices when "All" is selected
-    if(selectedGroup === "all" && !isNormalPrice){
-      setIsNormalPrice(true);
+
+  const handleCategorySelect = (categoryId, isSub = false) => {
+    const idStr = categoryId.toString(); // Always store as string
+    if (isSub) {
+      setSelectedSubCategory(idStr);
+    } else {
+      setSelectedMainCategory(idStr);
+      setSelectedSubCategory(null); // Reset sub
+      setShowCategories(false);
+      setVisibleProductCount(PRODUCTS_TO_SHOW_INITIALLY);
     }
   };
+
   const handleNormalPricesClick = () => {
     setIsNormalPrice(true);
     setSelectedGroup("none");
     setShowCategories(true);
-    setSelectedCategory("all");
+    setSelectedMainCategory("all");
+    setSelectedSubCategory(null);
   };
+
   const handleGroupChange = (groupId) => {
     setIsNormalPrice(false);
     const id = groupId === "all" ? "all" : groupId.toString();
     sessionStorage.setItem("last_selected_group", id);
     setSelectedGroup(id);
     setShowCategories(true);
-    setSelectedCategory("all");
+    setSelectedMainCategory("all");
+    setSelectedSubCategory(null);
   };
+
   const handleAddToOrder = useCallback(
     async (product, options = {}) => {
       const { customQuantity = 1 } = options;
@@ -372,7 +349,8 @@ const filteredProducts = useMemo(() => {
       <Button
         onClick={() => {
           handleGroupChange("all");
-          setSelectedCategory("all");
+          setSelectedMainCategory("all");
+          setSelectedSubCategory(null);
         }}
         className={`min-w-[100px] h-20 flex flex-col items-center justify-center rounded-xl border transition-all ${
           selectedGroup === "all" && !isNormalPrice
@@ -481,50 +459,93 @@ const filteredProducts = useMemo(() => {
     </div>
   );
 
- const categoriesSection = (
-  <div 
-    // Set the direction based on the language
-    dir={isArabic ? "rtl" : "ltr"} 
-    className="w-1/4 min-w-[180px] bg-gray-50 rounded-xl overflow-y-auto border border-gray-200 p-2 space-y-2 scrollbar-width-none [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
-  >
-    <h4 className="text-[10px] font-bold text-gray-400 uppercase px-2 mb-2 tracking-widest text-start">
-      {t("Categories")}
-    </h4>
-
+  const categoriesSection = (
     <div
-      onClick={() => handleCategorySelect("all")}
-      className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all border ${
-        selectedCategory === "all"
-          ? "bg-bg-primary text-white border-bg-primary shadow-sm"
-          : "bg-white text-gray-700 border-gray-100 hover:bg-red-50"
-      }`}
+      dir={isArabic ? "rtl" : "ltr"}
+      className="w-1/4 min-w-[180px] bg-gray-50 rounded-xl overflow-y-auto border border-gray-200 p-2 space-y-2 scrollbar-width-none"
     >
-      <div className="w-15 h-15 bg-gray-100 rounded-lg flex items-center justify-center text-lg shadow-inner">
-        🍽️
-      </div>
-      <span className="font-bold text-sm">{t("All")}</span>
-    </div>
+      <h4 className="text-[10px] font-bold text-gray-400 uppercase px-2 mb-2 tracking-widest">
+        {t("Categories")}
+      </h4>
 
-    {finalCategories.map((cat) => (
+      {/* زر All */}
       <div
-        key={cat.id}
-        onClick={() => handleCategorySelect(cat.id)}
+        onClick={() => {
+          handleCategorySelect("all");
+          setSelectedSubCategory(null);
+        }}
         className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all border ${
-          selectedCategory === cat.id
+          selectedMainCategory === "all" && !selectedSubCategory
             ? "bg-bg-primary text-white border-bg-primary shadow-sm"
             : "bg-white text-gray-700 border-gray-100 hover:bg-red-50"
         }`}
       >
-        <img
-          src={cat.image_link}
-          alt={cat.name}
-          className="w-15 h-15 rounded-lg object-cover shadow-sm"
-        />
-        <span className="font-bold text-lg truncate">{cat.name}</span>
+        <div className="w-15 h-15 bg-gray-100 rounded-lg flex items-center justify-center text-lg shadow-inner">
+          🍽️
+        </div>
+        <span className="font-bold text-sm">{t("All")}</span>
       </div>
-    ))}
-  </div>
-);
+
+      {/* عرض الفئات الرئيسية + الفرعية تحتها */}
+      {finalCategories.map((cat) => {
+        const isMainSelected = selectedMainCategory === cat.id.toString();
+        const hasSubCategories = (cat.sub_categories?.length || 0) > 0;
+
+        return (
+          <div key={cat.id} className="space-y-1">
+            {/* الفئة الرئيسية */}
+            <div
+              onClick={() => handleCategorySelect(cat.id)}
+              className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all border ${
+                isMainSelected && !selectedSubCategory
+                  ? "bg-bg-primary text-white border-bg-primary shadow-sm"
+                  : "bg-white text-gray-700 border-gray-100 hover:bg-red-50"
+              }`}
+            >
+              <img
+                src={cat.image_link}
+                alt={cat.name}
+                className="w-15 h-15 rounded-lg object-cover shadow-sm"
+              />
+              <span className="font-bold text-lg truncate flex-1">{cat.name}</span>
+
+              {/* سهم صغير لو فيه sub-categories */}
+              {hasSubCategories && (
+                <span className="text-sm opacity-70">
+                  {isMainSelected ? "▼" : "▶"}
+                </span>
+              )}
+            </div>
+
+            {/* الـ Sub-categories تظهر فقط لو الفئة الرئيسية مختارة */}
+            {isMainSelected && hasSubCategories && (
+              <div className="ml-6 space-y-1 mt-1">
+                {cat.sub_categories.map((sub) => (
+                  <div
+                    key={sub.id}
+                    onClick={(e) => {
+                      e.stopPropagation(); // عشان ما يتفعلش click الرئيسية
+                      handleCategorySelect(sub.id, true);
+                    }}
+                    className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all border pl-4 ${
+                      selectedSubCategory === sub.id.toString()
+                        ? "bg-bg-primary/80 text-white border-bg-primary shadow-sm"
+                        : "bg-white/80 text-gray-700 border-gray-200 hover:bg-gray-100"
+                    }`}
+                  >
+                    <div className="w-10 h-10 bg-gray-100 rounded-md flex items-center justify-center text-base shadow-inner">
+                      ↳
+                    </div>
+                    <span className="font-medium text-base truncate">{sub.name}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
 
   return (
     <div
@@ -575,7 +596,7 @@ const filteredProducts = useMemo(() => {
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[100]">
           <Loading />
         </div>
-        )}
+      )}
     </div>
   );
 }
