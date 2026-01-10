@@ -118,7 +118,7 @@ export default function Navbar() {
   const handleDueUsers = () => navigate("/due");
   const handleAllOrders = () => navigate("/all-orders");
   const handleExpenses = () => setShowExpensesModal(true);
-  const handleDeliveryOrder = () => navigate("/delivery-order");
+  const handleDeliveryOrder = () => navigate("/deliveryOrders");
 
   // ===== إغلاق الشيفت بكل الخطوات =====
   const handleCloseShift = () => {
@@ -294,13 +294,22 @@ export default function Navbar() {
                     <FaTable className="text-lg" />
                   </button>
                 )}
-                                  <button
-                    onClick={handleDeliveryOrder}
-                    className="p-2 border border-bg-primary rounded-lg hover:bg-bg-primary hover:text-white text-bg-primary transition"
-                    title={t("DeliveryOrder")}
+
+                                {permissions.delivery && (
+                  <TabsTrigger
+                    value="delivery"
+                    className="px-3 py-1 text-sm font-semibold bg-white text-bg-primary border border-bg-primary data-[state=active]:bg-bg-primary data-[state=active]:text-white transition-colors duration-200"
                   >
-                    <FaTruck className="text-lg" />
-                  </button>
+                    {t("Delivery")}
+                  </TabsTrigger>
+                )}
+                <button
+                  onClick={handleDeliveryOrder}
+                  className="p-2 border border-bg-primary rounded-lg hover:bg-bg-primary hover:text-white text-bg-primary transition"
+                  title={t("DeliveryOrder")}
+                >
+                  <FaTruck className="text-lg" />
+                </button>
               </TabsList>
             </Tabs>
           </div>
@@ -357,14 +366,12 @@ export default function Navbar() {
               <span className="text-sm font-medium">AR</span>
               <button
                 onClick={toggleLanguage}
-                className={`relative inline-flex h-6 w-12 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
-                  isArabic ? "bg-bg-primary" : "bg-gray-300"
-                }`}
+                className={`relative inline-flex h-6 w-12 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${isArabic ? "bg-bg-primary" : "bg-gray-300"
+                  }`}
               >
                 <span
-                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                    !isArabic ? "translate-x-6" : "translate-x-0"
-                  }`}
+                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${!isArabic ? "translate-x-6" : "translate-x-0"
+                    }`}
                 />
               </button>
               <span className="text-sm font-medium">EN</span>

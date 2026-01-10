@@ -251,7 +251,7 @@ const router = createBrowserRouter(
           )
         },
                 {
-          path:"/delivery-orders",
+          path:"/deliveryOrders",
           element:(
             <ProtectedRoute>
               <DeliveryOrder/>
