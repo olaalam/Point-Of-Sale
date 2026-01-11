@@ -586,6 +586,9 @@ const handleClose = () => {
       {t("Type")}
     </th>
     <th className={`border p-3 ${isArabic ? "text-right" : "text-left"}`}>
+      {isArabic ? "رسوم التوصيل" : "Delivery Fees"}
+    </th>
+    <th className={`border p-3 ${isArabic ? "text-right" : "text-left"}`}>
       {t("Amount")}
     </th>
     {/* العمود الجديد */}
@@ -618,6 +621,15 @@ const handleClose = () => {
                     <td className={`border p-3 capitalize ${isArabic ? "text-right" : "text-left"}`}>
                       {order.order_type || "—"}
                     </td>
+                    <td className={`border p-3 ${isArabic ? "text-right" : "text-left"}`}>
+      {order.delivery_fees > 0 ? (
+        <span className="font-semibold text-blue-600">
+          {order.delivery_fees}
+        </span>
+      ) : (
+        <span className="text-gray-400">0</span>
+      )}
+    </td>
                     <td className={`border p-3 ${isArabic ? "text-right" : "text-left"}`}>
                       {order.amount || "—"}
                     </td>
