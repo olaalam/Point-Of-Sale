@@ -10,7 +10,8 @@ import {
   FaReceipt,
   FaDollarSign,
   FaCheckCircle,
-  FaPrint
+  FaPrint,
+  FaBan
 } from "react-icons/fa";
 
 // ─── ترويسة موحدة لأقسام التقرير ───
@@ -333,6 +334,26 @@ const PrintableReport = React.forwardRef(({ reportData, t, formatAmount, isArabi
             <span>{formatAmount(totals?.grand_total)}</span>
           </div>
         </div>
+        {/* Void Orders Section in Print */}
+        {reportData.void_order_count > 0 && (
+          <div className="print-section">
+            <div className="print-section-title">🚫 {t("VoidOrders")}</div>
+            <table className="print-void-table">
+              <thead>
+                <tr>
+                  <th>{t("VoidOrdersCount")}</th>
+                  <th>{t("VoidOrdersTotal")}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr className="print-void-total">
+                  <td>{reportData.void_order_count}</td>
+                  <td>-{formatAmount(reportData.void_order_sum)}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        )}
 
         {/* Orders by Type with Payment Methods */}
         {showFullReport && (
@@ -772,6 +793,36 @@ export default function EndShiftReportModal({ reportData, onClose, onConfirmClos
                   })()}
                 </div>
               </div>
+              {/* ─── الطلبات الملغاة (Void Orders) ─── */}
+            {reportData.void_order_count > 0 && (
+              <div className="mt-6">
+                <SectionHeader 
+                  icon={FaBan} 
+                  title={`${t("VoidOrders")} (${reportData.void_order_count})`} 
+                />
+
+                <div className="overflow-x-auto rounded-xl border border-gray-300 shadow-sm">
+                  <table className="min-w-full bg-white text-sm">
+                    <thead className="bg-red-50 border-b border-gray-300">
+                      <tr className="[&>th]:px-4 [&>th]:py-3 [&>th]:font-semibold [&>th]:uppercase text-xs text-gray-700">
+                        <th className="text-center">{t("VoidOrdersCount")}</th>
+                        <th className="text-center">{t("VoidOrdersTotal")} ({t("EGP")})</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      <tr className="bg-red-800 text-white font-bold">
+                        <td className="px-4 py-3 text-center text-base">
+                          {reportData.void_order_count}
+                        </td>
+                        <td className="px-4 py-3 text-center text-lg">
+                          -{formatAmount(reportData.void_order_sum)}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
 
               {/* ─── المصروفات ─── */}
 {reportData.expenses?.length > 0 && (
@@ -840,9 +891,9 @@ export default function EndShiftReportModal({ reportData, onClose, onConfirmClos
                 <p className="text-4xl font-black">
                   {formatAmount(netCashInDrawer)}
                 </p>
-                <p className="text-xs opacity-80 mt-1">
-                  ({t("TotalCashInShift")} - {t("TotalExpenses")})
-                </p>
+<p className="text-xs opacity-80 mt-1">
+                ({t("TotalCashInShift")} - {t("TotalExpenses")} - {t("VoidOrdersTotal")})
+              </p>
               </div>
 
               {/* ─── إحصائيات إضافية ─── */}
