@@ -306,7 +306,12 @@ const formatCashierReceipt = (receiptData) => {
                 ${
                   receiptData.address
                     ? `<div style="font-weight: normal; margin-top: 3px; border-top: 1px dotted #ccc; padding-top:2px;">
-                    ${receiptData.address.address || ""} 
+                    ${receiptData.address.address || ""}
+                    ${
+          receiptData.address.zone_name 
+            ? `<div style="font-weight: bold; margin-top: 2px;">المنطقة: ${receiptData.address.zone_name}</div>` 
+            : ""
+        }
                     ${
                       receiptData.address.building_num
                         ? `, B:${receiptData.address.building_num}`
@@ -1098,7 +1103,10 @@ export const prepareReceiptData = (
       // ====================
     })),
     customer: response?.customer || null,
-    address: response?.address || null,
+   address: response?.address ? {
+      ...response.address,
+      zone_name: response.address.zone?.zone || "" // سحب اسم المنطقة من object الـ zone
+    } : null,
     subtotal: response?.subtotal || amountToPay,
     deliveryFees: deliveryFees,
     tax: Number(response?.total_tax || totalTax || 0).toFixed(2),
