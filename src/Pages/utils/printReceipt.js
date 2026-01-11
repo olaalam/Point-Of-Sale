@@ -74,9 +74,7 @@ const formatCashierReceipt = (receiptData) => {
     "Cashier";
 
   // ✅ حساب الإجمالي الكلي (للـ Grand Total الصحيح)
-  const grandTotal = (
-    Number(receiptData.subtotal) + Number(receiptData.deliveryFees)
-  ).toFixed(2);
+  const grandTotal = ( Number(receiptData.subtotal)).toFixed(2);
 
   const showCustomerInfo =
     currentOrderType === "delivery" ||
