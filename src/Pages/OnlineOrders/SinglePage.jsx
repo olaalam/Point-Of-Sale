@@ -475,6 +475,20 @@ const orderSummary = useMemo(() => {
                               </span>{" "}
                               {detailsData?.source || "-"}
                             </p>
+                            <p className="mt-1 text-sm text-gray-700">
+                              <span className="font-TextFontSemiBold">
+                                {t("Payment")}:
+                              </span>{" "}
+                              <span
+                                className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${
+                                  detailsData?.payment === "Paid"
+                                    ? "bg-green-100 text-green-800 border-green-300"
+                                    : "bg-red-100 text-red-800 border-red-300"
+                                }`}
+                              >
+                                {t(detailsData?.payment) || detailsData?.payment || "-"}
+                              </span>
+                            </p>
                           </div>
                         </div>
 
