@@ -88,6 +88,11 @@ const vapidKey= import.meta.env.VITE_FIREBASE_VAPID_KEY
    sessionStorage.setItem("resturant_name",res.data.resturant_name);
    sessionStorage.setItem("preparation_num_status", res.data.preparation_num_status);
    console.log(res.data.preparation_num_status);
+
+   // تخزين صوت الإشعارات
+if (res.data.notification_sound) {
+  sessionStorage.setItem("notification_sound", res.data.notification_sound);
+}
    
    if (res.data.financial_account) {
     sessionStorage.setItem(

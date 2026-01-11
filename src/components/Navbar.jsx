@@ -1,7 +1,8 @@
-// Navbar.jsx - النسخة المعدلة والمنظفة
-import React, { useState, useEffect } from "react";
+// Navbar.jsx - النسخة الكاملة المعدلة مع Dropdown للإشعارات تحت الجرس (بدون إزالة أو اختصار أي شيء)
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { usePost } from "@/Hooks/usePost";
+import { useGet } from "@/Hooks/useGet";
 import { useShift } from "@/context/ShiftContext";
 import { toast } from "react-toastify";
 import {
@@ -10,7 +11,9 @@ import {
   FaListAlt,
   FaTable,
   FaDollarSign,
-  FaTruck
+  FaTruck,
+  FaBell,
+  FaChevronDown // ✅ جديد للسهم في الجرس
 } from "react-icons/fa";
 import { useTranslation } from "react-i18next";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -21,7 +24,7 @@ import logo from "@/assets/logo.jpg";
 import ExpensesModal from "@/Pages/ExpensesModal";
 import PasswordConfirmModal from "@/Pages/PasswordConfirmModal";
 import EndShiftReportModal from "@/Pages/ReportsAfterShift";
-import Notifications from "@/components/Notifications";
+import Notifications from "@/components/Notifications"; // ✅ محتفظ بيه تمامًا زي ما هو
 
 export default function Navbar() {
   const navigate = useNavigate();
@@ -40,11 +43,15 @@ export default function Navbar() {
   const [showPasswordModal, setShowPasswordModal] = useState(false);
   const [showCashInputModal, setShowCashInputModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
-
+  const [notificationCount, setNotificationCount] = useState(0);
   const [cashAmount, setCashAmount] = useState("");
   const [pendingPassword, setPendingPassword] = useState(""); // الباسورد المؤقت
   const [endShiftReport, setEndShiftReport] = useState(null);
   const [reportLoading, setReportLoading] = useState(false);
+
+  // ✅ حالة الـ Dropdown للإشعارات
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const dropdownRef = useRef(null);
 
   // ✅ Permissions من الـ user
   const userData = JSON.parse(sessionStorage.getItem("user") || "{}");
@@ -57,6 +64,51 @@ export default function Navbar() {
 
   const currentTab = sessionStorage.getItem("tab") || "take_away";
   const isArabic = i18n.language === "ar";
+
+  // ✅ جلب عدد الإشعارات والطلبات الجديدة بدقة من الـ API
+  const { data: notificationsData, refetch: refetchNotifications } = useGet(
+    "cashier/orders/notifications",
+    { useCache: false }
+  );
+
+  // قائمة الطلبات الجديدة (array من order IDs)
+  const notifications = notificationsData?.orders || [];
+
+  // تحديث العدد من الـ API
+  useEffect(() => {
+    if (notificationsData?.orders_count !== undefined) {
+      setNotificationCount(notificationsData.orders_count);
+    }
+  }, [notificationsData]);
+
+  // refetch فوري لما يجي new order
+  useEffect(() => {
+    const handler = () => {
+      refetchNotifications();
+    };
+    window.addEventListener("new-order-received", handler);
+    return () => window.removeEventListener("new-order-received", handler);
+  }, [refetchNotifications]);
+
+  // Polling كل 15 ثانية عشان العدد يفضل دقيق دايماً
+  useEffect(() => {
+    if (!permissions.online_order) return;
+    const interval = setInterval(() => {
+      refetchNotifications();
+    }, 15000);
+    return () => clearInterval(interval);
+  }, [refetchNotifications, permissions.online_order]);
+
+  // إغلاق الـ Dropdown عند كليك خارجها
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setIsDropdownOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   useEffect(() => {
     if (isShiftOpen) {
@@ -208,6 +260,33 @@ export default function Navbar() {
       navigate("/login");
     } catch (err) {
       toast.error(err?.message || t("Error while logging out"));
+    }
+  };
+
+  // ✅ دالة جديدة لفتح طلب معين (mark as read + navigate)
+  const handleOrderClick = async (orderId) => {
+    try {
+      const token = sessionStorage.getItem("token");
+      const baseUrl = import.meta.env.VITE_API_BASE_URL;
+
+      await axios.get(`${baseUrl}cashier/orders/order_read/${orderId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      // تحديث العدد فوريًا
+      refetchNotifications();
+
+      // التنقل لصفحة الطلب
+      navigate(`/online-orders/${orderId}`);
+
+      // إغلاق الـ Dropdown
+      setIsDropdownOpen(false);
+    } catch (err) {
+      console.error("Error marking order as read:", err);
+      toast.error("فشل في تحديث حالة الطلب");
+      // حتى لو فشل الـ API، نروح للطلب
+      navigate(`/online-orders/${orderId}`);
+      setIsDropdownOpen(false);
     }
   };
 
@@ -390,6 +469,74 @@ export default function Navbar() {
               <span className="text-sm font-medium">EN</span>
             </div>
 
+            {/* ✅ الجرس مع Dropdown للإشعارات الجديدة */}
+            {permissions.online_order && (
+              <div className="relative" ref={dropdownRef}>
+                <button
+                  onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                  className="relative text-gray-600 hover:text-[#910000] transition flex items-center gap-1"
+                  title={t("OnlineOrders")}
+                >
+                  <FaBell className="text-2xl md:text-3xl" />
+                  {notificationCount > 0 && (
+                    <span
+                      className={`absolute -top-1 ${isArabic ? "-left-1" : "-right-1"} bg-red-500 text-white text-xs font-bold rounded-full px-2 min-w-5 h-5 flex items-center justify-center shadow-md animate-pulse`}
+                    >
+                      {notificationCount > 99 ? "99+" : notificationCount}
+                    </span>
+                  )}
+                  <FaChevronDown className={`text-sm transition-transform duration-200 ${isDropdownOpen ? "rotate-180" : ""}`} />
+                </button>
+
+                {/* الـ Dropdown نفسه */}
+                {isDropdownOpen && (
+                  <div
+                    className={`absolute ${isArabic ? "left-0" : "right-0"} mt-2 w-72 bg-white rounded-xl shadow-2xl border border-gray-200 z-50 max-h-96 overflow-y-auto`}
+                  >
+                    <div className="p-4 border-b border-gray-200 bg-gray-50 rounded-t-xl">
+                      <h3 className="font-bold text-gray-800 text-lg">{t("New Orders")} ({notificationCount})</h3>
+                    </div>
+
+                    <div className="py-2">
+                      {notifications.length > 0 ? (
+                        <ul>
+                          {notifications.map((orderId) => (
+                            <li key={orderId}>
+                              <button
+                                onClick={() => handleOrderClick(orderId)}
+                                className="w-full px-4 py-3 hover:bg-gray-100 transition text-right flex items-center justify-between border-b border-gray-100 last:border-0"
+                              >
+                                <div>
+                                  <span className="font-semibold text-gray-800">Order #{orderId}</span>
+                                  <span className="block text-sm text-gray-500 mt-1">{t("New Order")}</span>
+                                </div>
+                                <span className="text-xs bg-red-100 text-red-600 px-2 py-1 rounded-full">{t("New")}</span>
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <p className="p-8 text-center text-gray-500">{t("No new orders")}</p>
+                      )}
+                    </div>
+
+                    <div className="p-4 border-t border-gray-200 bg-gray-50 rounded-b-xl">
+                      <button
+                        onClick={() => {
+                          handleTabChange("online-order");
+                          setIsDropdownOpen(false);
+                        }}
+                        className="w-full text-center text-[#910000] font-bold hover:underline"
+                      >
+                        {t("View All Orders")}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ✅ محتفظ بـ Notifications component زي ما هو */}
             <Notifications />
 
             <button
@@ -403,7 +550,7 @@ export default function Navbar() {
         </div>
       </div>
 
-      {/* المودالز */}
+      {/* المودالز - كلها زي ما هي بدون أي تغيير أو اختصار */}
       {showExpensesModal && (
         <ExpensesModal onClose={() => setShowExpensesModal(false)} />
       )}
