@@ -1,4 +1,4 @@
-// Navbar.jsx - النسخة المحدثة مع إخفاء الـ Tabs حسب الـ permissions
+// Navbar.jsx - النسخة المعدلة والمنظفة
 import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { usePost } from "@/Hooks/usePost";
@@ -17,12 +17,11 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import axios from "axios";
 import logo from "@/assets/logo.jpg";
 
-// المودالز الجديدة
+// المودالز
 import ExpensesModal from "@/Pages/ExpensesModal";
 import PasswordConfirmModal from "@/Pages/PasswordConfirmModal";
 import EndShiftReportModal from "@/Pages/ReportsAfterShift";
 import Notifications from "@/components/Notifications";
-
 
 export default function Navbar() {
   const navigate = useNavigate();
@@ -36,14 +35,18 @@ export default function Navbar() {
   );
   const [loading, setLoading] = useState(false);
 
-  // حالات المودالز الجديدة
+  // حالات المودالز
   const [showExpensesModal, setShowExpensesModal] = useState(false);
   const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [showCashInputModal, setShowCashInputModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
+
+  const [cashAmount, setCashAmount] = useState("");
+  const [pendingPassword, setPendingPassword] = useState(""); // الباسورد المؤقت
   const [endShiftReport, setEndShiftReport] = useState(null);
   const [reportLoading, setReportLoading] = useState(false);
 
-  // ✅ جلب بيانات الكاشير وتحديد الـ permissions
+  // ✅ Permissions من الـ user
   const userData = JSON.parse(sessionStorage.getItem("user") || "{}");
   const permissions = {
     online_order: userData.online_order === 1,
@@ -83,7 +86,6 @@ export default function Navbar() {
   };
 
   const handleTabChange = (value) => {
-    // منع التبديل لـ tab غير مسموح (للأمان الإضافي)
     if (!permissions[value.replace("-", "_")]) {
       toast.warn(t("You do not have permission for this section"));
       return;
@@ -120,7 +122,7 @@ export default function Navbar() {
   const handleExpenses = () => setShowExpensesModal(true);
   const handleDeliveryOrder = () => navigate("/deliveryOrders");
 
-  // ===== إغلاق الشيفت بكل الخطوات =====
+  // ===== إغلاق الشيفت =====
   const handleCloseShift = () => {
     if (!isShiftOpen) {
       toast.error(t("No active shift found"));
@@ -129,23 +131,39 @@ export default function Navbar() {
     setShowPasswordModal(true);
   };
 
-  const handlePasswordConfirmed = async (password) => {
+  // 1. بعد تأكيد الباسورد → نخزن الباسورد ونفتح مودال الكاش
+  const handlePasswordConfirmed = (password) => {
+    setPendingPassword(password);
     setShowPasswordModal(false);
-    setReportLoading(true);
+    setShowCashInputModal(true);
+    setCashAmount(""); // ريست الكاش
+  };
 
+  // 2. بعد إدخال الكاش → نرسل الريبورت بالباسورد والمبلغ
+  const handleCashConfirmed = async () => {
+    if (!cashAmount || isNaN(cashAmount) || Number(cashAmount) < 0) {
+      toast.error("Please enter a valid cash amount");
+      return;
+    }
+
+    setReportLoading(true);
     try {
       const token = sessionStorage.getItem("token");
       const baseUrl = import.meta.env.VITE_API_BASE_URL;
 
       const response = await axios.post(
         `${baseUrl}cashier/reports/end_shift_report`,
-        { password },
+        {
+          password: pendingPassword,
+          amount: Number(cashAmount),
+        },
         {
           headers: { Authorization: `Bearer ${token}` },
         }
       );
 
       setEndShiftReport(response.data);
+      setShowCashInputModal(false);
       setShowReportModal(true);
     } catch (err) {
       const msg =
@@ -156,10 +174,10 @@ export default function Navbar() {
     }
   };
 
-  const handleClose = async () => {
+  // 3. إغلاق الشيفت النهائي بعد تأكيد الريبورت
+  const handleFinalClose = async () => {
     try {
       setLoading(true);
-
       const token = sessionStorage.getItem("token");
       const endpoint = `${import.meta.env.VITE_API_BASE_URL}cashier/shift/close`;
 
@@ -168,13 +186,11 @@ export default function Navbar() {
       });
 
       closeShift();
-
       sessionStorage.removeItem("shift_start_time");
       sessionStorage.removeItem("shift_data");
       sessionStorage.clear();
 
       toast.success(t("ShiftClosedSuccessfully"));
-
       navigate("/login");
     } catch (err) {
       console.error("Close shift error:", err);
@@ -284,7 +300,7 @@ export default function Navbar() {
                   </TabsTrigger>
                 )}
 
-                {/* زر الطاولات - يظهر فقط إذا كان dine_in مسموح */}
+                {/* زر الطاولات */}
                 {permissions.dine_in && (
                   <button
                     onClick={handleTables}
@@ -295,21 +311,16 @@ export default function Navbar() {
                   </button>
                 )}
 
-                                {permissions.delivery && (
-                  <TabsTrigger
-                    value="delivery"
-                    className="px-3 py-1 text-sm font-semibold bg-white text-bg-primary border border-bg-primary data-[state=active]:bg-bg-primary data-[state=active]:text-white transition-colors duration-200"
+                {/* زر Delivery Orders (منفصل عن الـ tab) */}
+                {permissions.delivery && (
+                  <button
+                    onClick={handleDeliveryOrder}
+                    className="p-2 border border-bg-primary rounded-lg hover:bg-bg-primary hover:text-white text-bg-primary transition"
+                    title={t("DeliveryOrder")}
                   >
-                    {t("Delivery")}
-                  </TabsTrigger>
+                    <FaTruck className="text-lg" />
+                  </button>
                 )}
-                <button
-                  onClick={handleDeliveryOrder}
-                  className="p-2 border border-bg-primary rounded-lg hover:bg-bg-primary hover:text-white text-bg-primary transition"
-                  title={t("DeliveryOrder")}
-                >
-                  <FaTruck className="text-lg" />
-                </button>
               </TabsList>
             </Tabs>
           </div>
@@ -366,12 +377,14 @@ export default function Navbar() {
               <span className="text-sm font-medium">AR</span>
               <button
                 onClick={toggleLanguage}
-                className={`relative inline-flex h-6 w-12 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${isArabic ? "bg-bg-primary" : "bg-gray-300"
-                  }`}
+                className={`relative inline-flex h-6 w-12 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
+                  isArabic ? "bg-bg-primary" : "bg-gray-300"
+                }`}
               >
                 <span
-                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${!isArabic ? "translate-x-6" : "translate-x-0"
-                    }`}
+                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                    !isArabic ? "translate-x-6" : "translate-x-0"
+                  }`}
                 />
               </button>
               <span className="text-sm font-medium">EN</span>
@@ -398,16 +411,58 @@ export default function Navbar() {
       {showPasswordModal && (
         <PasswordConfirmModal
           onConfirm={handlePasswordConfirmed}
-          onCancel={handleClose}
+          onCancel={() => setShowPasswordModal(false)}
           loading={reportLoading}
         />
+      )}
+
+      {showCashInputModal && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 backdrop-blur-sm">
+          <div className="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md border border-gray-100">
+            <div className="text-center mb-6">
+              <h3 className="text-2xl font-bold text-gray-800">إغلاق الوردية</h3>
+              <p className="text-gray-500 mt-2">كم المبلغ الموجود في العهدة الآن؟</p>
+            </div>
+
+            <div className="relative">
+              <input
+                type="number"
+                className="w-full p-4 bg-gray-50 border-2 border-gray-200 rounded-xl focus:border-bg-primary outline-none text-center text-3xl font-bold text-gray-700 transition-all"
+                placeholder="0.00"
+                value={cashAmount}
+                onChange={(e) => setCashAmount(e.target.value)}
+                autoFocus
+              />
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 text-lg">EGP</span>
+            </div>
+
+            <div className="flex gap-4 mt-8">
+              <button
+                onClick={() => {
+                  setShowCashInputModal(false);
+                  setCashAmount("");
+                }}
+                className="flex-1 py-3 text-gray-600 font-semibold hover:bg-gray-100 rounded-xl transition"
+              >
+                إلغاء
+              </button>
+              <button
+                onClick={handleCashConfirmed}
+                disabled={!cashAmount || reportLoading}
+                className="flex-1 py-3 bg-bg-primary text-white font-semibold rounded-xl shadow-lg hover:bg-red-700 transition disabled:opacity-50"
+              >
+                {reportLoading ? "جاري التحميل..." : "تأكيد وإرسال"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {showReportModal && (
         <EndShiftReportModal
           reportData={endShiftReport}
           onClose={() => setShowReportModal(false)}
-          onConfirmClose={handleClose}
+          onConfirmClose={handleFinalClose}
         />
       )}
     </>
