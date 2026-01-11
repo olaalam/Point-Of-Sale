@@ -27,6 +27,7 @@ import EndShiftReportModal from "@/Pages/ReportsAfterShift";
 import Notifications from "@/components/Notifications"; // ✅ محتفظ بيه تمامًا زي ما هو
 
 export default function Navbar() {
+  const FALLBACK_SOUND = "https://www.soundjay.com/buttons/sounds/button-1.mp3";
   const navigate = useNavigate();
   const location = useLocation();
   const { postData } = usePost();
@@ -48,7 +49,8 @@ export default function Navbar() {
   const [pendingPassword, setPendingPassword] = useState(""); // الباسورد المؤقت
   const [endShiftReport, setEndShiftReport] = useState(null);
   const [reportLoading, setReportLoading] = useState(false);
-
+const audioRef = useRef(null);      // ماسك ملف الصوت
+const previousCountRef = useRef(0);
   // ✅ حالة الـ Dropdown للإشعارات
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
@@ -64,7 +66,21 @@ export default function Navbar() {
 
   const currentTab = sessionStorage.getItem("tab") || "take_away";
   const isArabic = i18n.language === "ar";
-
+useEffect(() => {
+  const storedSound = sessionStorage.getItem("notification_sound") || FALLBACK_SOUND;
+  audioRef.current = new Audio(storedSound);
+  audioRef.current.load();
+  
+  // تلميح اختياري: تشغيل صامت عند أول ضغطة للمستخدم لفك حظر الصوت في المتصفح
+  const enableAudio = () => {
+      audioRef.current.play().then(() => {
+          audioRef.current.pause();
+          audioRef.current.currentTime = 0;
+      }).catch(() => {});
+      window.removeEventListener('click', enableAudio);
+  };
+  window.addEventListener('click', enableAudio);
+}, []);
   // ✅ جلب عدد الإشعارات والطلبات الجديدة بدقة من الـ API
   const { data: notificationsData, refetch: refetchNotifications } = useGet(
     "cashier/orders/notifications",
@@ -75,20 +91,33 @@ export default function Navbar() {
   const notifications = notificationsData?.orders || [];
 
   // تحديث العدد من الـ API
-  useEffect(() => {
-    if (notificationsData?.orders_count !== undefined) {
-      setNotificationCount(notificationsData.orders_count);
-    }
-  }, [notificationsData]);
+// ده الـ useEffect اللي بيشتغل لما الداتا تيجي من الـ API
+useEffect(() => {
+  if (notificationsData?.orders_count !== undefined) {
+    const newCount = notificationsData.orders_count;
 
-  // refetch فوري لما يجي new order
-  useEffect(() => {
-    const handler = () => {
-      refetchNotifications();
-    };
-    window.addEventListener("new-order-received", handler);
-    return () => window.removeEventListener("new-order-received", handler);
-  }, [refetchNotifications]);
+    // اللوجيك الجديد: لو العدد الجديد أكبر من القديم -> شغل الصوت
+    if (newCount > previousCountRef.current) {
+      if (audioRef.current) {
+        // تحديث مصدر الصوت لو اتغير في الـ SessionStorage
+        const currentStoredSound = sessionStorage.getItem("notification_sound") || FALLBACK_SOUND;
+        if (audioRef.current.src !== currentStoredSound) {
+            audioRef.current.src = currentStoredSound;
+        }
+        
+        // تشغيل الصوت
+        audioRef.current.play().catch((e) => console.warn("Audio play blocked:", e));
+        toast.info(t("New Order Received!"));
+      }
+    }
+
+    // تحديث الحالة والـ Ref عشان المقارنة الجاية
+    setNotificationCount(newCount);
+    previousCountRef.current = newCount;
+  }
+}, [notificationsData, t]);
+
+
 
   // Polling كل 15 ثانية عشان العدد يفضل دقيق دايماً
   useEffect(() => {
@@ -558,7 +587,7 @@ export default function Navbar() {
       {showPasswordModal && (
         <PasswordConfirmModal
           onConfirm={handlePasswordConfirmed}
-          onCancel={() => setShowPasswordModal(false)}
+          onCancel={handleFinalClose}
           loading={reportLoading}
         />
       )}
