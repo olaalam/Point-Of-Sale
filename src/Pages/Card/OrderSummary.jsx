@@ -445,6 +445,7 @@ export default function OrderSummary({
   onPrint: externalOnPrint,
 }) {
   const printRef = useRef();
+  console.log("Current orderType:", orderType);
 
   // حساب القيم الحقيقية للطباعة باستخدام الدالة الموحدة
   const realSubTotal = orderItems.reduce((acc, item) => {

@@ -13,6 +13,7 @@ export default function PendingOrders() {
   const [selectedOrderId, setSelectedOrderId] = useState(null);
   const [orderDetailsEndpoint, setOrderDetailsEndpoint] = useState(null);
   const { t, i18n } = useTranslation();
+  const locale = i18n.language || "en";
 
   const { 
     data: orderDetailsData, 
@@ -104,7 +105,7 @@ useEffect(() => {
     
     console.log("Selecting order:", orderId);
     setSelectedOrderId(orderId);
-    setOrderDetailsEndpoint(`cashier/get_order/${orderId}`);
+    setOrderDetailsEndpoint(`cashier/get_order/${orderId}?locale=${locale}`);
   };
 
   const formatDate = (dateString) => {
