@@ -304,43 +304,73 @@ export default function Item({ onAddToOrder, onClose }) {
   }
   const isArabic = i18n.language === "ar";
 
-  const searchAndToggleSection = (
-    <div className="sticky top-0 bg-white z-30 border-b border-gray-100 shadow-sm">
-      <div className="p-4">
-        <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+const searchAndToggleSection = (
+  <div className="sticky top-0 bg-white z-30 border-b border-gray-100 shadow-sm">
+    <div className="p-4">
+      <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+        {/* حقل البحث + زرار المسح */}
+        <div className="relative w-full md:w-1/3">
           <input
             type="text"
             placeholder={t("SearchByProductName")}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full md:w-1/3 px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-1 focus:ring-bg-primary outline-none"
+            className="w-full px-4 py-2 pr-10 border border-gray-300 rounded-md shadow-sm focus:ring-1 focus:ring-bg-primary outline-none"
           />
-          <div className="flex bg-gray-100 p-1 rounded-lg">
+
+          {/* زرار المسح - يظهر فقط لما يكون فيه نص في السيرش */}
+          {searchQuery && (
             <button
-              onClick={() => setProductType("piece")}
-              className={`px-4 py-1 rounded-md transition-all ${
-                productType === "piece"
-                  ? "bg-white shadow text-bg-primary font-bold"
-                  : "text-gray-500"
-              }`}
+              onClick={() => setSearchQuery("")}
+              className="absolute inset-y-0 right-3 flex items-center text-gray-400 hover:text-gray-600 transition-colors"
+              title={t("ClearSearch") || "مسح البحث"}
+              type="button"
             >
-              {t("ByPiece")}
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
             </button>
-            <button
-              onClick={() => setProductType("weight")}
-              className={`px-4 py-1 rounded-md transition-all ${
-                productType === "weight"
-                  ? "bg-white shadow text-bg-primary font-bold"
-                  : "text-gray-500"
-              }`}
-            >
-              {t("ByWeight")}
-            </button>
-          </div>
+          )}
+        </div>
+
+        {/* أزرار Piece / Weight */}
+        <div className="flex bg-gray-100 p-1 rounded-lg">
+          <button
+            onClick={() => setProductType("piece")}
+            className={`px-4 py-1 rounded-md transition-all ${
+              productType === "piece"
+                ? "bg-white shadow text-bg-primary font-bold"
+                : "text-gray-500"
+            }`}
+          >
+            {t("ByPiece")}
+          </button>
+          <button
+            onClick={() => setProductType("weight")}
+            className={`px-4 py-1 rounded-md transition-all ${
+              productType === "weight"
+                ? "bg-white shadow text-bg-primary font-bold"
+                : "text-gray-500"
+            }`}
+          >
+            {t("ByWeight")}
+          </button>
         </div>
       </div>
     </div>
-  );
+  </div>
+);
 
   const groupsBarSection = (
     <div
