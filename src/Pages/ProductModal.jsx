@@ -13,7 +13,17 @@ import { Textarea } from "@/components/ui/textarea";
 import { useTranslation } from "react-i18next";
 
 // Helper function to calculate total price including variations, extras, and addons
-const calculateProductTotalPrice = (
+// --- 1. دالة مساعدة لمعرفة هل المتغير هو "حجم" (Size) أم لا ---
+const isSizeVariation = (variation) => {
+  if (!variation || !variation.name) return false;
+  const name = variation.name.toLowerCase();
+  // نفحص الكلمات الدلالية للحجم بالعربي والإنجليزي
+  return name.includes('size') || name.includes('حجم') || name.includes('maqas') || name.includes('مقاس'); 
+};
+
+// --- 2. دالة حساب السعر المعدلة ---
+// 1. دالة حساب السعر
+export const calculateProductTotalPrice = (
   baseProduct,
   selectedVariation = {},
   selectedExtras = [],
@@ -22,63 +32,75 @@ const calculateProductTotalPrice = (
 ) => {
   const isWeightProduct = productType === "weight" || baseProduct.weight_status === 1;
 
-  // 1. السعر الأساسي + المتغيرات (هي اللي هتتضرب في الوزن)
-  let mainPrice = parseFloat(baseProduct.price_after_discount || baseProduct.price || 0);
+  // السعر الأساسي
+  let mainPrice = parseFloat(baseProduct.final_price || baseProduct.price_after_discount || baseProduct.price || 0);
 
-  // إضافة أسعار المتغيرات (Variations)
   if (baseProduct.variations && Object.keys(selectedVariation).length > 0) {
     baseProduct.variations.forEach(variation => {
       const selected = selectedVariation[variation.id];
       if (selected !== undefined) {
+        
+        // --- Single Selection ---
         if (variation.type === 'single') {
           const opt = variation.options?.find(o => o.id === selected);
           if (opt) {
-            mainPrice += parseFloat(opt.price_after_tax || opt.price || 0);
+            // هل ده حجم (Size)؟
+            if (isSizeVariation(variation)) {
+              // لو حجم، خد السعر النهائي بتاعه واستبدل السعر الأصلي
+              const sizePrice = parseFloat(opt.final_price ?? opt.total_option_price ?? opt.price_after_tax ?? 0);
+              if (sizePrice > 0) mainPrice = sizePrice;
+            } else {
+              // لو مش حجم (زي Your Choice)، دور على "price" الأول لأنه بيمثل الزيادة
+              // لو "price" بصفر، يبقى الزيادة صفر.
+              let extraCost = 0;
+              if (opt.price !== undefined && opt.price !== null) {
+                extraCost = parseFloat(opt.price);
+              } else {
+                // Fallback لو مفيش price
+                extraCost = parseFloat(opt.final_price ?? 0);
+                // حماية: لو سعر الإضافة هو هو سعر المنتج، غالباً دي مش إضافة، دي داتا متكررة
+                if (extraCost === mainPrice) extraCost = 0; 
+              }
+              mainPrice += extraCost;
+            }
           }
-        } else if (variation.type === 'multiple') {
+        } 
+        
+        // --- Multiple Selection ---
+        else if (variation.type === 'multiple') {
           const arr = Array.isArray(selected) ? selected : [selected];
           arr.forEach(id => {
             const opt = variation.options?.find(o => o.id === id);
-            if (opt) mainPrice += parseFloat(opt.price_after_tax || opt.price || 0);
+            if (opt) {
+               // في المتعدد بنعتمد على ال price كزيادة
+               let extraCost = parseFloat(opt.price ?? opt.final_price ?? 0);
+               mainPrice += extraCost;
+            }
           });
         }
       }
     });
   }
 
-  // 2. حساب الإضافات (Extras + Addons) → ثابتة في المنتجات بالوزن
+  // حساب الإضافات (Extras)
   let extrasPrice = 0;
   if (selectedExtras?.length > 0) {
     const counts = {};
-    selectedExtras.forEach(id => {
-      counts[id] = (counts[id] || 0) + 1;
-    });
-
+    selectedExtras.forEach(id => { counts[id] = (counts[id] || 0) + 1; });
     Object.entries(counts).forEach(([idStr, count]) => {
       const id = parseInt(idStr);
       let item = baseProduct.allExtras?.find(e => e.id === id) ||
                  baseProduct.addons?.find(a => a.id === id);
-
       if (item) {
-        const price = parseFloat(
-          item.price_after_discount ||
-          item.price_after_tax ||
-          item.price ||
-          0
-        );
+        const price = parseFloat(item.final_price || item.price || 0);
         extrasPrice += price * count;
       }
     });
   }
 
-  // 3. النتيجة النهائية
-  if (isWeightProduct) {
-    // المنتج + المتغيرات × الوزن + الإضافات (ثابتة)
-    return (mainPrice * quantity) + extrasPrice;
-  } else {
-    // كل شيء × الكمية
-    return (mainPrice + extrasPrice) * quantity;
-  }
+  return isWeightProduct 
+    ? (mainPrice * quantity) + extrasPrice 
+    : (mainPrice + extrasPrice) * quantity;
 };
 
 // ✅ تحديث دالة المقارنة لتشمل الـ Addons
@@ -170,15 +192,27 @@ const { t , i18n } = useTranslation();
       onExtraDecrement(extraId);
     }
   };
+  
 
-  const getVariationOptionDisplay = (option) => {
-    const price = parseFloat(option.price_after_tax || option.price || 0);
-    if (price === 0) {
-      return `${option.name}`;
+const getVariationOptionDisplay = (option, variation) => {
+    // نحدد السعر اللي هنعرضه بناءً على نوع الفاريشن
+    let priceToDisplay = 0;
+
+    if (isSizeVariation(variation)) {
+      // لو حجم، اعرض السعر النهائي
+      priceToDisplay = parseFloat(option.final_price ?? option.total_option_price ?? 0);
+      return `${option.name} (${priceToDisplay.toFixed(2)} ${t("EGP")})`;
+    } else {
+      // لو مش حجم، اعرض سعر الزيادة (price)
+      priceToDisplay = parseFloat(option.price ?? 0);
+      
+      // لو الزيادة 0، اعرض الاسم بس (أو كلمة Free)
+      if (priceToDisplay === 0) {
+        return option.name;
+      }
+      return `${option.name} (+${priceToDisplay.toFixed(2)} ${t("EGP")})`;
     }
-    return `${option.name} (+${price.toFixed(2)} EGP)`;
   };
-
   const handleWeightChange = (e) => {
     const value = e.target.value;
     if (value === '' || /^\d*\.?\d*$/.test(value)) {
@@ -285,10 +319,12 @@ const { t , i18n } = useTranslation();
                 : "bg-gray-100 text-gray-700 border-gray-300 hover:border-red-400"
             }`}
         >
-          <span className="capitalize">{option.name}</span>
-          {parseFloat(option.price_after_tax || option.price || 0) > 0 && (
+          <span className="capitalize">
+    {getVariationOptionDisplay(option, variation)}
+  </span>
+          {parseFloat(option.final_price ||option.price_after_tax ||  0) > 0 && (
             <span className="text-xs">
-              +{(option.price_after_tax || option.price).toFixed(2)} EGP
+              +{( option.final_price || option.price_after_tax ).toFixed(2)} EGP
             </span>
           )}
         </button>
@@ -324,9 +360,9 @@ const { t , i18n } = useTranslation();
                                   {option.name}
                                 </span>
                                 <div className="text-xs text-gray-500">
-                                  {parseFloat(option.price_after_tax || option.price || 0) === 0 
+                                  {parseFloat(option.final_price || option.price_after_tax || option.price || 0) === 0 
                                     ? "Free"
-                                    : `+${(option.price_after_tax || option.price).toFixed(2)} EGP`
+                                    : `+${(option.final_price || option.price_after_tax || option.price).toFixed(2)} EGP`
                                   }
                                 </div>
                               </div>
@@ -393,7 +429,7 @@ const { t , i18n } = useTranslation();
                           <div className="text-xs text-gray-500">
                             {extra.price > 0
                               ? `+${(
-                                  extra.price_after_discount ??
+                                  extra.final_price ??
                                   extra.price ??
                                   0
                                 ).toFixed(2)} ${t("EGP")}`
@@ -446,9 +482,10 @@ const { t , i18n } = useTranslation();
               </span>
               <div className="text-xs text-gray-500">
                 +{(
+                  addon.final_price ??
                   addon.price_after_tax ??     
                   addon.price_after_discount ??
-                  addon.price ??
+                  
                   0
                 ).toFixed(2)}{" "}
                 {t('EGP')}
@@ -598,9 +635,10 @@ const { t , i18n } = useTranslation();
         addon_id: addonId,
         quantity: 1,
         price: src ? parseFloat(
+          src.final_price ||
           src.price_after_discount ||
           src.price_after_tax ||
-          src.price ||
+          
           0
         ) : 0,
       };
@@ -620,12 +658,12 @@ const enhancedProduct = {
       // price: totalUnitPrice, 
 
       // ✅ الصح: أرسل السعر الأصلي للمنتج فقط، ودع Item.jsx يحسب الإضافات
-      price: selectedProduct.price_after_discount || selectedProduct.price || 0,
+      price: selectedProduct.final_price ||selectedProduct.price_after_discount ||  0,
 
       // يمكنك الاحتفاظ بالسعر المحسوب في متغير آخر لو احتجته للعرض فقط
       modalCalculatedPrice: totalUnitPrice, 
       
-      originalPrice: selectedProduct.price,
+      originalPrice: selectedProduct.final_price,
       totalPrice: totalUnitPrice * quantity, // هذا للعرض فقط
       addons: addonsForBackend,
       allExtras: selectedProduct.allExtras,

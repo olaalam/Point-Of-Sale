@@ -88,7 +88,7 @@ export default function OrderTable({
 
               // حساب التوتال الصحيح (price × الكمية الفعلية)
               const itemTotalPrice = (
-                parseFloat(item.price || 0) * effectiveQuantity
+                parseFloat(item.final_price || 0) * effectiveQuantity
               ).toFixed(2);
 
               return (

@@ -244,7 +244,7 @@ useEffect(() => {
       const finalQuantity = product.quantity || customQuantity;
       const pricePerUnit = product.totalPrice
         ? (product.totalPrice / finalQuantity)
-        : parseFloat(product.price || product.price_after_discount || 0);
+        : parseFloat(product.final_price || product.price_after_discount || 0);
       const totalAmount = pricePerUnit * finalQuantity;
       if (isNaN(totalAmount)) {
         console.error("❌ Error calculating price", {
@@ -396,7 +396,7 @@ const searchAndToggleSection = (
                   return;
                 }
 
-                const unitPrice = parseFloat(found.price || found.price_after_discount || 0);
+                const unitPrice = parseFloat(found.final_price || found.price_after_discount || 0);
 
                 if (!unitPrice || isNaN(unitPrice)) {
                   toast.error("سعر المنتج غير صحيح");

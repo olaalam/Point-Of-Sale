@@ -88,7 +88,7 @@ export const useProductModal = () => {
   useEffect(() => {
     if (!selectedProduct) return;
 
-    let basePrice = parseFloat(selectedProduct.price_after_discount ?? selectedProduct.price ?? 0);
+    let basePrice = parseFloat( selectedProduct.final_price ??selectedProduct.price_after_discount ?? 0);
     let extraCharges = 0;
 
     // 1. حساب الـ Variations
@@ -101,13 +101,13 @@ export const useProductModal = () => {
             if (opt.total_option_price) {
               extraCharges += (parseFloat(opt.total_option_price) - basePrice);
             } else {
-              extraCharges += parseFloat(opt.price_after_tax ?? opt.price ?? 0);
+              extraCharges += parseFloat(opt.final_price || opt.price_after_tax || opt.price || 0);
             }
           }
         } else if (v.type === "multiple" && Array.isArray(selected)) {
           selected.forEach((id) => {
             const opt = v.options.find((o) => o.id === id);
-            if (opt) extraCharges += parseFloat(opt.price_after_tax ?? opt.price ?? 0);
+            if (opt) extraCharges += parseFloat(opt.final_price || opt.price_after_tax || opt.price || 0);
           });
         }
       });
@@ -117,7 +117,7 @@ export const useProductModal = () => {
     selectedExtras.forEach((id) => {
       const extra = [...(selectedProduct.allExtras || []), ...(selectedProduct.addons || [])]
                     .find((e) => e.id === parseInt(id));
-      if (extra) extraCharges += parseFloat(extra.price_after_discount ?? extra.price ?? 0);
+      if (extra) extraCharges += parseFloat(extra.final_price || extra.price_after_discount || extra.price || 0);
     });
 
     setTotalPrice((basePrice + extraCharges) * quantity);

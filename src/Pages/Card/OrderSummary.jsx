@@ -256,7 +256,7 @@ const PrintableOrder = React.forwardRef(
                                     marginTop: "2px",
                                   }}
                                 >
-                                  • {option.name} (+{option.price.toFixed(2)})
+                                  • {option.name} (+{option.final_price.toFixed(2)})
                                 </div>
                               ))
                           )}

@@ -12,27 +12,44 @@ import ProductDetailModalWrapper from "./ProductDetailModalWrapper";
 const calculateAddonsTotal = (item) => {
   let total = 0;
 
-  // 1. حساب الـ Addons (مثل fries, sauce, etc.)
-  if (item.addons && Array.isArray(item.addons)) {
-    item.addons.forEach((ad) => {
-      // نتحقق أن الإضافة مختارة (بناءً على وجود selected أو كمية أو كونها مضافة يدوياً)
-      // في بيانات Margherita الأخيرة كانت الإضافات تظهر بدون selected، لذا نعتمد على الكمية أو منطق الـ UI
-      const isSelected = ad.selected === true || (ad.quantity > 0 && ad.price > 0);
+  // 1. حساب الـ Variations التي تعتبر "إضافات" وليست "أحجام"
+  if (item.variations && Array.isArray(item.variations)) {
+    item.variations.forEach((v) => {
+      // إذا لم يكن حجم (Size)، نأخذ قيمة الـ price كزيادة
+      const name = (v.name || "").toLowerCase();
+      const isSize = name.includes('size') || name.includes('حجم') || name.includes('maqas');
       
-      if (isSelected) {
-        // نستخدم price_after_tax لو وجد، وإلا السعر العادي
-        const adPrice = Number(ad.price_after_tax || ad.price || 0);
-        total += adPrice * Number(ad.quantity || 1);
+      if (!isSize) {
+        const selectedId = v.selected_option_id;
+        const options = Array.isArray(selectedId) ? selectedId : [selectedId];
+        
+        options.forEach(optId => {
+          const opt = v.options?.find(o => o.id === optId);
+          if (opt) {
+            // نعتمد على حقل price لأنه يمثل "الزيادة" في الـ Backend عندك
+            total += Number(opt.price || 0);
+          }
+        });
       }
     });
   }
 
-  // 2. حساب الـ Extras (مثل Medium Shrimp, etc.)
+  // 2. حساب الـ Addons (مثل fries, combo)
+  if (item.addons && Array.isArray(item.addons)) {
+    item.addons.forEach((ad) => {
+      const isSelected = ad.selected === true || (Number(ad.quantity) > 0);
+      if (isSelected) {
+        total += Number(ad.price_after_tax || ad.final_price || ad.price || 0) * Number(ad.quantity || 1);
+      }
+    });
+  }
+
+  // 3. حساب الـ Extras (المختارة من القائمة)
   if (item.selectedExtras && Array.isArray(item.selectedExtras)) {
     item.selectedExtras.forEach((extraId) => {
       const extraData = item.allExtras?.find((e) => e.id === extraId);
       if (extraData) {
-        total += Number(extraData.price_after_tax || extraData.price_after_discount || extraData.price || 0);
+        total += Number(extraData.final_price || extraData.price || 0);
       }
     });
   }
@@ -68,22 +85,23 @@ const isWeightProduct = item.weight_status === 1 || item.weight_status === "1";
 const isScaleWeightItem = isWeightProduct && item._source === "scale_barcode";
 
 // 2. سعر الوحدة الأساسي (سعر الكيلو أو سعر القطعة الواحدة)
-let unitBasePrice = Number(item.price_after_discount || item.price_after_tax || item.price || 0);
+let unitBasePrice = Number(item.final_price || item.price_after_discount || 0);
 const selectedOptionId = item.variations?.[0]?.selected_option_id;
 const selectedOption = item.variations?.[0]?.options?.find(opt => opt.id === selectedOptionId);
 
 if (selectedOption) {
   unitBasePrice = Number(
+    selectedOption.final_price ||
     selectedOption.total_option_price ||
     selectedOption.price_after_tax ||
     selectedOption.price_after_discount ||
-    selectedOption.price ||
+    
     0
   );
 }
 
 let hasDiscount = false;
-let originalUnitBasePrice = Number(item.price || 0);
+let originalUnitBasePrice = Number(item.final_price || item.price_after_discount || item.price_after_tax || 0);
 
 if (selectedOption) {
   hasDiscount = Number(selectedOption.discount_val || 0) > 0;
@@ -92,7 +110,7 @@ if (selectedOption) {
     : unitBasePrice;
 } else {
   const priceAfterDisc = Number(item.price_after_discount || 0);
-  const normalPrice = Number(item.price || 0);
+  const normalPrice = Number(item.final_price || 0);
   hasDiscount = priceAfterDisc > 0 && priceAfterDisc < normalPrice;
   originalUnitBasePrice = normalPrice;
 }
