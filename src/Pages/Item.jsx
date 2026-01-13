@@ -1,4 +1,10 @@
-import React, { useState, useMemo, useEffect, useCallback ,useRef } from "react";
+import React, {
+  useState,
+  useMemo,
+  useEffect,
+  useCallback,
+  useRef,
+} from "react";
 import { usePost } from "@/Hooks/usePost";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -49,30 +55,34 @@ export default function Item({ onAddToOrder, onClose }) {
   const [selectedMainCategory, setSelectedMainCategory] = useState("all");
   const [selectedSubCategory, setSelectedSubCategory] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [visibleProductCount, setVisibleProductCount] = useState(PRODUCTS_TO_SHOW_INITIALLY);
-  const [branchIdState, setBranchIdState] = useState(sessionStorage.getItem("branch_id"));
+  const [visibleProductCount, setVisibleProductCount] = useState(
+    PRODUCTS_TO_SHOW_INITIALLY
+  );
+  const [branchIdState, setBranchIdState] = useState(
+    sessionStorage.getItem("branch_id")
+  );
   const [productType, setProductType] = useState("piece");
   const [selectedGroup, setSelectedGroup] = useState("none");
   const [showCategories, setShowCategories] = useState(true);
   const [isNormalPrice, setIsNormalPrice] = useState(true);
 
   const { t, i18n } = useTranslation();
-const scannerInputRef = useRef(null);
+  const scannerInputRef = useRef(null);
 
-// ده هيتركز تلقائيًا كل ما الصفحة تتحمل أو ترجع focus
-useEffect(() => {
-  const input = scannerInputRef.current;
-  if (input) {
-    input.focus();
-    
-    // في حالة الـ blur (مثلاً ضغطتي على حاجة تانية) → نرجّعه focus
-    const handleBlur = () => {
-      setTimeout(() => input.focus(), 10);
-    };
-    input.addEventListener("blur", handleBlur);
-    return () => input.removeEventListener("blur", handleBlur);
-  }
-}, []);
+  // ده هيتركز تلقائيًا كل ما الصفحة تتحمل أو ترجع focus
+  useEffect(() => {
+    const input = scannerInputRef.current;
+    if (input) {
+      input.focus();
+
+      // في حالة الـ blur (مثلاً ضغطتي على حاجة تانية) → نرجّعه focus
+      const handleBlur = () => {
+        setTimeout(() => input.focus(), 10);
+      };
+      input.addEventListener("blur", handleBlur);
+      return () => input.removeEventListener("blur", handleBlur);
+    }
+  }, []);
   const orderType = sessionStorage.getItem("order_type") || "dine_in";
   const { deliveryUserData, userLoading, userError } =
     useDeliveryUser(orderType);
@@ -152,11 +162,11 @@ useEffect(() => {
   }, [allModulesData, productType]);
 
   const allSubCategories = useMemo(() => {
-    return finalCategories.flatMap(cat => 
-      (cat.sub_categories || []).map(sub => ({
+    return finalCategories.flatMap((cat) =>
+      (cat.sub_categories || []).map((sub) => ({
         ...sub,
         main_category_id: cat.id,
-        main_category_name: cat.name
+        main_category_name: cat.name,
       }))
     );
   }, [finalCategories]);
@@ -186,12 +196,16 @@ useEffect(() => {
 
     // Priority 3: Main Category Filter
     if (selectedMainCategory !== "all") {
-      products = products.filter(p => p.category_id === parseInt(selectedMainCategory));
+      products = products.filter(
+        (p) => p.category_id === parseInt(selectedMainCategory)
+      );
     }
 
     // Priority 4: Sub Category Filter
     if (selectedSubCategory) {
-      products = products.filter(p => p.sub_category_id === parseInt(selectedSubCategory));
+      products = products.filter(
+        (p) => p.sub_category_id === parseInt(selectedSubCategory)
+      );
     }
 
     return products;
@@ -203,7 +217,7 @@ useEffect(() => {
     selectedSubCategory,
     searchQuery,
     isNormalPrice,
-    selectedGroup
+    selectedGroup,
   ]);
 
   const productsToDisplay = filteredProducts.slice(0, visibleProductCount);
@@ -243,7 +257,7 @@ useEffect(() => {
       const { customQuantity = 1 } = options;
       const finalQuantity = product.quantity || customQuantity;
       const pricePerUnit = product.totalPrice
-        ? (product.totalPrice / finalQuantity)
+        ? product.totalPrice / finalQuantity
         : parseFloat(product.price || product.price_after_discount || 0);
       const totalAmount = pricePerUnit * finalQuantity;
       if (isNaN(totalAmount)) {
@@ -307,7 +321,6 @@ useEffect(() => {
     [orderType, onAddToOrder, postOrder, t]
   );
 
-
   if (
     groupLoading ||
     isAllDataLoading ||
@@ -321,102 +334,74 @@ useEffect(() => {
   }
   const isArabic = i18n.language === "ar";
 
-const searchAndToggleSection = (
-  <div className="sticky top-0 bg-white z-30 border-b border-gray-100 shadow-sm">
-    <div className="p-4">
-      <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-        {/* حقل البحث + زرار المسح */}
-        <div className="relative w-full md:w-1/3">
-          <input
-            type="text"
-            placeholder={t("SearchByProductName")}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full px-4 py-2 pr-10 border border-gray-300 rounded-md shadow-sm focus:ring-1 focus:ring-bg-primary outline-none"
-onChange={(e) => {
-    const val = e.target.value;
-    setSearchQuery(val);
+  const searchAndToggleSection = (
+    <div className="sticky top-0 bg-white z-30 border-b border-gray-100 shadow-sm">
+      <div className="p-4">
+        <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+          {/* حقل البحث + زرار المسح */}
+          <div className="relative w-full md:w-1/3">
+            <input
+              type="text"
+              placeholder={t("SearchByProductName")}
+              value={searchQuery}
+              className="w-full px-4 py-2 pr-10 border border-gray-300 rounded-md shadow-sm focus:ring-1 focus:ring-bg-primary outline-none"
+              onChange={(e) => {
+                const val = e.target.value;
+                setSearchQuery(val);
 
-    // لو الطول بقى كبير (باركود عادة 8–13 رقم) وفيه Enter
-    // لكن أفضل تستخدمي الطريقة اللي فوق (hidden input)
-  }}
-  onKeyDown={(e) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      
-      const code = searchQuery.trim();
-      if (!code) return;
+                // لو الطول بقى كبير (باركود عادة 8–13 رقم) وفيه Enter
+                // لكن أفضل تستخدمي الطريقة اللي فوق (hidden input)
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
 
-      const found = allProducts.find(
-        p => String(p.product_code || "").trim() === code
-      );
+                  const code = searchQuery.trim();
+                  if (!code) return;
 
-      if (found) {
-        handleAddToOrder(found);
-        toast.success(`تم إضافة → ${found.name}`);
-      } else {
-        toast.error("الكود غير موجود");
-      }
+                  const found = allProducts.find(
+                    (p) => String(p.product_code || "").trim() === code
+                  );
 
-      setSearchQuery(""); // ← ده اللي عايزاه
-    }
-  }}            className="w-full md:w-1/3 px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-1 focus:ring-bg-primary outline-none"
-          />
+                  if (found) {
+                    handleAddToOrder(found);
+                    toast.success(`تم إضافة → ${found.name}`);
+                  } else {
+                    toast.error("الكود غير موجود");
+                  }
 
-          {/* زرار المسح - يظهر فقط لما يكون فيه نص في السيرش */}
-          {searchQuery && (
-            <button
-              onClick={() => setSearchQuery("")}
-              className="absolute inset-y-0 right-3 flex items-center text-gray-400 hover:text-gray-600 transition-colors"
-              title={t("ClearSearch") || "مسح البحث"}
-              type="button"
-            >
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                xmlns="http://www.w3.org/2000/svg"
+                  setSearchQuery(""); // ← ده اللي عايزاه
+                }
+              }}
+            />
+
+            {/* زرار المسح - يظهر فقط لما يكون فيه نص في السيرش */}
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery("")}
+                className="absolute inset-y-0 right-3 flex items-center text-gray-400 hover:text-gray-600 transition-colors"
+                title={t("ClearSearch") || "مسح البحث"}
+                type="button"
               >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
-            </button>
-          )}
-        </div>
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
+              </button>
+            )}
+          </div>
 
-        {/* أزرار Piece / Weight */}
-        <div className="flex bg-gray-100 p-1 rounded-lg">
-          <button
-            onClick={() => setProductType("piece")}
-            className={`px-4 py-1 rounded-md transition-all ${
-              productType === "piece"
-                ? "bg-white shadow text-bg-primary font-bold"
-                : "text-gray-500"
-            }`}
-          >
-            {t("ByPiece")}
-          </button>
-          <button
-            onClick={() => setProductType("weight")}
-            className={`px-4 py-1 rounded-md transition-all ${
-              productType === "weight"
-                ? "bg-white shadow text-bg-primary font-bold"
-                : "text-gray-500"
-            }`}
-          >
-            {t("ByWeight")}
-          </button>
-        </div>
-      </div>
-    </div>
-  </div>
-);
-
+          {/* أزرار Piece / Weight */}
           <div className="flex bg-gray-100 p-1 rounded-lg">
             <button
               onClick={() => setProductType("piece")}
@@ -609,7 +594,9 @@ onChange={(e) => {
                 alt={cat.name}
                 className="w-15 h-15 rounded-lg object-cover shadow-sm"
               />
-              <span className="font-bold text-lg truncate flex-1">{cat.name}</span>
+              <span className="font-bold text-lg truncate flex-1">
+                {cat.name}
+              </span>
 
               {/* سهم صغير لو فيه sub-categories */}
               {hasSubCategories && (
@@ -638,7 +625,9 @@ onChange={(e) => {
                     <div className="w-10 h-10 bg-gray-100 rounded-md flex items-center justify-center text-base shadow-inner">
                       ↳
                     </div>
-                    <span className="font-medium text-base truncate">{sub.name}</span>
+                    <span className="font-medium text-base truncate">
+                      {sub.name}
+                    </span>
                   </div>
                 ))}
               </div>
