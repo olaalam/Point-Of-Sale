@@ -90,7 +90,7 @@ export default function LoginPage() {
         "preparation_num_status",
         res.data.preparation_num_status
       );
-      sessionStorage.setItem("scale", JSON.stringify(res.data.scale));
+   sessionStorage.setItem("scale", String(res.data.scale || ""));
 
       console.log(res.data.preparation_num_status);
 

@@ -59,16 +59,16 @@ const ItemRow = ({
   const statusInfo = PREPARATION_STATUSES[item.preparation_status] || PREPARATION_STATUSES.pending;
   const StatusIcon = statusInfo.icon;
   const isItemLoading = itemLoadingStates[item.temp_id] || false;
-
 // ==========================================
 // 🟢 حساب الأسعار بدقة (Logic) - النسخة المصححة
 // ==========================================
 
 // 1. هل المنتج بالوزن؟
 const isWeightProduct = item.weight_status === 1 || item.weight_status === "1";
+const isScaleWeightItem = isWeightProduct && item._source === "scale_barcode";
+
 // 2. سعر الوحدة الأساسي (سعر الكيلو أو سعر القطعة الواحدة)
-let unitBasePrice = Number(item.price_after_discount || item.price || 0);
-// حالة الـ Variation (مثل Large / Small)
+let unitBasePrice = Number(item.price_after_discount || item.price_after_tax || item.price || 0);
 const selectedOptionId = item.variations?.[0]?.selected_option_id;
 const selectedOption = item.variations?.[0]?.options?.find(opt => opt.id === selectedOptionId);
 
@@ -111,9 +111,12 @@ if (isWeightProduct) {
   finalUnitPrice = unitBasePrice + addonsTotal;
 }
 // 5. الكمية / الوزن
-const quantity = isWeightProduct 
-  ? Number(item.quantity || 0) 
-  : Number(item.count || 1);
+// الكمية للحساب والعرض
+const quantity = isWeightProduct
+  ? (isScaleWeightItem
+      ? Number(item._weight_kg || item._weight_grams / 1000 || 0)  // للـ scale: نأخذ الوزن الفعلي
+      : Number(item.quantity || 0))                                // للمنتجات بالوزن العادية: quantity عادي
+  : Number(item.count || 1);                                         // غير الوزن: count
 
   let displayedUnitPrice = isWeightProduct
   ? unitBasePrice  // بس سعر الكيلو الأساسي (بدون إضافات)
@@ -150,9 +153,15 @@ const totalPrice = isWeightProduct
         <ProductDetailModalWrapper product={item} updateOrderItems={updateOrderItems} orderItems={orderItems}>
           <div className="flex flex-col gap-1">
             <div className="text-gray-800 font-medium hover:text-red-600 cursor-pointer transition-colors leading-tight">
-              <span className="text-bg-primary font-bold mr-1.5 bg-red-50 px-1 rounded">
-                {item.weight_status === 1 ? `${quantity}kg` : `${quantity}x`}
-              </span>
+<span className="text-bg-primary font-bold mr-1.5 bg-red-50 px-1 rounded">
+  {isWeightProduct
+    ? (() => {
+        let formatted = quantity.toFixed(3).replace(/0+$/, ''); // إزالة الأصفار الزايدة
+        if (formatted.endsWith('.')) formatted = formatted.slice(0, -1);
+        return formatted + 'kg';
+      })()
+    : `${quantity}x`}
+</span>
               <span className="text-[14px]">{item.name || item.product_name || "Unknown Product"}</span>
             </div>
 
