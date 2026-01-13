@@ -11,11 +11,17 @@ export function useOrderCalculations(
 ) {
   return useMemo(() => {
     // ── Subtotal (items only) ──────────────────────────────────────────
-    const subTotal = (orderItems ?? []).reduce((sum, item) => {
-      const unitPrice = calculateItemUnitPrice(item);
-      const qty = item.count ?? item.quantity ?? 1;
-      return sum + unitPrice * qty;
-    }, 0);
+// داخل useOrderCalculations.js
+const subTotal = (orderItems ?? []).reduce((sum, item) => {
+  const unitPrice = calculateItemUnitPrice(item);
+  
+  // تحديد الكمية بدقة (نفس منطق العرض في السطر)
+  const qty = (item.weight_status === 1 || item.weight_status === "1")
+    ? (item._source === "scale_barcode" ? Number(item._weight_kg || 0) : Number(item.quantity || 0))
+    : Number(item.count || item.quantity || 1);
+
+  return sum + unitPrice * qty;
+}, 0);
 
     // ── Taxes ──────────────────────────────────────────────────────────
     let totalTax = 0;
