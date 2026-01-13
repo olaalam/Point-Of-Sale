@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useCallback } from "react";
+import React, { useState, useMemo, useEffect, useCallback ,useRef } from "react";
 import { usePost } from "@/Hooks/usePost";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -57,7 +57,22 @@ export default function Item({ onAddToOrder, onClose }) {
   const [isNormalPrice, setIsNormalPrice] = useState(true);
 
   const { t, i18n } = useTranslation();
+const scannerInputRef = useRef(null);
 
+// ده هيتركز تلقائيًا كل ما الصفحة تتحمل أو ترجع focus
+useEffect(() => {
+  const input = scannerInputRef.current;
+  if (input) {
+    input.focus();
+    
+    // في حالة الـ blur (مثلاً ضغطتي على حاجة تانية) → نرجّعه focus
+    const handleBlur = () => {
+      setTimeout(() => input.focus(), 10);
+    };
+    input.addEventListener("blur", handleBlur);
+    return () => input.removeEventListener("blur", handleBlur);
+  }
+}, []);
   const orderType = sessionStorage.getItem("order_type") || "dine_in";
   const { deliveryUserData, userLoading, userError } =
     useDeliveryUser(orderType);
@@ -291,6 +306,8 @@ export default function Item({ onAddToOrder, onClose }) {
     },
     [orderType, onAddToOrder, postOrder, t]
   );
+
+
   if (
     groupLoading ||
     isAllDataLoading ||
@@ -312,9 +329,36 @@ export default function Item({ onAddToOrder, onClose }) {
             type="text"
             placeholder={t("SearchByProductName")}
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full md:w-1/3 px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-1 focus:ring-bg-primary outline-none"
+onChange={(e) => {
+    const val = e.target.value;
+    setSearchQuery(val);
+
+    // لو الطول بقى كبير (باركود عادة 8–13 رقم) وفيه Enter
+    // لكن أفضل تستخدمي الطريقة اللي فوق (hidden input)
+  }}
+  onKeyDown={(e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      
+      const code = searchQuery.trim();
+      if (!code) return;
+
+      const found = allProducts.find(
+        p => String(p.product_code || "").trim() === code
+      );
+
+      if (found) {
+        handleAddToOrder(found);
+        toast.success(`تم إضافة → ${found.name}`);
+      } else {
+        toast.error("الكود غير موجود");
+      }
+
+      setSearchQuery(""); // ← ده اللي عايزاه
+    }
+  }}            className="w-full md:w-1/3 px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-1 focus:ring-bg-primary outline-none"
           />
+
           <div className="flex bg-gray-100 p-1 rounded-lg">
             <button
               onClick={() => setProductType("piece")}
