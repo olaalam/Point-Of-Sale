@@ -256,7 +256,7 @@ const PrintableOrder = React.forwardRef(
                                     marginTop: "2px",
                                   }}
                                 >
-                                  • {option.name} (+{option.price.toFixed(2)})
+                                  • {option.name} (+{option.final_price.toFixed(2)})
                                 </div>
                               ))
                           )}
@@ -445,6 +445,7 @@ export default function OrderSummary({
   onPrint: externalOnPrint,
 }) {
   const printRef = useRef();
+  console.log("Current orderType:", orderType);
 
   // حساب القيم الحقيقية للطباعة باستخدام الدالة الموحدة
   const realSubTotal = orderItems.reduce((acc, item) => {

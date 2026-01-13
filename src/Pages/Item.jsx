@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useCallback } from "react";
+import React, { useState, useMemo, useEffect, useCallback ,useRef } from "react";
 import { usePost } from "@/Hooks/usePost";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -57,7 +57,22 @@ export default function Item({ onAddToOrder, onClose }) {
   const [isNormalPrice, setIsNormalPrice] = useState(true);
 
   const { t, i18n } = useTranslation();
+const scannerInputRef = useRef(null);
 
+// ده هيتركز تلقائيًا كل ما الصفحة تتحمل أو ترجع focus
+useEffect(() => {
+  const input = scannerInputRef.current;
+  if (input) {
+    input.focus();
+    
+    // في حالة الـ blur (مثلاً ضغطتي على حاجة تانية) → نرجّعه focus
+    const handleBlur = () => {
+      setTimeout(() => input.focus(), 10);
+    };
+    input.addEventListener("blur", handleBlur);
+    return () => input.removeEventListener("blur", handleBlur);
+  }
+}, []);
   const orderType = sessionStorage.getItem("order_type") || "dine_in";
   const { deliveryUserData, userLoading, userError } =
     useDeliveryUser(orderType);
@@ -229,7 +244,7 @@ export default function Item({ onAddToOrder, onClose }) {
       const finalQuantity = product.quantity || customQuantity;
       const pricePerUnit = product.totalPrice
         ? (product.totalPrice / finalQuantity)
-        : parseFloat(product.price || product.price_after_discount || 0);
+        : parseFloat(product.final_price || product.price_after_discount || 0);
       const totalAmount = pricePerUnit * finalQuantity;
       if (isNaN(totalAmount)) {
         console.error("❌ Error calculating price", {
@@ -291,6 +306,8 @@ export default function Item({ onAddToOrder, onClose }) {
     },
     [orderType, onAddToOrder, postOrder, t]
   );
+
+
   if (
     groupLoading ||
     isAllDataLoading ||
@@ -304,44 +321,163 @@ export default function Item({ onAddToOrder, onClose }) {
   }
   const isArabic = i18n.language === "ar";
 
-  const searchAndToggleSection = (
-    <div className="sticky top-0 bg-white z-30 border-b border-gray-100 shadow-sm">
-      <div className="p-4">
-        <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-          <input
-            type="text"
-            placeholder={t("SearchByProductName")}
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full md:w-1/3 px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-1 focus:ring-bg-primary outline-none"
-          />
-          <div className="flex bg-gray-100 p-1 rounded-lg">
-            <button
-              onClick={() => setProductType("piece")}
-              className={`px-4 py-1 rounded-md transition-all ${
-                productType === "piece"
-                  ? "bg-white shadow text-bg-primary font-bold"
-                  : "text-gray-500"
-              }`}
-            >
-              {t("ByPiece")}
-            </button>
-            <button
-              onClick={() => setProductType("weight")}
-              className={`px-4 py-1 rounded-md transition-all ${
-                productType === "weight"
-                  ? "bg-white shadow text-bg-primary font-bold"
-                  : "text-gray-500"
-              }`}
-            >
-              {t("ByWeight")}
-            </button>
-          </div>
+const searchAndToggleSection = (
+  <div className="sticky top-0 bg-white z-30 border-b border-gray-100 shadow-sm">
+    <div className="p-4">
+      <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+        <input
+          type="text"
+          placeholder={t("SearchByProductName")}
+          value={searchQuery}
+          onChange={(e) => {
+            setSearchQuery(e.target.value);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              const code = searchQuery.trim();
+              if (!code) return;
+
+              // ─────────────────────────────────────────────
+              //          باركود وزن (13 رقم يبدأ بـ 2)
+              // ─────────────────────────────────────────────
+              if (code.length === 13 && code.startsWith("2")) {
+                const scaleValue = sessionStorage.getItem("scale");
+
+                console.log("[DEBUG BARCODE]", {
+                  rawScale: scaleValue,
+                  scaleType: typeof scaleValue,
+                  scaleLength: scaleValue?.length,
+                  exactRepr: JSON.stringify(scaleValue),
+                  atTime: new Date().toISOString(),
+                });
+
+                const isScaleEnabled = scaleValue && scaleValue !== "0" && scaleValue !== "";
+
+                if (!isScaleEnabled) {
+                  toast.warn(t("ScaleIsNotEnabled") || "الميزان غير مفعّل");
+                  setSearchQuery("");
+                  return;
+                }
+
+                // استخراج الكود والوزن
+                const itemCodePart = code.substring(1, 7); // من الخانة 2 إلى 7 (6 أرقام)
+                const weightPart = code.substring(7, 12);
+                const weightGrams = parseInt(weightPart, 10);
+                const weightKg = weightGrams / 1000;
+
+                console.log("[WEIGHT BARCODE DEBUG]", {
+                  fullCode: code,
+                  itemCodePart,
+                  weightGrams,
+                  weightKg: weightKg.toFixed(3),
+                });
+
+                // مهم جدًا: نبحث في products_weight فقط (لأن المنتجات بالوزن موجودة هناك فقط)
+                const weightProducts = allModulesData?.products_weight || [];
+
+                const found = weightProducts.find((p) => {
+                  const dbCode = String(p.product_code || "").trim();
+                  console.log("Comparing weight product code:", itemCodePart, "vs", dbCode);
+                  return dbCode === itemCodePart;
+                });
+
+                if (!found) {
+                  console.log("WEIGHT PRODUCT NOT FOUND - searched code:", itemCodePart);
+                  toast.error("المنتج بالوزن غير موجود بهذا الكود");
+                  setSearchQuery("");
+                  return;
+                }
+
+                // تأكيد أن المنتج مفعل للوزن (weight_status = 1)
+                if (found.weight_status !== 1) {
+                  toast.warn("هذا المنتج غير مفعل للبيع بالوزن");
+                  setSearchQuery("");
+                  return;
+                }
+
+                const unitPrice = parseFloat(found.final_price || found.price_after_discount || 0);
+
+                if (!unitPrice || isNaN(unitPrice)) {
+                  toast.error("سعر المنتج غير صحيح");
+                  setSearchQuery("");
+                  return;
+                }
+
+                const totalPrice = unitPrice * weightKg;
+
+                const productToAdd = {
+                  ...found,
+                  // الكمية = الوزن بالكيلو (مع 3 أرقام عشرية)
+                  count: Number(weightKg.toFixed(3)),
+                  price: unitPrice, // سعر الكيلو
+                  totalPrice: Number(totalPrice.toFixed(2)),
+
+                  // حقول مساعدة للعرض والـ debugging
+                  _source: "scale_barcode",
+                  _weight_grams: weightGrams,
+                  _weight_kg: weightKg,
+                };
+
+                console.log("[WEIGHT PRODUCT TO ADD]", productToAdd);
+
+                // إضافة المنتج للطلب
+                handleAddToOrder(productToAdd);
+
+                toast.success(
+                  `تم إضافة ${found.name} • ${weightKg.toFixed(3)} كجم • ${totalPrice.toFixed(2)} ج.م`
+                );
+
+                setSearchQuery("");
+                return;
+              }
+
+              // ─────────────────────────────────────────────
+              //          باركود عادي (قطعة)
+              // ─────────────────────────────────────────────
+              const found = allProducts.find(
+                (p) => String(p.product_code || "").trim() === code
+              );
+
+              if (found) {
+                handleAddToOrder(found);
+                toast.success(`تم إضافة → ${found.name}`);
+              } else {
+                toast.error(t("ProductCodeNotFound") || "كود المنتج غير موجود");
+              }
+
+              setSearchQuery("");
+            }
+          }}
+          className="w-full md:w-1/3 px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-1 focus:ring-bg-primary outline-none"
+        />
+
+        <div className="flex bg-gray-100 p-1 rounded-lg">
+          <button
+            onClick={() => setProductType("piece")}
+            className={`px-4 py-1 rounded-md transition-all ${
+              productType === "piece"
+                ? "bg-white shadow text-bg-primary font-bold"
+                : "text-gray-500"
+            }`}
+          >
+            {t("ByPiece")}
+          </button>
+          <button
+            onClick={() => setProductType("weight")}
+            className={`px-4 py-1 rounded-md transition-all ${
+              productType === "weight"
+                ? "bg-white shadow text-bg-primary font-bold"
+                : "text-gray-500"
+            }`}
+          >
+            {t("ByWeight")}
+          </button>
         </div>
       </div>
     </div>
-  );
-
+  </div>
+);
   const groupsBarSection = (
     <div
       className={`flex gap-3 overflow-x-auto p-4 scrollbar-hide items-center`}

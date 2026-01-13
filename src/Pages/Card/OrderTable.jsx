@@ -72,26 +72,51 @@ export default function OrderTable({
               </td>
             </tr>
           ) : (
-            orderItems.map((item, index) => (
-              <ItemRow
-                key={item.temp_id || `${item.id}-${index}`}
-                item={item}
-                orderType={orderType}
-                selectedItems={selectedItems}
-                toggleSelectItem={onToggleSelectItem}
-                selectedPaymentItems={selectedPaymentItems}
-                toggleSelectPaymentItem={onToggleSelectPaymentItem}
-                handleIncrease={onIncrease}
-                handleDecrease={onDecrease}
-                allowQuantityEdit={allowQuantityEdit}
-                itemLoadingStates={itemLoadingStates}
-                handleUpdatePreparationStatus={onUpdateStatus}
-                handleVoidItem={onVoidItem}
-                handleRemoveFrontOnly={onRemoveFrontOnly}
-                updateOrderItems={updateOrderItems}
-                orderItems={orderItems}
-              />
-            ))
+            orderItems.map((item, index) => {
+              // ✅ إضافة دعم الوزن هنا (قبل تمرير الـ item للـ ItemRow)
+              const isWeightItem = item.weight_status === 1 || item.product_type === "weight";
+
+              // الكمية الصحيحة (count للوزن، quantity للقطعة)
+              const effectiveQuantity = isWeightItem
+                ? parseFloat(item.count || item.quantity || 0)
+                : (item.quantity || item.count || 1);
+
+              // عرض الكمية في عمود "Item"
+              const displayQuantityText = isWeightItem
+                ? `${effectiveQuantity.toFixed(3)} kg`
+                : `${effectiveQuantity}`;
+
+              // حساب التوتال الصحيح (price × الكمية الفعلية)
+              const itemTotalPrice = (
+                parseFloat(item.final_price || 0) * effectiveQuantity
+              ).toFixed(2);
+
+              return (
+                <ItemRow
+                  key={item.temp_id || `${item.id}-${index}`}
+                  item={item}
+                  orderType={orderType}
+                  selectedItems={selectedItems}
+                  toggleSelectItem={onToggleSelectItem}
+                  selectedPaymentItems={selectedPaymentItems}
+                  toggleSelectPaymentItem={onToggleSelectPaymentItem}
+                  handleIncrease={onIncrease}
+                  handleDecrease={onDecrease}
+                  allowQuantityEdit={allowQuantityEdit}
+                  itemLoadingStates={itemLoadingStates}
+                  handleUpdatePreparationStatus={onUpdateStatus}
+                  handleVoidItem={onVoidItem}
+                  handleRemoveFrontOnly={onRemoveFrontOnly}
+                  updateOrderItems={updateOrderItems}
+                  orderItems={orderItems}
+                  // ✅ بروبس جديدة للـ ItemRow عشان يعرض صح
+                  isWeightItem={isWeightItem}
+                  displayQuantityText={displayQuantityText}
+                  itemTotalPrice={itemTotalPrice}
+                  effectiveQuantity={effectiveQuantity}
+                />
+              );
+            })
           )}
         </tbody>
       </table>

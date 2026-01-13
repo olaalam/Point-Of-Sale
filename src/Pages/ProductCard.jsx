@@ -52,15 +52,15 @@ const ProductCard = ({ product, onAddToOrder, onOpenModal }) => {
       <div className="px-3">
         <div className="mt-1 text-sm font-bold text-bg-primary">
           {product.price_after_discount !== null &&
-          product.price_after_discount < product.price ? (
+          product.price_after_discount < product.final_price ? (
             <>
               <span className="text-red-600 line-through mr-1">
-                {product.price} {t("EGP")}
+                {product.final_price} {t("EGP")}
               </span>
               <span>{product.price_after_discount} {t("EGP")}</span>
             </>
           ) : (
-            <span>{product.price} {t("EGP")}</span>
+            <span>{product.final_price} {t("EGP")}</span>
           )}
         </div>
       </div>

@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card } from "@/components/ui/card";
-import { toast } from "react-toastify";
+import { toast , ToastContainer } from "react-toastify";
 
 import DeliverySelect from "./DeliverySelect";
 import AllOrder from "./AllOrder";
@@ -168,7 +168,7 @@ export default function DeliveryOrder() {
       setCurrentPage(1);
       refetchAll();
     } catch (err) {
-      toast.error("Failed to assign orders");
+      toast.error("Failed to assign orders",err);
     }
   };
 
@@ -188,7 +188,7 @@ export default function DeliveryOrder() {
       setCurrentPage(1);
       refetchReturned();
     } catch (err) {
-      toast.error("Failed to confirm returned orders");
+      toast.error("Failed to confirm returned orders",err);
     }
   };
 
@@ -433,6 +433,7 @@ export default function DeliveryOrder() {
           </Card>
         </TabsContent>
       </Tabs>
+      <ToastContainer position="top-right" autoClose={3000} />
     </div>
   );
 }

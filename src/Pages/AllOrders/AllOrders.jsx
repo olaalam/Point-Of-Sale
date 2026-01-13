@@ -49,10 +49,10 @@ const navigate = useNavigate();
   const { postData, loading } = usePost();
   const { refetch, loading: getLoading } = useGet();
   
-  useEffect(() => {
+useEffect(() => {
   if (isFakeMode || orders.length === 0) return;
 
-  const filtered = orders.filter((order) => {
+  let filtered = orders.filter((order) => {
     const orderDateStr = order.created_at || order.date || "";
     const orderDate = orderDateStr.split("T")[0];
 
@@ -60,17 +60,11 @@ const navigate = useNavigate();
       (!dateFromInput || orderDate >= dateFromInput) &&
       (!dateToInput || orderDate <= dateToInput);
 
-    if (!dateMatch) return false;
-
-    if (!searchInput.trim()) return true;
-
-    const searchLower = searchInput.toLowerCase();
-    const numberMatch = String(order.order_number || "").includes(searchInput);
-    const nameMatch = (order.user?.name || "").toLowerCase().includes(searchLower);
-    const phoneMatch = (order.user?.phone || "").includes(searchInput);
-
-    return numberMatch || nameMatch || phoneMatch;
+    return dateMatch;
   });
+
+  // تطبيق الفلترة النصية
+  filtered = applyTextFilter(filtered);
 
   setDisplayedOrders(filtered);
 }, [searchInput, dateFromInput, dateToInput, orders, isFakeMode]);
@@ -108,26 +102,29 @@ const fetchNormalOrders = async () => {
     }
   };
 
-  const fetchFakeOrders = async (fromDate, toDate) => {
-    try {
-      const response = await refetch(
-        `cashier/reports/filter_fake_order?date=${fromDate}&date_to=${toDate}`
-      );
+const fetchFakeOrders = async (fromDate, toDate) => {
+  try {
+    const response = await refetch(
+      `cashier/reports/filter_fake_order?date=${fromDate}&date_to=${toDate}`
+    );
 
-      const fakeData = response?.orders || response?.data || response || [];
-      setFakeOrders(fakeData);
-      setDisplayedOrders(fakeData);
-    } catch (err) {
-      console.error("Error fetching orders:", err);
-      const errorMsg =
-        err.response?.data?.message ||
-        (isArabic ? "فشل جلب الطلبات " : "Failed to load orders");
-      toast.error(errorMsg);
-      setFakeOrders([]);
-      setDisplayedOrders([]);
-    }
-  };
+    let fakeData = response?.orders || response?.data || response || [];
 
+    // تطبيق الفلترة النصية بعد الجلب
+    fakeData = applyTextFilter(fakeData);
+
+    setFakeOrders(fakeData);
+    setDisplayedOrders(fakeData);
+  } catch (err) {
+    console.error("Error fetching orders:", err);
+    const errorMsg =
+      err.response?.data?.message ||
+      (isArabic ? "فشل جلب الطلبات " : "Failed to load orders");
+    toast.error(errorMsg);
+    setFakeOrders([]);
+    setDisplayedOrders([]);
+  }
+};
   const handlePasswordSubmit = () => {
     if (!password.trim()) return toast.error(t("Pleaseenteryourpassword"));
     fetchNormalOrders();
@@ -135,7 +132,7 @@ const fetchNormalOrders = async () => {
 
   // عند الضغط على زر البحث
 const handleSearch = () => {
-  // نحفظ القيم (مفيد للـ refresh بعد void في fake mode)
+  // حفظ القيم المطبقة
   setAppliedSearch(searchInput);
   setAppliedDateFrom(dateFromInput);
   setAppliedDateTo(dateToInput);
@@ -149,31 +146,23 @@ const handleSearch = () => {
     }
     fetchFakeOrders(dateFromInput, dateToInput);
   } else {
-      // الوضع العادي: فلترة الطلبات الموجودة محلياً
-      const filtered = orders.filter((order) => {
-        const orderDate = (order.created_at || "").split("T")[0];
+    // الوضع العادي: فلترة محلية
+    let filtered = orders.filter((order) => {
+      const orderDate = (order.created_at || "").split("T")[0];
 
-        const dateMatch =
-          (!dateFromInput || orderDate >= dateFromInput) &&
-          (!dateToInput || orderDate <= dateToInput);
+      const dateMatch =
+        (!dateFromInput || orderDate >= dateFromInput) &&
+        (!dateToInput || orderDate <= dateToInput);
 
-        if (!dateMatch) return false;
+      return dateMatch;
+    });
 
-        if (!searchInput.trim()) return true;
+    // تطبيق الفلترة النصية
+    filtered = applyTextFilter(filtered);
 
-        const searchLower = searchInput.toLowerCase();
-
-        const numberMatch = String(order.order_number || "").includes(searchInput);
-        const nameMatch = (order.user?.name || "").toLowerCase().includes(searchLower);
-        const phoneMatch = (order.user?.phone || "").includes(searchInput);
-
-        return numberMatch || nameMatch || phoneMatch;
-      });
-
-      setDisplayedOrders(filtered);
-    }
-  };
-
+    setDisplayedOrders(filtered);
+  }
+};
   // Handle Void Click
   const handleVoidClick = (order) => {
     setSelectedOrder(order);
@@ -477,6 +466,24 @@ const handleClose = () => {
     // فإنه سيفتح تلقائياً التبويب الذي كان المستخدم واقفاً عليه
     navigate("/", { replace: true }); 
   };
+  const applyTextFilter = (ordersList) => {
+  if (!searchInput.trim()) return ordersList;
+
+  const searchLower = searchInput.toLowerCase();
+
+  return ordersList.filter((order) => {
+    const numberMatch = String(order.order_number || "").includes(searchInput);
+
+    // التعديل الرئيسي: البحث في f_name و l_name بدلاً من name
+    const nameMatch =
+      (order.user?.f_name || "").toLowerCase().includes(searchLower) ||
+      (order.user?.l_name || "").toLowerCase().includes(searchLower);
+
+    const phoneMatch = (order.user?.phone || "").includes(searchInput);
+
+    return numberMatch || nameMatch || phoneMatch;
+  });
+};
   return (
     <div className="p-4" dir={isArabic ? "rtl" : "ltr"}>
         <ToastContainer/>
