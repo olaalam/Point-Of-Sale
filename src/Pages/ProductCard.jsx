@@ -13,7 +13,7 @@ import { useTranslation } from "react-i18next";
 const ProductCard = ({ product, onAddToOrder, onOpenModal }) => {
   // إضافة state منفصل لكل كارت
   const [isCurrentItemLoading, setIsCurrentItemLoading] = useState(false);
-  const { t,i18n } = useTranslation();
+  const { t, i18n } = useTranslation();
   const isArabic = i18n.language === "ar";
 
   // دالة للتعامل مع إضافة المنتج مع loading منفصل
@@ -30,12 +30,17 @@ const ProductCard = ({ product, onAddToOrder, onOpenModal }) => {
     }
   };
 
+  // التحقق من وجود خصم حقيقي
+  const hasRealDiscount = Number(product.discount_val || 0) > 0;
+  // السعر الأصلي قبل الخصم (السعر الحالي + قيمة الخصم)
+  const originalPrice = Number(product.final_price || 0) + Number(product.discount_val || 0);
+
   return (
     <div className="bg-white border border-gray-200 rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-200 relative pb-16">
       {/* Clickable image and name - Opens Modal */}
       <div onClick={() => onOpenModal(product)} className="cursor-pointer">
         <img
-          src={product.image_link || "https://via.placeholder.com/150"}
+          src={product.image_link }
           alt={product.name}
           className="w-full h-32 object-cover"
         />
@@ -46,21 +51,22 @@ const ProductCard = ({ product, onAddToOrder, onOpenModal }) => {
         </div>
       </div>
 
-
-
-      {/* Price */}
+      {/* Price Section - النسخة المصححة */}
       <div className="px-3">
         <div className="mt-1 text-sm font-bold text-bg-primary">
-          {product.price_after_discount !== null &&
-          product.price_after_discount < product.final_price ? (
+          {hasRealDiscount ? (
             <>
               <span className="text-red-600 line-through mr-1">
-                {product.final_price} {t("EGP")}
+                {originalPrice.toFixed(2)} {t("EGP")}
               </span>
-              <span>{product.price_after_discount} {t("EGP")}</span>
+              <span>
+                {Number(product.final_price).toFixed(2)} {t("EGP")}
+              </span>
             </>
           ) : (
-            <span>{product.final_price} {t("EGP")}</span>
+            <span>
+              {Number(product.final_price).toFixed(2)} {t("EGP")}
+            </span>
           )}
         </div>
       </div>
@@ -76,7 +82,7 @@ const ProductCard = ({ product, onAddToOrder, onOpenModal }) => {
               : "bg-bg-primary text-white hover:bg-red-700"
           }`}
         >
-{isCurrentItemLoading ? t("Adding") : t("AddToOrder")}
+          {isCurrentItemLoading ? t("Adding") : t("AddToOrder")}
         </button>
       </div>
     </div>
