@@ -96,66 +96,58 @@ export function useOrderActions({
     }
   };
 
-  const confirmVoidItem = async (
-    voidItemId,
-    managerId,
-    managerPassword,
-    onSuccess
-  ) => {
-    const itemToVoid = orderItems.find((item) => item.temp_id === voidItemId);
-    if (!itemToVoid?.cart_id || !tableId || !managerId || !managerPassword) {
-      setTimeout(() => {
-        toast.error(t("PleasefillinallrequiredfieldsManagerIDandPassword"));
-      }, 100);
-      return;
+// داخل useOrderActions.js
+
+const confirmVoidItem = async (
+  voidItemId,
+  managerId, // يمكن أن يكون null
+  managerPassword, // يمكن أن يكون null
+  onSuccess
+) => {
+  const itemToVoid = orderItems.find((item) => item.temp_id === voidItemId);
+  
+  // التحقق: إذا لم يكن هناك cart_id لا يمكن الحذف من السيرفر
+  if (!itemToVoid?.cart_id || !tableId) {
+    toast.error(t("ItemNotFoundOrNotSynced"));
+    return;
+  }
+
+  setItemLoadingStates((prev) => ({ ...prev, [voidItemId]: true }));
+
+  const formData = new FormData();
+  
+  // تحويل cart_id إلى مصفوفة وإضافتها
+  const cartIds = Array.isArray(itemToVoid.cart_id)
+    ? itemToVoid.cart_id
+    : typeof itemToVoid.cart_id === "string"
+    ? itemToVoid.cart_id.split(",").map((id) => id.trim())
+    : [itemToVoid.cart_id];
+
+  cartIds.forEach((id) => formData.append("cart_ids[]", id.toString()));
+  formData.append("table_id", tableId.toString());
+
+  // 🟢 إضافة بيانات المدير فقط إذا وجدت (في حال كان المنتج قيد التحضير)
+  if (managerId) formData.append("manager_id", managerId);
+  if (managerPassword) formData.append("manager_password", managerPassword);
+
+  try {
+    await postData("cashier/order_void", formData);
+
+    const updatedItems = orderItems.filter((item) => item.temp_id !== voidItemId);
+    updateOrderItems(updatedItems);
+
+    toast.success(t("Itemvoidedsuccessfully"));
+    if (onSuccess) onSuccess();
+  } catch (err) {
+    let errorMessage = t("FailedToVoidItem");
+    if (err.response?.status === 401 || err.response?.status === 403) {
+      errorMessage = t("InvalidManagerIDorPasswordAccessdenied");
     }
-
-    setItemLoadingStates((prev) => ({ ...prev, [voidItemId]: true }));
-
-    const formData = new FormData();
-    const cartIds = Array.isArray(itemToVoid.cart_id)
-      ? itemToVoid.cart_id
-      : typeof itemToVoid.cart_id === "string"
-      ? itemToVoid.cart_id.split(",").map((id) => id.trim())
-      : [itemToVoid.cart_id];
-
-    cartIds.forEach((id) => formData.append("cart_ids[]", id.toString()));
-    formData.append("manager_id", managerId);
-    formData.append("manager_password", managerPassword);
-    formData.append("table_id", tableId.toString());
-
-    try {
-      await postData("cashier/order_void", formData);
-
-      const updatedItems = orderItems.filter((item) => item.temp_id !== voidItemId);
-      updateOrderItems(updatedItems);
-
-      setTimeout(() => {
-        toast.success(t("Itemvoidedsuccessfully"));
-      }, 100);
-
-      onSuccess();
-    } catch (err) {
-      let errorMessage = "Failed to void item.";
-
-      if (err.response) {
-        const { status, data } = err.response;
-        if (data?.errors) {
-          errorMessage = data.errors;
-        } else if (data?.message) {
-          errorMessage = data.message;
-        } else if ([401, 403, 400].includes(status)) {
-          errorMessage = t("InvalidManagerIDorPasswordAccessdenied");
-        }
-      }
-
-      setTimeout(() => {
-        toast.error(errorMessage);
-      }, 100);
-    } finally {
-      setItemLoadingStates((prev) => ({ ...prev, [voidItemId]: false }));
-    }
-  };
+    toast.error(errorMessage);
+  } finally {
+    setItemLoadingStates((prev) => ({ ...prev, [voidItemId]: false }));
+  }
+};
 
   const applyBulkStatus = async (
     selectedItems,
