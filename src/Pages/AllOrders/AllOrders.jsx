@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { usePost } from "@/Hooks/usePost";
 import { useGet } from "@/Hooks/useGet";
-import { toast , ToastContainer } from "react-toastify";
+import { toast, ToastContainer } from "react-toastify";
 import { X, Trash2, Printer } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import VoidOrderModal from "./VoidOrderModal";
@@ -23,7 +23,7 @@ export default function AllOrders() {
   const [fakeOrders, setFakeOrders] = useState([]); // الطلبات الوهمية
   const [isFakeMode, setIsFakeMode] = useState(false);
   const [displayedOrders, setDisplayedOrders] = useState([]);
-const navigate = useNavigate();
+  const navigate = useNavigate();
   // فلاتر الإدخال (قبل الضغط على البحث)
   const [searchInput, setSearchInput] = useState("");
   const [dateFromInput, setDateFromInput] = useState("");
@@ -48,107 +48,13 @@ const navigate = useNavigate();
 
   const { postData, loading } = usePost();
   const { refetch, loading: getLoading } = useGet();
-  
-useEffect(() => {
-  if (isFakeMode || orders.length === 0) return;
 
-  let filtered = orders.filter((order) => {
-    const orderDateStr = order.created_at || order.date || "";
-    const orderDate = orderDateStr.split("T")[0];
+  useEffect(() => {
+    if (isFakeMode || orders.length === 0) return;
 
-    const dateMatch =
-      (!dateFromInput || orderDate >= dateFromInput) &&
-      (!dateToInput || orderDate <= dateToInput);
-
-    return dateMatch;
-  });
-
-  // تطبيق الفلترة النصية
-  filtered = applyTextFilter(filtered);
-
-  setDisplayedOrders(filtered);
-}, [searchInput, dateFromInput, dateToInput, orders, isFakeMode]);
-
-const fetchNormalOrders = async () => {
-  try {
-    const res = await postData("cashier/orders/point_of_sale", { password });
-    console.log(res?.orders);
-
-    if (res?.orders) {
-      if (res.state === 3) {
-        setIsFakeMode(true);
-        // ⭐ التعديل الجديد: نعرض الطلبات الوهمية مباشرة
-        const fakeData = res.orders || [];
-        setFakeOrders(fakeData);
-        setDisplayedOrders(fakeData);  // هنا هتعرض في الجدول فورًا
-        toast.info(
-          isArabic ? "تم تفعيل وضع الطلباتة" : " orders mode activated"
-        );
-      } else {
-        setIsFakeMode(false);
-        setOrders(res.orders);
-        setDisplayedOrders(res.orders);  // زي ما هو
-      }
-
-      setShowModal(false);
-      toast.success(t("Accessgrantedsuccessfully"));
-    } else {
-      toast.error(t("Incorrectpassword"));
-    }
-  } catch (err) {
-     let error=err.response?.data?.errors;
-      toast.error(error);
-      console.error("Error fetching normal orders:", err.response?.data?.errors);
-    }
-  };
-
-const fetchFakeOrders = async (fromDate, toDate) => {
-  try {
-    const response = await refetch(
-      `cashier/reports/filter_fake_order?date=${fromDate}&date_to=${toDate}`
-    );
-
-    let fakeData = response?.orders || response?.data || response || [];
-
-    // تطبيق الفلترة النصية بعد الجلب
-    fakeData = applyTextFilter(fakeData);
-
-    setFakeOrders(fakeData);
-    setDisplayedOrders(fakeData);
-  } catch (err) {
-    console.error("Error fetching orders:", err);
-    const errorMsg =
-      err.response?.data?.message ||
-      (isArabic ? "فشل جلب الطلبات " : "Failed to load orders");
-    toast.error(errorMsg);
-    setFakeOrders([]);
-    setDisplayedOrders([]);
-  }
-};
-  const handlePasswordSubmit = () => {
-    if (!password.trim()) return toast.error(t("Pleaseenteryourpassword"));
-    fetchNormalOrders();
-  };
-
-  // عند الضغط على زر البحث
-const handleSearch = () => {
-  // حفظ القيم المطبقة
-  setAppliedSearch(searchInput);
-  setAppliedDateFrom(dateFromInput);
-  setAppliedDateTo(dateToInput);
-
-  if (isFakeMode) {
-    if (!dateFromInput || !dateToInput) {
-      toast.warning(
-        isArabic ? "يرجى تحديد نطاق التاريخ" : "Please select a date range"
-      );
-      return;
-    }
-    fetchFakeOrders(dateFromInput, dateToInput);
-  } else {
-    // الوضع العادي: فلترة محلية
     let filtered = orders.filter((order) => {
-      const orderDate = (order.created_at || "").split("T")[0];
+      const orderDateStr = order.created_at || order.date || "";
+      const orderDate = orderDateStr.split("T")[0];
 
       const dateMatch =
         (!dateFromInput || orderDate >= dateFromInput) &&
@@ -161,8 +67,102 @@ const handleSearch = () => {
     filtered = applyTextFilter(filtered);
 
     setDisplayedOrders(filtered);
-  }
-};
+  }, [searchInput, dateFromInput, dateToInput, orders, isFakeMode]);
+
+  const fetchNormalOrders = async () => {
+    try {
+      const res = await postData("cashier/orders/point_of_sale", { password });
+      console.log(res?.orders);
+
+      if (res?.orders) {
+        if (res.state === 3) {
+          setIsFakeMode(true);
+          // ⭐ التعديل الجديد: نعرض الطلبات الوهمية مباشرة
+          const fakeData = res.orders || [];
+          setFakeOrders(fakeData);
+          setDisplayedOrders(fakeData);  // هنا هتعرض في الجدول فورًا
+          toast.info(
+            isArabic ? "تم تفعيل وضع الطلباتة" : " orders mode activated"
+          );
+        } else {
+          setIsFakeMode(false);
+          setOrders(res.orders);
+          setDisplayedOrders(res.orders);  // زي ما هو
+        }
+
+        setShowModal(false);
+        toast.success(t("Accessgrantedsuccessfully"));
+      } else {
+        toast.error(t("Incorrectpassword"));
+      }
+    } catch (err) {
+      let error = err.response?.data?.errors;
+      toast.error(error);
+      console.error("Error fetching normal orders:", err.response?.data?.errors);
+    }
+  };
+
+  const fetchFakeOrders = async (fromDate, toDate) => {
+    try {
+      const response = await refetch(
+        `cashier/reports/filter_fake_order?date=${fromDate}&date_to=${toDate}`
+      );
+
+      let fakeData = response?.orders || response?.data || response || [];
+
+      // تطبيق الفلترة النصية بعد الجلب
+      fakeData = applyTextFilter(fakeData);
+
+      setFakeOrders(fakeData);
+      setDisplayedOrders(fakeData);
+    } catch (err) {
+      console.error("Error fetching orders:", err);
+      const errorMsg =
+        err.response?.data?.message ||
+        (isArabic ? "فشل جلب الطلبات " : "Failed to load orders");
+      toast.error(errorMsg);
+      setFakeOrders([]);
+      setDisplayedOrders([]);
+    }
+  };
+  const handlePasswordSubmit = () => {
+    if (!password.trim()) return toast.error(t("Pleaseenteryourpassword"));
+    fetchNormalOrders();
+  };
+
+  // عند الضغط على زر البحث
+  const handleSearch = () => {
+    // حفظ القيم المطبقة
+    setAppliedSearch(searchInput);
+    setAppliedDateFrom(dateFromInput);
+    setAppliedDateTo(dateToInput);
+
+    if (isFakeMode) {
+      if (!dateFromInput || !dateToInput) {
+        toast.warning(
+          isArabic ? "يرجى تحديد نطاق التاريخ" : "Please select a date range"
+        );
+        return;
+      }
+      fetchFakeOrders(dateFromInput, dateToInput);
+    } else {
+      // الوضع العادي: فلترة محلية
+      let filtered = orders.filter((order) => {
+        const orderDate = (order.created_at || "").split("T")[0];
+
+        const dateMatch =
+          (!dateFromInput || orderDate >= dateFromInput) &&
+          (!dateToInput || orderDate <= dateToInput);
+
+        return dateMatch;
+      });
+
+      // تطبيق الفلترة النصية
+      filtered = applyTextFilter(filtered);
+
+      setDisplayedOrders(filtered);
+    }
+  };
   // Handle Void Click
   const handleVoidClick = (order) => {
     setSelectedOrder(order);
@@ -340,18 +340,18 @@ const handleSearch = () => {
               </thead>
               <tbody>
                 ${data.order_details?.map(item => {
-                  const productTotal = Number(item.product?.total_price) || 0;
-                  const addonsTotal = item.addons?.reduce((sum, addon) => sum + (Number(addon.total) || 0), 0) || 0;
-                  const rowTotal = productTotal + addonsTotal;
+      const productTotal = Number(item.product?.total_price) || 0;
+      const addonsTotal = item.addons?.reduce((sum, addon) => sum + (Number(addon.total) || 0), 0) || 0;
+      const rowTotal = productTotal + addonsTotal;
 
-                  let addonsHTML = "";
-                  if (item.addons && item.addons.length > 0) {
-                    addonsHTML = item.addons.map(add => 
-                      `<div class="addon-row">+ ${add.name} (${Number(add.price).toFixed(2)})</div>`
-                    ).join("");
-                  }
-                  
-                  return `
+      let addonsHTML = "";
+      if (item.addons && item.addons.length > 0) {
+        addonsHTML = item.addons.map(add =>
+          `<div class="addon-row">+ ${add.name} (${Number(add.price).toFixed(2)})</div>`
+        ).join("");
+      }
+
+      return `
                     <tr>
                       <td class="item-qty">${item.product?.count || 1}</td>
                       <td class="item-name" style="text-align: ${isArabic ? "right" : "left"};">
@@ -362,7 +362,7 @@ const handleSearch = () => {
                       <td class="item-total">${rowTotal.toFixed(2)}</td>
                     </tr>
                   `;
-                }).join("") || '<tr><td colspan="3" class="text-center py-4">لا توجد أصناف</td></tr>'}
+    }).join("") || '<tr><td colspan="3" class="text-center py-4">لا توجد أصناف</td></tr>'}
               </tbody>
             </table>
 
@@ -383,6 +383,12 @@ const handleSearch = () => {
                 <div class="totals-row">
                   <span>${isArabic ? "الخصم" : "Discount"}</span>
                   <span>-${data.total_discount.toFixed(2)}</span>
+                </div>
+              ` : ""}
+                            ${data.total_tax > 0 ? `
+                <div class="totals-row">
+                  <span>${isArabic ? "الضريبة" : "Tax"}</span>
+                  <span>+${data.total_tax.toFixed(2)}</span>
                 </div>
               ` : ""}
 
@@ -414,7 +420,7 @@ const handleSearch = () => {
   const handlePrintClick = async (order) => {
     if (isPrinting) return;
     setIsPrinting(true);
-    
+
     try {
       const token = sessionStorage.getItem("token");
       const headers = token ? { Authorization: `Bearer ${token}` } : {};
@@ -457,50 +463,50 @@ const handleSearch = () => {
       setIsPrinting(false);
     }
   };
-const handleClose = () => {
+  const handleClose = () => {
     // إخفاء المودال برمجياً
-    if (setShowModal) setShowModal(false); 
-    
+    if (setShowModal) setShowModal(false);
+
     // العودة للمسار الرئيسي (صفحة الكاشير)
     // بما أن الـ Navbar يعتمد على sessionStorage.getItem("tab")
     // فإنه سيفتح تلقائياً التبويب الذي كان المستخدم واقفاً عليه
-    navigate("/", { replace: true }); 
+    navigate("/", { replace: true });
   };
   const applyTextFilter = (ordersList) => {
-  if (!searchInput.trim()) return ordersList;
+    if (!searchInput.trim()) return ordersList;
 
-  const searchLower = searchInput.toLowerCase();
+    const searchLower = searchInput.toLowerCase();
 
-  return ordersList.filter((order) => {
-    const numberMatch = String(order.order_number || "").includes(searchInput);
+    return ordersList.filter((order) => {
+      const numberMatch = String(order.order_number || "").includes(searchInput);
 
-    // التعديل الرئيسي: البحث في f_name و l_name بدلاً من name
-    const nameMatch =
-      (order.user?.f_name || "").toLowerCase().includes(searchLower) ||
-      (order.user?.l_name || "").toLowerCase().includes(searchLower);
+      // التعديل الرئيسي: البحث في f_name و l_name بدلاً من name
+      const nameMatch =
+        (order.user?.f_name || "").toLowerCase().includes(searchLower) ||
+        (order.user?.l_name || "").toLowerCase().includes(searchLower);
 
-    const phoneMatch = (order.user?.phone || "").includes(searchInput);
+      const phoneMatch = (order.user?.phone || "").includes(searchInput);
 
-    return numberMatch || nameMatch || phoneMatch;
-  });
-};
+      return numberMatch || nameMatch || phoneMatch;
+    });
+  };
   return (
     <div className="p-4" dir={isArabic ? "rtl" : "ltr"}>
-        <ToastContainer/>
+      <ToastContainer />
       {/* Password Modal */}
-<Dialog open={showModal} onOpenChange={(open) => { if (!open) handleClose(); }}>
-          <DialogContent className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
+      <Dialog open={showModal} onOpenChange={(open) => { if (!open) handleClose(); }}>
+        <DialogContent className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
           <DialogClose
             asChild
             onClick={() => setShowModal(false)}
             className="absolute top-3 right-3 text-gray-500 hover:text-gray-700"
           >
-<button 
-  onClick={handleClose} 
-  className="absolute top-3 right-3 text-gray-500 hover:text-gray-700 p-1"
->
-  <X className="w-5 h-5" />
-</button>
+            <button
+              onClick={handleClose}
+              className="absolute top-3 right-3 text-gray-500 hover:text-gray-700 p-1"
+            >
+              <X className="w-5 h-5" />
+            </button>
           </DialogClose>
 
           <DialogHeader>
@@ -575,8 +581,8 @@ const handleClose = () => {
                   ? "جاري البحث..."
                   : "Searching..."
                 : isArabic
-                ? "بحث"
-                : "Search"}
+                  ? "بحث"
+                  : "Search"}
             </Button>
           </div>
 
@@ -584,41 +590,41 @@ const handleClose = () => {
           {/* Orders Table */}
           <div className="overflow-x-auto rounded-lg shadow-md border" dir={isArabic ? "rtl" : "ltr"}>
             <table className="min-w-full border-collapse">
-<thead className="bg-gray-100 text-gray-700">
-  <tr>
-    <th className={`border p-3 ${isArabic ? "text-right" : "text-left"}`}>
-      {t("OrderNumber")}
-    </th>
-    <th className={`border p-3 ${isArabic ? "text-right" : "text-left"}`}>
-      {t("Type")}
-    </th>
-    <th className={`border p-3 ${isArabic ? "text-right" : "text-left"}`}>
-      {isArabic ? "رسوم التوصيل" : "Delivery Fees"}
-    </th>
-    <th className={`border p-3 ${isArabic ? "text-right" : "text-left"}`}>
-      {t("Amount")}
-    </th>
-    {/* العمود الجديد */}
-    <th className={`border p-3 ${isArabic ? "text-right" : "text-left"}`}>
-      {isArabic ? "بيانات العميل" : "Customer Info"}
-    </th>
-    <th className={`border p-3 ${isArabic ? "text-right" : "text-left"}`}>
-      {t("Status")}
-    </th>
-    <th className={`border p-3 ${isArabic ? "text-right" : "text-left"}`}>
-      {t("Branch")}
-    </th>
-    <th className={`border p-3 ${isArabic ? "text-right" : "text-left"}`}>
-      {t("DateTime")}
-    </th>
-    <th className={`border p-3 ${isArabic ? "text-right" : "text-left"}`}>
-      {t("Print")}
-    </th>
-    <th className={`border p-3 ${isArabic ? "text-right" : "text-left"}`}>
-      {t("Void")}
-    </th>
-  </tr>
-</thead>
+              <thead className="bg-gray-100 text-gray-700">
+                <tr>
+                  <th className={`border p-3 ${isArabic ? "text-right" : "text-left"}`}>
+                    {t("OrderNumber")}
+                  </th>
+                  <th className={`border p-3 ${isArabic ? "text-right" : "text-left"}`}>
+                    {t("Type")}
+                  </th>
+                  <th className={`border p-3 ${isArabic ? "text-right" : "text-left"}`}>
+                    {isArabic ? "رسوم التوصيل" : "Delivery Fees"}
+                  </th>
+                  <th className={`border p-3 ${isArabic ? "text-right" : "text-left"}`}>
+                    {t("Amount")}
+                  </th>
+                  {/* العمود الجديد */}
+                  <th className={`border p-3 ${isArabic ? "text-right" : "text-left"}`}>
+                    {isArabic ? "بيانات العميل" : "Customer Info"}
+                  </th>
+                  <th className={`border p-3 ${isArabic ? "text-right" : "text-left"}`}>
+                    {t("Status")}
+                  </th>
+                  <th className={`border p-3 ${isArabic ? "text-right" : "text-left"}`}>
+                    {t("Branch")}
+                  </th>
+                  <th className={`border p-3 ${isArabic ? "text-right" : "text-left"}`}>
+                    {t("DateTime")}
+                  </th>
+                  <th className={`border p-3 ${isArabic ? "text-right" : "text-left"}`}>
+                    {t("Print")}
+                  </th>
+                  <th className={`border p-3 ${isArabic ? "text-right" : "text-left"}`}>
+                    {t("Void")}
+                  </th>
+                </tr>
+              </thead>
               <tbody className={getLoading ? "opacity-50 pointer-events-none" : ""}>
                 {displayedOrders.map((order) => (
                   <tr key={order.id || order.order_number} className="hover:bg-gray-50 transition-colors">
@@ -629,46 +635,45 @@ const handleClose = () => {
                       {order.order_type || "—"}
                     </td>
                     <td className={`border p-3 ${isArabic ? "text-right" : "text-left"}`}>
-      {order.delivery_fees > 0 ? (
-        <span className="font-semibold text-blue-600">
-          {order.delivery_fees}
-        </span>
-      ) : (
-        <span className="text-gray-400">0</span>
-      )}
-    </td>
+                      {order.delivery_fees > 0 ? (
+                        <span className="font-semibold text-blue-600">
+                          {order.delivery_fees}
+                        </span>
+                      ) : (
+                        <span className="text-gray-400">0</span>
+                      )}
+                    </td>
                     <td className={`border p-3 ${isArabic ? "text-right" : "text-left"}`}>
                       {order.amount || "—"}
                     </td>
                     <td className={`border p-3 ${isArabic ? "text-right" : "text-left"} text-sm leading-relaxed`}>
-        {order.order_type === "delivery" && order.user ? (
-          <div className="flex flex-col gap-1">
-            <span className="font-medium">
-              {order.user.f_name} {order.user.l_name || ""}
-            </span>
-            <span dir="ltr" className="text-gray-700">
-              {order.user.phone || "—"}
-            </span>
-            {order.address?.zone?.zone && (
-              <span className="text-gray-600 text-xs mt-1">
-                {isArabic ? "المنطقة: " : "Zone: "}
-                {order.address.zone.zone}
-              </span>
-            )}
-          </div>
-        ) : (
-          "—"
-        )}
-      </td>
+                      {order.order_type === "delivery" && order.user ? (
+                        <div className="flex flex-col gap-1">
+                          <span className="font-medium">
+                            {order.user.f_name} {order.user.l_name || ""}
+                          </span>
+                          <span dir="ltr" className="text-gray-700">
+                            {order.user.phone || "—"}
+                          </span>
+                          {order.address?.zone?.zone && (
+                            <span className="text-gray-600 text-xs mt-1">
+                              {isArabic ? "المنطقة: " : "Zone: "}
+                              {order.address.zone.zone}
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        "—"
+                      )}
+                    </td>
                     <td className={`border p-3 ${isArabic ? "text-right" : "text-left"}`}>
                       <span
-                        className={`px-3 py-1 text-xs rounded-full ${
-                          order.order_status === "completed"
+                        className={`px-3 py-1 text-xs rounded-full ${order.order_status === "completed"
                             ? "bg-green-100 text-green-700"
                             : order.order_status === "pending"
-                            ? "bg-yellow-100 text-yellow-700"
-                            : "bg-gray-100 text-gray-700"
-                        }`}
+                              ? "bg-yellow-100 text-yellow-700"
+                              : "bg-gray-100 text-gray-700"
+                          }`}
                       >
                         {order.order_status || "unknown"}
                       </span>
@@ -685,9 +690,8 @@ const handleClose = () => {
                       <button
                         onClick={() => handlePrintClick(order)}
                         disabled={isPrinting || getLoading}
-                        className={`text-blue-600 hover:text-blue-800 transition-colors p-2 rounded-lg hover:bg-blue-50 ${
-                          isPrinting ? "opacity-50 cursor-not-allowed" : ""
-                        }`}
+                        className={`text-blue-600 hover:text-blue-800 transition-colors p-2 rounded-lg hover:bg-blue-50 ${isPrinting ? "opacity-50 cursor-not-allowed" : ""
+                          }`}
                         title={t("PrintOrder")}
                       >
                         <Printer className="w-5 h-5" />
@@ -715,11 +719,11 @@ const handleClose = () => {
                   ? "لا توجد طلبات وهمية - اضغط بحث بعد تحديد التواريخ"
                   : "No  orders found - click Search after selecting dates"
                 : isArabic
-                ? "لا توجد طلبات مطابقة للفلاتر الحالية"
-                : "No orders match the current filters"}
+                  ? "لا توجد طلبات مطابقة للفلاتر الحالية"
+                  : "No orders match the current filters"}
             </p>
           )}
-        
+
         </>
       )}
 
