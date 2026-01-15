@@ -52,13 +52,14 @@ export default function BulkActionsBar({
       >
         {t("ApplyStatus", { count: selectedItems.length })}
       </Button>
-      <Button
-        onClick={onTransferOrder}
-        className="bg-red-700 text-white hover:bg-bg-primary text-sm flex items-center gap-1"
-        disabled={isLoading}
-      >
-        {t("ChangeTable")}
-      </Button>
+<Button
+  onClick={() => onTransferOrder(selectedItems)}  
+  disabled={selectedItems.length === 0 || isLoading}
+  className="bg-purple-600 hover:bg-purple-700 text-white text-sm flex items-center gap-1"
+>
+  {t("ChangeTable") || "نقل إلى طاولة"}
+  {selectedItems.length > 0 && ` (${selectedItems.length})`}
+</Button>
     </div>
   );
 }

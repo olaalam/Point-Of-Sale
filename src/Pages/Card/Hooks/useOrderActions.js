@@ -215,31 +215,56 @@ export function useOrderActions({
     setBulkStatus("");
   };
 
-  const handleTransferOrder = () => {
-    const allCartIds = orderItems.map((item) => item.cart_id).filter(Boolean);
+const handleTransferOrder = (selectedTempIds = []) => {  // 🟢 نقبل selectedTempIds كـ parameter (اختياري، لو مفيش يبقى نقل الكل)
 
-    if (!tableId || allCartIds.length === 0) {
-      toast.error(t("CannottransferorderTableIDorCartIDsaremissing"));
-      return;
-    }
+  // لو مفيش عناصر مختارة → نعرض تحذير ونرجع
+  if (selectedTempIds.length === 0) {
+    toast.warning(t("Pleaseselectitemstotransfer"));
+    return;
+  }
 
-    sessionStorage.setItem("transfer_cart_ids", JSON.stringify(allCartIds));
-    sessionStorage.setItem("transfer_source_table_id", tableId.toString());
-    sessionStorage.setItem("transfer_pending", "true");
+  // نجمع الـ cart_ids بس من العناصر المختارة
+  const selectedCartIds = orderItems
+    .filter((item) => selectedTempIds.includes(item.temp_id))  // بس اللي temp_id بتاعها موجود في الاختيار
+    .flatMap((item) => {
+      if (Array.isArray(item.cart_id)) return item.cart_id;
+      if (typeof item.cart_id === "string")
+        return item.cart_id.split(",").map((id) => id.trim());
+      if (item.cart_id) return [item.cart_id.toString()];
+      return [];
+    })
+    .filter(Boolean);
 
-    toast.info(t("Pleaseselectanewtabletotransfertheorder"));
+  // لو مفيش cart_ids صالحة
+  if (selectedCartIds.length === 0) {
+    toast.error(t("NovalidcartIDsfoundforselecteditems"));
+    return;
+  }
 
-    navigate("/", {
-      state: {
-        initiateTransfer: true,
-        sourceTableId: tableId,
-        cartIds: allCartIds,
-        timestamp: Date.now(),
-      },
-      replace: false,
-    });
-  };
+  // لو مفيش tableId (الطاولة الحالية)
+  if (!tableId) {
+    toast.error(t("CannottransferorderTableIDismissing"));
+    return;
+  }
 
+  // نخزن البيانات في sessionStorage (بس الـ cart_ids المختارة)
+  sessionStorage.setItem("transfer_cart_ids", JSON.stringify(selectedCartIds));
+  sessionStorage.setItem("transfer_source_table_id", tableId.toString());
+  sessionStorage.setItem("transfer_pending", "true");
+
+  toast.info(t("Pleaseselectanewtabletotransfertheselecteditems"));
+
+  // ننتقل للصفحة الرئيسية مع تمرير الـ cartIds المختارة فقط
+  navigate("/", {
+    state: {
+      initiateTransfer: true,
+      sourceTableId: tableId,
+      cartIds: selectedCartIds,  // 🟢 هنا بس المختارة
+      timestamp: Date.now(),
+    },
+    replace: false,
+  });
+};
 const handleSaveAsPending = async (amountToPay, totalTax) => {
   if (orderItems.length === 0) {
     toast.warning(t("Noitemstosaveaspending"));

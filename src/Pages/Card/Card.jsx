@@ -306,7 +306,7 @@ navigate("/orders", {
               setSelectedItems
             )
           }
-          onTransferOrder={orderActions.handleTransferOrder}
+          onTransferOrder={(selected) => orderActions.handleTransferOrder(selected)}
           isLoading={apiLoading}
           currentLowestStatus={calculations.currentLowestSelectedStatus}
           t={t}
