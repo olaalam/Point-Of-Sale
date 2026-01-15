@@ -166,21 +166,30 @@ const handleClearAllItems = () => {
     return;
   }
 
-  if (orderType === "dine_in" && hasAnyItemInPreparationOrLater()) {
-    // فيه عناصر بدأت → يطلب مدير
+  // التحقق: هل يوجد أي عنصر بدأ التحضير فعلياً؟
+  const needsManager = orderItems.some(item => 
+    ["preparing", "pick_up", "done"].includes(item.preparation_status || "pending")
+  );
+
+  if (orderType === "dine_in" && needsManager) {
+    // حالة تتطلب مدير (وجود عناصر قيد التحضير)
     setShowClearAllManagerModal(true);
+  } else if (orderItems.some(item => item.cart_id)) {
+    // حالة لا تتطلب مدير ولكن العناصر موجودة على السيرفر (كلها Waiting/Pending)
+    // سنقوم باستدعاء دالة المسح مباشرة ببيانات فارغة للمدير
+    confirmClearAllWithManager("", ""); 
   } else {
-    // كله لسة Pending → يمسح عادي
+    // عناصر محليّة فقط (Front-end) لم تُرسل للسيرفر بعد
     setShowClearAllConfirm(true);
   }
 };
 
-const confirmClearAllWithManager = async () => {
-    if (!clearAllManagerId || !clearAllManagerPassword) {
-      toast.error(t("PleasefillinallrequiredfieldsManagerIDandPassword"));
-      return;
-    }
+const confirmClearAllWithManager = async (manualId, manualPassword) => {
+    // تحديد الهوية المستخدمة (سواء من الـ State أو من البارامترات المرسلة يدوياً)
+    const mId = manualId !== undefined ? manualId : clearAllManagerId;
+    const mPw = manualPassword !== undefined ? manualPassword : clearAllManagerPassword;
 
+    // الحصول على جميع معرفات السلة
     const allValidCartIds = orderItems
       .flatMap((item) => {
         if (Array.isArray(item.cart_id)) return item.cart_id;
@@ -198,39 +207,38 @@ const confirmClearAllWithManager = async () => {
 
     const formData = new FormData();
     allValidCartIds.forEach((id) => formData.append("cart_ids[]", id));
-    formData.append("manager_id", clearAllManagerId);
-    formData.append("manager_password", clearAllManagerPassword);
     formData.append("table_id", tableId.toString());
+
+    // 🟢 إضافة بيانات المدير فقط إذا تم توفيرها
+    if (mId) formData.append("manager_id", mId);
+    if (mPw) formData.append("manager_password", mPw);
 
     try {
       setItemLoadingStates((prev) => ({ ...prev, clearAll: true }));
       await postData("cashier/order_void", formData);
       
-      clearPaidItemsOnly(); // مسح البيانات محلياً
+      updateOrderItems([]); // مسح البيانات محلياً
+      sessionStorage.removeItem("cart");
       toast.success(t("Allitemsvoidedsuccessfully"));
       
       setShowClearAllManagerModal(false);
       setClearAllManagerId("");
       setClearAllManagerPassword("");
 
-      // 🟢 إضافة عمل Reload للصفحة هنا
-      // نستخدم setTimeout بسيط لضمان أن المستخدم رأى رسالة النجاح
       setTimeout(() => {
         window.location.reload();
-      }, 1000); 
+      }, 1000);
 
     } catch (err) {
       let errorMessage = t("Failedtovoidallitems");
       if (err.response?.status === 401 || err.response?.status === 403) {
         errorMessage = t("InvalidManagerIDorPasswordAccessdenied");
-      } else if (err.response?.data?.message) {
-        errorMessage = err.response.data.message;
       }
       toast.error(errorMessage);
     } finally {
       setItemLoadingStates((prev) => ({ ...prev, clearAll: false }));
     }
-  };
+};
 const handlePrint = () => {
   if (!printRef.current) return;
 
@@ -345,19 +353,27 @@ navigate("/orders", {
           onIncrease={orderActions.handleIncrease}
           onDecrease={orderActions.handleDecrease}
           onUpdateStatus={orderActions.handleUpdatePreparationStatus}
+// داخل Card.jsx في دالة onVoidItem
+
 onVoidItem={(itemId) => {
   const item = orderItems.find(i => i.temp_id === itemId);
-  const status = item?.preparation_status || "Pending";
+  const status = item?.preparation_status || "pending";
+  const hasCartId = !!item?.cart_id;
 
+  // 1. إذا كان المنتج "قيد التحضير" أو "تم" -> اطلب صلاحية مدير
   if (orderType === "dine_in" && ["preparing", "pick_up", "done"].includes(status)) {
-    // بدأ التحضير → يطلب مدير
     setVoidItemId(itemId);
     setShowVoidModal(true);
-  } else {
-    // لسة Pending أو Waiting → يمسح فورًا بدون باسوورد
-    orderActions.handleRemoveFrontOnly(itemId); // أو أي دالة بتمسح من الواجهة فقط
-    // أو لو عايزة تعمل void للـ backend برضو بدون باسوورد:
-    // orderActions.confirmVoidItem(itemId, null, null, () => {});
+  } 
+  // 2. إذا كان المنتج "Waiting/Pending" وموجود في السيرفر (له cart_id) -> احذف من الـ API مباشرة بدون كلمة سر
+  else if (hasCartId) {
+    orderActions.confirmVoidItem(itemId, null, null, () => {
+       // نجح الحذف من السيرفر
+    });
+  }
+  // 3. إذا كان المنتج لم يرسل للسيرفر أصلاً (Front-end only)
+  else {
+    orderActions.handleRemoveFrontOnly(itemId);
   }
 }}
           onRemoveFrontOnly={orderActions.handleRemoveFrontOnly}
@@ -453,7 +469,7 @@ onVoidItem={(itemId) => {
         setManagerId={setClearAllManagerId}
         managerPassword={clearAllManagerPassword}
         setManagerPassword={setClearAllManagerPassword}
-        onConfirm={confirmClearAllWithManager}
+onConfirm={() => confirmClearAllWithManager(clearAllManagerId, clearAllManagerPassword)}
         isLoading={itemLoadingStates.clearAll}
         t={t}
       />

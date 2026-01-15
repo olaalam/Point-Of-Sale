@@ -261,13 +261,16 @@ const SinglePage = () => {
       });
 
       if (responseStatus) {
+        toast.success(t("StatusUpdatedSuccessfully") || "Status updated!");
         refetchDetailsOrder();
         setShowReason(false);
       }
     } catch (error) {
       if (error?.response?.data?.errors === "You can't change status") {
         setShowStatusModal(true);
-      }
+      } else {
+      toast.error(error?.response?.data?.errors||t("FailedToUpdateStatus")); // 👈 أضف تنبيه بالفشل أيضاً
+    }
     }
   };
 
@@ -400,6 +403,7 @@ const orderSummary = useMemo(() => {
 }, [detailsData?.order_details]);
   return (
     <>
+   
       {loadingDetailsOrder || loadingPost || updating ? (
         <div className="mx-auto">
           <Loading />
@@ -1859,6 +1863,7 @@ const orderSummary = useMemo(() => {
           </DialogPanel>
         </div>
       </Dialog>
+      <ToastContainer style={{ zIndex: 99999 }} />
     </>
   );
 };

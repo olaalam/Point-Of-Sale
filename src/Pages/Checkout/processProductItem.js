@@ -244,54 +244,34 @@ export const validatePaymentSplits = (paymentSplits, getDescriptionStatus) => {
 /**
  * حساب خصم عنصر واحد (base product/variation فقط، مش الـ addons/extras)
  */
+
 export const calculateItemDiscount = (item) => {
   if (!item) return 0;
 
-  // سعر الوحدة الأساسي بعد الخصم
-  let unitBasePrice = Number(item.price_after_discount || item.price || 0);
+  let unitDiscount = 0;
 
-  // السعر الأصلي قبل الخصم
-  let originalUnitBasePrice = Number(item.price || 0);
-
-  // حالة الـ Variation
+  // 1. حالة الـ Variation: نأخذ قيمة الخصم الخاصة بالاختيار المختار
   const selectedOption = item.variations?.[0]?.options?.find(
     (opt) => opt.id === item.variations?.[0]?.selected_option_id
   );
 
   if (selectedOption) {
-    unitBasePrice = Number(
-      selectedOption.total_option_price ||
-      selectedOption.price_after_tax ||
-      selectedOption.price_after_discount ||
-      selectedOption.price ||
-      0
-    );
-
-    const discountVal = Number(selectedOption.discount_val || 0);
-    if (discountVal > 0) {
-      originalUnitBasePrice = unitBasePrice + discountVal;
-    } else {
-      originalUnitBasePrice = unitBasePrice;
-    }
+    unitDiscount = Number(selectedOption.discount_val || 0);
   } else {
-    // غير variation: لو في price_after_discount أصغر من price
-    if (unitBasePrice < originalUnitBasePrice && unitBasePrice > 0) {
-      // original يبقى item.price
-    } else {
-      originalUnitBasePrice = unitBasePrice;
-    }
+    // 2. المنتج العادي: نأخذ قيمة الخصم المباشرة
+    unitDiscount = Number(item.discount_val || 0);
   }
 
-  // الكمية (سواء وزن أو عادي)
+  // 3. حساب الكمية (سواء وزن أو عدد)
   const quantity =
     item.weight_status === 1 || item.weight_status === "1"
       ? Number(item.quantity || item.count || 1)
       : Number(item.count || 1);
 
-  // الخصم لهذا العنصر
-  const discount = Math.max(0, originalUnitBasePrice - unitBasePrice) * quantity;
+  // إجمالي الخصم = قيمة الخصم للوحدة * الكمية
+  const totalItemDiscount = unitDiscount * quantity;
 
-  return parseFloat(discount.toFixed(2));
+  return parseFloat(totalItemDiscount.toFixed(2));
 };
 
 /**

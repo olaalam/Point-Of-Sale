@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { toast } from "react-toastify";
+import { toast ,ToastContainer } from "react-toastify";
 import { useTranslation } from "react-i18next";
 import Loading from "@/components/Loading";
 import { 
@@ -173,6 +173,8 @@ export default function OnlineOrders() {
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-6" dir={isArabic ? "rtl" : "ltr"}>
+            <ToastContainer  />
+
       {/* Header */}
       <div className="mb-6">
         <h1 className="text-2xl md:text-3xl font-bold text-gray-800 mb-2">
