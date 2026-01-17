@@ -7,7 +7,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-// استيراد مكونات الـ Dialog
 import {
   Dialog,
   DialogContent,
@@ -29,53 +28,89 @@ export default function BulkActionsBar({
   currentLowestStatus,
   t,
 }) {
-  // حالة للتحكم في غلق المودال بعد التأكيد
   const [isOpen, setIsOpen] = useState(false);
 
-  const handleConfirmTransfer = () => {
-    onTransferOrder(selectedItems); // تنفيذ النقل
-    setIsOpen(false); // إغلاق المودال
+  // دالة لتنفيذ حالة "Preparing" مباشرة
+  const handleQuickPrepare = () => {
+    setBulkStatus("preparing");
+    // ننتظر قليلاً للتأكد من تحديث الحالة ثم ننفذ الأكشن
+    setTimeout(() => {
+      onApplyStatus();
+    }, 0);
   };
 
+  const handleConfirmTransfer = () => {
+    onTransferOrder(selectedItems);
+    setIsOpen(false);
+  };
+
+  // الوصول لبيانات أيقونة ولون حالة التجهيز من الثوابت
+  const preparingInfo = PREPARATION_STATUSES["preparing"];
+
   return (
-    <div className="flex items-center justify-start mb-4 gap-4 flex-wrap p-4 bg-white rounded-lg shadow-md">
-      {/* ... (الجزء الخاص بـ Select و Apply Status كما هو) ... */}
+    <div className="flex items-center justify-start mb-4 gap-4 flex-wrap p-4 bg-white rounded-lg shadow-md border border-gray-100">
       
-      <Select value={bulkStatus} onValueChange={setBulkStatus}>
-        <SelectTrigger className="w-[200px] border-gray-300 rounded-md shadow-sm px-4 py-2 bg-white">
-          <SelectValue placeholder="-- Choose Status --" />
-        </SelectTrigger>
-        <SelectContent className="bg-white border border-gray-200">
-          {Object.entries(PREPARATION_STATUSES)
-            .filter(([key]) => statusOrder.indexOf(key) >= statusOrder.indexOf(currentLowestStatus))
-            .map(([key, value]) => (
-              <SelectItem key={key} value={key} className="px-4 py-2 hover:bg-gray-100 cursor-pointer">
-                <div className="flex items-center gap-2">
-                  <value.icon size={16} className={value.color} />
-                  <span>{value.label}</span>
-                </div>
-              </SelectItem>
-            ))}
-        </SelectContent>
-      </Select>
+      {/* 🟠 زر "تحت التجهيز" السريع */}
+      {preparingInfo && (
+        <Button
+          onClick={handleQuickPrepare}
+          disabled={selectedItems.length === 0 || isLoading}
+          className="bg-orange-500 hover:bg-orange-600 text-white text-sm flex items-center gap-2 shadow-sm transition-all"
+        >
+          <preparingInfo.icon size={16} />
+          <span>{preparingInfo.label}</span>
+          {selectedItems.length > 0 && (
+            <span className="bg-white/20 px-2 py-0.5 rounded-full text-xs">
+              {selectedItems.length}
+            </span>
+          )}
+        </Button>
+      )}
 
-      <Button
-        onClick={onApplyStatus}
-        className="bg-bg-primary text-white hover:bg-red-700 text-sm"
-        disabled={selectedItems.length === 0 || !bulkStatus || isLoading}
-      >
-        {t("ApplyStatus", { count: selectedItems.length })}
-      </Button>
+      {/* فاصل بصري بسيط */}
+      <div className="h-8 w-[1px] bg-gray-200 mx-1 hidden sm:block" />
 
-      {/* 🟢 استخدام الـ Dialog للتأكيد */}
+      {/* اختيار بقية الحالات */}
+      <div className="flex items-center gap-2">
+        <Select value={bulkStatus} onValueChange={setBulkStatus}>
+          <SelectTrigger className="w-[180px] border-gray-300 rounded-md shadow-sm px-4 py-2 bg-white text-gray-700">
+            <SelectValue placeholder={t("ChooseStatus") || "-- اختر حالة --"} />
+          </SelectTrigger>
+          <SelectContent className="bg-white border border-gray-200">
+            {Object.entries(PREPARATION_STATUSES)
+              .filter(([key]) => 
+                // إظهار الحالات الأعلى من الحالية فقط + إخفاء "preparing" لأن لها زر خاص
+                statusOrder.indexOf(key) >= statusOrder.indexOf(currentLowestStatus) && 
+                key !== "preparing"
+              )
+              .map(([key, value]) => (
+                <SelectItem key={key} value={key} className="px-4 py-2 hover:bg-gray-100 cursor-pointer">
+                  <div className="flex items-center gap-2">
+                    <value.icon size={16} className={value.color} />
+                    <span>{value.label}</span>
+                  </div>
+                </SelectItem>
+              ))}
+          </SelectContent>
+        </Select>
+
+        <Button
+          onClick={onApplyStatus}
+          className="bg-bg-primary text-white hover:bg-red-700 text-sm"
+          disabled={selectedItems.length === 0 || !bulkStatus || isLoading}
+        >
+          {t("ApplyStatus", { count: selectedItems.length })}
+        </Button>
+      </div>
+
+      {/* زر نقل الطاولة كما هو */}
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
         <DialogTrigger asChild>
           <Button
             disabled={selectedItems.length === 0 || isLoading}
-            className="bg-purple-600 hover:bg-purple-700 text-white text-sm flex items-center gap-1"
+            className="bg-purple-600 hover:bg-purple-700 text-white text-sm flex items-center gap-2 ml-auto"
           >
             {t("ChangeTable") || "نقل إلى طاولة"}
-            {selectedItems.length > 0 && ` (${selectedItems.length})`}
           </Button>
         </DialogTrigger>
         
@@ -84,12 +119,12 @@ export default function BulkActionsBar({
             <DialogTitle className="text-right">
               {t("ConfirmTransfer") || "تأكيد عملية النقل"}
             </DialogTitle>
-            <DialogDescription className="text-right pt-2">
-              {t("AreYouSureTransferItems") || "أنت على وشك الانتقال لاختيار طاولة جديدة لنقل العناصر المختارة. هل تريد الاستمرار؟"}
+            <DialogDescription className="text-right pt-2 text-gray-500">
+              {t("AreYouSureTransferItems") || "هل تريد نقل العناصر المختارة إلى طاولة أخرى؟"}
             </DialogDescription>
           </DialogHeader>
           
-          <DialogFooter className="flex flex-row-reverse gap-2 sm:justify-start">
+          <DialogFooter className="flex flex-row-reverse gap-2 sm:justify-start mt-4">
             <Button
               type="button"
               variant="outline"

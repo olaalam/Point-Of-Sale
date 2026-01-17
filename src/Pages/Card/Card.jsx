@@ -99,7 +99,8 @@ const allItemsDone =
   calculations.doneItems.length === orderItems.length;
 const printRef = useRef();
   // Add temp_id to items if missing
-  useEffect(() => {
+useEffect(() => {
+    // 1. توليد temp_id للعناصر التي لا تملك واحداً
     const needsUpdate = orderItems.some((item) => !item.temp_id);
     if (needsUpdate) {
       const updatedItemsWithTempId = orderItems.map((item) => ({
@@ -110,7 +111,21 @@ const printRef = useRef();
       }));
       updateOrderItems(updatedItemsWithTempId);
     }
-  }, [orderItems]);
+
+    // 2. جعل العناصر مختارة افتراضياً (Selected by default)
+    // نتحقق أن هناك عناصر، وأننا لم نقم باختيارها بالفعل (لتجنب اللوب اللانهائي)
+    if (orderItems.length > 0) {
+      const allIds = orderItems
+        .filter(item => item.temp_id) // نختار فقط العناصر التي تملك temp_id
+        .map((item) => item.temp_id);
+
+      // نقوم بتحديث الحالة فقط إذا كان هناك تغيير في عدد العناصر المختارة
+      // أو إذا كانت القائمة المختارة فارغة تماماً
+      if (selectedItems.length !== allIds.length) {
+        setSelectedItems(allIds);
+      }
+    }
+  }, [orderItems]); // يعتمد على تغير قائمة العناصر
 
   const clearCart = () => {
     updateOrderItems([]);
