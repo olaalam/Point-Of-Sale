@@ -13,14 +13,23 @@ export function useOrderCalculations(
     // ── Subtotal (items only) ──────────────────────────────────────────
 // داخل useOrderCalculations.js
 const subTotal = (orderItems ?? []).reduce((sum, item) => {
-  const unitPrice = calculateItemUnitPrice(item);
+  const unitPrice = calculateItemUnitPrice(item); // السعر الإجمالي (أساسي + إضافات)
   
-  // تحديد الكمية بدقة (نفس منطق العرض في السطر)
+  // استخراج السعر الأساسي فقط (بدون إضافات) بنفس المسمى القديم
+  const basePrice = Number(item.price_after_discount ?? item.price ?? 0);
+  // استخراج قيمة الإضافات فقط
+  const extras = unitPrice - basePrice;
+
   const qty = (item.weight_status === 1 || item.weight_status === "1")
     ? (item._source === "scale_barcode" ? Number(item._weight_kg || 0) : Number(item.quantity || 0))
     : Number(item.count || item.quantity || 1);
 
-  return sum + unitPrice * qty;
+  // المنطق الجديد: إذا كان وزن يضرب السعر الأساسي فقط في الوزن ويجمع الإضافات
+  const itemTotal = (item.weight_status === 1 || item.weight_status === "1")
+    ? (basePrice * qty) + extras
+    : (unitPrice * qty);
+
+  return sum + itemTotal;
 }, 0);
 
     // ── Taxes ──────────────────────────────────────────────────────────

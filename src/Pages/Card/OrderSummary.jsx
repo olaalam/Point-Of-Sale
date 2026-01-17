@@ -182,14 +182,18 @@ const PrintableOrder = React.forwardRef(
           </thead>
           <tbody>
             {orderItems.map((item, index) => {
-              const finalUnitPrice = calculateItemUnitPrice(item);
+const finalUnitPrice = calculateItemUnitPrice(item);
+const basePrice = Number(item.final_price ?? item.price_after_discount ??  0);
+  const extras = finalUnitPrice - basePrice;
 
-              const quantityForCalc =
-                item.weight_status === 1
-                  ? Number(item.quantity || item.count || 1)
-                  : Number(item.count || 1);
+  const quantityForCalc =
+    item.weight_status === 1
+      ? Number(item.quantity || item.count || 1)
+      : Number(item.count || 1);
 
-              const totalPrice = (finalUnitPrice * quantityForCalc).toFixed(2);
+            const totalPrice = (item.weight_status === 1)
+    ? ((basePrice * quantityForCalc) + extras).toFixed(2)
+    : (finalUnitPrice * quantityForCalc).toFixed(2);
 
               const productName = isArabic
                 ? item.name_ar || item.nameAr || item.name
@@ -448,14 +452,25 @@ export default function OrderSummary({
   console.log("Current orderType:", orderType);
 
   // حساب القيم الحقيقية للطباعة باستخدام الدالة الموحدة
-  const realSubTotal = orderItems.reduce((acc, item) => {
-    const unitPrice = calculateItemUnitPrice(item);
-    const qty = item.count ?? item.quantity ?? 1;
-    return acc + unitPrice * qty;
-  }, 0);
+const realSubTotal = orderItems.reduce((acc, item) => {
+  const unitPrice = calculateItemUnitPrice(item);
+  const basePrice = Number(item.final_price ?? item.price_after_discount ??  0);
+  const extras = unitPrice - basePrice;
+  
+  const qty = item.count ?? item.quantity ?? 1;
 
-  const realServiceFee = realSubTotal * 0.10; // 10% - يمكن تعديل النسبة أو جعلها ديناميكية من serviceFeeData
+  // تطبيق نفس المنطق: الوزن للسعر الأساسي فقط
+  const itemTotal = (item.weight_status === 1 || item.weight_status === "1")
+    ? (basePrice * qty) + extras
+    : (unitPrice * qty);
 
+  return acc + itemTotal;
+}, 0);
+const realServiceFee = (serviceFeeData && ["dine_in", "take_away"].includes(orderType))
+  ? (serviceFeeData.type === "precentage"
+      ? (realSubTotal + totalTax) * (serviceFeeData.amount / 100)
+      : serviceFeeData.amount)
+  : 0;
 const selectedUserData = JSON.parse(sessionStorage.getItem("selected_user_data") || "{}");
 const deliveryFee = orderType === "delivery" 
   ? Number(selectedUserData?.selectedAddress?.zone?.price || 0) 
