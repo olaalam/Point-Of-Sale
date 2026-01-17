@@ -76,6 +76,7 @@ export function useOrderActions({
         `preparing[${index}][status]`,
         PREPARATION_STATUSES[nextStatus].apiValue || nextStatus
       );
+      formData.append(`preparing[${index}][count]`, itemToUpdate.count || 1);
     });
 
     try {
@@ -184,6 +185,7 @@ const confirmVoidItem = async (
           `preparing[${index}][status]`,
           PREPARATION_STATUSES[bulkStatus].apiValue
         );
+        formData.append(`preparing[${index}][count]`, item.count || 1);
       });
 
       try {
