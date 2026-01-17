@@ -181,9 +181,13 @@ const PrintableOrder = React.forwardRef(
             </tr>
           </thead>
           <tbody>
-            {orderItems.map((item, index) => {
-const finalUnitPrice = calculateItemUnitPrice(item);
-const basePrice = Number(item.final_price ?? item.price_after_discount ??  0);
+
+{orderItems.map((item, index) => {
+  const finalUnitPrice = calculateItemUnitPrice(item);
+  // السعر الأساسي (زي اللي معروض في الـ UI)
+  const basePrice = Number(item.final_price ?? item.price_after_discount ?? 0);
+  
+  // الإضافات (الفرق بين السعر الشامل والأساسي)
   const extras = finalUnitPrice - basePrice;
 
   const quantityForCalc =
@@ -191,30 +195,25 @@ const basePrice = Number(item.final_price ?? item.price_after_discount ??  0);
       ? Number(item.quantity || item.count || 1)
       : Number(item.count || 1);
 
-            const totalPrice = (item.weight_status === 1)
+  // الحساب الصحيح للإجمالي: (السعر الأساسي * الكمية/الوزن) + الإضافات
+  // ده اللي هيطلعلك الـ 800 (500 * 1.5 + 50)
+  const totalPrice = (item.weight_status === 1)
     ? ((basePrice * quantityForCalc) + extras).toFixed(2)
     : (finalUnitPrice * quantityForCalc).toFixed(2);
 
-              const productName = isArabic
-                ? item.name_ar || item.nameAr || item.name
-                : item.name_en || item.nameEn || item.name;
+  const productName = isArabic
+    ? item.name_ar || item.nameAr || item.name
+    : item.name_en || item.nameEn || item.name;
 
-              const displayQty =
-                item.weight_status === 1 ? `${item.quantity} kg` : item.count;
+  const displayQty =
+    item.weight_status === 1 ? `${item.quantity} kg` : item.count;
 
-              return (
-                <React.Fragment key={item.temp_id || index}>
-                  <tr>
-                    <td
-                      style={{
-                        border: "1px solid #000",
-                        padding: "3px 2px",
-                        textAlign: "center",
-                        verticalAlign: "middle",
-                      }}
-                    >
-                      <strong>{displayQty}</strong>
-                    </td>
+  return (
+    <React.Fragment key={item.temp_id || index}>
+      <tr>
+        <td style={{ border: "1px solid #000", padding: "3px 2px", textAlign: "center" }}>
+          <strong>{displayQty}</strong>
+        </td>
                     <td
                       style={{
                         border: "1px solid #000",
@@ -280,31 +279,17 @@ const basePrice = Number(item.final_price ?? item.price_after_discount ??  0);
                         )}
                       </div>
                     </td>
-                    <td
-                      style={{
-                        border: "1px solid #000",
-                        padding: "3px 2px",
-                        textAlign: "center",
-                        verticalAlign: "middle",
-                      }}
-                    >
-                      {finalUnitPrice.toFixed(2)}
-                    </td>
-                    <td
-                      style={{
-                        border: "1px solid #000",
-                        padding: "3px 2px",
-                        textAlign: "center",
-                        verticalAlign: "middle",
-                        fontWeight: "bold",
-                      }}
-                    >
-                      {totalPrice}
-                    </td>
-                  </tr>
-                </React.Fragment>
-              );
-            })}
+        <td style={{ border: "1px solid #000", padding: "3px 2px", textAlign: "center" }}>
+          {/* تعديل: عرض basePrice (الـ 500) بدل finalUnitPrice */}
+          {basePrice.toFixed(2)} 
+        </td>
+        <td style={{ border: "1px solid #000", padding: "3px 2px", textAlign: "center", fontWeight: "bold" }}>
+          {totalPrice}
+        </td>
+      </tr>
+    </React.Fragment>
+  );
+})}
           </tbody>
         </table>
 
