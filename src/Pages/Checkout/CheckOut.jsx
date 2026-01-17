@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -50,9 +50,10 @@ const CheckOut = ({
   const cashierId = sessionStorage.getItem("cashier_id");
   const tableId = sessionStorage.getItem("table_id") || null;
   const [appliedDiscount, setAppliedDiscount] = useState(0);
-
+  const isSubmitting = useRef(false);
   const baseUrl = import.meta.env.VITE_API_BASE_URL;
   const { t } = useTranslation();
+  const [loading, setLoading] = useState(false);
   const lastSelectedGroup = sessionStorage.getItem("last_selected_group");
   // const [dueModuleAmount, setDueModuleAmount] = useState(0);
   const { data: groupData } = useGet("cashier/group_product"); // الـ API اللي جبته
@@ -124,7 +125,7 @@ const CheckOut = ({
   }, []);
 
   const { data: deliveryData } = useGet("cashier/delivery_lists");
-  const { postData, loading } = usePost();
+  const { postData } = usePost();
   const discountData = useMemo(() => {
     const storedDiscount = sessionStorage.getItem("discount_data");
     try {
@@ -137,10 +138,10 @@ const CheckOut = ({
     }
   }, []);
   // 🟢 حساب خصم المنتجات الفردية (item-level discounts)
-const itemDiscountsAmount = useMemo(
-  () => calculateTotalItemDiscounts(orderItems),
-  [orderItems]
-);
+  const itemDiscountsAmount = useMemo(
+    () => calculateTotalItemDiscounts(orderItems),
+    [orderItems]
+  );
   const { selectedDiscountAmount, finalSelectedDiscountId } = useMemo(() => {
     const discountList = discountListData?.discount_list || [];
     const selectedDiscount = discountList.find(
@@ -163,26 +164,26 @@ const itemDiscountsAmount = useMemo(
       finalSelectedDiscountId: selectedDiscount.id,
     };
   }, [discountListData, selectedDiscountId, amountToPay]);
-// 🟢 حساب قيمة الخصم الـ percentage/value (كوبون أو قائمة أو module) - بدون الـ free
-const percentageDiscountAmount = useMemo(() => {
-  let val = 0;
+  // 🟢 حساب قيمة الخصم الـ percentage/value (كوبون أو قائمة أو module) - بدون الـ free
+  const percentageDiscountAmount = useMemo(() => {
+    let val = 0;
 
-  if (appliedDiscount > 0) {
-    val = amountToPay * (appliedDiscount / 100);
-  } else if (discountData.module.includes(orderType)) {
-    val = amountToPay * (discountData.discount / 100);
-  } else if (selectedDiscountAmount > 0) {
-    val = selectedDiscountAmount;
-  }
+    if (appliedDiscount > 0) {
+      val = amountToPay * (appliedDiscount / 100);
+    } else if (discountData.module.includes(orderType)) {
+      val = amountToPay * (discountData.discount / 100);
+    } else if (selectedDiscountAmount > 0) {
+      val = selectedDiscountAmount;
+    }
 
-  return val;
-}, [amountToPay, appliedDiscount, discountData, orderType, selectedDiscountAmount, selectedDiscountAmount]);
+    return val;
+  }, [amountToPay, appliedDiscount, discountData, orderType, selectedDiscountAmount, selectedDiscountAmount]);
 
-// 🟢 الـ total_discount النهائي اللي هنبعته للباك (item discounts + percentage discounts + أي totalDiscount سابق)
-const finalTotalDiscount = useMemo(() => {
-  const previous = parseFloat(totalDiscount || 0);
-  return (itemDiscountsAmount + percentageDiscountAmount + previous).toFixed(2);
-}, [itemDiscountsAmount, percentageDiscountAmount, totalDiscount]);
+  // 🟢 الـ total_discount النهائي اللي هنبعته للباك (item discounts + percentage discounts + أي totalDiscount سابق)
+  const finalTotalDiscount = useMemo(() => {
+    const previous = parseFloat(totalDiscount || 0);
+    return (itemDiscountsAmount + percentageDiscountAmount + previous).toFixed(2);
+  }, [itemDiscountsAmount, percentageDiscountAmount, totalDiscount]);
   const [orderNotes, setOrderNotes] = useState("");
   const [paymentSplits, setPaymentSplits] = useState([]);
   const [customerPaid, setCustomerPaid] = useState("");
@@ -288,34 +289,34 @@ const finalTotalDiscount = useMemo(() => {
   }, []);
 
   // Initialize default payment split - اختيار Visa كافتراضي لو موجود
- // Initialize default payment split - Default to Cash if available
-useEffect(() => {
-  if (
-    financialAccounts?.length > 0 &&
-    paymentSplits.length === 0 &&
-    requiredTotal > 0
-  ) {
-    // 🟢 Updated logic to look for "cash" instead of "visa"
-    const cashAccount = financialAccounts.find((acc) =>
-      acc.name?.toLowerCase().includes("cash") || 
-      acc.name?.includes("كاش") // Added Arabic support just in case
-    );
+  // Initialize default payment split - Default to Cash if available
+  useEffect(() => {
+    if (
+      financialAccounts?.length > 0 &&
+      paymentSplits.length === 0 &&
+      requiredTotal > 0
+    ) {
+      // 🟢 Updated logic to look for "cash" instead of "visa"
+      const cashAccount = financialAccounts.find((acc) =>
+        acc.name?.toLowerCase().includes("cash") ||
+        acc.name?.includes("كاش") // Added Arabic support just in case
+      );
 
-    const defaultAccountId = cashAccount
-      ? cashAccount.id
-      : financialAccounts[0].id;
+      const defaultAccountId = cashAccount
+        ? cashAccount.id
+        : financialAccounts[0].id;
 
-    setPaymentSplits([
-      {
-        id: "split-1",
-        accountId: defaultAccountId,
-        amount: requiredTotal,
-        checkout: "",
-        transition_id: "",
-      },
-    ]);
-  }
-}, [financialAccounts, requiredTotal, paymentSplits.length]);
+      setPaymentSplits([
+        {
+          id: "split-1",
+          accountId: defaultAccountId,
+          amount: requiredTotal,
+          checkout: "",
+          transition_id: "",
+        },
+      ]);
+    }
+  }, [financialAccounts, requiredTotal, paymentSplits.length]);
 
   // Auto-update single split amount
   useEffect(() => {
@@ -399,11 +400,11 @@ useEffect(() => {
       prev.map((split) =>
         split.id === id
           ? {
-              ...split,
-              accountId: parseInt(accountId),
-              checkout: "",
-              transition_id: "",
-            }
+            ...split,
+            accountId: parseInt(accountId),
+            checkout: "",
+            transition_id: "",
+          }
           : split
       )
     );
@@ -462,72 +463,73 @@ useEffect(() => {
     return acc?.name?.toLowerCase().includes("visa");
   };
 
-  const proceedWithOrderSubmission = async (
+const proceedWithOrderSubmission = async (
     due = 0,
     customer_id = undefined,
     dueModuleValue = 0,
     forcedPassword = null
   ) => {
-    const freeDiscountValue = parseFloat(freeDiscount) || 0;
+    // 🟢 1. تفعيل القفل والـ Loading فوراً
+    isSubmitting.current = true;
+    setLoading(true);
 
-    if (
-      freeDiscountValue > 0 &&
-      !forcedPassword &&
-      !pendingFreeDiscountPassword
-    ) {
+    // تعريف handleNavigation في نطاق الدالة لتكون مرئية للكل
+    const handleNavigation = (response) => {
+      if (orderType === "delivery") {
+        sessionStorage.removeItem("selected_user_id");
+        sessionStorage.removeItem("selected_user_data");
+        sessionStorage.removeItem("selected_address_id");
+        sessionStorage.removeItem("selected_address_data");
+        setDeliveryModelOpen(false);
+      }
+
+      if (orderType === "dine_in" && selectedPaymentItemIds.length > 0) {
+        clearPaidItemsOnly();
+      } else {
+        onClearCart();
+      }
+
+      sessionStorage.setItem("last_order_type", orderType);
+      if (orderType === "delivery" && response?.success?.id) {
+        setOrderId(response.success.id);
+        setDeliveryModelOpen(true);
+      } else {
+        onClose();
+      }
+    };
+
+    const freeDiscountValue = parseFloat(freeDiscount) || 0;
+    if (freeDiscountValue > 0 && !forcedPassword && !pendingFreeDiscountPassword) {
       setPasswordModalOpen(true);
+      isSubmitting.current = false;
+      setLoading(false);
       return;
     }
 
     const safeOrderItems = Array.isArray(orderItems) ? orderItems : [];
-
-    // 🟢 الحل: تعريف المتغير هنا في البداية ليكون متاحاً للكل (للـ Payload وللطباعة)
     const itemsForPayload = safeOrderItems.map((item) => ({
       ...item,
-      count:
-        item.weight_status === 1 || item.weight_status === "1"
-          ? item.quantity || item.count
+      count: (item.weight_status === 1 || item.weight_status === "1")
+          ? (item.quantity || item.count)
           : item.count,
     }));
 
-    const isDineIn = orderType === "dine_in";
-    const hasSelectedItems = selectedPaymentItemIds.length > 0;
-    const totalItemsCount = orderItems.length;
-    const allItemsSelected =
-      hasSelectedItems && selectedPaymentItemIds.length === totalItemsCount;
-    const isPartialPayment = isDineIn && hasSelectedItems && !allItemsSelected;
     const hasDealItems = safeOrderItems.some((item) => item.is_deal);
-    const endpoint = getOrderEndpoint(
-      orderType,
-      safeOrderItems,
-      totalDineInItems,
-      hasDealItems
-    );
-    const financialsPayload = buildFinancialsPayload(
-      paymentSplits,
-      financialAccounts
-    );
-
+    const endpoint = getOrderEndpoint(orderType, safeOrderItems, totalDineInItems, hasDealItems);
+    const financialsPayload = buildFinancialsPayload(paymentSplits, financialAccounts);
     const moduleId = sessionStorage.getItem("module_id");
-    let payload;
 
+    let payload;
     if (hasDealItems) {
-      // هنا ممكن تستخدم itemsForPayload المعدلة أو safeOrderItems حسب منطق الـ Deal عندك
       payload = buildDealPayload(safeOrderItems, financialsPayload);
     } else {
-      const finalDiscountIdToSend =
-        selectedDiscountAmount > 0
-          ? finalSelectedDiscountId
-          : selectedDiscountId;
-
-      // 🟢 قمنا بحذف التعريف من هنا لأننا عرفناه فوق خلاص
-
+      const finalDiscountIdToSend = selectedDiscountAmount > 0 ? finalSelectedDiscountId : selectedDiscountId;
       payload = buildOrderPayload({
         orderType,
-        orderItems: itemsForPayload, // ✅ الآن المتغير معرف وقراءته صحيحة
+        orderItems: itemsForPayload,
         amountToPay: discountedAmount.toFixed(2),
         totalTax,
-      totalDiscount: finalTotalDiscount,
+        totalDiscount: finalTotalDiscount,
         notes: orderNotes.trim() || "No special instructions",
         source,
         financialsPayload,
@@ -551,46 +553,16 @@ useEffect(() => {
         headers: { "Content-Type": "application/json" },
       });
 
-      console.log("Response received from server:", response);
-
       if (response?.success) {
-        if (response.print_type) {
-          sessionStorage.setItem("print_type", response.print_type);
-        }
         toast.success(due === 1 ? t("DueOrderCreated") : t("OrderPlaced"));
-
         setPendingFreeDiscountPassword("");
 
-        const handleNavigation = () => {
-          if (orderType === "delivery") {
-            sessionStorage.removeItem("selected_user_id");
-            sessionStorage.removeItem("selected_user_data");
-            sessionStorage.removeItem("selected_address_id");
-            sessionStorage.removeItem("selected_address_data");
-            setDeliveryModelOpen(false);
-          }
-          if (orderType === "dine_in" && selectedPaymentItemIds.length > 0) {
-            clearPaidItemsOnly();
-          } else {
-            onClearCart();
-          }
-
-          sessionStorage.setItem("last_order_type", orderType);
-          if (orderType === "delivery" && response?.success?.id) {
-            setOrderId(response.success.id);
-            setDeliveryModelOpen(true);
-          } else {
-            onClose();
-          }
-        };
-
         if (due === 0) {
-          // 🟢 الآن itemsForPayload مقروءة هنا لأنها معرفة في النطاق الخارجي
           const receiptData = prepareReceiptData(
             itemsForPayload,
-            amountToPay,
+            discountedAmount,
             totalTax,
-            totalDiscount,
+            finalTotalDiscount,
             appliedDiscount,
             discountData,
             orderType,
@@ -599,17 +571,21 @@ useEffect(() => {
             response
           );
           printReceiptSilently(receiptData, response, () => {
-            handleNavigation();
+            handleNavigation(response);
           });
         } else {
-          handleNavigation();
+          handleNavigation(response);
         }
       } else {
         toast.error(response?.message || t("FailedToProcessOrder"));
+        isSubmitting.current = false;
+        setLoading(false);
       }
     } catch (e) {
       console.error("Submit error:", e);
-      toast.error(e.message || t("SubmissionFailed"));
+      toast.error(e.response?.data?.message || e.message || t("SubmissionFailed"));
+      isSubmitting.current = false;
+      setLoading(false);
     }
   };
 
@@ -627,32 +603,34 @@ useEffect(() => {
     await proceedWithOrderSubmission(1, customer.id);
   };
 
-  const handleSubmitOrder = async () => {
-    if (!isTotalMet || totalScheduled === 0) {
-      return toast.error(
-        t("TotalMustEqual", { amount: requiredTotal.toFixed(2) })
-      );
-    }
+const handleSubmitOrder = async () => {
+  // 🟢 أول سطر: لو القفل مقفول اخرج فوراً
+  if (isSubmitting.current) return;
 
-    const validation = validatePaymentSplits(
-      paymentSplits,
-      getDescriptionStatus
-    );
-    if (!validation.valid) {
-      return toast.error(validation.error);
-    }
+  if (!isTotalMet || totalScheduled === 0) {
+    return toast.error(t("TotalMustEqual", { amount: requiredTotal.toFixed(2) }));
+  }
 
-    if (isDueOrder) {
-      if (!selectedCustomer) {
-        setCustomerSelectionOpen(true);
-        refetchDueUsers();
-        return;
-      }
+  const validation = validatePaymentSplits(paymentSplits, getDescriptionStatus);
+  if (!validation.valid) {
+    return toast.error(validation.error);
+  }
+
+  if (isDueOrder) {
+    if (!selectedCustomer) {
+      setCustomerSelectionOpen(true);
+      refetchDueUsers();
       return;
     }
+    // إذا كان due order ومختار عميل، كمل العملية
+    await proceedWithOrderSubmission(1, selectedCustomer.id); 
+    return;
+  }
 
-    await proceedWithOrderSubmission(0);
-  };
+  // 🟢 قبل ما تبدأ العملية، اقفل القفل
+  isSubmitting.current = true;
+  await proceedWithOrderSubmission(0);
+};
 
   const handleAssignDelivery = async () => {
     if (!orderId) return toast.error(t("OrderIdMissing"));
@@ -1083,10 +1061,10 @@ useEffect(() => {
                 {loading
                   ? t("Processing")
                   : isDueOrder
-                  ? selectedCustomer
-                    ? t("DueOrderReady")
-                    : t("SelectCustomer")
-                  : t("ConfirmAndPay")}
+                    ? selectedCustomer
+                      ? t("DueOrderReady")
+                      : t("SelectCustomer")
+                    : t("ConfirmAndPay")}
               </Button>
             </div>
           </div>
