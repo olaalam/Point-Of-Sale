@@ -319,59 +319,72 @@ console.log(serverMessage);
     }
   };
 const handleSelectTable = async (table) => {
-    const transferPending =
-      sessionStorage.getItem("transfer_pending") === "true";
-    const sourceTableId = sessionStorage.getItem("transfer_source_table_id");
+  const transferPending = sessionStorage.getItem("transfer_pending") === "true";
+  const sourceTableId = sessionStorage.getItem("transfer_source_table_id");
 
-    // 🟢 لو في عملية Transfer
-    if (transferPending) {
-      const cartIds = JSON.parse(
-        sessionStorage.getItem("transfer_cart_ids") || "[]"
-      );
-      if (cartIds.length > 0 && sourceTableId === table.id.toString()) {
-        toast.error(t("CannotTransferToSameTable"));
-        return;
-      }
-      const formData = new FormData();
-      formData.append("table_id", table.id);
-      cartIds.forEach((id, i) => formData.append(`cart_ids[${i}]`, id));
-      try {
-        await postData(`cashier/transfer_order?locale=${locale}`, formData);
-        toast.success(t("OrderTransferredSuccessfully"));
-        [
-          "transfer_cart_ids",
-          "transfer_first_cart_id",
-          "transfer_source_table_id",
-          "transfer_pending",
-        ].forEach((k) => sessionStorage.removeItem(k));
-        sessionStorage.setItem("table_id", table.id);
-        navigate("/order-page", {
-          state: {
-            order_type: "dine_in",
-            table_id: table.id,
-            transferred: true,
-          },
-        });
-      } catch (err) {
-        toast.error(
-          err.response?.data?.message ||
-            t("FailedtotransfertablePleasetryagain")
-        );
-      }
-    } else {
-      // 🟢 جلب الحالة من الـ sessionStorage
-      const prepStatus = sessionStorage.getItem("preparation_num_status");
-
-      // التحقق: إذا كانت الحالة "1" أظهر المودال، وإذا كانت "0" ادخل مباشرة
-      if (prepStatus === "1") {
-        setPendingTableSelection(table);
-        setShowPreparationModal(true);
-      } else {
-        // تنفيذ دالة الانتقال المباشر بدون المودال
-        proceedToOrderPage(table, null);
-      }
+  // 🟢 حالة عملية Transfer (نقل الطلب)
+  if (transferPending) {
+    const cartIds = JSON.parse(sessionStorage.getItem("transfer_cart_ids") || "[]");
+    
+    if (cartIds.length > 0 && sourceTableId === table.id.toString()) {
+      toast.error(t("CannotTransferToSameTable"));
+      return;
     }
-  };
+
+    const formData = new FormData();
+    formData.append("table_id", table.id);
+    cartIds.forEach((id, i) => formData.append(`cart_ids[${i}]`, id));
+
+    try {
+      await postData(`cashier/transfer_order?locale=${locale}`, formData);
+      toast.success(t("OrderTransferredSuccessfully"));
+
+      // ✅ التعديل الأساسي: تحديث بيانات الطاولة الجديدة فوراً لضمان ظهورها في الواجهة
+      sessionStorage.setItem("table_id", table.id);
+      sessionStorage.setItem("table_number", table.table_number); // تحديث رقم الطاولة (مثل M-4)
+      
+      // تحديث اسم الصالة إذا كان متاحاً
+      const hallName = table.location_name || selectedLocation?.name || "";
+      if (hallName) {
+          sessionStorage.setItem("hall_name", hallName);
+      }
+
+      // ✅ مسح بيانات التحويل المؤقتة
+      [
+        "transfer_cart_ids",
+        "transfer_first_cart_id",
+        "transfer_source_table_id",
+        "transfer_pending",
+      ].forEach((k) => sessionStorage.removeItem(k));
+
+      // ✅ الانتقال مع تمرير البيانات في الـ state كدعم إضافي
+      navigate("/order-page", {
+        state: {
+          order_type: "dine_in",
+          table_id: table.id,
+          table_number: table.table_number,
+          transferred: true,
+        },
+      });
+
+      // إجبار المتصفح على التحديث لضمان قراءة المكونات الأخرى للقيم الجديدة من الـ storage
+      window.location.reload(); 
+
+    } catch (err) {
+      toast.error(err.response?.data?.message || t("FailedtotransfertablePleasetryagain"));
+    }
+  } else {
+    // 🟢 الحالة العادية (فتح طاولة جديدة)
+    const prepStatus = sessionStorage.getItem("preparation_num_status");
+
+    if (prepStatus === "1") {
+      setPendingTableSelection(table);
+      setShowPreparationModal(true);
+    } else {
+      proceedToOrderPage(table, null);
+    }
+  }
+};
   const MergedTableCard = ({ table, onStatusChange }) => {
     const transferPending =
       sessionStorage.getItem("transfer_pending") === "true";
