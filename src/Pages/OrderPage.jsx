@@ -115,23 +115,51 @@ export default function OrderPage({
   }, [isDineIn, currentTableId, dineInData]);
 
   // delivery: أضف originalPrice و temp_id
+// delivery: أضف originalPrice و temp_id + القراءة من sessionStorage عند الريفريش
   useEffect(() => {
-    if (isDelivery && currentUserId && dineInData?.success) {
-      const mappedItems = Array.isArray(dineInData.success)
-        ? dineInData.success.map((item) => ({
-            ...item,
-            originalPrice: item.originalPrice ?? item.price ?? 0,
-            temp_id: item.temp_id || `delivery_${item.id}_${Date.now()}`,
-            count: parseInt(item.count || 1),
-            price: parseFloat(item.price || 0),
-            preparation_status: item.prepration || item.preparation_status || "pending",
-          }))
-        : [];
+    if (isDelivery && currentUserId) {
+      // 1. لو فيه داتا جاية من السيرفر (الطلب محفوظ مسبقاً)
+      if (dineInData?.success) {
+        const mappedItems = Array.isArray(dineInData.success)
+          ? dineInData.success.map((item) => ({
+              ...item,
+              originalPrice: item.originalPrice ?? item.price ?? 0,
+              temp_id: item.temp_id || `delivery_${item.id}_${Date.now()}`,
+              count: parseInt(item.count || 1),
+              price: parseFloat(item.price || 0),
+              preparation_status: item.prepration || item.preparation_status || "pending",
+            }))
+          : [];
 
-      setOrdersByUser((prev) => ({
-        ...prev,
-        [currentUserId]: mappedItems,
-      }));
+        setOrdersByUser((prev) => ({
+          ...prev,
+          [currentUserId]: mappedItems,
+        }));
+        
+        // تحديث السيشين بالداتا اللي جت من السيرفر عشان تفضل معانا
+        sessionStorage.setItem("cart", JSON.stringify(mappedItems));
+      } 
+      // 2. 🟢 الجزء الجديد: لو مفيش داتا من السيرفر (زي حالة الريفريش لطلب جديد)
+      else {
+        const storedCart = sessionStorage.getItem("cart");
+        if (storedCart && storedCart !== "undefined") {
+          try {
+            const parsedCart = JSON.parse(storedCart);
+            // نتأكد إننا مش بنمسح داتا موجودة أصلاً في الـ state
+            setOrdersByUser((prev) => {
+              if (!prev[currentUserId] || prev[currentUserId].length === 0) {
+                return {
+                  ...prev,
+                  [currentUserId]: parsedCart,
+                };
+              }
+              return prev;
+            });
+          } catch (error) {
+            console.error("Error parsing stored cart:", error);
+          }
+        }
+      }
     }
   }, [isDelivery, currentUserId, dineInData]);
 
