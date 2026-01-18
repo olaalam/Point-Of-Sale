@@ -17,7 +17,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { PREPARATION_STATUSES, statusOrder } from "./constants";
-
+import CaptainSelectionModal from "../CaptainSelectionModal";
 export default function BulkActionsBar({
   bulkStatus,
   setBulkStatus,
@@ -27,9 +27,11 @@ export default function BulkActionsBar({
   isLoading,
   currentLowestStatus,
   t,
+  captainsData,
+  loadingCaptains,
 }) {
   const [isOpen, setIsOpen] = useState(false);
-
+const [isCaptainModalOpen, setIsCaptainModalOpen] = useState(false);
   // دالة لتنفيذ حالة "Preparing" مباشرة
   const handleQuickPrepare = () => {
     setBulkStatus("preparing");
@@ -142,6 +144,14 @@ export default function BulkActionsBar({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <CaptainSelectionModal 
+        isOpen={isCaptainModalOpen}
+        onOpenChange={setIsCaptainModalOpen}
+        captainsData={captainsData}
+        isLoading={loadingCaptains}
+        t={t}
+        disabled={selectedItems.length === 0 || isLoading}
+      />
     </div>
   );
 }

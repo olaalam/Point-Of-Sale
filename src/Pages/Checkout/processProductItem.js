@@ -158,7 +158,12 @@ export const buildOrderPayload = ({
   if (storedServiceFeeId) {
     basePayload.service_fees_id = storedServiceFeeId.toString();
   }
-
+if (orderType === "dine_in") {
+    const storedCaptainId = sessionStorage.getItem("selected_captain_id");
+    if (storedCaptainId) {
+      basePayload.captain_id = storedCaptainId.toString();
+    }
+  }
   // --- بقية الـ Logic كما هو ---
   if (due_module > 0) {
     basePayload.due_module = parseFloat(due_module).toFixed(2);

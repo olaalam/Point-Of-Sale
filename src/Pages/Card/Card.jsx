@@ -27,6 +27,7 @@ import { useDealManagement } from "./Hooks/useDealManagement";
 import { OTHER_CHARGE } from "./constants";
 import { useServiceFee } from "./Hooks/useServiceFee";
 import DineInformation from "./DineInformation";
+import { useGet } from "@/Hooks/useGet";
 export default function Card({
   orderItems,
   updateOrderItems,
@@ -52,7 +53,7 @@ const deliveryFee = orderType === "delivery"
   const [selectedPaymentItems, setSelectedPaymentItems] = useState([]);
   const [bulkStatus, setBulkStatus] = useState("");
   const [itemLoadingStates, setItemLoadingStates] = useState({});
-
+const { data: captainsData, isLoading: loadingCaptains } = useGet("cashier/captain_orders");
   // Void Modal States
   const [showVoidModal, setShowVoidModal] = useState(false);
   const [voidItemId, setVoidItemId] = useState(null);
@@ -333,6 +334,8 @@ navigate("/orders", {
           isLoading={apiLoading}
           currentLowestStatus={calculations.currentLowestSelectedStatus}
           t={t}
+          captainsData={captainsData}
+  loadingCaptains={loadingCaptains}
         />
       )}
 
