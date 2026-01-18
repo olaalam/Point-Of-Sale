@@ -417,12 +417,16 @@ const searchAndToggleSection = (
                   _source: "scale_barcode",
                   _weight_grams: weightGrams,
                   _weight_kg: weightKg,
+                  temp_id: `${found.id}_${Date.now()}_${Math.random()}`
                 };
 
                 console.log("[WEIGHT PRODUCT TO ADD]", productToAdd);
 
                 // إضافة المنتج للطلب
-                handleAddToOrder(productToAdd);
+                handleAddToOrder({
+    ...productToAdd,
+    temp_id: `weight_${found.id}_${Date.now()}`
+});
 
                 toast.success(
                   `تم إضافة ${found.name} • ${weightKg.toFixed(3)} كجم • ${totalPrice.toFixed(2)} ج.م`

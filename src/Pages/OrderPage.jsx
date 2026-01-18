@@ -228,54 +228,56 @@ const updateOrderItems = (newItems) => {
     console.log("💾 Updated cart in sessionStorage (All Modes):", safeNewItems);
   };
 
-const handleAddItem = (product, options = {}) => {
-    const safeCurrentItems = Array.isArray(currentOrderItems) ? currentOrderItems : [];
+const handleAddItem = (item) => {
+  // 1. تحقق إذا كان المنتج قادم من الميزان
+  const isScaleItem = item._source === "scale_barcode";
 
-    if (options.updateExisting && options.index !== undefined) {
-      const updatedItems = [...safeCurrentItems];
-      updatedItems[options.index] = product;
-      updateOrderItems(updatedItems);
-      return;
-    }
+  if (currentOrderType === "dine_in") {
+    setOrdersByTable((prev) => {
+      const tableId = currentTableId;
+      const currentItems = prev[tableId] || [];
 
-    // 1. البحث عن المنتج في السلة الحالية
-    const existingItemIndex = safeCurrentItems.findIndex((item) => areProductsEqual(item, product));
-    let updatedItems = [...safeCurrentItems];
-
-    if (existingItemIndex !== -1) {
-      const existingItem = updatedItems[existingItemIndex];
-      
-      // 2. التحقق هل المنتج وزني (وزن ميزان) أم منتج عادي (قطعة)
-      // نعتمد على weight_status القادم من البيانات أو وجود كسر عشري في الكمية
-      const isWeightItem = product.weight_status === 1 || !Number.isInteger(product.count);
-
-      let newCount;
-      if (isWeightItem) {
-        // 🟢 إذا كان وزني: نجمع الأوزان بدقة (مثل 0.500 + 0.750)
-        newCount = Number((existingItem.count + (product.count || 0)).toFixed(3));
-      } else {
-        // 🔵 إذا كان بالقطعة: نزيد بمقدار 1 أو حسب الكمية المرسلة
-        newCount = existingItem.count + (product.count || 1);
+      // 2. إذا كان منتج ميزان، أضفه فوراً كسطر جديد دون بحث عن تكرار
+      if (isScaleItem) {
+        return {
+          ...prev,
+          [tableId]: [...currentItems, { ...item }],
+        };
       }
 
-      updatedItems[existingItemIndex] = {
-        ...existingItem,
-        count: newCount,
-        // 3. تحديث السعر الإجمالي بناءً على الكمية الجديدة
-        totalPrice: Number((existingItem.price * newCount).toFixed(2)),
-      };
-    } else {
-      // إذا كان منتجاً جديداً يضاف لأول مرة
-      updatedItems.push({
-        ...product,
-        count: product.count || 1,
-        totalPrice: product.totalPrice || (product.price * (product.count || 1)),
-        preparation_status: product.preparation_status || "pending",
-      });
-    }
+      // المنطق القديم للمنتجات العادية (دمج الكميات)
+      const existingItemIndex = currentItems.findIndex((i) =>
+        areProductsEqual(i, item)
+      );
 
-    updateOrderItems(updatedItems);
-  };
+      if (existingItemIndex > -1) {
+        const updatedItems = [...currentItems];
+        updatedItems[existingItemIndex].count += item.count || 1;
+        return { ...prev, [tableId]: updatedItems };
+      }
+      return { ...prev, [tableId]: [...currentItems, item] };
+    });
+  } else {
+    // لحالة Takeaway / Delivery
+    setTakeAwayItems((prev) => {
+      // 3. إذا كان منتج ميزان، أضفه كسطر جديد فوراً
+      if (isScaleItem) {
+        return [...prev, { ...item }];
+      }
+
+      const existingItemIndex = prev.findIndex((i) =>
+        areProductsEqual(i, item)
+      );
+
+      if (existingItemIndex > -1) {
+        const updatedItems = [...prev];
+        updatedItems[existingItemIndex].count += item.count || 1;
+        return updatedItems;
+      }
+      return [...prev, item];
+    });
+  }
+};
 
 const handleClose = () => {
     // إذا تم تمرير onClose من الأب (Home.jsx)، نستخدمها
