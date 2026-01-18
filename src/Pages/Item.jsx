@@ -123,7 +123,7 @@ useEffect(() => {
     });
   // 3. جلب البيانات الأساسية
   const allModulesEndpoint = useMemo(() => {
-    return `captain/lists?branch_id=${branchIdState}&locale=${i18n.language}`;
+    return `captain/lists?branch_id=${branchIdState}&locale=${i18n.language}&module=${orderType}`;
   }, [branchIdState, i18n.language]);
   const { data: allModulesData, isLoading: isAllDataLoading } = useQuery({
     queryKey: ["allData", branchIdState, i18n.language],

@@ -157,6 +157,17 @@ const handleSaveEdit = async () => {
   };
 
   const handleConfirmDelivery = (user, addressId) => {
+    try {
+    // هذا هو الـ API الذي طلبته
+  const { data, isLoading, error } = useGet(
+    `captain/lists?branch_id=${branch_id}&module=${orderType}`
+  );
+    
+    console.log("Module switched to delivery successfully");
+  } catch (err) {
+    console.error("Error switching module:", err);
+    // نكمل التنقل حتى لو فشل الـ API لضمان استمرارية العمل، أو يمكنك إيقافه حسب الرغبة
+  }
     const selectedAddress = user.address.find((addr) => addr.id === addressId);
 
     sessionStorage.setItem("selected_user_id", user.id);

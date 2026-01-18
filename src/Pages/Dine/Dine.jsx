@@ -173,11 +173,12 @@ const Dine = () => {
   const [selectedTable, setSelectedTable] = useState(null);
   const [selectedLocationId, setSelectedLocationId] = useState(null);
   const locale = isArabic ? "ar" : "en";
+  const orderType = sessionStorage.getItem("order_type") || "dine_in";
   // 🟢 State للـ Preparation Number Modal
   const [showPreparationModal, setShowPreparationModal] = useState(false);
   const [pendingTableSelection, setPendingTableSelection] = useState(null);
   const { data, isLoading, error } = useGet(
-    `captain/lists?branch_id=${branch_id}`
+    `captain/lists?branch_id=${branch_id}&module=${orderType}`
   );
   const { loading: transferLoading, postData } = usePost();
   const { postData: postPreparationNum, loading: preparationLoading } = usePost();
