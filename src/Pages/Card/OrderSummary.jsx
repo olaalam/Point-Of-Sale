@@ -624,7 +624,7 @@ const deliveryFee = orderType === "delivery"
           </div>
         ) : (
           <div className="flex gap-4 w-full">
-            <Button
+            {/* <Button
               onClick={onCheckout}
               className="bg-bg-primary text-white hover:bg-red-700 text-lg px-8 py-3"
               disabled={
@@ -634,7 +634,7 @@ const deliveryFee = orderType === "delivery"
               }
             >
               {t("Checkout")}
-            </Button>
+            </Button> */}
 
             {orderType === "dine_in" && allItemsDone && (
               <Button

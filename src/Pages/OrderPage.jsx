@@ -304,7 +304,7 @@ const handleClose = () => {
 
   return (
     <div className="flex flex-col-reverse lg:flex-row gap-4 p-4 h-full  w-full" dir={isArabic ? "ltr" : "rtl"}>
-      <div className="w-full lg:w-1/3 sm:overflow-auto">
+      <div className="w-full lg:w-1/3 ">
         <Card
           key={refreshTrigger}
           onClose={onClose}

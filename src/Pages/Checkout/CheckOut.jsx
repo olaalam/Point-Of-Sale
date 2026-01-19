@@ -36,7 +36,7 @@ import FreeDiscountPasswordModal from "./FreeDiscountPasswordModal";
 const CheckOut = ({
   amountToPay,
   orderItems,
-  onClose,
+
   totalTax,
   totalDiscount,
   source = "web",
@@ -61,6 +61,11 @@ const CheckOut = ({
   const [passwordModalOpen, setPasswordModalOpen] = useState(false);
   const [pendingFreeDiscountPassword, setPendingFreeDiscountPassword] =
     useState("");
+  // في CheckOut.jsx نضيف:
+  const [activeDiscountTab, setActiveDiscountTab] = useState(null); // 'select' | 'free' | 'company'
+  const [showPaymentDropdown, setShowPaymentDropdown] = useState(false);
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState(null); // 'cash' | 'visa' | ...
+  const [selectedPaymentType, setSelectedPaymentType] = useState(null); // 'full' | 'split' | 'due'
   const isDueModuleAllowed = (() => {
     if (!orderType || !groupProducts || groupProducts.length === 0)
       return false;
@@ -463,7 +468,23 @@ const CheckOut = ({
     return acc?.name?.toLowerCase().includes("visa");
   };
 
-const proceedWithOrderSubmission = async (
+
+  const resetCheckoutState = () => {
+    setAppliedDiscount(0);
+    setSelectedDiscountId(null);
+    setFreeDiscount("");
+    setOrderNotes("");
+    setCustomerPaid("");
+    setSelectedCustomer(null);
+    setIsDueOrder(false);
+    setPaymentSplits([]);
+    setActiveDiscountTab(null);
+    setOrderId(null);
+    // إذا كان هناك مبالغ أخرى تأتي من Props مثل amountToPay 
+    // فيجب تصفيرها من المكون الأب (Parent) عبر دالة onClearCart
+  };
+
+  const proceedWithOrderSubmission = async (
     due = 0,
     customer_id = undefined,
     dueModuleValue = 0,
@@ -473,8 +494,18 @@ const proceedWithOrderSubmission = async (
     isSubmitting.current = true;
     setLoading(true);
 
-    // تعريف handleNavigation في نطاق الدالة لتكون مرئية للكل
     const handleNavigation = (response) => {
+      // 1. فك قفل الزر فوراً
+      isSubmitting.current = false;
+      setLoading(false);
+
+      // 2. تصفير القيم المطلوبة (Amount / Discount)
+      setAppliedDiscount(0);
+      setSelectedDiscountId(null);
+      setFreeDiscount("");
+      setCustomerPaid("");
+      setPaymentSplits([]); // لتصفير المبالغ المدفوعة في الـ Split
+
       if (orderType === "delivery") {
         sessionStorage.removeItem("selected_user_id");
         sessionStorage.removeItem("selected_user_data");
@@ -483,18 +514,18 @@ const proceedWithOrderSubmission = async (
         setDeliveryModelOpen(false);
       }
 
+      // 3. مسح السلة في المكون الأب
       if (orderType === "dine_in" && selectedPaymentItemIds.length > 0) {
-        clearPaidItemsOnly();
+        if (typeof clearPaidItemsOnly === 'function') clearPaidItemsOnly();
       } else {
-        onClearCart();
+        if (typeof onClearCart === 'function') onClearCart();
       }
 
       sessionStorage.setItem("last_order_type", orderType);
+
       if (orderType === "delivery" && response?.success?.id) {
         setOrderId(response.success.id);
         setDeliveryModelOpen(true);
-      } else {
-        onClose();
       }
     };
 
@@ -510,8 +541,8 @@ const proceedWithOrderSubmission = async (
     const itemsForPayload = safeOrderItems.map((item) => ({
       ...item,
       count: (item.weight_status === 1 || item.weight_status === "1")
-          ? (item.quantity || item.count)
-          : item.count,
+        ? (item.quantity || item.count)
+        : item.count,
     }));
 
     const hasDealItems = safeOrderItems.some((item) => item.is_deal);
@@ -603,34 +634,34 @@ const proceedWithOrderSubmission = async (
     await proceedWithOrderSubmission(1, customer.id);
   };
 
-const handleSubmitOrder = async () => {
-  // 🟢 أول سطر: لو القفل مقفول اخرج فوراً
-  if (isSubmitting.current) return;
+  const handleSubmitOrder = async () => {
+    // 🟢 أول سطر: لو القفل مقفول اخرج فوراً
+    if (isSubmitting.current) return;
 
-  if (!isTotalMet || totalScheduled === 0) {
-    return toast.error(t("TotalMustEqual", { amount: requiredTotal.toFixed(2) }));
-  }
+    if (!isTotalMet || totalScheduled === 0) {
+      return toast.error(t("TotalMustEqual", { amount: requiredTotal.toFixed(2) }));
+    }
 
-  const validation = validatePaymentSplits(paymentSplits, getDescriptionStatus);
-  if (!validation.valid) {
-    return toast.error(validation.error);
-  }
+    const validation = validatePaymentSplits(paymentSplits, getDescriptionStatus);
+    if (!validation.valid) {
+      return toast.error(validation.error);
+    }
 
-  if (isDueOrder) {
-    if (!selectedCustomer) {
-      setCustomerSelectionOpen(true);
-      refetchDueUsers();
+    if (isDueOrder) {
+      if (!selectedCustomer) {
+        setCustomerSelectionOpen(true);
+        refetchDueUsers();
+        return;
+      }
+      // إذا كان due order ومختار عميل، كمل العملية
+      await proceedWithOrderSubmission(1, selectedCustomer.id);
       return;
     }
-    // إذا كان due order ومختار عميل، كمل العملية
-    await proceedWithOrderSubmission(1, selectedCustomer.id); 
-    return;
-  }
 
-  // 🟢 قبل ما تبدأ العملية، اقفل القفل
-  isSubmitting.current = true;
-  await proceedWithOrderSubmission(0);
-};
+    // 🟢 قبل ما تبدأ العملية، اقفل القفل
+    isSubmitting.current = true;
+    await proceedWithOrderSubmission(0);
+  };
 
   const handleAssignDelivery = async () => {
     if (!orderId) return toast.error(t("OrderIdMissing"));
@@ -642,7 +673,8 @@ const handleSubmitOrder = async () => {
       });
       toast.success(t("DeliveryPersonAssigned"));
       setDeliveryModelOpen(false);
-      onClose();
+      resetCheckoutState(); // أضف التصفير هنا
+
     } catch (e) {
       toast.error(e.message || t("FailedToAssignDeliveryPerson"));
     }
@@ -654,15 +686,59 @@ const handleSubmitOrder = async () => {
     sessionStorage.removeItem("selected_address_id");
     sessionStorage.removeItem("selected_address_data");
     setDeliveryModelOpen(false);
-    onClose();
+    resetCheckoutState(); // أضف التصفير هنا
+
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4">
+    <div className="w-full bg-white mt-4">
+      {/* Breakdown Section */}
+      <div className="space-y-1 border-b pb-3 mb-3 text-sm text-gray-600">
+        <div className="flex justify-between">
+          <span>{t("Original Amount")}</span>
+          <span>{amountToPay.toFixed(2)} EGP</span>
+        </div>
+
+        {/* خصم كود الشركة */}
+        {appliedDiscount > 0 && (
+          <div className="flex justify-between text-green-600">
+            <span>{t("Company Discount")} ({appliedDiscount}%)</span>
+            <span>-{(amountToPay * (appliedDiscount / 100)).toFixed(2)} EGP</span>
+          </div>
+        )}
+
+        {/* خصم القائمة */}
+        {selectedDiscountAmount > 0 && (
+          <div className="flex justify-between text-blue-600">
+            <span>{t("List Discount")}</span>
+            <span>-{selectedDiscountAmount.toFixed(2)} EGP</span>
+          </div>
+        )}
+
+        {/* الخصم المجاني */}
+        {freeDiscount > 0 && (
+          <div className="flex justify-between text-purple-600">
+            <span>{t("Free Discount")}</span>
+            <span>-{parseFloat(freeDiscount).toFixed(2)} EGP</span>
+          </div>
+        )}
+
+        <div className="flex justify-between font-bold text-orange-600 pt-1 border-t border-dashed mt-1">
+          <span>{t("Remaining to Pay")}</span>
+          <span>{remainingAmount.toFixed(2)} EGP</span>
+        </div>
+      </div>
+      {/* 1. Modals - (كاملة كما هي بكل اللوجيك) */}
       <CustomerSelectionModal
         isOpen={customerSelectionOpen}
-        onClose={() => setCustomerSelectionOpen(false)}
-        onSelectCustomer={handleSelectCustomer}
+        onClose={() => {
+          setCustomerSelectionOpen(false);
+          if (!selectedCustomer) setIsDueOrder(false);
+        }}
+        onSelectCustomer={(customer) => {
+          handleSelectCustomer(customer);
+          setCustomerSelectionOpen(false);
+        }}
         searchQuery={customerSearchQuery}
         setSearchQuery={setCustomerSearchQuery}
         customers={searchResults}
@@ -679,416 +755,254 @@ const handleSubmitOrder = async () => {
         onAssign={handleAssignDelivery}
         onSkip={handleSkip}
       />
-
-      {!deliveryModelOpen && (
-        <div className="relative w-full max-w-2xl bg-white rounded-2xl shadow-2xl h-auto flex flex-col">
-          <div className="bg-white p-4 border-b flex items-center justify-between">
-            <h2 className="text-2xl font-semibold">{t("ProcessPayment")}</h2>
-            <button
-              onClick={onClose}
-              className="text-4xl p-2 rounded-full hover:bg-gray-100"
-            >
-              X
-            </button>
+      {/* سيكشن الـ Due Module - المنصة تدفع الباقي */}
+      {isDueModuleAllowed && remainingAmount > 0.01 && (
+        <div className="mt-6 p-4 bg-red-50 border border-red-200 rounded-lg shadow-sm">
+          <div className="text-center mb-4">
+            <p className="text-lg font-bold text-red-600">
+              {t("PlatformWillPayRemaining")} (Due Module):{" "}
+              <strong>
+                {remainingAmount.toFixed(2)} {t("EGP")}
+              </strong>
+            </p>
           </div>
 
-          <div className="p-8 overflow-y-auto max-h-[calc(90vh-6rem)]">
-            <div className="mb-6 border-b pb-4">
-              <div className="flex justify-between mb-2">
-                <span>{t("OriginalAmount")}</span>
-                <span>
-                  {amountToPay.toFixed(2)} {t("EGP")}
-                </span>
-              </div>
-
-              {/* عرض الخصم المُطبق من الـ Discount Code */}
-              {appliedDiscount > 0 && (
-                <div className="flex justify-between mb-2">
-                  <span>
-                    {t("Discount")} ({appliedDiscount}%):
-                  </span>
-                  <span>
-                    -{(amountToPay * (appliedDiscount / 100)).toFixed(2)}{" "}
-                    {t("EGP")}
-                  </span>
-                </div>
-              )}
-
-              {/* عرض الخصم المُطبق من الـ Module */}
-              {discountData.module.includes(orderType) &&
-                appliedDiscount === 0 &&
-                selectedDiscountAmount === 0 && (
-                  <div className="flex justify-between mb-2">
-                    <span>
-                      {t("Discount")} ({discountData.discount}%):
-                    </span>
-                    <span>
-                      -
-                      {(amountToPay * (discountData.discount / 100)).toFixed(2)}{" "}
-                      {t("EGP")}
-                    </span>
-                  </div>
-                )}
-
-              {/* عرض الخصم المُطبق من الـ Discount List */}
-              {selectedDiscountAmount > 0 &&
-                appliedDiscount === 0 &&
-                !discountData.module.includes(orderType) && (
-                  <div className="flex justify-between mb-2 text-blue-600 font-medium">
-                    <span>{t("ListDiscount")}:</span>
-                    <span>
-                      -{selectedDiscountAmount.toFixed(2)} {t("EGP")}
-                    </span>
-                  </div>
-                )}
-
-              {/* 🟢 عرض الخصم المجاني (free_discount) */}
-              {freeDiscount && parseFloat(freeDiscount) > 0 && (
-                <div className="flex justify-between mb-2 text-purple-600 font-medium">
-                  <span>{t("FreeDiscount")}:</span>
-                  <span>
-                    -{parseFloat(freeDiscount).toFixed(2)} {t("EGP")}
-                  </span>
-                </div>
-              )}
-
-              <div className="flex justify-between mb-2 font-bold text-lg">
-                <span>{t("TotalAmount")}</span>
-                <span>
-                  {requiredTotal.toFixed(2)} {t("EGP")}
-                </span>
-              </div>
-              <div className="flex justify-between mb-2">
-                <span>{t("Remaining")}</span>
-                <span
-                  className={
-                    remainingAmount > 0 ? "text-orange-500" : "text-green-600"
-                  }
-                >
-                  {remainingAmount.toFixed(2)} {t("EGP")}
-                </span>
-              </div>
-              {changeAmount > 0 && (
-                <div className="flex justify-between">
-                  <span>{t("Change")}:</span>
-                  <span className="text-green-600">
-                    {changeAmount.toFixed(2)} {t("EGP")}
-                  </span>
-                </div>
-              )}
-            </div>
-            {/* Due Module - الباقي كله للمنصة (الطريقة اللي عايزها الكاشير) */}
-            {isDueModuleAllowed && remainingAmount > 0.01 && (
-              <div className="mt-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-                <div className="text-center mb-4">
-                  <p className="text-lg font-bold text-red-600">
-                    المنصة هتدفع الباقي (Due Module):{" "}
-                    <strong>
-                      {remainingAmount.toFixed(2)} {t("EGP")}
-                    </strong>
-                  </p>
-                </div>
-
-                <Button
-                  className="w-full text-white text-lg font-bold py-6 bg-red-600 hover:bg-red-700"
-                  disabled={loading}
-                  onClick={() =>
-                    proceedWithOrderSubmission(0, undefined, remainingAmount)
-                  }
-                >
-                  تأكيد الطلب مع Due Module ({remainingAmount.toFixed(2)}{" "}
-                  {t("EGP")})
-                </Button>
-              </div>
-            )}
-            {/* Order Notes Section */}
-            <div className="mb-6">
-              <label className="block text-sm font-medium mb-2">
-                {t("OrderNotes")}
-              </label>
-              <Textarea
-                placeholder={t("OrderNotesPlaceholder")}
-                value={orderNotes}
-                onChange={(e) => setOrderNotes(e.target.value)}
-                className="w-full min-h-[100px] resize-none"
-                maxLength={500}
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                {orderNotes.length}/500 {t("characters")}
-              </p>
-            </div>
-
-            {/* 🟢 حقل الخصم المجاني (Free Discount) */}
-            <div className="mb-6">
-              <label className="block text-sm font-medium mb-2">
-                {t("FreeDiscount")} ({t("EGP")})
-              </label>
-              <Input
-                type="number"
-                min="0"
-                step="0.01"
-                placeholder={t("EnterFreeDiscount")}
-                value={freeDiscount}
-                onChange={(e) => setFreeDiscount(e.target.value)}
-                className="w-full"
-              />
-              <p className="text-xs text-gray-500 mt-1">
-                {t("FreeDiscountHint")}
-              </p>
-            </div>
-
-            {/* Discount Code */}
-            <div className="mb-6">
-              <label className="block text-sm mb-1">
-                {t("DiscountbyCompany")}
-              </label>
-              <div className="flex space-x-2">
-                <Input
-                  type="text"
-                  placeholder={t("EnterDiscountCode")}
-                  value={discountCode}
-                  onChange={(e) => setDiscountCode(e.target.value)}
-                  disabled={isCheckingDiscount}
-                />
-                <Button
-                  onClick={handleApplyDiscount}
-                  disabled={isCheckingDiscount || !discountCode}
-                  className="bg-blue-600 hover:bg-blue-700 text-white"
-                >
-                  {isCheckingDiscount ? t("Checking") : t("Apply")}
-                </Button>
-              </div>
-              {discountError && (
-                <p className="mt-2 text-red-500 text-sm">{discountError}</p>
-              )}
-              {appliedDiscount > 0 && (
-                <p className="mt-2 text-green-600 text-sm">
-                  {t("DiscountAppliedSuccess", { appliedDiscount })}
-                </p>
-              )}
-            </div>
-
-            {/* اختيار الخصم من القائمة (Discount List) */}
-            <div className="mb-6">
-              <label className="block text-sm mb-1">
-                {t("SelectDiscountFromList")}
-              </label>
-              <Select
-                value={String(selectedDiscountId || "0")}
-                onValueChange={(val) => {
-                  const id = val === "0" ? null : parseInt(val);
-                  setSelectedDiscountId(id);
-                }}
-                disabled={
-                  discountsLoading || !discountListData?.discount_list?.length
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder={t("ChooseDiscount")} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem key="none" value="0">
-                    {t("NoDiscount")}
-                  </SelectItem>
-                  {discountListData?.discount_list?.map((discount) => (
-                    <SelectItem key={discount.id} value={String(discount.id)}>
-                      {discount.name} ({discount.amount}
-                      {discount.type === "precentage" ? "%" : t("EGP")})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {discountsLoading && (
-                <p className="mt-2 text-sm text-gray-500">
-                  {t("LoadingDiscounts")}
-                </p>
-              )}
-              {!discountListData?.discount_list?.length &&
-                !discountsLoading && (
-                  <p className="mt-2 text-sm text-gray-500">
-                    {t("NoDiscountsAvailable")}
-                  </p>
-                )}
-            </div>
-
-            {/* Payment Splits */}
-            <div className="space-y-6">
-              {paymentSplits.map((split) => (
-                <div key={split.id} className="space-y-3">
-                  <div className="flex items-center space-x-4">
-                    <div className="w-40">
-                      <Select
-                        value={String(split.accountId)}
-                        onValueChange={(val) =>
-                          handleAccountChange(split.id, val)
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue>
-                            {getAccountNameById(split.accountId)}
-                          </SelectValue>
-                        </SelectTrigger>
-                        <SelectContent>
-                          {financialAccounts.map((acc) => (
-                            <SelectItem key={acc.id} value={String(acc.id)}>
-                              {acc.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="relative flex-grow">
-                      <Input
-                        type="number"
-                        min="0"
-                        value={split.amount === 0 ? "" : String(split.amount)}
-                        onChange={(e) =>
-                          handleAmountChange(split.id, e.target.value)
-                        }
-                        className="pl-16"
-                      />
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2">
-                        {t("EGP")}
-                      </span>
-                    </div>
-                    {getDescriptionStatus(split.accountId) && (
-                      <Input
-                        type="text"
-                        placeholder="Last 4 digits"
-                        value={split.checkout}
-                        onChange={(e) =>
-                          handleDescriptionChange(split.id, e.target.value)
-                        }
-                        maxLength={4}
-                        className="w-32"
-                      />
-                    )}
-                    {paymentSplits.length > 1 && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleRemoveSplit(split.id)}
-                      >
-                        {t("Remove")}
-                      </Button>
-                    )}
-                  </div>
-
-                  {/* حقل رقم العملية لو الحساب Visa */}
-                  {getDescriptionStatus(split.accountId) && (
-                    <div className="ml-44 flex items-center gap-2">
-                      <label className="text-sm text-gray-600 whitespace-nowrap">
-                        {t("TransactionID")}:
-                      </label>
-                      <Input
-                        type="text"
-                        placeholder={t("EnterTransactionID")}
-                        value={split.transition_id || ""}
-                        onChange={(e) =>
-                          handleTransitionIdChange(split.id, e.target.value)
-                        }
-                        className="flex-1"
-                      />
-                    </div>
-                  )}
-                </div>
-              ))}
-              {remainingAmount > 0 && (
-                <Button
-                  variant="link"
-                  onClick={handleAddSplit}
-                  className="text-sm text-blue-600"
-                >
-                  {t("AddAccountSplit")}
-                </Button>
-              )}
-            </div>
-
-            {/* Amount Paid */}
-            <div className="mt-6">
-              <label className="block text-sm mb-1">
-                {t("AmountPaidByCustomer")}
-              </label>
-              <div className="relative">
-                <Input
-                  type="number"
-                  min="0"
-                  placeholder={t("EnterAmountPaid")}
-                  value={customerPaid}
-                  onChange={(e) => setCustomerPaid(e.target.value)}
-                  className="pl-16"
-                />
-                <span className="absolute left-3 top-1/2 -translate-y-1/2">
-                  {t("EGP")}
-                </span>
-              </div>
-              {parseFloat(customerPaid) > requiredTotal && (
-                <p className="mt-2 text-green-600 text-sm font-semibold">
-                  {t("ChangeDue", { value: calculatedChange.toFixed(2) })}
-                </p>
-              )}
-            </div>
-
-            {/* Due Order Checkbox */}
-            <div className="mt-6 flex items-center gap-3 p-4 bg-orange-50 border border-orange-200 rounded-lg">
-              <input
-                type="checkbox"
-                id="isDueOrder"
-                checked={isDueOrder}
-                onChange={(e) => {
-                  setIsDueOrder(e.target.checked);
-                  if (!e.target.checked) {
-                    setSelectedCustomer(null);
-                  }
-                }}
-                className="w-5 h-5 text-orange-600 border-gray-300 rounded focus:ring-orange-500"
-              />
-              <label
-                htmlFor="isDueOrder"
-                className="text-sm font-medium text-gray-700 cursor-pointer"
-              >
-                {t("MarkAsDueOrder")}
-              </label>
-            </div>
-
-            {/* الأزرار */}
-            <div className="flex space-x-4 mt-6">
-              <Button
-                className="flex-1 text-white bg-green-600 hover:bg-green-700"
-                disabled={loading || !isTotalMet}
-                onClick={handleSubmitOrder}
-              >
-                {loading
-                  ? t("Processing")
-                  : isDueOrder
-                    ? selectedCustomer
-                      ? t("DueOrderReady")
-                      : t("SelectCustomer")
-                    : t("ConfirmAndPay")}
-              </Button>
-            </div>
-          </div>
+          <Button
+            className="w-full text-white text-lg font-bold py-6 bg-red-600 hover:bg-red-700"
+            disabled={loading}
+            onClick={() =>
+              proceedWithOrderSubmission(0, undefined, remainingAmount)
+            }
+          >
+            تأكيد الطلب مع Due Module ({remainingAmount.toFixed(2)} {t("EGP")})
+          </Button>
         </div>
       )}
+      {!deliveryModelOpen && (
+        <div className="w-full space-y-4">
+
+          {/* 2. الديزاين المطلوب (Grid) */}
+          <div className="grid grid-cols-2 border border-gray-300 rounded-lg overflow-hidden">
+
+            {/* العمود الأيسر: Discount */}
+            <div className="border-r border-gray-300 flex flex-col">
+              <div className="bg-gray-100 p-2 text-center font-bold text-xs border-b border-gray-300 uppercase tracking-wider">
+                {t("Discount")}
+              </div>
+              <div className="flex flex-col flex-grow">
+                <button
+                  onClick={() => setActiveDiscountTab(activeDiscountTab === 'select' ? null : 'select')}
+                  className={`flex-1 p-4 border-b border-gray-200 text-sm font-semibold transition-colors ${activeDiscountTab === 'select' ? 'bg-blue-600 text-white' : 'text-gray-700 hover:bg-gray-50'}`}
+                >
+                  {t("Select")}
+                </button>
+                <button
+                  onClick={() => setActiveDiscountTab(activeDiscountTab === 'free' ? null : 'free')}
+                  className={`flex-1 p-4 border-b border-gray-200 text-sm font-semibold transition-colors ${activeDiscountTab === 'free' ? 'bg-purple-600 text-white' : 'text-gray-700 hover:bg-gray-50'}`}
+                >
+                  {t("Free")}
+                </button>
+                <button
+                  onClick={() => setActiveDiscountTab(activeDiscountTab === 'company' ? null : 'company')}
+                  className={`flex-1 p-4 text-sm font-semibold transition-colors ${activeDiscountTab === 'company' ? 'bg-green-600 text-white' : 'text-gray-700 hover:bg-gray-50'}`}
+                >
+                  {t("By Company")}
+                </button>
+              </div>
+            </div>
+
+            {/* العمود الأيمن: Checkout (الحسابات + Due + Split) */}
+            <div className="flex flex-col">
+              <div className="bg-gray-100 p-2 text-center font-bold text-xs border-b border-gray-300 uppercase tracking-wider">
+                {t("Checkout")}
+              </div>
+              <div className="grid grid-cols-2 flex-grow">
+                {financialAccounts.map((acc, index) => (
+                  <button
+                    key={acc.id}
+                    onClick={() => {
+                      // نطبق التغيير على أول عنصر في الـ splits إذا لم يكن هناك تقسيم
+                      handleAccountChange(paymentSplits[0]?.id, String(acc.id));
+                      setIsDueOrder(false);
+                      setSelectedCustomer(null);
+                    }}
+                    className={`p-4 text-xs font-bold transition-all border-gray-200 
+                    ${index % 2 === 0 ? 'border-r' : ''} 
+                    ${index < financialAccounts.length - 1 ? 'border-b' : ''}
+                    ${paymentSplits.length === 1 && paymentSplits[0]?.accountId === String(acc.id) && !isDueOrder ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
+                  >
+                    {acc.name}
+                  </button>
+                ))}
+
+                <button
+                  onClick={() => {
+                    setIsDueOrder(true);
+                    setCustomerSelectionOpen(true);
+                  }}
+                  className={`p-4 border-t border-gray-200 text-xs font-black transition-all ${isDueOrder ? 'bg-orange-500 text-white' : 'bg-white text-orange-600 hover:bg-orange-50'}`}
+                >
+                  {t("Due")}
+                </button>
+
+                {/* زر الـ Split (اللوجيك الأصلي لإضافة تقسيم جديد) */}
+                <button
+                  onClick={handleAddSplit}
+                  className="p-4 border-t border-l border-gray-200 bg-white text-xs font-black text-blue-600 hover:bg-blue-50"
+                >
+                  {t("Split")}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* 3. منطق عرض الـ Splits (المهم جداً لتوزيع المبالغ) */}
+          <div className="space-y-3">
+            {paymentSplits.map((split, index) => (
+              <div key={split.id} className="p-3 bg-gray-50 border rounded-lg space-y-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-gray-400">#{index + 1}</span>
+                  <div className="flex-1">
+                    <Select
+                      value={String(split.accountId)}
+                      onValueChange={(val) => handleAccountChange(split.id, val)}
+                    >
+                      <SelectTrigger className="bg-white">
+                        <SelectValue placeholder={t("Select Account")} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {financialAccounts.map((acc) => (
+                          <SelectItem key={acc.id} value={String(acc.id)}>{acc.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="w-1/3 relative">
+                    <Input
+                      type="number"
+                      value={split.amount === 0 ? "" : split.amount}
+                      onChange={(e) => handleAmountChange(split.id, e.target.value)}
+                      className="bg-white pl-8"
+                    />
+                    <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-gray-400">EGP</span>
+                  </div>
+                  {paymentSplits.length > 1 && (
+                    <Button variant="destructive" size="icon" className="h-9 w-9" onClick={() => handleRemoveSplit(split.id)}>
+                      ×
+                    </Button>
+                  )}
+                </div>
+
+                {/* تفاصيل الفيزا لكل Split */}
+                {getDescriptionStatus(split.accountId) && (
+                  <div className="flex gap-2 pl-6">
+                    <Input
+                      placeholder="Last 4 digits"
+                      value={split.checkout}
+                      onChange={(e) => handleDescriptionChange(split.id, e.target.value)}
+                      maxLength={4}
+                      className="w-1/4 bg-white"
+                    />
+                    <Input
+                      placeholder={t("TransactionID")}
+                      value={split.transition_id}
+                      onChange={(e) => handleTransitionIdChange(split.id, e.target.value)}
+                      className="flex-1 bg-white"
+                    />
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+
+          {/* 4. Discount Area Content */}
+          {activeDiscountTab && (
+            <div className="p-3 border rounded-lg bg-gray-50">
+              {activeDiscountTab === 'select' && (
+                <Select value={String(selectedDiscountId || "0")} onValueChange={(val) => setSelectedDiscountId(val === "0" ? null : parseInt(val))}>
+                  <SelectTrigger className="bg-white"><SelectValue placeholder={t("ChooseDiscount")} /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="0">{t("NoDiscount")}</SelectItem>
+                    {discountListData?.discount_list?.map((d) => (
+                      <SelectItem key={d.id} value={String(d.id)}>{d.name} ({d.amount}{d.type === "precentage" ? "%" : t("EGP")})</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+              {activeDiscountTab === 'free' && (
+                <Input type="number" placeholder={t("EnterFreeDiscount")} value={freeDiscount} onChange={(e) => setFreeDiscount(e.target.value)} className="bg-white" />
+              )}
+              {activeDiscountTab === 'company' && (
+                <div className="flex gap-2">
+                  <Input placeholder={t("EnterDiscountCode")} value={discountCode} onChange={(e) => setDiscountCode(e.target.value)} className="bg-white" />
+                  <Button onClick={handleApplyDiscount} disabled={isCheckingDiscount}>{t("Apply")}</Button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* 5. Order Notes */}
+          <Textarea
+            value={orderNotes}
+            onChange={(e) => setOrderNotes(e.target.value)}
+            className="w-full min-h-[60px] text-sm"
+            placeholder={t("Order Notes...")}
+          />
+
+          {/* 6. Amount Paid by Customer */}
+          <div className="space-y-1">
+            <label className="text-[10px] font-black text-gray-400 uppercase ml-1">{t("Amount Paid by Customer")}</label>
+            <div className="relative">
+              <Input
+                type="number"
+                value={customerPaid}
+                onChange={(e) => setCustomerPaid(e.target.value)}
+                className="pl-12 py-6 text-xl font-bold border-gray-300"
+                placeholder="0.00"
+              />
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold">EGP</span>
+            </div>
+          </div>
+
+          {/* 7. Summary */}
+          <div className="bg-gray-100 p-4 rounded-xl">
+
+
+            <p className="text-4xl text-center m-auto font-black text-red-700">{requiredTotal.toFixed(2)} EGP</p>
+
+            {parseFloat(customerPaid) > requiredTotal && (
+              <div className="flex justify-between items-center mt-2 pt-2 border-t border-gray-200 text-green-600 font-bold">
+                <span>{t("Change")}</span>
+                <span>{(parseFloat(customerPaid) - requiredTotal).toFixed(2)} EGP</span>
+              </div>
+            )}
+          </div>
+
+          {/* 8. Final Button (كامل الشروط) */}
+          <Button
+            className={`w-full py-8 rounded-xl text-xl font-black uppercase tracking-widest
+            ${loading || (!isTotalMet && !isDueOrder) || (isDueOrder && !selectedCustomer)
+                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                : 'bg-[#800000] hover:bg-[#a00000] text-white'}`}
+            disabled={loading || (!isTotalMet && !isDueOrder) || (isDueOrder && !selectedCustomer)}
+            onClick={handleSubmitOrder}
+          >
+            {loading ? <Loading /> :
+              isDueOrder ? (selectedCustomer ? t("Confirm Due Order") : t("Select Customer")) :
+                t("Pay Now")}
+          </Button>
+        </div>
+      )}
+
+      {/* Password Modal */}
       <FreeDiscountPasswordModal
         isOpen={passwordModalOpen}
-        onClose={() => {
-          setPasswordModalOpen(false);
-          setFreeDiscount(""); // إلغاء الخصم لو رفض
-          toast.info(t("FreeDiscountCancelled"));
-        }}
+        onClose={() => { setPasswordModalOpen(false); setFreeDiscount(""); }}
         onConfirm={(password) => {
           setPendingFreeDiscountPassword(password);
           setPasswordModalOpen(false);
-          toast.success(t("PasswordAccepted"));
-
-          // نكمل الطلب بالباسوورد
-          proceedWithOrderSubmission(
-            isDueOrder ? 1 : 0,
-            selectedCustomer?.id,
-            remainingAmount > 0.01 && isDueModuleAllowed ? remainingAmount : 0,
-            password
-          );
+          toast.success(t("Password Accepted"));
+          proceedWithOrderSubmission(isDueOrder ? 1 : 0, selectedCustomer?.id, remainingAmount > 0.01 && isDueModuleAllowed ? remainingAmount : 0, password);
         }}
       />
     </div>

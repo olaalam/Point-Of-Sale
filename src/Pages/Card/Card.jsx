@@ -41,19 +41,17 @@ export default function Card({
   const { t, i18n } = useTranslation();
   const isArabic = i18n.language === "ar";
   const { loading: apiLoading, postData } = usePost();
-const selectedUserData = JSON.parse(sessionStorage.getItem("selected_user_data") || "{}");
-
-// استخراج رسوم التوصيل (فقط في حالة delivery)
-const deliveryFee = orderType === "delivery" 
-  ? Number(selectedUserData?.selectedAddress?.zone?.price || 0)
-  : 0;
+  const selectedUserData = JSON.parse(sessionStorage.getItem("selected_user_data") || "{}");
+  // استخراج رسوم التوصيل (فقط في حالة delivery)
+  const deliveryFee = orderType === "delivery"
+    ? Number(selectedUserData?.selectedAddress?.zone?.price || 0)
+    : 0;
   // State Management
-  const [showModal, setShowModal] = useState(false);
   const [selectedItems, setSelectedItems] = useState([]);
   const [selectedPaymentItems, setSelectedPaymentItems] = useState([]);
   const [bulkStatus, setBulkStatus] = useState("");
   const [itemLoadingStates, setItemLoadingStates] = useState({});
-const { data: captainsData, isLoading: loadingCaptains } = useGet("cashier/captain_orders");
+  const { data: captainsData, isLoading: loadingCaptains } = useGet("cashier/captain_orders");
   // Void Modal States
   const [showVoidModal, setShowVoidModal] = useState(false);
   const [voidItemId, setVoidItemId] = useState(null);
@@ -94,13 +92,13 @@ const { data: captainsData, isLoading: loadingCaptains } = useGet("cashier/capta
     itemLoadingStates,
     setItemLoadingStates,
   });
-const allItemsDone =
-  orderType === "dine_in" &&
-  orderItems.length > 0 &&
-  calculations.doneItems.length === orderItems.length;
-const printRef = useRef();
+  const allItemsDone =
+    orderType === "dine_in" &&
+    orderItems.length > 0 &&
+    calculations.doneItems.length === orderItems.length;
+  const printRef = useRef();
   // Add temp_id to items if missing
-useEffect(() => {
+  useEffect(() => {
     // 1. توليد temp_id للعناصر التي لا تملك واحداً
     const needsUpdate = orderItems.some((item) => !item.temp_id);
     if (needsUpdate) {
@@ -128,79 +126,74 @@ useEffect(() => {
     }
   }, [orderItems]); // يعتمد على تغير قائمة العناصر
 
-  const clearCart = () => {
-    updateOrderItems([]);
-    sessionStorage.removeItem("cart");
-    setSelectedItems([]);
-    setSelectedPaymentItems([]);
-    toast.success(t("Allitemsclearedfromtheorder"));
-  };
-  // Clear cart function
-const clearPaidItemsOnly = () => {
-  // نحذف بس العناصر اللي تم اختيارها للدفع (selectedPaymentItems)
-  const paidItemIds = new Set(selectedPaymentItems);
-
-  const remainingItems = orderItems.filter(
-    (item) => !paidItemIds.has(item.temp_id)
-  );
-if (orderType === "delivery") {
-        onClose(); // العودة لتبويب الديليفري الرئيسي بعد الدفع
-    }
-  // نعمل تحديث للسلة بالعناصر الباقية فقط
-  updateOrderItems(remainingItems);
-
-  // نحدث sessionStorage بالباقي
-  if (remainingItems.length > 0) {
-    sessionStorage.setItem("cart", JSON.stringify(remainingItems));
-  } else {
-    sessionStorage.removeItem("cart");
-  }
-
-  // نرست التحديدات
+const clearCart = () => {
+  updateOrderItems([]); // تصفير مصفوفة المنتجات
+  sessionStorage.removeItem("cart");
   setSelectedItems([]);
   setSelectedPaymentItems([]);
-
-  toast.success(
-    remainingItems.length > 0
-      ? t("PaiditemshavebeenremovedRemainingitemsstillintheorder")
-      : t("Allselecteditemshavebeenpaidandremoved")
-  );
+  
+  // إذا كان هناك states أخرى للمبالغ في المكون الأب يتم تصفيرها هنا
+  toast.success(t("Allitemsclearedfromtheorder"));
 };
+  // Clear cart function
+  const clearPaidItemsOnly = () => {
+    // نحذف بس العناصر اللي تم اختيارها للدفع (selectedPaymentItems)
+    const paidItemIds = new Set(selectedPaymentItems);
 
-  // Handlers
-  const handleCheckOut = () => {
-    if (orderType === "dine_in" && selectedPaymentItems.length === 0) {
-      toast.warning(t("Pleaseselectitemstopayforfromthedoneitemslist"));
-      return;
+    const remainingItems = orderItems.filter(
+      (item) => !paidItemIds.has(item.temp_id)
+    );
+    if (orderType === "delivery") {
+      onClose(); // العودة لتبويب الديليفري الرئيسي بعد الدفع
     }
-    setShowModal(true);
+    // نعمل تحديث للسلة بالعناصر الباقية فقط
+    updateOrderItems(remainingItems);
+
+    // نحدث sessionStorage بالباقي
+    if (remainingItems.length > 0) {
+      sessionStorage.setItem("cart", JSON.stringify(remainingItems));
+    } else {
+      sessionStorage.removeItem("cart");
+    }
+
+    // نرست التحديدات
+    setSelectedItems([]);
+    setSelectedPaymentItems([]);
+
+    toast.success(
+      remainingItems.length > 0
+        ? t("PaiditemshavebeenremovedRemainingitemsstillintheorder")
+        : t("Allselecteditemshavebeenpaidandremoved")
+    );
   };
 
-const handleClearAllItems = () => {
-  if (orderItems.length === 0) {
-    toast.warning(t("Noitemstoclear"));
-    return;
-  }
+  // Handlers
 
-  // التحقق: هل يوجد أي عنصر بدأ التحضير فعلياً؟
-  const needsManager = orderItems.some(item => 
-    ["preparing", "pick_up", "done"].includes(item.preparation_status || "pending")
-  );
+  const handleClearAllItems = () => {
+    if (orderItems.length === 0) {
+      toast.warning(t("Noitemstoclear"));
+      return;
+    }
 
-  if (orderType === "dine_in" && needsManager) {
-    // حالة تتطلب مدير (وجود عناصر قيد التحضير)
-    setShowClearAllManagerModal(true);
-  } else if (orderItems.some(item => item.cart_id)) {
-    // حالة لا تتطلب مدير ولكن العناصر موجودة على السيرفر (كلها Waiting/Pending)
-    // سنقوم باستدعاء دالة المسح مباشرة ببيانات فارغة للمدير
-    confirmClearAllWithManager("", ""); 
-  } else {
-    // عناصر محليّة فقط (Front-end) لم تُرسل للسيرفر بعد
-    setShowClearAllConfirm(true);
-  }
-};
+    // التحقق: هل يوجد أي عنصر بدأ التحضير فعلياً؟
+    const needsManager = orderItems.some(item =>
+      ["preparing", "pick_up", "done"].includes(item.preparation_status || "pending")
+    );
 
-const confirmClearAllWithManager = async (manualId, manualPassword) => {
+    if (orderType === "dine_in" && needsManager) {
+      // حالة تتطلب مدير (وجود عناصر قيد التحضير)
+      setShowClearAllManagerModal(true);
+    } else if (orderItems.some(item => item.cart_id)) {
+      // حالة لا تتطلب مدير ولكن العناصر موجودة على السيرفر (كلها Waiting/Pending)
+      // سنقوم باستدعاء دالة المسح مباشرة ببيانات فارغة للمدير
+      confirmClearAllWithManager("", "");
+    } else {
+      // عناصر محليّة فقط (Front-end) لم تُرسل للسيرفر بعد
+      setShowClearAllConfirm(true);
+    }
+  };
+
+  const confirmClearAllWithManager = async (manualId, manualPassword) => {
     // تحديد الهوية المستخدمة (سواء من الـ State أو من البارامترات المرسلة يدوياً)
     const mId = manualId !== undefined ? manualId : clearAllManagerId;
     const mPw = manualPassword !== undefined ? manualPassword : clearAllManagerPassword;
@@ -232,11 +225,11 @@ const confirmClearAllWithManager = async (manualId, manualPassword) => {
     try {
       setItemLoadingStates((prev) => ({ ...prev, clearAll: true }));
       await postData("cashier/order_void", formData);
-      
+
       updateOrderItems([]); // مسح البيانات محلياً
       sessionStorage.removeItem("cart");
       toast.success(t("Allitemsvoidedsuccessfully"));
-      
+
       setShowClearAllManagerModal(false);
       setClearAllManagerId("");
       setClearAllManagerPassword("");
@@ -254,13 +247,13 @@ const confirmClearAllWithManager = async (manualId, manualPassword) => {
     } finally {
       setItemLoadingStates((prev) => ({ ...prev, clearAll: false }));
     }
-};
-const handlePrint = () => {
-  if (!printRef.current) return;
+  };
+  const handlePrint = () => {
+    if (!printRef.current) return;
 
-  const printContents = printRef.current.innerHTML;
-  const printWindow = window.open("", "_blank", "width=800,height=600");
-  printWindow.document.write(`
+    const printContents = printRef.current.innerHTML;
+    const printWindow = window.open("", "_blank", "width=800,height=600");
+    printWindow.document.write(`
     <html>
       <head>
         <title>Print Order</title>
@@ -274,41 +267,40 @@ const handlePrint = () => {
       <body>${printContents}</body>
     </html>
   `);
-  printWindow.document.close();
-  printWindow.focus();
-  printWindow.print();
-  printWindow.close();
-};
+    printWindow.document.close();
+    printWindow.focus();
+    printWindow.print();
+    printWindow.close();
+  };
 
-const hasAnyItemInPreparationOrLater = () => {
-  return orderItems.some(item => {
-    const status = item.preparation_status || "Pending";
-    return ["preparing", "pick_up", "done"].includes(status);
-  });
-};
+  const hasAnyItemInPreparationOrLater = () => {
+    return orderItems.some(item => {
+      const status = item.preparation_status || "Pending";
+      return ["preparing", "pick_up", "done"].includes(status);
+    });
+  };
 
   return (
     <div
-    ref={printRef} 
-      className={`flex flex-col h-full ${
-        isArabic ? "text-right direction-rtl" : "text-left direction-ltr"
-      }`}
+      ref={printRef}
+      className={`flex flex-col h-full ${isArabic ? "text-right direction-rtl" : "text-left direction-ltr"
+        }`}
       dir={isArabic ? "rtl" : "ltr"}
     >
-      <DineInformation onClose={onClose}/>
+      <DineInformation onClose={onClose} />
       {/* Header Section */}
       <CardHeader
         orderType={orderType}
         orderItems={orderItems}
         handleClearAllItems={handleClearAllItems}
-handleViewOrders={() => {
+        handleViewOrders={() => {
 
-navigate("/orders", { 
-    state: { 
-      orderType: orderType  // أو currentOrderType أو propOrderType حسب المتغير عندك
-    }
-  });
-}}
+          navigate("/orders", {
+            state: {
+              orderType: orderType  // أو currentOrderType أو propOrderType حسب المتغير عندك
+            }
+          });
+        }}
         handleViewPendingOrders={() => navigate("/pending-orders")}
         onShowOfferModal={() => offerManagement.setShowOfferModal(true)}
         onShowDealModal={() => dealManagement.setShowDealModal(true)}
@@ -335,7 +327,7 @@ navigate("/orders", {
           currentLowestStatus={calculations.currentLowestSelectedStatus}
           t={t}
           captainsData={captainsData}
-  loadingCaptains={loadingCaptains}
+          loadingCaptains={loadingCaptains}
         />
       )}
 
@@ -371,29 +363,29 @@ navigate("/orders", {
           onIncrease={orderActions.handleIncrease}
           onDecrease={orderActions.handleDecrease}
           onUpdateStatus={orderActions.handleUpdatePreparationStatus}
-// داخل Card.jsx في دالة onVoidItem
+          // داخل Card.jsx في دالة onVoidItem
 
-onVoidItem={(itemId) => {
-  const item = orderItems.find(i => i.temp_id === itemId);
-  const status = item?.preparation_status || "pending";
-  const hasCartId = !!item?.cart_id;
+          onVoidItem={(itemId) => {
+            const item = orderItems.find(i => i.temp_id === itemId);
+            const status = item?.preparation_status || "pending";
+            const hasCartId = !!item?.cart_id;
 
-  // 1. إذا كان المنتج "قيد التحضير" أو "تم" -> اطلب صلاحية مدير
-  if (orderType === "dine_in" && ["preparing", "pick_up", "done"].includes(status)) {
-    setVoidItemId(itemId);
-    setShowVoidModal(true);
-  } 
-  // 2. إذا كان المنتج "Waiting/Pending" وموجود في السيرفر (له cart_id) -> احذف من الـ API مباشرة بدون كلمة سر
-  else if (hasCartId) {
-    orderActions.confirmVoidItem(itemId, null, null, () => {
-       // نجح الحذف من السيرفر
-    });
-  }
-  // 3. إذا كان المنتج لم يرسل للسيرفر أصلاً (Front-end only)
-  else {
-    orderActions.handleRemoveFrontOnly(itemId);
-  }
-}}
+            // 1. إذا كان المنتج "قيد التحضير" أو "تم" -> اطلب صلاحية مدير
+            if (orderType === "dine_in" && ["preparing", "pick_up", "done"].includes(status)) {
+              setVoidItemId(itemId);
+              setShowVoidModal(true);
+            }
+            // 2. إذا كان المنتج "Waiting/Pending" وموجود في السيرفر (له cart_id) -> احذف من الـ API مباشرة بدون كلمة سر
+            else if (hasCartId) {
+              orderActions.confirmVoidItem(itemId, null, null, () => {
+                // نجح الحذف من السيرفر
+              });
+            }
+            // 3. إذا كان المنتج لم يرسل للسيرفر أصلاً (Front-end only)
+            else {
+              orderActions.handleRemoveFrontOnly(itemId);
+            }
+          }}
           onRemoveFrontOnly={orderActions.handleRemoveFrontOnly}
           allowQuantityEdit={allowQuantityEdit}
           itemLoadingStates={itemLoadingStates}
@@ -419,27 +411,27 @@ onVoidItem={(itemId) => {
       </div>
 
       {/* Order Summary */}
-<OrderSummary
-  orderType={orderType}
-  subTotal={calculations.subTotal}
-  totalTax={calculations.totalTax}
-  totalOtherCharge={calculations.totalOtherCharge}
-  serviceFeeData={serviceFeeData}
-  taxDetails={calculations.taxDetails}
-  totalAmountDisplay={calculations.totalAmountDisplay}
-  amountToPay={calculations.amountToPay}
-  selectedPaymentCount={selectedPaymentItems.length}
-  onCheckout={handleCheckOut}
-  onSaveAsPending={() => orderActions.handleSaveAsPending(calculations.amountToPay, calculations.totalTax)}
-  offerManagement={offerManagement}   // ده المهم
-  isLoading={apiLoading}
-  orderItemsLength={orderItems.length}
-  allItemsDone={allItemsDone}
-  t={t}
-  onPrint={handlePrint}
-  orderItems={orderItems}
-  tableId={tableId}
-/>
+      <OrderSummary
+        orderType={orderType}
+        subTotal={calculations.subTotal}
+        totalTax={calculations.totalTax}
+        totalOtherCharge={calculations.totalOtherCharge}
+        serviceFeeData={serviceFeeData}
+        taxDetails={calculations.taxDetails}
+        totalAmountDisplay={calculations.totalAmountDisplay}
+        amountToPay={calculations.amountToPay}
+        selectedPaymentCount={selectedPaymentItems.length}
+        // onCheckout={handleCheckOut}
+        onSaveAsPending={() => orderActions.handleSaveAsPending(calculations.amountToPay, calculations.totalTax)}
+        offerManagement={offerManagement}   // ده المهم
+        isLoading={apiLoading}
+        orderItemsLength={orderItems.length}
+        allItemsDone={allItemsDone}
+        t={t}
+        onPrint={handlePrint}
+        orderItems={orderItems}
+        tableId={tableId}
+      />
 
       {/* Modals */}
       <VoidItemModal
@@ -465,20 +457,20 @@ onVoidItem={(itemId) => {
         isLoading={apiLoading}
       />
 
-<ClearAllConfirmModal
-  open={showClearAllConfirm}
-  onOpenChange={setShowClearAllConfirm}
-  onConfirm={() => {
-    updateOrderItems([]);                    // نمسح الكل من السلة
-    sessionStorage.removeItem("cart");       // نمسح من الـ session
-    setSelectedItems([]);                    // نرست التحديد
-    setSelectedPaymentItems([]);             // نرست تحديد الدفع
-    toast.success(t("Allitemsclearedfromtheorder"));
-    setShowClearAllConfirm(false);
-  }}
-  itemCount={orderItems.length}
-  t={t}
-/>
+      <ClearAllConfirmModal
+        open={showClearAllConfirm}
+        onOpenChange={setShowClearAllConfirm}
+        onConfirm={() => {
+          updateOrderItems([]);                    // نمسح الكل من السلة
+          sessionStorage.removeItem("cart");       // نمسح من الـ session
+          setSelectedItems([]);                    // نرست التحديد
+          setSelectedPaymentItems([]);             // نرست تحديد الدفع
+          toast.success(t("Allitemsclearedfromtheorder"));
+          setShowClearAllConfirm(false);
+        }}
+        itemCount={orderItems.length}
+        t={t}
+      />
 
       <ClearAllManagerModal
         open={showClearAllManagerModal}
@@ -487,7 +479,7 @@ onVoidItem={(itemId) => {
         setManagerId={setClearAllManagerId}
         managerPassword={clearAllManagerPassword}
         setManagerPassword={setClearAllManagerPassword}
-onConfirm={() => confirmClearAllWithManager(clearAllManagerId, clearAllManagerPassword)}
+        onConfirm={() => confirmClearAllWithManager(clearAllManagerId, clearAllManagerPassword)}
         isLoading={itemLoadingStates.clearAll}
         t={t}
       />
@@ -524,62 +516,54 @@ onConfirm={() => confirmClearAllWithManager(clearAllManagerId, clearAllManagerPa
         t={t}
       />
 
-      {showModal && (
-        <CheckOut
-          totalDineInItems={orderItems.length}
-         onClose={() => {
-      if (orderType === "delivery") {
-        onClose(); // تنفيذ الـ onClose الأصلية (التي تعود لتبويب الديليفري)
-      } else {
-        setShowModal(false); // إغلاق المودال فقط للبقاء في نفس الصفحة للأنواع الأخرى
-      }
-    }}
-          amountToPay={calculations.amountToPay}
-          orderItems={calculations.checkoutItems}
-          updateOrderItems={updateOrderItems}
-          totalTax={calculations.totalTax}
-          totalDiscount={OTHER_CHARGE}
-          notes="Customer requested no plastic bag."
-          source="web"
-          orderType={orderType}
-          tableId={tableId}
-          onClearCart={clearCart}
-          clearPaidItemsOnly={clearPaidItemsOnly}
-          selectedPaymentItemIds={selectedPaymentItems}
-          service_fees={calculations.totalOtherCharge}
-        />
-      )}
+
+      <CheckOut
+        totalDineInItems={orderItems.length}
+        amountToPay={calculations.amountToPay}
+        orderItems={calculations.checkoutItems}
+        updateOrderItems={updateOrderItems}
+        totalTax={calculations.totalTax}
+        totalDiscount={OTHER_CHARGE}
+        notes="Customer requested no plastic bag."
+        source="web"
+        orderType={orderType}
+        tableId={tableId}
+        onClearCart={clearCart}
+        clearPaidItemsOnly={clearPaidItemsOnly}
+        selectedPaymentItemIds={selectedPaymentItems}
+        service_fees={calculations.totalOtherCharge}
+      />
 
       <ToastContainer />
       <div style={{ display: "none" }}>
-  <div ref={printRef} className="print-area">
-    <h2 style={{ textAlign: "center" }}>Order Summary</h2>
-    <table style={{ width: "100%", borderCollapse: "collapse" }}>
-      <thead>
-        <tr>
-          <th style={{ border: "1px solid #000", padding: "8px" }}>Product</th>
-          <th style={{ border: "1px solid #000", padding: "8px" }}>Price</th>
-          <th style={{ border: "1px solid #000", padding: "8px" }}>Total</th>
-        </tr>
-      </thead>
-      <tbody>
-        {orderItems.map((item) => (
-          <tr key={item.temp_id}>
-            <td style={{ border: "1px solid #000", padding: "8px" }}>{item.name}</td>
-            <td style={{ border: "1px solid #000", padding: "8px" }}>{item.price.toFixed(2)}</td>
-            <td style={{ border: "1px solid #000", padding: "8px" }}>{(item.price * item.quantity).toFixed(2)}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
+        <div ref={printRef} className="print-area">
+          <h2 style={{ textAlign: "center" }}>Order Summary</h2>
+          <table style={{ width: "100%", borderCollapse: "collapse" }}>
+            <thead>
+              <tr>
+                <th style={{ border: "1px solid #000", padding: "8px" }}>Product</th>
+                <th style={{ border: "1px solid #000", padding: "8px" }}>Price</th>
+                <th style={{ border: "1px solid #000", padding: "8px" }}>Total</th>
+              </tr>
+            </thead>
+            <tbody>
+              {orderItems.map((item) => (
+                <tr key={item.temp_id}>
+                  <td style={{ border: "1px solid #000", padding: "8px" }}>{item.name}</td>
+                  <td style={{ border: "1px solid #000", padding: "8px" }}>{item.price.toFixed(2)}</td>
+                  <td style={{ border: "1px solid #000", padding: "8px" }}>{(item.price * item.quantity).toFixed(2)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
 
-    <div style={{ marginTop: "10px", textAlign: "right" }}>
-      <p>Tax: {calculations.totalTax.toFixed(2)}</p>
-      <p>Service Fee: {calculations.totalOtherCharge.toFixed(2)}</p>
-      <p><strong>Total: {calculations.amountToPay.toFixed(2)}</strong></p>
-    </div>
-  </div>
-</div>
+          <div style={{ marginTop: "10px", textAlign: "right" }}>
+            <p>Tax: {calculations.totalTax.toFixed(2)}</p>
+            <p>Service Fee: {calculations.totalOtherCharge.toFixed(2)}</p>
+            <p><strong>Total: {calculations.amountToPay.toFixed(2)}</strong></p>
+          </div>
+        </div>
+      </div>
 
     </div>
   );
