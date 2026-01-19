@@ -41,6 +41,15 @@ const [isCaptainModalOpen, setIsCaptainModalOpen] = useState(false);
     }, 0);
   };
 
+    const handleQuickDone = () => {
+    setBulkStatus("done");
+    // ننتظر قليلاً للتأكد من تحديث الحالة ثم ننفذ الأكشن
+    setTimeout(() => {
+      onApplyStatus();
+    }, 0);
+  };
+
+
   const handleConfirmTransfer = () => {
     onTransferOrder(selectedItems);
     setIsOpen(false);
@@ -48,6 +57,8 @@ const [isCaptainModalOpen, setIsCaptainModalOpen] = useState(false);
 
   // الوصول لبيانات أيقونة ولون حالة التجهيز من الثوابت
   const preparingInfo = PREPARATION_STATUSES["preparing"];
+    const DoneInfo = PREPARATION_STATUSES["done"];
+
 
   return (
     <div className="flex items-center justify-start mb-4 gap-4 flex-wrap p-4 bg-white rounded-lg shadow-md border border-gray-100">
@@ -61,6 +72,21 @@ const [isCaptainModalOpen, setIsCaptainModalOpen] = useState(false);
         >
           <preparingInfo.icon size={16} />
           <span>{preparingInfo.label}</span>
+          {selectedItems.length > 0 && (
+            <span className="bg-white/20 px-2 py-0.5 rounded-full text-xs">
+              {selectedItems.length}
+            </span>
+          )}
+        </Button>
+      )}
+            {DoneInfo && (
+        <Button
+          onClick={handleQuickDone}
+          disabled={selectedItems.length === 0 || isLoading}
+          className="bg-green-500 hover:bg-green-600 text-white text-sm flex items-center gap-2 shadow-sm transition-all"
+        >
+          <DoneInfo.icon size={16} />
+          <span>{DoneInfo.label}</span>
           {selectedItems.length > 0 && (
             <span className="bg-white/20 px-2 py-0.5 rounded-full text-xs">
               {selectedItems.length}
@@ -83,7 +109,7 @@ const [isCaptainModalOpen, setIsCaptainModalOpen] = useState(false);
               .filter(([key]) => 
                 // إظهار الحالات الأعلى من الحالية فقط + إخفاء "preparing" لأن لها زر خاص
                 statusOrder.indexOf(key) >= statusOrder.indexOf(currentLowestStatus) && 
-                key !== "preparing"
+                key !== "preparing" && key !== "done"
               )
               .map(([key, value]) => (
                 <SelectItem key={key} value={key} className="px-4 py-2 hover:bg-gray-100 cursor-pointer">
