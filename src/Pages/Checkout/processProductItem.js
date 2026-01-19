@@ -158,6 +158,11 @@ export const buildOrderPayload = ({
   if (storedServiceFeeId) {
     basePayload.service_fees_id = storedServiceFeeId.toString();
   }
+  // 🆕 3. إضافة module_order_number إذا كان موجود في sessionStorage
+const storedModuleOrderNumber = sessionStorage.getItem("module_order_number");
+if (storedModuleOrderNumber) {
+  basePayload.module_order_number = storedModuleOrderNumber.trim();
+}
 if (orderType === "dine_in") {
     const storedCaptainId = sessionStorage.getItem("selected_captain_id");
     if (storedCaptainId) {

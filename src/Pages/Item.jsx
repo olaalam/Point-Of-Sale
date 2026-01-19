@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useCallback ,useRef } from "react";
+import React, { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import { usePost } from "@/Hooks/usePost";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,7 @@ import ProductModal from "./ProductModal";
 import { useTranslation } from "react-i18next";
 import { buildProductPayload } from "@/services/productProcessor";
 import { ArrowLeft, LayoutGrid, Tag } from "lucide-react";
+import ModuleOrderModal from "./ModuleOrderModal";
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL || "https://bcknd.food2go.online/";
 const getAuthToken = () => sessionStorage.getItem("token");
@@ -55,24 +56,26 @@ export default function Item({ onAddToOrder, onClose }) {
   const [selectedGroup, setSelectedGroup] = useState("none");
   const [showCategories, setShowCategories] = useState(true);
   const [isNormalPrice, setIsNormalPrice] = useState(true);
-
+  const [isModuleOrderModalOpen, setIsModuleOrderModalOpen] = useState(false);
+  const [tempGroupId, setTempGroupId] = useState(null);
+  const [moduleOrderNumber, setModuleOrderNumber] = useState("");
   const { t, i18n } = useTranslation();
-const scannerInputRef = useRef(null);
+  const scannerInputRef = useRef(null);
 
-// ده هيتركز تلقائيًا كل ما الصفحة تتحمل أو ترجع focus
-useEffect(() => {
-  const input = scannerInputRef.current;
-  if (input) {
-    input.focus();
-    
-    // في حالة الـ blur (مثلاً ضغطتي على حاجة تانية) → نرجّعه focus
-    const handleBlur = () => {
-      setTimeout(() => input.focus(), 10);
-    };
-    input.addEventListener("blur", handleBlur);
-    return () => input.removeEventListener("blur", handleBlur);
-  }
-}, []);
+  // ده هيتركز تلقائيًا كل ما الصفحة تتحمل أو ترجع focus
+  useEffect(() => {
+    const input = scannerInputRef.current;
+    if (input) {
+      input.focus();
+
+      // في حالة الـ blur (مثلاً ضغطتي على حاجة تانية) → نرجّعه focus
+      const handleBlur = () => {
+        setTimeout(() => input.focus(), 10);
+      };
+      input.addEventListener("blur", handleBlur);
+      return () => input.removeEventListener("blur", handleBlur);
+    }
+  }, []);
   const orderType = sessionStorage.getItem("order_type") || "dine_in";
   const { deliveryUserData, userLoading, userError } =
     useDeliveryUser(orderType);
@@ -152,7 +155,7 @@ useEffect(() => {
   }, [allModulesData, productType]);
 
   const allSubCategories = useMemo(() => {
-    return finalCategories.flatMap(cat => 
+    return finalCategories.flatMap(cat =>
       (cat.sub_categories || []).map(sub => ({
         ...sub,
         main_category_id: cat.id,
@@ -226,6 +229,7 @@ useEffect(() => {
     setShowCategories(true);
     setSelectedMainCategory("all");
     setSelectedSubCategory(null);
+    sessionStorage.removeItem("module_order_number");
   };
 
   const handleGroupChange = (groupId) => {
@@ -321,246 +325,253 @@ useEffect(() => {
   }
   const isArabic = i18n.language === "ar";
 
-const searchAndToggleSection = (
-  <div className="sticky top-0 bg-white z-30 border-b border-gray-100 shadow-sm">
-    <div className="p-4">
-      <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-        <input
-          type="text"
-          placeholder={t("SearchByProductName")}
-          value={searchQuery}
-          onChange={(e) => {
-            setSearchQuery(e.target.value);
-          }}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              const code = searchQuery.trim();
-              if (!code) return;
+  const searchAndToggleSection = (
+    <div className="sticky top-0 bg-white z-30 border-b border-gray-100 shadow-sm">
+      <div className="p-4">
+        <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+          <input
+            type="text"
+            placeholder={t("SearchByProductName")}
+            value={searchQuery}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                const code = searchQuery.trim();
+                if (!code) return;
 
-              // ─────────────────────────────────────────────
-              //          باركود وزن (13 رقم يبدأ بـ 2)
-              // ─────────────────────────────────────────────
-              if (code.length === 13 && code.startsWith("2")) {
-                const scaleValue = sessionStorage.getItem("scale");
+                // ─────────────────────────────────────────────
+                //          باركود وزن (13 رقم يبدأ بـ 2)
+                // ─────────────────────────────────────────────
+                if (code.length === 13 && code.startsWith("2")) {
+                  const scaleValue = sessionStorage.getItem("scale");
 
-                console.log("[DEBUG BARCODE]", {
-                  rawScale: scaleValue,
-                  scaleType: typeof scaleValue,
-                  scaleLength: scaleValue?.length,
-                  exactRepr: JSON.stringify(scaleValue),
-                  atTime: new Date().toISOString(),
-                });
+                  console.log("[DEBUG BARCODE]", {
+                    rawScale: scaleValue,
+                    scaleType: typeof scaleValue,
+                    scaleLength: scaleValue?.length,
+                    exactRepr: JSON.stringify(scaleValue),
+                    atTime: new Date().toISOString(),
+                  });
 
-                const isScaleEnabled = scaleValue && scaleValue !== "0" && scaleValue !== "";
+                  const isScaleEnabled = scaleValue && scaleValue !== "0" && scaleValue !== "";
 
-                if (!isScaleEnabled) {
-                  toast.warn(t("ScaleIsNotEnabled") || "الميزان غير مفعّل");
+                  if (!isScaleEnabled) {
+                    toast.warn(t("ScaleIsNotEnabled") || "الميزان غير مفعّل");
+                    setSearchQuery("");
+                    return;
+                  }
+
+                  // استخراج الكود والوزن
+                  const itemCodePart = code.substring(1, 7); // من الخانة 2 إلى 7 (6 أرقام)
+                  const weightPart = code.substring(7, 12);
+                  const weightGrams = parseInt(weightPart, 10);
+                  const weightKg = weightGrams / 1000;
+
+                  console.log("[WEIGHT BARCODE DEBUG]", {
+                    fullCode: code,
+                    itemCodePart,
+                    weightGrams,
+                    weightKg: weightKg.toFixed(3),
+                  });
+
+                  // مهم جدًا: نبحث في products_weight فقط (لأن المنتجات بالوزن موجودة هناك فقط)
+                  const weightProducts = allModulesData?.products_weight || [];
+
+                  const found = weightProducts.find((p) => {
+                    const dbCode = String(p.product_code || "").trim();
+                    console.log("Comparing weight product code:", itemCodePart, "vs", dbCode);
+                    return dbCode === itemCodePart;
+                  });
+
+                  if (!found) {
+                    console.log("WEIGHT PRODUCT NOT FOUND - searched code:", itemCodePart);
+                    toast.error("المنتج بالوزن غير موجود بهذا الكود");
+                    setSearchQuery("");
+                    return;
+                  }
+
+                  // تأكيد أن المنتج مفعل للوزن (weight_status = 1)
+                  if (found.weight_status !== 1) {
+                    toast.warn("هذا المنتج غير مفعل للبيع بالوزن");
+                    setSearchQuery("");
+                    return;
+                  }
+
+                  const unitPrice = parseFloat(found.final_price || found.price_after_discount || 0);
+
+                  if (!unitPrice || isNaN(unitPrice)) {
+                    toast.error("سعر المنتج غير صحيح");
+                    setSearchQuery("");
+                    return;
+                  }
+
+                  const totalPrice = unitPrice * weightKg;
+
+                  const productToAdd = {
+                    ...found,
+                    // الكمية = الوزن بالكيلو (مع 3 أرقام عشرية)
+                    count: Number(weightKg.toFixed(3)),
+                    price: unitPrice, // سعر الكيلو
+                    totalPrice: Number(totalPrice.toFixed(2)),
+
+                    // حقول مساعدة للعرض والـ debugging
+                    _source: "scale_barcode",
+                    _weight_grams: weightGrams,
+                    _weight_kg: weightKg,
+                    temp_id: `${found.id}_${Date.now()}_${Math.random()}`
+                  };
+
+                  console.log("[WEIGHT PRODUCT TO ADD]", productToAdd);
+
+                  // إضافة المنتج للطلب
+                  handleAddToOrder({
+                    ...productToAdd,
+                    temp_id: `weight_${found.id}_${Date.now()}`
+                  });
+
+                  toast.success(
+                    `تم إضافة ${found.name} • ${weightKg.toFixed(3)} كجم • ${totalPrice.toFixed(2)} ج.م`
+                  );
+
                   setSearchQuery("");
                   return;
                 }
 
-                // استخراج الكود والوزن
-                const itemCodePart = code.substring(1, 7); // من الخانة 2 إلى 7 (6 أرقام)
-                const weightPart = code.substring(7, 12);
-                const weightGrams = parseInt(weightPart, 10);
-                const weightKg = weightGrams / 1000;
-
-                console.log("[WEIGHT BARCODE DEBUG]", {
-                  fullCode: code,
-                  itemCodePart,
-                  weightGrams,
-                  weightKg: weightKg.toFixed(3),
-                });
-
-                // مهم جدًا: نبحث في products_weight فقط (لأن المنتجات بالوزن موجودة هناك فقط)
-                const weightProducts = allModulesData?.products_weight || [];
-
-                const found = weightProducts.find((p) => {
-                  const dbCode = String(p.product_code || "").trim();
-                  console.log("Comparing weight product code:", itemCodePart, "vs", dbCode);
-                  return dbCode === itemCodePart;
-                });
-
-                if (!found) {
-                  console.log("WEIGHT PRODUCT NOT FOUND - searched code:", itemCodePart);
-                  toast.error("المنتج بالوزن غير موجود بهذا الكود");
-                  setSearchQuery("");
-                  return;
-                }
-
-                // تأكيد أن المنتج مفعل للوزن (weight_status = 1)
-                if (found.weight_status !== 1) {
-                  toast.warn("هذا المنتج غير مفعل للبيع بالوزن");
-                  setSearchQuery("");
-                  return;
-                }
-
-                const unitPrice = parseFloat(found.final_price || found.price_after_discount || 0);
-
-                if (!unitPrice || isNaN(unitPrice)) {
-                  toast.error("سعر المنتج غير صحيح");
-                  setSearchQuery("");
-                  return;
-                }
-
-                const totalPrice = unitPrice * weightKg;
-
-                const productToAdd = {
-                  ...found,
-                  // الكمية = الوزن بالكيلو (مع 3 أرقام عشرية)
-                  count: Number(weightKg.toFixed(3)),
-                  price: unitPrice, // سعر الكيلو
-                  totalPrice: Number(totalPrice.toFixed(2)),
-
-                  // حقول مساعدة للعرض والـ debugging
-                  _source: "scale_barcode",
-                  _weight_grams: weightGrams,
-                  _weight_kg: weightKg,
-                  temp_id: `${found.id}_${Date.now()}_${Math.random()}`
-                };
-
-                console.log("[WEIGHT PRODUCT TO ADD]", productToAdd);
-
-                // إضافة المنتج للطلب
-                handleAddToOrder({
-    ...productToAdd,
-    temp_id: `weight_${found.id}_${Date.now()}`
-});
-
-                toast.success(
-                  `تم إضافة ${found.name} • ${weightKg.toFixed(3)} كجم • ${totalPrice.toFixed(2)} ج.م`
+                // ─────────────────────────────────────────────
+                //          باركود عادي (قطعة)
+                // ─────────────────────────────────────────────
+                const found = allProducts.find(
+                  (p) => String(p.product_code || "").trim() === code
                 );
 
+                if (found) {
+                  handleAddToOrder(found);
+                  toast.success(`تم إضافة → ${found.name}`);
+                } else {
+                  toast.error(t("ProductCodeNotFound") || "كود المنتج غير موجود");
+                }
+
                 setSearchQuery("");
-                return;
               }
+            }}
+            className="w-full md:w-1/3 px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-1 focus:ring-bg-primary outline-none"
+          />
 
-              // ─────────────────────────────────────────────
-              //          باركود عادي (قطعة)
-              // ─────────────────────────────────────────────
-              const found = allProducts.find(
-                (p) => String(p.product_code || "").trim() === code
-              );
-
-              if (found) {
-                handleAddToOrder(found);
-                toast.success(`تم إضافة → ${found.name}`);
-              } else {
-                toast.error(t("ProductCodeNotFound") || "كود المنتج غير موجود");
-              }
-
-              setSearchQuery("");
-            }
-          }}
-          className="w-full md:w-1/3 px-4 py-2 border border-gray-300 rounded-md shadow-sm focus:ring-1 focus:ring-bg-primary outline-none"
-        />
-
-        <div className="flex bg-gray-100 p-1 rounded-lg">
-          <button
-            onClick={() => setProductType("piece")}
-            className={`px-4 py-1 rounded-md transition-all ${
-              productType === "piece"
+          <div className="flex bg-gray-100 p-1 rounded-lg">
+            <button
+              onClick={() => setProductType("piece")}
+              className={`px-4 py-1 rounded-md transition-all ${productType === "piece"
                 ? "bg-white shadow text-bg-primary font-bold"
                 : "text-gray-500"
-            }`}
-          >
-            {t("ByPiece")}
-          </button>
-          <button
-            onClick={() => setProductType("weight")}
-            className={`px-4 py-1 rounded-md transition-all ${
-              productType === "weight"
+                }`}
+            >
+              {t("ByPiece")}
+            </button>
+            <button
+              onClick={() => setProductType("weight")}
+              className={`px-4 py-1 rounded-md transition-all ${productType === "weight"
                 ? "bg-white shadow text-bg-primary font-bold"
                 : "text-gray-500"
-            }`}
-          >
-            {t("ByWeight")}
-          </button>
+                }`}
+            >
+              {t("ByWeight")}
+            </button>
+          </div>
         </div>
       </div>
     </div>
-  </div>
-);
-  const groupsBarSection = (
-    <div
-      className={`flex gap-3 overflow-x-auto p-4 scrollbar-hide items-center`}
+  );
+const groupsBarSection = (
+  <div className={`flex gap-3 overflow-x-auto p-4 scrollbar-hide items-center`}>
+    {/* Favorite */}
+    <Button
+      onClick={() => {
+        handleGroupChange("all");
+        setSelectedMainCategory("all");
+        setSelectedSubCategory(null);
+      }}
+      className={`min-w-[100px] h-20 flex flex-col items-center justify-center rounded-xl border transition-all ${
+        selectedGroup === "all" && !isNormalPrice
+          ? "bg-bg-primary text-white border-bg-primary"
+          : "bg-white text-gray-700 border-gray-200"
+      }`}
     >
-      <Button
-        onClick={() => {
-          handleGroupChange("all");
-          setSelectedMainCategory("all");
-          setSelectedSubCategory(null);
-        }}
-        className={`min-w-[100px] h-20 flex flex-col items-center justify-center rounded-xl border transition-all ${
-          selectedGroup === "all" && !isNormalPrice
-            ? "bg-bg-primary text-white border-bg-primary"
-            : "bg-white text-gray-700 border-gray-200"
+      <span className="text-xl mb-1">❤️</span>
+      <span className="font-bold text-xs">{t("Favorite")}</span>
+    </Button>
+
+    {/* Normal Prices */}
+    <Button
+      onClick={handleNormalPricesClick}
+      className={`group relative min-w-[100px] h-20 flex flex-col items-center justify-center rounded-xl border overflow-hidden p-0 transition-all duration-300 ${
+        isNormalPrice
+          ? "border-bg-primary ring-2 ring-bg-primary/50"
+          : "border-gray-200"
+      }`}
+    >
+      <div
+        className={`absolute inset-0 transition-opacity duration-300 ${
+          isNormalPrice ? "opacity-100" : "opacity-40 group-hover:opacity-100"
         }`}
       >
-        <span className="text-xl mb-1">❤️</span>
-        <span className="font-bold text-xs">{t("Favorite")}</span>
-      </Button>
-      <Button
-        onClick={handleNormalPricesClick}
-        className={`group relative min-w-[100px] h-20 flex flex-col items-center justify-center rounded-xl border overflow-hidden p-0 transition-all duration-300 ${
-          isNormalPrice
-            ? "border-bg-primary ring-2 ring-bg-primary/50"
-            : "border-gray-200"
-        }`}
-      >
-        <div
-          className={`absolute inset-0 transition-opacity duration-300 ${
-            isNormalPrice ? "opacity-100" : "opacity-40 group-hover:opacity-100"
+        <img
+          src={resturant_logo}
+          alt="logo"
+          className="w-full h-full object-cover"
+        />
+      </div>
+      <div className="absolute bottom-0 w-full py-1 bg-black/70 backdrop-blur-sm text-white transition-transform duration-300">
+        <span className="font-bold text-[10px] block px-1 truncate text-center uppercase">
+          {t("NormalPrices")}
+        </span>
+      </div>
+    </Button>
+
+    <div className="h-10 w-[2px] bg-gray-300 mx-1 flex-shrink-0 rounded-full" />
+
+    {/* الجروبات العادية – هنا نفتح المودال */}
+    {groupProducts.map((group) => {
+      const isActive =
+        selectedGroup === group.id.toString() && !isNormalPrice;
+
+      return (
+        <Button
+          key={group.id}
+          onClick={() => {
+            setTempGroupId(group.id);
+            setModuleOrderNumber(sessionStorage.getItem("module_order_number") || "");
+            setIsModuleOrderModalOpen(true);
+          }}
+          className={`group relative min-w-[100px] h-20 flex flex-col items-center justify-center rounded-xl border overflow-hidden p-0 transition-all duration-300 ${
+            isActive
+              ? "border-bg-primary ring-2 ring-bg-primary/50"
+              : "border-gray-200"
           }`}
         >
-          <img
-            src={resturant_logo}
-            alt="logo"
-            className="w-full h-full object-cover"
-          />
-        </div>
-        <div className="absolute bottom-0 w-full py-1 bg-black/70 backdrop-blur-sm text-white transition-transform duration-300">
-          <span className="font-bold text-[10px] block px-1 truncate text-center uppercase">
-            {t("NormalPrices")}
-          </span>
-        </div>
-      </Button>
-      <div className="h-10 w-[2px] bg-gray-300 mx-1 flex-shrink-0 rounded-full" />
-      {groupProducts.map((group) => {
-        const isActive =
-          selectedGroup === group.id.toString() && !isNormalPrice;
-        return (
-          <Button
-            key={group.id}
-            onClick={() => handleGroupChange(group.id)}
-            className={`group relative min-w-[100px] h-20 flex flex-col items-center justify-center rounded-xl border overflow-hidden p-0 transition-all duration-300 ${
-              isActive
-                ? "border-bg-primary ring-2 ring-bg-primary/50"
-                : "border-gray-200"
+          <div
+            className={`absolute inset-0 transition-opacity duration-300 ${
+              isActive ? "opacity-100" : "opacity-40 group-hover:opacity-100"
             }`}
           >
-            <div
-              className={`absolute inset-0 transition-opacity duration-300 ${
-                isActive ? "opacity-100" : "opacity-40 group-hover:opacity-100"
-              }`}
-            >
-              <img
-                src={group.icon_link || "/default-group.png"}
-                alt={group.name}
-                className="w-full h-full object-cover"
-              />
-            </div>
-            <div className="absolute bottom-0 w-full py-1 bg-black/70 backdrop-blur-sm text-white transition-transform duration-300">
-              <span className="font-bold text-[10px] block px-1 truncate text-center uppercase">
-                {group.name}
-              </span>
-            </div>
-          </Button>
-        );
-      })}
-    </div>
-  );
+            <img
+              src={group.icon_link || "/default-group.png"}
+              alt={group.name}
+              className="w-full h-full object-cover"
+            />
+          </div>
+          <div className="absolute bottom-0 w-full py-1 bg-black/70 backdrop-blur-sm text-white transition-transform duration-300">
+            <span className="font-bold text-[10px] block px-1 truncate text-center uppercase">
+              {group.name}
+            </span>
+          </div>
+        </Button>
+      );
+    })}
+  </div>
+);
 
   const productsGridSection = (
     <div className="flex-1 h-full pr-2" dir={isArabic ? "rtl" : "ltr"}>
@@ -614,11 +625,10 @@ const searchAndToggleSection = (
           handleCategorySelect("all");
           setSelectedSubCategory(null);
         }}
-        className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all border ${
-          selectedMainCategory === "all" && !selectedSubCategory
-            ? "bg-bg-primary text-white border-bg-primary shadow-sm"
-            : "bg-white text-gray-700 border-gray-100 hover:bg-red-50"
-        }`}
+        className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all border ${selectedMainCategory === "all" && !selectedSubCategory
+          ? "bg-bg-primary text-white border-bg-primary shadow-sm"
+          : "bg-white text-gray-700 border-gray-100 hover:bg-red-50"
+          }`}
       >
         <div className="w-15 h-15 bg-gray-100 rounded-lg flex items-center justify-center text-lg shadow-inner">
           🍽️
@@ -636,11 +646,10 @@ const searchAndToggleSection = (
             {/* الفئة الرئيسية */}
             <div
               onClick={() => handleCategorySelect(cat.id)}
-              className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all border ${
-                isMainSelected && !selectedSubCategory
-                  ? "bg-bg-primary text-white border-bg-primary shadow-sm"
-                  : "bg-white text-gray-700 border-gray-100 hover:bg-red-50"
-              }`}
+              className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all border ${isMainSelected && !selectedSubCategory
+                ? "bg-bg-primary text-white border-bg-primary shadow-sm"
+                : "bg-white text-gray-700 border-gray-100 hover:bg-red-50"
+                }`}
             >
               <img
                 src={cat.image_link}
@@ -667,11 +676,10 @@ const searchAndToggleSection = (
                       e.stopPropagation(); // عشان ما يتفعلش click الرئيسية
                       handleCategorySelect(sub.id, true);
                     }}
-                    className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all border pl-4 ${
-                      selectedSubCategory === sub.id.toString()
-                        ? "bg-bg-primary/80 text-white border-bg-primary shadow-sm"
-                        : "bg-white/80 text-gray-700 border-gray-200 hover:bg-gray-100"
-                    }`}
+                    className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all border pl-4 ${selectedSubCategory === sub.id.toString()
+                      ? "bg-bg-primary/80 text-white border-bg-primary shadow-sm"
+                      : "bg-white/80 text-gray-700 border-gray-200 hover:bg-gray-100"
+                      }`}
                   >
                     <div className="w-10 h-10 bg-gray-100 rounded-md flex items-center justify-center text-base shadow-inner">
                       ↳
@@ -686,12 +694,29 @@ const searchAndToggleSection = (
       })}
     </div>
   );
+  const handleSaveModuleOrder = () => {
+    // الحفظ في sessionStorage وتفعيل الجروب
+    sessionStorage.setItem("module_order_number", moduleOrderNumber.trim());
 
+    setIsNormalPrice(false);
+    const id = tempGroupId.toString();
+    sessionStorage.setItem("last_selected_group", id);
+    setSelectedGroup(id);
+    setShowCategories(true);
+    setSelectedMainCategory("all");
+    setSelectedSubCategory(null);
+
+    // إغلاق المودال
+    setIsModuleOrderModalOpen(false);
+    setTempGroupId(null);
+    setModuleOrderNumber("");
+
+    toast.success(t("ModuleOrderNumberSaved") || "تم حفظ رقم الطلب بنجاح");
+  };
   return (
     <div
-      className={`flex flex-col h-full ${
-        isArabic ? "text-right" : "text-left"
-      }`}
+      className={`flex flex-col h-full ${isArabic ? "text-right" : "text-left"
+        }`}
       dir={isArabic ? "ltr" : "rtl"}
     >
       <DeliveryInfo
@@ -737,6 +762,17 @@ const searchAndToggleSection = (
           <Loading />
         </div>
       )}
+      <ModuleOrderModal
+        isOpen={isModuleOrderModalOpen}
+        onClose={() => {
+          setIsModuleOrderModalOpen(false);
+          setTempGroupId(null);
+          setModuleOrderNumber("");
+        }}
+        moduleOrderNumber={moduleOrderNumber}
+        setModuleOrderNumber={setModuleOrderNumber}
+        onSave={handleSaveModuleOrder}
+      />
     </div>
   );
 }
