@@ -37,34 +37,34 @@ export default function AllOrder({ orders, selectedOrders, setSelectedOrders, is
   return (
     <>
       {orders.map((order) => (
-        <TableRow className="!text-center" key={order.id}>
+        <TableRow className="!text-center" key={order?.id}>
           <TableCell>
             <input
               type="checkbox"
-              checked={selectedOrders.includes(order.id)}
-              onChange={() => toggleOrder(order.id)}
+              checked={selectedOrders.includes(order?.id)}
+              onChange={() => toggleOrder(order?.id)}
             />
           </TableCell>
 
-          <TableCell>{order.id}</TableCell>
+          <TableCell>{order?.id}</TableCell>
 
           <TableCell className="text-red-600 font-medium">
-            {order.order_number}
+            {order?.order_number}
           </TableCell>
 
-          <TableCell>{order.user?.name}</TableCell>
+          <TableCell>{order?.user?.name}</TableCell>
 
-          <TableCell>{order.user?.phone}</TableCell>
+          <TableCell>{order?.user?.phone}</TableCell>
 
           <TableCell className="max-w-[240px] truncate">
-            {order.address?.address || "-"}
+            {order?.address?.address || "-"}
           </TableCell>
 
           <TableCell className="font-semibold">
-            {order.amount} EGP
+            {order?.amount} EGP
           </TableCell>
 
-          <TableCell>{order.date}</TableCell>
+          <TableCell>{order?.date}</TableCell>
         </TableRow>
       ))}
     </>

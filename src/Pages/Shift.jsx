@@ -50,8 +50,10 @@ const setDefaultTabBasedOnPermissions = () => {
 
   sessionStorage.setItem("tab", defaultTab);
 
-  const orderTypeValue = defaultTab === "online-order" ? "online-order" : defaultTab.replace("_", "-");
-  sessionStorage.setItem("order_type", orderTypeValue);
+// التعديل: إزالة الـ replace لتبقى الشرطة السفلية كما هي
+const orderTypeValue = defaultTab === "online-order" ? "online-order" : defaultTab;
+
+sessionStorage.setItem("order_type", orderTypeValue);
 
   if (!permissions.dine_in) {
     sessionStorage.removeItem("last_selected_group");
