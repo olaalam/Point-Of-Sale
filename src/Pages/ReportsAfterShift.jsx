@@ -909,12 +909,7 @@ export default function EndShiftReportModal({ reportData, onClose, onConfirmClos
 
           {/* ─── الأزرار ─── */}
           <div className="flex gap-3 mt-8 pt-4 border-t border-gray-200">
-            <button
-              onClick={onClose}
-              className="flex-1 py-2.5 bg-gray-200 text-gray-800 rounded-lg font-semibold hover:bg-gray-300 transition text-sm"
-            >
-              {t("Cancel")}
-            </button>
+
             <button
               onClick={onConfirmClose}
               className="flex-1 py-2.5 bg-gray-800 text-white rounded-lg font-semibold hover:bg-gray-700 transition text-sm"
