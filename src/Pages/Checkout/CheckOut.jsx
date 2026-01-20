@@ -608,13 +608,13 @@ const CheckOut = ({
           handleNavigation(response);
         }
       } else {
-        toast.error(response?.message || t("FailedToProcessOrder"));
+        toast.error(response?.errors || t("FailedToProcessOrder"));
         isSubmitting.current = false;
         setLoading(false);
       }
     } catch (e) {
       console.error("Submit error:", e);
-      toast.error(e.response?.data?.message || e.message || t("SubmissionFailed"));
+      toast.error(e.response?.data?.errors || e.message || t("SubmissionFailed"));
       isSubmitting.current = false;
       setLoading(false);
     }
