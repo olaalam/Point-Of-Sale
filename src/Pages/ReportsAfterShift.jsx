@@ -655,7 +655,7 @@ export default function EndShiftReportModal({ reportData, onClose, onConfirmClos
     })}
   </div>
 
-  {/* إجمالي النقدية في الشيفت */}
+  {/* إجمالي النقدية في الشيفت
   {totals && (
     <div className="mt-6 pt-4 border-t-2 border-gray-300">
       <div className="flex justify-between items-center p-4 bg-gray-900 text-white rounded-lg text-lg font-bold">
@@ -666,7 +666,7 @@ export default function EndShiftReportModal({ reportData, onClose, onConfirmClos
       </div>
     </div>
   )}
-</div>
+</div> */}
 
           {/* ─── الأقسام الكاملة (تظهر فقط في all) ─── */}
           {showFullReport && (
