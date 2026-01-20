@@ -665,8 +665,8 @@ export default function EndShiftReportModal({ reportData, onClose, onConfirmClos
         </span>
       </div>
     </div>
-  )}
-</div> */}
+  )} */}
+</div>
 
           {/* ─── الأقسام الكاملة (تظهر فقط في all) ─── */}
           {showFullReport && (
