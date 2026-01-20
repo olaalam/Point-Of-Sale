@@ -25,6 +25,7 @@ import ContactSupport from "./Pages/ContactSupport";
 import Policy from "./Pages/Policy";
 import FakeOrders from "./Pages/FakeOrders/FakeOrders";
 import DeliveryOrder from "./Pages/DeliveryOrder/DeliveryOrder";
+import InvoicePage from "./Pages/OnlineOrders/InvoicePage";
 
 const router = createBrowserRouter(
   [
@@ -187,6 +188,14 @@ const router = createBrowserRouter(
               <DueUsers />
             </ProtectedRoute>
           ),
+        },
+                        {
+          path:"/invoice/:id",
+          element:(
+            <ProtectedRoute>
+              <InvoicePage/>
+            </ProtectedRoute>
+          )
         },
 
         {

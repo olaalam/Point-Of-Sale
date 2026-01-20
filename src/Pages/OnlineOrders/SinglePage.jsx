@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useLocation, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { FaClock, FaUser, FaWhatsapp, FaCopy } from "react-icons/fa";
 import { Dialog, DialogBackdrop, DialogPanel } from "@headlessui/react";
 import { usePost } from "@/Hooks/usePost";
@@ -9,7 +9,7 @@ import { useGet } from "@/Hooks/useGet";
 import Loading from "@/components/Loading";
 import { IoClose, IoSearch } from "react-icons/io5";
 import { usePut } from "@/Hooks/usePut";
-
+import { FaPrint } from "react-icons/fa";
 const SinglePage = () => {
   const StatusRef = useRef(null);
   const { id } = useParams();
@@ -18,7 +18,7 @@ const SinglePage = () => {
   const orderNumPath = pathOrder.split("/").pop();
   const [showTransferModal, setShowTransferModal] = useState(false);
   const [selectedBranchId, setSelectedBranchId] = useState(null);
-
+  const navigate = useNavigate();
   // 🟢 جلب قائمة الـ Branches
   const {
     data: branchesData,
@@ -185,8 +185,8 @@ const SinglePage = () => {
       console.error("Transfer Order Error:", error);
       toast.error(
         error?.response?.data?.message ||
-          t("FailedToTransferOrder") ||
-          "Failed to transfer order"
+        t("FailedToTransferOrder") ||
+        "Failed to transfer order"
       );
     }
   };
@@ -269,8 +269,8 @@ const SinglePage = () => {
       if (error?.response?.data?.errors === "You can't change status") {
         setShowStatusModal(true);
       } else {
-      toast.error(error?.response?.data?.errors||t("FailedToUpdateStatus")); // 👈 أضف تنبيه بالفشل أيضاً
-    }
+        toast.error(error?.response?.data?.errors || t("FailedToUpdateStatus")); // 👈 أضف تنبيه بالفشل أيضاً
+      }
     }
   };
 
@@ -350,60 +350,60 @@ const SinglePage = () => {
       setTimeout(() => setCopied(false), 2000); // Reset after 2 seconds
     });
   };
-const orderSummary = useMemo(() => {
-  if (!detailsData?.order_details) {
-    return {
-      itemsPrice: 0,
-      addonsPrice: 0,
-      variationsPrice: 0,
-      extrasPrice: 0,
-      subtotal: 0
-    };
-  }
-
-  let itemsPrice = 0;
-  let addonsPrice = 0;
-  let variationsPrice = 0;
-  let extrasPrice = 0;
-
-  detailsData.order_details.forEach((orderDetail) => {
-    // Calculate product price
-    const product = orderDetail.product;
-    if (product) {
-      itemsPrice += (product.price || 0) * (product.count || 0);
+  const orderSummary = useMemo(() => {
+    if (!detailsData?.order_details) {
+      return {
+        itemsPrice: 0,
+        addonsPrice: 0,
+        variationsPrice: 0,
+        extrasPrice: 0,
+        subtotal: 0
+      };
     }
 
-    // Calculate extras price
-    (orderDetail.extras || []).forEach((extra) => {
-      extrasPrice += extra.price || 0;
-    });
+    let itemsPrice = 0;
+    let addonsPrice = 0;
+    let variationsPrice = 0;
+    let extrasPrice = 0;
 
-    // Calculate addons price
-    (orderDetail.addons || []).forEach((addon) => {
-      addonsPrice += (addon.price || 0) * (addon.count || 0);
-    });
+    detailsData.order_details.forEach((orderDetail) => {
+      // Calculate product price
+      const product = orderDetail.product;
+      if (product) {
+        itemsPrice += (product.price || 0) * (product.count || 0);
+      }
 
-    // Calculate variations price (if needed)
-    (orderDetail.variations || []).forEach((variation) => {
-      (variation.options || []).forEach((option) => {
-        variationsPrice += option.price || 0;
+      // Calculate extras price
+      (orderDetail.extras || []).forEach((extra) => {
+        extrasPrice += extra.price || 0;
+      });
+
+      // Calculate addons price
+      (orderDetail.addons || []).forEach((addon) => {
+        addonsPrice += (addon.price || 0) * (addon.count || 0);
+      });
+
+      // Calculate variations price (if needed)
+      (orderDetail.variations || []).forEach((variation) => {
+        (variation.options || []).forEach((option) => {
+          variationsPrice += option.price || 0;
+        });
       });
     });
-  });
 
-  const subtotal = itemsPrice + addonsPrice + extrasPrice;
+    const subtotal = itemsPrice + addonsPrice + extrasPrice;
 
-  return {
-    itemsPrice,
-    addonsPrice,
-    variationsPrice,
-    extrasPrice,
-    subtotal
-  };
-}, [detailsData?.order_details]);
+    return {
+      itemsPrice,
+      addonsPrice,
+      variationsPrice,
+      extrasPrice,
+      subtotal
+    };
+  }, [detailsData?.order_details]);
   return (
     <>
-   
+
       {loadingDetailsOrder || loadingPost || updating ? (
         <div className="mx-auto">
           <Loading />
@@ -433,6 +433,14 @@ const orderSummary = useMemo(() => {
                             className="w-full"
                             dir={isArabic ? "rtl" : "ltr"}
                           >
+
+                            <button
+                              onClick={() => navigate(`/invoice/${orderNumPath}`)}
+                              className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg font-TextFontMedium hover:bg-blue-600 transition"
+                            >
+                              <FaPrint />
+                              {t("View Invoice")}
+                            </button>
                             <div className="flex flex-wrap items-center justify-between w-full">
                               <h1 className="text-2xl text-gray-800 font-TextFontMedium">
                                 {t("Order")}{" "}
@@ -484,11 +492,10 @@ const orderSummary = useMemo(() => {
                                 {t("Payment")}:
                               </span>{" "}
                               <span
-                                className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${
-                                  detailsData?.payment === "Paid"
+                                className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${detailsData?.payment === "Paid"
                                     ? "bg-green-100 text-green-800 border-green-300"
                                     : "bg-red-100 text-red-800 border-red-300"
-                                }`}
+                                  }`}
                               >
                                 {t(detailsData?.payment) || detailsData?.payment || "-"}
                               </span>
@@ -516,21 +523,21 @@ const orderSummary = useMemo(() => {
                             </p>
                             {detailsData?.payment_method?.name ===
                               "Visa Master Card" && (
-                              <>
-                                <p className="text-gray-800 text-md">
-                                  <span className="font-TextFontSemiBold text-bg-primary">
-                                    {t("PaymentStatus")}:
-                                  </span>{" "}
-                                  {detailsData?.status_payment || ""}
-                                </p>
-                                <p className="text-gray-800 text-md">
-                                  <span className="font-TextFontSemiBold text-bg-primary">
-                                    {t("TransactionID")}:
-                                  </span>{" "}
-                                  {detailsData?.transaction_id || ""}
-                                </p>
-                              </>
-                            )}
+                                <>
+                                  <p className="text-gray-800 text-md">
+                                    <span className="font-TextFontSemiBold text-bg-primary">
+                                      {t("PaymentStatus")}:
+                                    </span>{" "}
+                                    {detailsData?.status_payment || ""}
+                                  </p>
+                                  <p className="text-gray-800 text-md">
+                                    <span className="font-TextFontSemiBold text-bg-primary">
+                                      {t("TransactionID")}:
+                                    </span>{" "}
+                                    {detailsData?.transaction_id || ""}
+                                  </p>
+                                </>
+                              )}
                           </div>
                           <div className="p-2 bg-white rounded-md shadow-md sm:w-full xl:w-6/12">
                             <p className="text-gray-800 text-md">
@@ -538,11 +545,10 @@ const orderSummary = useMemo(() => {
                                 {t("OrderType")}:
                               </span>{" "}
                               <span
-                                className={`px-2 py-1 rounded-full text-md ${
-                                  detailsData?.order_type === "take_away"
+                                className={`px-2 py-1 rounded-full text-md ${detailsData?.order_type === "take_away"
                                     ? "text-green-700 bg-green-100" // Green text with light green bg
                                     : "text-blue-700 bg-blue-100" // Adjust for delivery (blue as example)
-                                }`}
+                                  }`}
                               >
                                 {detailsData?.order_type || ""}
                               </span>{" "}
@@ -669,41 +675,41 @@ const orderSummary = useMemo(() => {
                                       {orderIndex + 1}
                                     </td>
 
-{/* Products Column: Name, Price, Quantity */}
-<td className="px-2 py-1 whitespace-normal border-r border-gray-300">
-  {(() => {
-    const product = order.product;
-    if (!product) return <span className="text-gray-500">-</span>;
+                                    {/* Products Column: Name, Price, Quantity */}
+                                    <td className="px-2 py-1 whitespace-normal border-r border-gray-300">
+                                      {(() => {
+                                        const product = order.product;
+                                        if (!product) return <span className="text-gray-500">-</span>;
 
-    return (
-      <div className="mb-3">
-        {/* Image */}
-        {product.image_link && (
-          <img
-            src={product.image_link}
-            alt={product.name}
-            className="w-14 h-14 object-cover rounded border border-gray-300 mb-2"
-          />
-        )}
-        <div className="font-semibold text-gray-800">
-          {product.name || '-'}
-        </div>
-        <div className="text-sm text-gray-600">
-          {t("Price")}: {product.price || 0}
-        </div>
-        <div className="text-sm text-gray-600">
-          {t("Qty")}: {product.count || 0}
-        </div>
-      </div>
-    );
-  })()}
-</td>
+                                        return (
+                                          <div className="mb-3">
+                                            {/* Image */}
+                                            {product.image_link && (
+                                              <img
+                                                src={product.image_link}
+                                                alt={product.name}
+                                                className="w-14 h-14 object-cover rounded border border-gray-300 mb-2"
+                                              />
+                                            )}
+                                            <div className="font-semibold text-gray-800">
+                                              {product.name || '-'}
+                                            </div>
+                                            <div className="text-sm text-gray-600">
+                                              {t("Price")}: {product.price || 0}
+                                            </div>
+                                            <div className="text-sm text-gray-600">
+                                              {t("Qty")}: {product.count || 0}
+                                            </div>
+                                          </div>
+                                        );
+                                      })()}
+                                    </td>
 
 
                                     {/* Variations Column: Name and Type */}
                                     <td className="px-2 py-1 whitespace-normal border-r border-gray-300">
                                       {order.variations &&
-                                      order.variations.length > 0 ? (
+                                        order.variations.length > 0 ? (
                                         order.variations.map(
                                           (variation, varIndex) => (
                                             <div
@@ -716,7 +722,7 @@ const orderSummary = useMemo(() => {
                                               <div className="text-xs text-gray-500">
                                                 {t("Type")}:{" "}
                                                 {variation.options &&
-                                                variation.options.length > 0 ? (
+                                                  variation.options.length > 0 ? (
                                                   variation.options.map(
                                                     (option, optIndex) => (
                                                       <span
@@ -725,8 +731,8 @@ const orderSummary = useMemo(() => {
                                                       >
                                                         {option.name}
                                                         {optIndex <
-                                                        variation.options
-                                                          .length -
+                                                          variation.options
+                                                            .length -
                                                           1
                                                           ? ", "
                                                           : ""}
@@ -748,7 +754,7 @@ const orderSummary = useMemo(() => {
                                     {/* Addons Column: Name, Price, Count */}
                                     <td className="px-2 py-1 whitespace-normal border-r border-gray-300">
                                       {order.addons &&
-                                      order.addons.length > 0 ? (
+                                        order.addons.length > 0 ? (
                                         order.addons.map(
                                           (addon, addonIndex) => (
                                             <div
@@ -756,10 +762,10 @@ const orderSummary = useMemo(() => {
                                               className="mb-3"
                                             >
                                               <div className="font-semibold text-gray-800">
-                                               {addon?.addon?.name || addon?.name || '-'}
+                                                {addon?.addon?.name || addon?.name || '-'}
                                               </div>
                                               <div className="text-sm text-gray-500">
-{t("Price")}: {addon?.addon?.price || addon?.price || 0}
+                                                {t("Price")}: {addon?.addon?.price || addon?.price || 0}
                                               </div>
                                               <div className="text-sm text-gray-500">
                                                 {t("Count")}: {addon.count || 0}
@@ -775,7 +781,7 @@ const orderSummary = useMemo(() => {
                                     {/* Excludes Column: Name */}
                                     <td className="px-2 py-1 whitespace-normal border-r border-gray-300">
                                       {order.excludes &&
-                                      order.excludes.length > 0 ? (
+                                        order.excludes.length > 0 ? (
                                         order.excludes.map(
                                           (exclude, excludeIndex) => (
                                             <div
@@ -796,7 +802,7 @@ const orderSummary = useMemo(() => {
                                     {/* Extras Column: Name and Price */}
                                     <td className="px-2 py-1 whitespace-normal border-r border-gray-300">
                                       {order.extras &&
-                                      order.extras.length > 0 ? (
+                                        order.extras.length > 0 ? (
                                         order.extras.map(
                                           (extra, extraIndex) => (
                                             <div
@@ -825,27 +831,27 @@ const orderSummary = useMemo(() => {
                                         <span className="text-gray-500">-</span>
                                       )}
                                     </td>
-{/* Notes Column: Styled Card for Product Notes */}
-<td className="px-2 py-1 whitespace-normal">
-  {(() => {
-    const product = order.product;
-    if (!product) return <span className="text-gray-500">-</span>;
+                                    {/* Notes Column: Styled Card for Product Notes */}
+                                    <td className="px-2 py-1 whitespace-normal">
+                                      {(() => {
+                                        const product = order.product;
+                                        if (!product) return <span className="text-gray-500">-</span>;
 
-    return (
-      <div className="mb-3">
-        {product.notes ? (
-          <div className="relative p-2 text-sm text-gray-700 border-l-4 border-red-400 rounded-md shadow-sm bg-red-50">
-            <div className="flex items-start">
-              <p className="line-clamp-3">{product.notes}</p>
-            </div>
-          </div>
-        ) : (
-          <span className="text-gray-500">{t("")}</span>
-        )}
-      </div>
-    );
-  })()}
-</td>
+                                        return (
+                                          <div className="mb-3">
+                                            {product.notes ? (
+                                              <div className="relative p-2 text-sm text-gray-700 border-l-4 border-red-400 rounded-md shadow-sm bg-red-50">
+                                                <div className="flex items-start">
+                                                  <p className="line-clamp-3">{product.notes}</p>
+                                                </div>
+                                              </div>
+                                            ) : (
+                                              <span className="text-gray-500">{t("")}</span>
+                                            )}
+                                          </div>
+                                        );
+                                      })()}
+                                    </td>
                                   </tr>
                                 )
                               )}
@@ -854,60 +860,60 @@ const orderSummary = useMemo(() => {
                         </div>
                       </div>
 
-{/* Order Summary */}
-<div className="flex flex-col p-2 my-2 gap-y-1" dir={isArabic ? "rtl" : "ltr"}>
-  <p className="flex items-center justify-between w-full">
-    {t("ItemsPrice")}:
-    <span>{orderSummary.itemsPrice.toFixed(2)}</span>
-  </p>
+                      {/* Order Summary */}
+                      <div className="flex flex-col p-2 my-2 gap-y-1" dir={isArabic ? "rtl" : "ltr"}>
+                        <p className="flex items-center justify-between w-full">
+                          {t("ItemsPrice")}:
+                          <span>{orderSummary.itemsPrice.toFixed(2)}</span>
+                        </p>
 
-  <p className="flex items-center justify-between w-full">
-    {t("ExtrasPrice")}:
-    <span>{orderSummary.extrasPrice.toFixed(2)}</span>
-  </p>
+                        <p className="flex items-center justify-between w-full">
+                          {t("ExtrasPrice")}:
+                          <span>{orderSummary.extrasPrice.toFixed(2)}</span>
+                        </p>
 
-  <p className="flex items-center justify-between w-full">
-    {t("AddonsPrice")}:
-    <span>{orderSummary.addonsPrice.toFixed(2)}</span>
-  </p>
+                        <p className="flex items-center justify-between w-full">
+                          {t("AddonsPrice")}:
+                          <span>{orderSummary.addonsPrice.toFixed(2)}</span>
+                        </p>
 
-  {orderSummary.variationsPrice > 0 && (
-    <p className="flex items-center justify-between w-full">
-      {t("VariationsPrice")}:
-      <span>{orderSummary.variationsPrice.toFixed(2)}</span>
-    </p>
-  )}
+                        {orderSummary.variationsPrice > 0 && (
+                          <p className="flex items-center justify-between w-full">
+                            {t("VariationsPrice")}:
+                            <span>{orderSummary.variationsPrice.toFixed(2)}</span>
+                          </p>
+                        )}
 
-  <p className="flex items-center justify-between w-full font-medium">
-    {t("Subtotal")}:
-    <span>{orderSummary.subtotal.toFixed(2)}</span>
-  </p>
+                        <p className="flex items-center justify-between w-full font-medium">
+                          {t("Subtotal")}:
+                          <span>{orderSummary.subtotal.toFixed(2)}</span>
+                        </p>
 
-  <p className="flex items-center justify-between w-full">
-    {t("TaxVAT")}:
-    <span>{detailsData?.total_tax || 0}</span>
-  </p>
+                        <p className="flex items-center justify-between w-full">
+                          {t("TaxVAT")}:
+                          <span>{detailsData?.total_tax || 0}</span>
+                        </p>
 
-  <p className="flex items-center justify-between w-full">
-    {t("ExtraDiscount")}:
-    <span>{detailsData?.total_discount || 0}</span>
-  </p>
+                        <p className="flex items-center justify-between w-full">
+                          {t("ExtraDiscount")}:
+                          <span>{detailsData?.total_discount || 0}</span>
+                        </p>
 
-  <p className="flex items-center justify-between w-full">
-    {t("CouponDiscount")}:
-    <span>{detailsData?.coupon_discount || 0}</span>
-  </p>
+                        <p className="flex items-center justify-between w-full">
+                          {t("CouponDiscount")}:
+                          <span>{detailsData?.coupon_discount || 0}</span>
+                        </p>
 
-  <p className="flex items-center justify-between w-full">
-    {t("DeliveryFee")}:
-    <span>{detailsData?.address?.zone?.price || 0}</span>
-  </p>
+                        <p className="flex items-center justify-between w-full">
+                          {t("DeliveryFee")}:
+                          <span>{detailsData?.address?.zone?.price || 0}</span>
+                        </p>
 
-  <p className="flex items-center justify-between w-full text-lg font-TextFontSemiBold">
-    {t("Total")}:
-    <span>{detailsData?.amount}</span>
-  </p>
-</div>
+                        <p className="flex items-center justify-between w-full text-lg font-TextFontSemiBold">
+                          {t("Total")}:
+                          <span>{detailsData?.amount}</span>
+                        </p>
+                      </div>
 
                     </div>
                   )}
@@ -1175,15 +1181,14 @@ const orderSummary = useMemo(() => {
                                 }
                                 disabled={isDisabled}
                                 className={`flex items-center justify-center gap-2 px-4 py-3 rounded-lg border-2 transition-all relative
-              ${
-                isCurrent
-                  ? "bg-blue-100 border-blue-500 text-blue-900 shadow-md"
-                  : isPrevious
-                  ? "bg-green-50 border-green-300 text-green-800"
-                  : isDisabled
-                  ? "bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed"
-                  : "bg-white border-gray-200 hover:bg-gray-50 text-gray-700"
-              }
+              ${isCurrent
+                                    ? "bg-blue-100 border-blue-500 text-blue-900 shadow-md"
+                                    : isPrevious
+                                      ? "bg-green-50 border-green-300 text-green-800"
+                                      : isDisabled
+                                        ? "bg-gray-100 border-gray-200 text-gray-400 cursor-not-allowed"
+                                        : "bg-white border-gray-200 hover:bg-gray-50 text-gray-700"
+                                  }
             `}
                               >
                                 <svg
@@ -1489,11 +1494,10 @@ const orderSummary = useMemo(() => {
                               deliveriesFilter.map((delivery) => (
                                 <div
                                   // Make the entire tile clickable
-                                  className={`flex items-center justify-between p-3 rounded-xl cursor-pointer transition-all duration-200 ${
-                                    selectedDeliveryId === delivery.id
+                                  className={`flex items-center justify-between p-3 rounded-xl cursor-pointer transition-all duration-200 ${selectedDeliveryId === delivery.id
                                       ? "bg-blue-50 border-blue-500 border-2 shadow-md"
                                       : "border border-gray-200 hover:border-gray-300"
-                                  }`}
+                                    }`}
                                   key={`${delivery.id}-${detailsData.id}`}
                                   onClick={() =>
                                     setSelectedDeliveryId(delivery.id)
@@ -1573,65 +1577,65 @@ const orderSummary = useMemo(() => {
                   detailsData.order_status === "confirmed" ||
                   detailsData.order_status === "processing" ||
                   detailsData.order_status === "out_for_delivery") && (
-                  <div className="w-full p-4 mt-4 bg-white shadow-md rounded-xl">
-                    <h3 className="text-lg font-TextFontSemiBold">
-                      {t("FoodPreparationTime")}
-                    </h3>
-                    <div className="flex items-center">
-                      <FaClock className="mr-2 text-gray-500" />
-                      {preparationTime ? (
-                        <>
-                          <span
-                            className={
-                              olderHours +
+                    <div className="w-full p-4 mt-4 bg-white shadow-md rounded-xl">
+                      <h3 className="text-lg font-TextFontSemiBold">
+                        {t("FoodPreparationTime")}
+                      </h3>
+                      <div className="flex items-center">
+                        <FaClock className="mr-2 text-gray-500" />
+                        {preparationTime ? (
+                          <>
+                            <span
+                              className={
+                                olderHours +
+                                  preparationTime.hours -
+                                  initialTime.currentHour <=
+                                  0 ||
+                                  olderDay +
+                                  preparationTime.days -
+                                  initialTime.currentDay <=
+                                  0
+                                  ? "text-red-500"
+                                  : "text-cyan-400"
+                              }
+                            >
+                              {olderHours +
                                 preparationTime.hours -
                                 initialTime.currentHour <=
-                                0 ||
-                              olderDay +
-                                preparationTime.days -
-                                initialTime.currentDay <=
-                                0
-                                ? "text-red-500"
-                                : "text-cyan-400"
-                            }
-                          >
-                            {olderHours +
-                              preparationTime.hours -
-                              initialTime.currentHour <=
-                            0 ? (
-                              <>
-                                {olderDay +
-                                  preparationTime.days -
-                                  initialTime.currentDay}
-                                d{" "}
-                                {initialTime.currentHour -
-                                  (olderHours + preparationTime.hours)}
-                                h{" "}
-                                {olderMinutes +
-                                  preparationTime.minutes -
-                                  initialTime.currentMinute}
-                                m {preparationTime.seconds}s Over
-                              </>
-                            ) : (
-                              <>
-                                {initialTime.currentDay - olderDay}d{" "}
-                                {preparationTime.hours}h{" "}
-                                {olderMinutes +
-                                  preparationTime.minutes -
-                                  initialTime.currentMinute}
-                                m {preparationTime.seconds}s Left
-                              </>
-                            )}
+                                0 ? (
+                                <>
+                                  {olderDay +
+                                    preparationTime.days -
+                                    initialTime.currentDay}
+                                  d{" "}
+                                  {initialTime.currentHour -
+                                    (olderHours + preparationTime.hours)}
+                                  h{" "}
+                                  {olderMinutes +
+                                    preparationTime.minutes -
+                                    initialTime.currentMinute}
+                                  m {preparationTime.seconds}s Over
+                                </>
+                              ) : (
+                                <>
+                                  {initialTime.currentDay - olderDay}d{" "}
+                                  {preparationTime.hours}h{" "}
+                                  {olderMinutes +
+                                    preparationTime.minutes -
+                                    initialTime.currentMinute}
+                                  m {preparationTime.seconds}s Left
+                                </>
+                              )}
+                            </span>
+                          </>
+                        ) : (
+                          <span className="text-gray-400">
+                            {t("Preparingtimenotavailable")}
                           </span>
-                        </>
-                      ) : (
-                        <span className="text-gray-400">
-                          {t("Preparingtimenotavailable")}
-                        </span>
-                      )}
+                        )}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
 
                 {detailsData.delivery_id !== null && (
                   <div className="w-full p-4 mt-2 bg-white shadow-md rounded-xl">
@@ -1786,11 +1790,10 @@ const orderSummary = useMemo(() => {
                       <div
                         key={branch.id}
                         onClick={() => setSelectedBranchId(branch.id)}
-                        className={`flex items-center justify-between p-3 rounded-lg cursor-pointer transition-all ${
-                          selectedBranchId === branch.id
+                        className={`flex items-center justify-between p-3 rounded-lg cursor-pointer transition-all ${selectedBranchId === branch.id
                             ? "bg-green-50 border-2 border-green-500"
                             : "border border-gray-200 hover:border-gray-300"
-                        }`}
+                          }`}
                       >
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
