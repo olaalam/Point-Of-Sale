@@ -135,6 +135,7 @@ export const buildOrderPayload = ({
   service_fees, // القيمة المالية (الكمية)
   due_module,
   password,
+  repeated = 0,
 }) => {
   const basePayload = {
     amount: parseFloat(amountToPay).toFixed(2),
@@ -146,6 +147,7 @@ export const buildOrderPayload = ({
     cashier_id: cashierId.toString(),
     due: due.toString(),
     order_pending: "0",
+    ...(repeated === 1 && { repeated: "1" }),
   };
 
   // 1. إرسال قيمة مصاريف الخدمة (Amount)

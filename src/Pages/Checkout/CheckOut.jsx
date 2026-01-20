@@ -48,6 +48,8 @@ const CheckOut = ({
   onClearCart,
   service_fees,
 }) => {
+  const [showRepeatModal, setShowRepeatModal] = useState(false);
+const [pendingRepeatedPayload, setPendingRepeatedPayload] = useState(null);
   const cashierId = sessionStorage.getItem("cashier_id");
   const tableId = sessionStorage.getItem("table_id") || null;
   const [appliedDiscount, setAppliedDiscount] = useState(0);
@@ -491,7 +493,8 @@ const CheckOut = ({
     due = 0,
     customer_id = undefined,
     dueModuleValue = 0,
-    forcedPassword = null
+    forcedPassword = null,
+    repeated = 0,
   ) => {
     // 🟢 1. تفعيل القفل والـ Loading فوراً
     isSubmitting.current = true;
@@ -579,48 +582,108 @@ const CheckOut = ({
         due_module: dueModuleValue > 0 ? dueModuleValue.toFixed(2) : undefined,
         service_fees,
         password: forcedPassword || pendingFreeDiscountPassword || undefined,
+        repeated,
       });
     }
 
-    try {
-      const response = await postData(endpoint, payload, {
-        headers: { "Content-Type": "application/json" },
+try {
+  const response = await postData(endpoint, payload);
+
+  console.log("📥 Backend Response (Success Path):", response);
+
+  if (response?.success) {
+    // 🟢 نجاح العملية (زي ما هو)
+    toast.success(due === 1 ? t("DueOrderCreated") : t("OrderPlaced"));
+    setPendingFreeDiscountPassword("");
+
+    if (due === 0) {
+      const receiptData = prepareReceiptData(
+        itemsForPayload,
+        discountedAmount || amountToPay,
+        totalTax,
+        finalTotalDiscount || totalDiscount,
+        appliedDiscount,
+        discountData,
+        orderType,
+        requiredTotal,
+        response.success,
+        response
+      );
+      printReceiptSilently(receiptData, response, () => {
+        handleNavigation(response);
+      });
+    } else {
+      handleNavigation(response);
+    }
+
+    onClearCart?.();
+    onClose?.();
+  }
+  // مفيش else هنا دلوقتي – كل الـ non-success بيروح للـ catch
+} catch (error) {
+  console.log("🚨 Caught Error (likely 400):", error);
+
+  let backendResponse = null;
+
+  if (error.response && error.response.data) {
+    backendResponse = error.response.data;
+  } else if (error.response) {
+    backendResponse = error.response; // لو الـ data مش موجود
+  }
+
+  console.log("📥 Backend Response from Catch:", backendResponse);
+
+  if (backendResponse) {
+    const errorMessage = backendResponse.errors || backendResponse.message || backendResponse.error || "";
+    const trimmedError = typeof errorMessage === "string" ? errorMessage.trim() : "";
+    const lowerError = trimmedError.toLowerCase();
+
+    console.log("🔍 Error Message (raw):", errorMessage);
+    console.log("🔍 Error Message (trimmed & lower):", lowerError);
+
+    if (
+      trimmedError === "order is repeated" ||
+      trimmedError === "Order is repeated" ||
+      lowerError === "order is repeated" ||
+      lowerError.includes("order is repeated") ||
+      lowerError.includes("repeated") ||
+      lowerError.includes("مكرر")
+    ) {
+      console.log("✅ Repeated Order Detected – Opening Modal Now!");
+
+      // نخزن كل البيانات هنا مباشرة (كل الـ variables متاحة)
+      setPendingRepeatedPayload({
+        endpoint,
+        payload,
+        itemsForPayload,
+        discountedAmount: discountedAmount || amountToPay,
+        totalTax,
+        finalTotalDiscount: finalTotalDiscount || totalDiscount,
+        appliedDiscount,
+        discountData,
+        orderType,
+        requiredTotal,
+        due,
+        customer_id,
+        dueModuleValue,
+        forcedPassword: forcedPassword || pendingFreeDiscountPassword,
       });
 
-      if (response?.success) {
-        toast.success(due === 1 ? t("DueOrderCreated") : t("OrderPlaced"));
-        setPendingFreeDiscountPassword("");
-
-        if (due === 0) {
-          const receiptData = prepareReceiptData(
-            itemsForPayload,
-            discountedAmount,
-            totalTax,
-            finalTotalDiscount,
-            appliedDiscount,
-            discountData,
-            orderType,
-            requiredTotal,
-            response.success,
-            response
-          );
-          printReceiptSilently(receiptData, response, () => {
-            handleNavigation(response);
-          });
-        } else {
-          handleNavigation(response);
-        }
-      } else {
-        toast.error(response?.errors || t("FailedToProcessOrder"));
-        isSubmitting.current = false;
-        setLoading(false);
-      }
-    } catch (e) {
-      console.error("Submit error:", e);
-      toast.error(e.response?.data?.errors || e.message || t("SubmissionFailed"));
-      isSubmitting.current = false;
+      setShowRepeatModal(true);
       setLoading(false);
+      isSubmitting.current = false;
+      return; // مهم – ميعملش toast
     }
+  }
+
+  // أي خطأ (مش repeated أو no response) → toast عادي
+  toast.error(t("SubmissionFailed"));
+} finally {
+  if (!showRepeatModal) {
+    setLoading(false);
+    isSubmitting.current = false;
+  }
+}
   };
 
   const handleSelectCustomer = async (customer) => {
@@ -1025,7 +1088,91 @@ const CheckOut = ({
           toast.success(t("Password Accepted"));
           proceedWithOrderSubmission(isDueOrder ? 1 : 0, selectedCustomer?.id, remainingAmount > 0.01 && isDueModuleAllowed ? remainingAmount : 0, password);
         }}
+        
       />
+{showRepeatModal && (
+  <div className="fixed inset-0 bg-black/50  flex items-center justify-center z-50">
+    <div className="bg-white rounded-xl p-6 max-w-sm w-full mx-4 shadow-2xl">
+      <h3 className="text-lg font-bold text-center mb-4">
+        {t("OrderRepeated") || "الطلب مكرر"}
+      </h3>
+      <p className="text-center text-gray-600 mb-8">
+        {t("DoYouWantToRepeatOrder") || "هل تريد تكرار نفس الطلب مرة أخرى؟"}
+      </p>
+      <div className="flex gap-3">
+        <Button
+          variant="outline"
+          className="flex-1"
+          onClick={() => {
+            setShowRepeatModal(false);
+            setPendingRepeatedPayload(null);
+            // نرجع الـ loading إلى false إذا لزم الأمر
+            isSubmitting.current = false;
+            setLoading(false);
+          }}
+        >
+          {t("Cancel") || "إلغاء"}
+        </Button>
+<Button
+  className="flex-1 bg-green-600 hover:bg-green-700"
+  onClick={async () => {
+    setShowRepeatModal(false);
+    const data = pendingRepeatedPayload;
+    if (!data) return;
+
+    setLoading(true);
+    isSubmitting.current = true;
+
+    try {
+      const response = await postData(data.endpoint, {
+        ...data.payload,
+        repeated: "1",
+      });
+
+      if (response?.success) {
+        toast.success(t("OrderPlaced"));
+
+        const receiptData = prepareReceiptData(
+          data.itemsForPayload,
+          data.discountedAmount,
+          data.totalTax,
+          data.finalTotalDiscount,
+          data.appliedDiscount,
+          data.discountData,
+          data.orderType,
+          data.requiredTotal,
+          response.success,
+          response
+        );
+
+        if (data.due === 0) {
+          printReceiptSilently(receiptData, response, () => {
+            handleNavigation(response);
+          });
+        } else {
+          handleNavigation(response);
+        }
+
+        onClearCart?.();
+        onClose?.();
+      } else {
+        toast.error(response?.errors || t("FailedToProcessOrder"));
+      }
+    } catch (e) {
+      toast.error(e.message || t("SubmissionFailed"));
+    } finally {
+      setLoading(false);
+      isSubmitting.current = false;
+      setPendingRepeatedPayload(null);
+    }
+  }}
+>
+  {t("ConfirmRepeat") || "تأكيد التكرار"}
+</Button>
+      </div>
+    </div>
+  </div>
+)}
     </div>
   );
 };
