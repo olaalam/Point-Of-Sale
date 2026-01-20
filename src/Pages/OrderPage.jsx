@@ -227,7 +227,6 @@ const updateOrderItems = (newItems) => {
     
     console.log("💾 Updated cart in sessionStorage (All Modes):", safeNewItems);
   };
-
 const handleAddItem = (item) => {
   // 1. تحقق إذا كان المنتج قادم من الميزان
   const isScaleItem = item._source === "scale_barcode";
@@ -258,17 +257,14 @@ const handleAddItem = (item) => {
       return { ...prev, [tableId]: [...currentItems, item] };
     });
   } else {
-    // لحالة Takeaway / Delivery
+    // --- الجزء الخاص بالـ Takeaway و Delivery ---
+
+    // أ- تحديث الـ takeAwayItems (عشان الـ Takeaway يفضل شغال)
     setTakeAwayItems((prev) => {
-      // 3. إذا كان منتج ميزان، أضفه كسطر جديد فوراً
       if (isScaleItem) {
         return [...prev, { ...item }];
       }
-
-      const existingItemIndex = prev.findIndex((i) =>
-        areProductsEqual(i, item)
-      );
-
+      const existingItemIndex = prev.findIndex((i) => areProductsEqual(i, item));
       if (existingItemIndex > -1) {
         const updatedItems = [...prev];
         updatedItems[existingItemIndex].count += item.count || 1;
@@ -276,7 +272,36 @@ const handleAddItem = (item) => {
       }
       return [...prev, item];
     });
+
+    // ب- تحديث الـ ordersByUser (عشان الـ Delivery يظهر في الـ Card)
+    if (currentUserId) {
+      setOrdersByUser((prev) => {
+        const userId = currentUserId;
+        const currentItems = prev[userId] || [];
+
+        if (isScaleItem) {
+          return {
+            ...prev,
+            [userId]: [...currentItems, { ...item }],
+          };
+        }
+
+        const existingItemIndex = currentItems.findIndex((i) =>
+          areProductsEqual(i, item)
+        );
+
+        if (existingItemIndex > -1) {
+          const updatedItems = [...currentItems];
+          updatedItems[existingItemIndex].count += item.count || 1;
+          return { ...prev, [userId]: updatedItems };
+        }
+        return { ...prev, [userId]: [...currentItems, item] };
+      });
+    }
   }
+  
+  // لضمان تحديث الواجهة
+  setRefreshTrigger((prev) => prev + 1);
 };
 
 const handleClose = () => {
