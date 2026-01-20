@@ -41,9 +41,8 @@ export default function DeliveryOrder() {
   const [selectedDelivery, setSelectedDelivery] = useState(null);
   const [selectedOrders, setSelectedOrders] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
-  const [filteredOrders, setFilteredOrders] = useState([]);
 
-  const itemsPerPage = 10;
+
 
   const selectAllRef = useRef(null);
 
@@ -53,11 +52,10 @@ export default function DeliveryOrder() {
   const CONFIRM_ENDPOINT = "cashier/delivery_balance/confirm_faild_order";
 
   // All Orders data
-  const { data: allData, isLoading: allLoading, refetch: refetchAll } = useGet(
-    "cashier/delivery/single_page/orders",
-    { enabled: activeTab === "all" }
-  );
-
+const { data: allData, isLoading: allLoading, refetch: refetchAll } = useGet(
+  `cashier/delivery/single_page/orders?page=${currentPage}${dateFrom ? `&from=${format(dateFrom, "yyyy-MM-dd")}` : ""}${dateTo ? `&to=${format(dateTo, "yyyy-MM-dd")}` : ""}`,
+  { enabled: activeTab === "all" }
+);
   // Returned/Failed Orders data
   const { 
     data: returnedData, 
@@ -68,61 +66,28 @@ export default function DeliveryOrder() {
     { enabled: activeTab === "returned" }
   );
 
-  const allOrders = allData?.orders || [];
-  const returnedOrders = returnedData?.orders || [];
+  const allOrders = allData?.data || [];
+  const returnedOrders = returnedData?.orders|| [];
 
-  // فلتر تلقائي لـ All Orders فقط
-  useEffect(() => {
-    if (activeTab !== "all" || allOrders.length === 0) return;
 
-    if (dateFrom && dateTo) {
-      if (dateFrom > dateTo) {
-        toast.error("From date cannot be after To date");
-        setFilteredOrders(allOrders);
-        return;
-      }
-
-      const fromStr = format(dateFrom, "yyyy-MM-dd");
-      const toStr = format(dateTo, "yyyy-MM-dd");
-
-      const filtered = allOrders.filter((order) => {
-        return order.date >= fromStr && order.date <= toStr;
-      });
-
-      setFilteredOrders(filtered);
-      setCurrentPage(1);
-      setSelectedOrders([]);
-      toast.success(`Filtered: ${filtered.length} orders found`);
-    } else {
-      setFilteredOrders(allOrders);
-      setCurrentPage(1);
-      setSelectedOrders([]);
-    }
-  }, [dateFrom, dateTo, allOrders, activeTab]);
-
-  const currentOrdersForAll = filteredOrders;
   const currentOrdersForReturned = returnedOrders;
 
   const isSelectionTab = activeTab === "all" || activeTab === "returned";
 
   // Pagination & Select All logic (للـ all و returned فقط)
-  const currentOrders = activeTab === "all" ? currentOrdersForAll : currentOrdersForReturned;
-  const paginatedOrders = currentOrders.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
-  const totalPages = Math.ceil(currentOrders.length / itemsPerPage);
+const currentOrders = activeTab === "all" ? (allData?.data || []) : (returnedData?.orders || []);
+const totalPages = allData?.last_page || 1;
 
-  const pageAllSelected = paginatedOrders.every((o) => selectedOrders.includes(o.id));
-  const pageSomeSelected = paginatedOrders.some((o) => selectedOrders.includes(o.id));
+  const pageAllSelected = currentOrders.every((o) => selectedOrders.includes(o.id));
+  const pageSomeSelected = currentOrders.some((o) => selectedOrders.includes(o.id));
 
   const handlePageSelectAll = () => {
     if (pageAllSelected) {
       setSelectedOrders((prev) =>
-        prev.filter((id) => !paginatedOrders.map((o) => o.id).includes(id))
+        prev.filter((id) => !currentOrders.map((o) => o.id).includes(id))
       );
     } else {
-      const newIds = paginatedOrders
+      const newIds = currentOrders
         .map((o) => o.id)
         .filter((id) => !selectedOrders.includes(id));
       setSelectedOrders((prev) => [...new Set([...prev, ...newIds])]);
@@ -134,7 +99,7 @@ export default function DeliveryOrder() {
       selectAllRef.current.checked = pageAllSelected;
       selectAllRef.current.indeterminate = pageSomeSelected && !pageAllSelected;
     }
-  }, [pageAllSelected, pageSomeSelected, isSelectionTab, paginatedOrders]);
+  }, [pageAllSelected, pageSomeSelected, isSelectionTab, currentOrders]);
 
   // Reset عند تبديل التب
   useEffect(() => {
@@ -296,37 +261,35 @@ export default function DeliveryOrder() {
               </TableHeader>
               <TableBody>
                 <AllOrder
-                  orders={paginatedOrders}
+                  orders={currentOrders}
                   selectedOrders={selectedOrders}
                   setSelectedOrders={setSelectedOrders}
-                  isLoading={allLoading && filteredOrders.length === 0}
+                  isLoading={allLoading }
                 />
               </TableBody>
             </Table>
 
-            {currentOrders.length > itemsPerPage && (
-              <div className="flex items-center justify-center gap-6 py-4 border-t">
-                <Button
-                  variant="outline"
-                  disabled={currentPage === 1}
-                  onClick={() => setCurrentPage((p) => p - 1)}
-                >
-                  <ChevronLeft className="w-4 h-4" />
-                  Previous
-                </Button>
-                <span className="text-sm">
-                  Page {currentPage} of {totalPages}
-                </span>
-                <Button
-                  variant="outline"
-                  disabled={currentPage === totalPages}
-                  onClick={() => setCurrentPage((p) => p + 1)}
-                >
-                  Next
-                  <ChevronRight className="w-4 h-4" />
-                </Button>
-              </div>
-            )}
+{totalPages > 1 && (
+  <div className="flex items-center justify-center gap-6 py-4 border-t">
+    <Button
+      variant="outline"
+      disabled={currentPage === 1}
+      onClick={() => setCurrentPage((p) => p - 1)}
+    >
+      <ChevronLeft className="w-4 h-4" /> Previous
+    </Button>
+    <span className="text-sm font-medium">
+      Page {currentPage} of {totalPages}
+    </span>
+    <Button
+      variant="outline"
+      disabled={currentPage === totalPages}
+      onClick={() => setCurrentPage((p) => p + 1)}
+    >
+      Next <ChevronRight className="w-4 h-4" />
+    </Button>
+  </div>
+)}
           </Card>
         </TabsContent>
 
@@ -377,7 +340,7 @@ export default function DeliveryOrder() {
               </TableHeader>
               <TableBody>
                 <Return
-                  orders={paginatedOrders}
+                  orders={currentOrders}
                   selectedOrders={selectedOrders}
                   setSelectedOrders={setSelectedOrders}
                   isLoading={returnedLoading}
@@ -385,7 +348,7 @@ export default function DeliveryOrder() {
               </TableBody>
             </Table>
 
-            {currentOrders.length > itemsPerPage && (
+            {currentOrders.length > 0 && (
               <div className="flex items-center justify-center gap-6 py-4 border-t">
                 <Button
                   variant="outline"
