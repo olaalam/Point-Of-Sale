@@ -42,6 +42,7 @@ export default function Card({
   const isArabic = i18n.language === "ar";
   const { loading: apiLoading, postData } = usePost();
   const selectedUserData = JSON.parse(sessionStorage.getItem("selected_user_data") || "{}");
+  const [isCheckoutVisible, setIsCheckoutVisible] = useState(false);
   // استخراج رسوم التوصيل (فقط في حالة delivery)
   const deliveryFee = orderType === "delivery"
     ? Number(selectedUserData?.selectedAddress?.zone?.price || 0)
@@ -412,6 +413,8 @@ const clearCart = () => {
 
       {/* Order Summary */}
       <OrderSummary
+      isCheckoutVisible={isCheckoutVisible}
+      onCheckout={() => setIsCheckoutVisible(prev => !prev)}
         orderType={orderType}
         subTotal={calculations.subTotal}
         totalTax={calculations.totalTax}
@@ -516,7 +519,7 @@ const clearCart = () => {
         t={t}
       />
 
-
+{isCheckoutVisible && (
       <CheckOut
         totalDineInItems={orderItems.length}
         amountToPay={calculations.amountToPay}
@@ -532,7 +535,9 @@ const clearCart = () => {
         clearPaidItemsOnly={clearPaidItemsOnly}
         selectedPaymentItemIds={selectedPaymentItems}
         service_fees={calculations.totalOtherCharge}
+        onClose={() => setIsCheckoutVisible(false)}
       />
+      )}
 
       <ToastContainer />
       <div style={{ display: "none" }}>

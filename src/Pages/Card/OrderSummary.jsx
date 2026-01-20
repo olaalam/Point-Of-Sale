@@ -4,7 +4,8 @@ import SummaryRow from "./SummaryRow";
 import Loading from "@/components/Loading";
 import { Phone } from "lucide-react";
 import { calculateItemUnitPrice } from "../utils/orderPriceUtils";
-
+import { ChevronDown } from "lucide-react";
+import { cn } from "@/lib/utils";
 // مكون الطباعة
 const PrintableOrder = React.forwardRef(
   ({ orderItems, calculations, orderType, tableId, t, restaurantInfo }, ref) => {
@@ -431,6 +432,7 @@ export default function OrderSummary({
   orderItems,
   tableId,
   t,
+  isCheckoutVisible,
   onPrint: externalOnPrint,
 }) {
   const printRef = useRef();
@@ -624,18 +626,24 @@ const deliveryFee = orderType === "delivery"
           </div>
         ) : (
           <div className="flex gap-4 w-full">
-            {/* <Button
-              onClick={onCheckout}
-              className="bg-bg-primary text-white hover:bg-red-700 text-lg px-8 py-3"
-              disabled={
-                isLoading ||
-                orderItemsLength === 0 ||
-                (orderType === "dine_in" && selectedPaymentCount === 0)
-              }
-            >
-              {t("Checkout")}
-            </Button> */}
-
+<Button
+  onClick={onCheckout}
+  className="bg-bg-primary text-white hover:bg-red-700 text-lg px-8 py-3 flex items-center gap-2"
+  disabled={
+    isLoading ||
+    orderItemsLength === 0 ||
+    (orderType === "dine_in" && selectedPaymentCount === 0)
+  }
+>
+  {t("Checkout")}
+  {/* السهم يلف 180 درجة عند الفتح */}
+  <ChevronDown 
+    className={cn(
+      "w-5 h-5 transition-transform duration-300", 
+      isCheckoutVisible && "rotate-180"
+    )} 
+  />
+</Button>
             {orderType === "dine_in" && allItemsDone && (
               <Button
                 onClick={handlePrint}

@@ -32,11 +32,12 @@ import {
 import { useTranslation } from "react-i18next";
 // import { useIsDueModuleAllowed } from "../utils/dueModuleUtils";
 import FreeDiscountPasswordModal from "./FreeDiscountPasswordModal";
-
+import { ChevronDown } from "lucide-react"; // أيقونة السهم
+import { cn } from "@/lib/utils";
 const CheckOut = ({
   amountToPay,
   orderItems,
-
+  onClose,
   totalTax,
   totalDiscount,
   source = "web",
@@ -55,6 +56,8 @@ const CheckOut = ({
   const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
   const lastSelectedGroup = sessionStorage.getItem("last_selected_group");
+  const [isDiscountExpanded, setIsDiscountExpanded] = useState(false);
+  const [isCheckoutExpanded, setIsCheckoutExpanded] = useState(false);
   // const [dueModuleAmount, setDueModuleAmount] = useState(0);
   const { data: groupData } = useGet("cashier/group_product"); // الـ API اللي جبته
   const groupProducts = groupData?.group_product || [];
@@ -691,43 +694,7 @@ const CheckOut = ({
   };
 
   return (
-    <div className="w-full bg-white mt-4">
-      {/* Breakdown Section */}
-      <div className="space-y-1 border-b pb-3 mb-3 text-sm text-gray-600">
-        <div className="flex justify-between">
-          <span>{t("Original Amount")}</span>
-          <span>{amountToPay.toFixed(2)} EGP</span>
-        </div>
-
-        {/* خصم كود الشركة */}
-        {appliedDiscount > 0 && (
-          <div className="flex justify-between text-green-600">
-            <span>{t("Company Discount")} ({appliedDiscount}%)</span>
-            <span>-{(amountToPay * (appliedDiscount / 100)).toFixed(2)} EGP</span>
-          </div>
-        )}
-
-        {/* خصم القائمة */}
-        {selectedDiscountAmount > 0 && (
-          <div className="flex justify-between text-blue-600">
-            <span>{t("List Discount")}</span>
-            <span>-{selectedDiscountAmount.toFixed(2)} EGP</span>
-          </div>
-        )}
-
-        {/* الخصم المجاني */}
-        {freeDiscount > 0 && (
-          <div className="flex justify-between text-purple-600">
-            <span>{t("Free Discount")}</span>
-            <span>-{parseFloat(freeDiscount).toFixed(2)} EGP</span>
-          </div>
-        )}
-
-        <div className="flex justify-between font-bold text-orange-600 pt-1 border-t border-dashed mt-1">
-          <span>{t("Remaining to Pay")}</span>
-          <span>{remainingAmount.toFixed(2)} EGP</span>
-        </div>
-      </div>
+    <div className="w-full bg-white mt-4 animate-in fade-in slide-in-from-top-4 duration-500">
       {/* 1. Modals - (كاملة كما هي بكل اللوجيك) */}
       <CustomerSelectionModal
         isOpen={customerSelectionOpen}
@@ -782,14 +749,25 @@ const CheckOut = ({
         <div className="w-full space-y-4">
 
           {/* 2. الديزاين المطلوب (Grid) */}
-          <div className="grid grid-cols-2 border border-gray-300 rounded-lg overflow-hidden">
+          {/* 2. الديزاين المطور (Accordion Style) */}
+          <div className="grid grid-cols-2 border border-gray-300 rounded-lg overflow-hidden transition-all">
 
             {/* العمود الأيسر: Discount */}
             <div className="border-r border-gray-300 flex flex-col">
-              <div className="bg-gray-100 p-2 text-center font-bold text-xs border-b border-gray-300 uppercase tracking-wider">
+              {/* Header قابل للضغط */}
+              <div
+                onClick={() => setIsDiscountExpanded(!isDiscountExpanded)}
+                className="bg-gray-100 p-2 flex items-center justify-center gap-2 cursor-pointer font-bold text-xs border-b border-gray-300 uppercase tracking-wider hover:bg-gray-200 transition-colors"
+              >
                 {t("Discount")}
+                <ChevronDown className={cn("w-3 h-3 transition-transform duration-300", !isDiscountExpanded && "-rotate-90")} />
               </div>
-              <div className="flex flex-col flex-grow">
+
+              {/* المحتوى يظهر فقط إذا كان expanded */}
+              <div className={cn(
+                "flex flex-col flex-grow transition-all duration-300 overflow-hidden",
+                isDiscountExpanded ? "max-h-[500px] opacity-100" : "max-h-0 opacity-0"
+              )}>
                 <button
                   onClick={() => setActiveDiscountTab(activeDiscountTab === 'select' ? null : 'select')}
                   className={`flex-1 p-4 border-b border-gray-200 text-sm font-semibold transition-colors ${activeDiscountTab === 'select' ? 'bg-blue-600 text-white' : 'text-gray-700 hover:bg-gray-50'}`}
@@ -811,25 +789,34 @@ const CheckOut = ({
               </div>
             </div>
 
-            {/* العمود الأيمن: Checkout (الحسابات + Due + Split) */}
+            {/* العمود الأيمن: Checkout */}
             <div className="flex flex-col">
-              <div className="bg-gray-100 p-2 text-center font-bold text-xs border-b border-gray-300 uppercase tracking-wider">
+              {/* Header قابل للضغط */}
+              <div
+                onClick={() => setIsCheckoutExpanded(!isCheckoutExpanded)}
+                className="bg-gray-100 p-2 flex items-center justify-center gap-2 cursor-pointer font-bold text-xs border-b border-gray-300 uppercase tracking-wider hover:bg-gray-200 transition-colors"
+              >
                 {t("Checkout")}
+                <ChevronDown className={cn("w-3 h-3 transition-transform duration-300", !isCheckoutExpanded && "-rotate-90")} />
               </div>
-              <div className="grid grid-cols-2 flex-grow">
+
+              {/* المحتوى يظهر فقط إذا كان expanded */}
+              <div className={cn(
+                "grid grid-cols-2 flex-grow transition-all duration-300 overflow-hidden",
+                isCheckoutExpanded ? "max-h-[500px] opacity-100" : "max-h-0 opacity-0"
+              )}>
                 {financialAccounts.map((acc, index) => (
                   <button
                     key={acc.id}
                     onClick={() => {
-                      // نطبق التغيير على أول عنصر في الـ splits إذا لم يكن هناك تقسيم
                       handleAccountChange(paymentSplits[0]?.id, String(acc.id));
                       setIsDueOrder(false);
                       setSelectedCustomer(null);
                     }}
-                    className={`p-4 text-xs font-bold transition-all border-gray-200 
-                    ${index % 2 === 0 ? 'border-r' : ''} 
-                    ${index < financialAccounts.length - 1 ? 'border-b' : ''}
-                    ${paymentSplits.length === 1 && paymentSplits[0]?.accountId === String(acc.id) && !isDueOrder ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
+                    className={`p-4 text-[10px] font-bold transition-all border-gray-200 
+          ${index % 2 === 0 ? 'border-r' : ''} 
+          ${index < financialAccounts.length - 1 ? 'border-b' : ''}
+          ${paymentSplits.length === 1 && paymentSplits[0]?.accountId === String(acc.id) && !isDueOrder ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
                   >
                     {acc.name}
                   </button>
@@ -845,7 +832,6 @@ const CheckOut = ({
                   {t("Due")}
                 </button>
 
-                {/* زر الـ Split (اللوجيك الأصلي لإضافة تقسيم جديد) */}
                 <button
                   onClick={handleAddSplit}
                   className="p-4 border-t border-l border-gray-200 bg-white text-xs font-black text-blue-600 hover:bg-blue-50"
@@ -855,7 +841,42 @@ const CheckOut = ({
               </div>
             </div>
           </div>
+          {/* Breakdown Section */}
+          <div className="space-y-1 border-b pb-3 mb-3 text-sm text-gray-600">
+            <div className="flex justify-between">
+              <span>{t("Original Amount")}</span>
+              <span>{amountToPay.toFixed(2)} EGP</span>
+            </div>
 
+            {/* خصم كود الشركة */}
+            {appliedDiscount > 0 && (
+              <div className="flex justify-between text-green-600">
+                <span>{t("Company Discount")} ({appliedDiscount}%)</span>
+                <span>-{(amountToPay * (appliedDiscount / 100)).toFixed(2)} EGP</span>
+              </div>
+            )}
+
+            {/* خصم القائمة */}
+            {selectedDiscountAmount > 0 && (
+              <div className="flex justify-between text-blue-600">
+                <span>{t("List Discount")}</span>
+                <span>-{selectedDiscountAmount.toFixed(2)} EGP</span>
+              </div>
+            )}
+
+            {/* الخصم المجاني */}
+            {freeDiscount > 0 && (
+              <div className="flex justify-between text-purple-600">
+                <span>{t("Free Discount")}</span>
+                <span>-{parseFloat(freeDiscount).toFixed(2)} EGP</span>
+              </div>
+            )}
+
+            <div className="flex justify-between font-bold text-orange-600 pt-1 border-t border-dashed mt-1">
+              <span>{t("Remaining to Pay")}</span>
+              <span>{remainingAmount.toFixed(2)} EGP</span>
+            </div>
+          </div>
           {/* 3. منطق عرض الـ Splits (المهم جداً لتوزيع المبالغ) */}
           <div className="space-y-3">
             {paymentSplits.map((split, index) => (
