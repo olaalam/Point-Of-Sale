@@ -329,14 +329,19 @@ const PrintableReport = React.forwardRef(({ reportData, t, formatAmount, isArabi
             );
           })}
           {/* إضافة الضرائب والخدمة في الطباعة */}
-          <div className="print-row">
-            <span>{t("TotalTax")}:</span>
-            <strong>{formatAmount(reportData.total_tax)}</strong>
-          </div>
-          <div className="print-row">
-            <span>{t("ServiceFees")}:</span>
-            <strong>{formatAmount(reportData.service_fees)}</strong>
-          </div>
+{canShowTax && (
+  <div className="print-row">
+    <span>{t("TotalTax")}:</span>
+    <strong>{formatAmount(reportData.total_tax)}</strong>
+  </div>
+)}
+
+{canShowService && (
+  <div className="print-row">
+    <span>{t("ServiceFees")}:</span>
+    <strong>{formatAmount(reportData.service_fees)}</strong>
+  </div>
+)}
           <div className="print-divider" />
           <div className="print-row" style={{ fontSize: '12px', fontWeight: 'bold' }}>
             <span>{t("TotalCashInShift")}</span>
@@ -495,6 +500,10 @@ export default function EndShiftReportModal({ reportData, onClose, onConfirmClos
   const { t, i18n } = useTranslation();
   const isArabic = i18n.language === "ar";
   const printRef = useRef(null);
+  const userData = JSON.parse(sessionStorage.getItem("user") || "{}");
+  
+  const canShowTax = Number(userData.total_tax) === 1;
+  const canShowService = Number(userData.service_fees) === 1;
 
   useEffect(() => {
     if (reportData && reportData.report_role === "unactive") {
@@ -665,18 +674,23 @@ export default function EndShiftReportModal({ reportData, onClose, onConfirmClos
             </div>
             
 {/* إجمالي النقدية في الشيفت والحسابات الإضافية */}
-  <div className="mt-6 space-y-3">
-    {/* عرض الضرائب والخدمة */}
-    <div className="grid grid-cols-2 gap-3">
-      <div className="flex justify-between p-3 bg-gray-50 rounded-md border border-gray-200">
-        <span className="text-xs text-gray-600">{t("TotalTax")}</span>
-        <span className="text-sm font-bold text-gray-800">{formatAmount(reportData.total_tax)}</span>
-      </div>
-      <div className="flex justify-between p-3 bg-gray-50 rounded-md border border-gray-200">
-        <span className="text-xs text-gray-600">{t("ServiceFees")}</span>
-        <span className="text-sm font-bold text-gray-800">{formatAmount(reportData.service_fees)}</span>
-      </div>
+<div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-4 border-t border-gray-100">
+  {/* عرض الضريبة فقط إذا كانت الصلاحية 1 */}
+  {canShowTax && (
+    <div className="flex justify-between p-3 bg-gray-50 rounded-md border border-gray-200">
+      <span className="text-xs text-gray-600">{t("TotalTax")}</span>
+      <span className="text-sm font-bold text-gray-800">{formatAmount(reportData.total_tax)}</span>
     </div>
+  )}
+
+  {/* عرض الخدمة فقط إذا كانت الصلاحية 1 */}
+  {canShowService && (
+    <div className="flex justify-between p-3 bg-gray-50 rounded-md border border-gray-200">
+      <span className="text-xs text-gray-600">{t("ServiceFees")}</span>
+      <span className="text-sm font-bold text-gray-800">{formatAmount(reportData.service_fees)}</span>
+    </div>
+  )}
+</div>
 
     {/* الصف القديم الخاص بالإجمالي (إذا أردت تفعيله)
     {totals && (
@@ -689,7 +703,6 @@ export default function EndShiftReportModal({ reportData, onClose, onConfirmClos
         </div>
       </div>
     )} */}
-  </div>
           </div>
 
           {/* ─── الأقسام الكاملة (تظهر فقط في all) ─── */}
