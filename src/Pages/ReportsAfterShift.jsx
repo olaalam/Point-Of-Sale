@@ -21,7 +21,10 @@ const SectionHeader = ({ icon: Icon, title }) => (
     {title}
   </h3>
 );
+  const userData = JSON.parse(sessionStorage.getItem("user") || "{}");
 
+  const canShowTax = Number(userData.total_tax) === 1;
+  const canShowService = Number(userData.service_fees) === 1;
 // ─── بطاقة إحصائية مبسطة ───
 const CompactStatCard = ({ icon: Icon, title, value }) => (
   <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
@@ -500,10 +503,8 @@ export default function EndShiftReportModal({ reportData, onClose, onConfirmClos
   const { t, i18n } = useTranslation();
   const isArabic = i18n.language === "ar";
   const printRef = useRef(null);
-  const userData = JSON.parse(sessionStorage.getItem("user") || "{}");
   
-  const canShowTax = Number(userData.total_tax) === 1;
-  const canShowService = Number(userData.service_fees) === 1;
+
 
   useEffect(() => {
     if (reportData && reportData.report_role === "unactive") {

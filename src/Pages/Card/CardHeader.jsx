@@ -10,6 +10,7 @@ export default function CardHeader({
   onShowOfferModal,
   onShowDealModal,
   isLoading,
+  onSaveAsPending,
   t,
 }) {
   return (
@@ -50,16 +51,26 @@ export default function CardHeader({
             </>
           )}
         </div>
-        {orderType === "take_away" && (
-          <div className="flex md:flex-col flex-row items-stretch justify-center">
-            <Button
-              onClick={handleViewPendingOrders}
-              className="bg-yellow-600 text-white hover:bg-yellow-500 text-sm px-6 py-4 md:h-full w-full md:w-36"
-            >
-              {t("PendingOrders")}
-            </Button>
-          </div>
-        )}
+{orderType === "take_away" && (
+  /* الحاوية الأساسية: جعلناها flex-1 لتأخذ المساحة المتاحة و w-full لضمان العرض الكامل */
+  <div className="flex md:flex-col flex-row items-stretch overflow-hidden rounded-md w-full md:w-40 flex-shrink-0">
+    <Button
+      onClick={handleViewPendingOrders}
+      // flex-1 تضمن أن الزر يأخذ نصف المساحة بالضبط
+      className="flex-1 bg-yellow-600 text-white hover:bg-yellow-500 text-[10px] sm:text-xs px-1 py-4 h-full rounded-none border-r border-white/20"
+    >
+      {t("PendingOrders")}
+    </Button>
+
+    <Button
+      onClick={onSaveAsPending}
+      // flex-1 تضمن أن الزر يأخذ النصف الثاني
+      className="flex-1 bg-orange-600 text-white hover:bg-orange-700 text-[10px] sm:text-xs px-1 py-4 h-full rounded-none"
+    >
+      {t("SaveasPending")}
+    </Button>
+  </div>
+)}
       </div>
     </div>
   );
