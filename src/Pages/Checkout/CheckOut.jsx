@@ -533,6 +533,8 @@ const [pendingRepeatedPayload, setPendingRepeatedPayload] = useState(null);
         setOrderId(response.success.id);
         setDeliveryModelOpen(true);
       }
+      sessionStorage.removeItem("selected_captain_id");
+    sessionStorage.removeItem("selected_captain_name");
     };
 
     const freeDiscountValue = parseFloat(freeDiscount) || 0;
