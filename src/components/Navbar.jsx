@@ -211,14 +211,50 @@ useEffect(() => {
     }
     setShowPasswordModal(true);
   };
+// دالة مساعدة للإغلاق التلقائي بدون إدخال كاش
+  const handleAutoCashConfirmed = async (password) => {
+    setReportLoading(true);
+    try {
+      const token = sessionStorage.getItem("token");
+      const baseUrl = import.meta.env.VITE_API_BASE_URL;
 
+      const response = await axios.post(
+        `${baseUrl}cashier/reports/end_shift_report`,
+        {
+          password: password,
+          amount: 0, // نرسل 0 لأن المستخدم لم يُطلب منه الإدخال
+        },
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      setEndShiftReport(response.data);
+      setShowReportModal(true);
+    } catch (err) {
+      const msg = err.response?.data?.message || t("Invalid password or error occurred");
+      toast.error(msg);
+    } finally {
+      setReportLoading(false);
+    }
+  };
   // 1. بعد تأكيد الباسورد → نخزن الباسورد ونفتح مودال الكاش
   const handlePasswordConfirmed = (password) => {
     setPendingPassword(password);
     setShowPasswordModal(false);
-    setShowCashInputModal(true);
-    setCashAmount(""); // ريست الكاش
+const enterAmountStatus = sessionStorage.getItem("enter_amount");
+
+    if (enterAmountStatus === "1") {
+      // إذا كانت 1، نفتح مودال إدخال الكاش
+      setShowCashInputModal(true);
+      setCashAmount(""); 
+    } else {
+      // إذا كانت 0، ننتقل مباشرة لجلب التقرير بمبلغ افتراضي 0
+      handleAutoCashConfirmed(password);
+    }
   };
+
+
 
   // 2. بعد إدخال الكاش → نرسل الريبورت بالباسورد والمبلغ
   const handleCashConfirmed = async () => {
