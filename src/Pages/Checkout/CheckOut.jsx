@@ -29,15 +29,11 @@ import {
   printReceiptSilently,
 } from "../utils/printReceipt";
 import { useTranslation } from "react-i18next";
-// import { useIsDueModuleAllowed } from "../utils/dueModuleUtils";
-import FreeDiscountPasswordModal from "./FreeDiscountPasswordModal";
-import { ChevronDown } from "lucide-react"; // أيقونة السهم
 import { cn } from "@/lib/utils";
 const CheckOut = ({
   amountToPay,
   orderItems,
   onClose,
-  onCheckout,
   totalTax,
   totalDiscount,
   source = "web",
@@ -47,10 +43,6 @@ const CheckOut = ({
   clearPaidItemsOnly,
   onClearCart,
   service_fees,
-  isCheckoutVisible,
-  orderItemsLength,
-  selectedPaymentCount,
-  isLoading,
   notes,
   setNotes,
   setSelectedDiscountId,
@@ -69,7 +61,6 @@ const CheckOut = ({
   const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
   const lastSelectedGroup = sessionStorage.getItem("last_selected_group");
-  const [isDiscountExpanded, setIsDiscountExpanded] = useState(false);
   const [isCheckoutExpanded, setIsCheckoutExpanded] = useState(false);
   // const [dueModuleAmount, setDueModuleAmount] = useState(0);
   const { data: groupData } = useGet("cashier/group_product"); // الـ API اللي جبته
@@ -77,11 +68,6 @@ const CheckOut = ({
   const [passwordModalOpen, setPasswordModalOpen] = useState(false);
   const [pendingFreeDiscountPassword, setPendingFreeDiscountPassword] =
     useState("");
-  // في CheckOut.jsx نضيف:
-  const [activeDiscountTab, setActiveDiscountTab] = useState(null); // 'select' | 'free' | 'company'
-  const [showPaymentDropdown, setShowPaymentDropdown] = useState(false);
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState(null); // 'cash' | 'visa' | ...
-  const [selectedPaymentType, setSelectedPaymentType] = useState(null); // 'full' | 'split' | 'due'
   const isDueModuleAllowed = (() => {
     if (!orderType || !groupProducts || groupProducts.length === 0)
       return false;
@@ -98,9 +84,6 @@ const CheckOut = ({
   const { data: discountListData, loading: discountsLoading } = useGet(
     "captain/discount_list"
   );
-
-  // 🟢 إضافة state للـ free_discount
-
   // === QZ Tray Connection ===
   useEffect(() => {
     qz.security.setCertificatePromise(function (resolve, reject) {
@@ -266,7 +249,6 @@ const CheckOut = ({
   const [orderId, setOrderId] = useState(null);
   const [isDueOrder, setIsDueOrder] = useState(false);
   const [discountCode, setDiscountCode] = useState("");
-  const [discountError, setDiscountError] = useState(null);
   const [isCheckingDiscount, setIsCheckingDiscount] = useState(false);
 
   // CheckOut.jsx (الكود بعد التعديل)
@@ -356,35 +338,7 @@ const CheckOut = ({
     }
   }, [requiredTotal]);
 
-  const handleApplyDiscount = async () => {
-    if (!discountCode) {
-      toast.error(t("PleaseEnterDiscountCode"));
-      return;
-    }
 
-    setIsCheckingDiscount(true);
-    setDiscountError(null);
-
-    try {
-      const response = await postData("cashier/check_discount_code", {
-        code: discountCode,
-      });
-      if (response.success) {
-        setAppliedDiscount(response.discount);
-        toast.success(t("DiscountApplied", { discount: response.discount }));
-      } else {
-        setAppliedDiscount(0);
-        setDiscountError("Invalid or Off discount code.");
-        toast.error(t("InvalidOrOffDiscountCode"));
-      }
-    } catch (e) {
-      setAppliedDiscount(0);
-      setDiscountError(e.message || "Failed to validate discount code.");
-      toast.error(e.message || t("FailedToValidateDiscountCode"));
-    } finally {
-      setIsCheckingDiscount(false);
-    }
-  };
 
   const handleAmountChange = (id, value) => {
     const newAmount = parseFloat(value) || 0;
@@ -491,7 +445,6 @@ const CheckOut = ({
     setSelectedCustomer(null);
     setIsDueOrder(false);
     setPaymentSplits([]);
-    setActiveDiscountTab(null);
     setOrderId(null);
     // إذا كان هناك مبالغ أخرى تأتي من Props مثل amountToPay 
     // فيجب تصفيرها من المكون الأب (Parent) عبر دالة onClearCart
@@ -823,111 +776,76 @@ const CheckOut = ({
 
 
 
+      {/* 🟢 Checkout Methods (يظهر عند الضغط على زر Checkout أو Pay) */}
+<div className="border border-gray-300 rounded-lg overflow-hidden animate-in slide-in-from-top-2 duration-300">
+  <div className="bg-gray-100 p-3 font-bold text-sm text-center border-b">
+    {t("Checkout Methods")}
+  </div>
 
-      {/* 🟢 محتوى Discount (يظهر عند الضغط) */}
-      {isDiscountExpanded && (
-        <div className="border border-gray-300 rounded-lg overflow-hidden animate-in slide-in-from-top-2 duration-300">
-          <div className="bg-gray-100 p-3 font-bold text-sm text-center border-b">
-            {t("Discount Options")}
-          </div>
-          <div className="flex flex-col">
-            <button
-              onClick={() =>
-                setActiveDiscountTab(
-                  activeDiscountTab === 'select' ? null : 'select'
-                )
-              }
-              className={`p-3 border-b text-sm font-semibold transition-all ${activeDiscountTab === 'select'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-white hover:bg-gray-50'
-                }`}
-            >
-              {t("Select")}
-            </button>
-            <button
-              onClick={() =>
-                setActiveDiscountTab(
-                  activeDiscountTab === 'free' ? null : 'free'
-                )
-              }
-              className={`p-3 border-b text-sm font-semibold transition-all ${activeDiscountTab === 'free'
-                  ? 'bg-purple-600 text-white'
-                  : 'bg-white hover:bg-gray-50'
-                }`}
-            >
-              {t("Free")}
-            </button>
-            <button
-              onClick={() =>
-                setActiveDiscountTab(
-                  activeDiscountTab === 'company' ? null : 'company'
-                )
-              }
-              className={`p-3 text-sm font-semibold transition-all ${activeDiscountTab === 'company'
-                  ? 'bg-green-600 text-white'
-                  : 'bg-white hover:bg-gray-50'
-                }`}
-            >
-              {t("By Company")}
-            </button>
-          </div>
-        </div>
+  {/* قائمة الألوان الثابتة حسب الترتيب (يمكنك تعديل الترتيب أو الألوان حسب الحاجة) */}
+  {/* افترضي إن financialAccounts مرتبة كده: 0: Vodafone Cash (أخضر), 1: Instapay (أزرق), 2: Cash (أورانج), 3: New Visa 1 (بنفسجي), 4: Main Financial Account (أحمر أو أي لون) */}
+  <div className="grid grid-cols-2 gap-0">
+    {financialAccounts.map((acc, index) => {
+      const colorClasses = [
+        { bg: 'bg-green-600', text: 'text-green-600', hover: 'hover:bg-green-50' },   // أول واحد أخضر
+        { bg: 'bg-blue-600', text: 'text-blue-600', hover: 'hover:bg-blue-50' },      // ثاني أزرق
+        { bg: 'bg-orange-600', text: 'text-orange-600', hover: 'hover:bg-orange-50' }, // ثالث أورانج
+
+      ];
+
+      const color = colorClasses[index % colorClasses.length]; // لو أكتر من 5 هيعيد الدورة
+
+      const isSelected = paymentSplits.length === 1 &&
+        paymentSplits[0]?.accountId === String(acc.id) &&
+        !isDueOrder;
+
+      return (
+        <button
+          key={acc.id}
+          onClick={() => {
+            handleAccountChange(paymentSplits[0]?.id, String(acc.id));
+            setIsDueOrder(false);
+            setSelectedCustomer(null);
+          }}
+          className={cn(
+            "p-4 text-sm font-bold border-gray-200 transition-all",
+            index % 2 === 0 ? 'border-r' : '',
+            index < financialAccounts.length - 2 ? 'border-b' : '',
+            isSelected
+              ? `${color.bg} text-white`                      // لون الخلفية الكامل للـ selected
+              : `bg-white ${color.text} ${color.hover}`        // لون النص + hover للـ non-selected
+          )}
+        >
+          {acc.name}
+        </button>
+      );
+    })}
+
+    {/* Due - لون أورانج ثابت (كما في الصورة) */}
+    <button
+      onClick={() => {
+        setIsDueOrder(true);
+        setCustomerSelectionOpen(true);
+      }}
+      className={cn(
+        "p-4 col-span-1 border-t text-sm font-black transition-all",
+        isDueOrder
+          ? 'bg-orange-500 text-white'                       // selected: أورانج غامق
+          : 'bg-white text-orange-600 hover:bg-orange-50'    // non-selected: نص أورانج + hover
       )}
+    >
+      {t("Due")}
+    </button>
 
-      {/* 4. Discount Area Content */}
-      {activeDiscountTab && (
-        <div className="p-3 border rounded-lg bg-gray-50 animate-in slide-in-from-top-2 duration-200">
-          {activeDiscountTab === 'select' && (
-            <Select
-              value={String(selectedDiscountId || "0")}
-              onValueChange={(val) =>
-                setSelectedDiscountId(val === "0" ? null : parseInt(val))
-              }
-            >
-              <SelectTrigger className="bg-white">
-                <SelectValue placeholder={t("ChooseDiscount")} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="0">{t("NoDiscount")}</SelectItem>
-                {discountListData?.discount_list?.map((d) => (
-                  <SelectItem key={d.id} value={String(d.id)}>
-                    {d.name} ({d.amount}
-                    {d.type === "precentage" ? "%" : t("EGP")})
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-          {activeDiscountTab === 'free' && (
-            <Input
-              type="number"
-              placeholder={t("EnterFreeDiscount")}
-              value={freeDiscount}
-              onChange={(e) => setFreeDiscount(e.target.value)}
-              className="bg-white"
-            />
-          )}
-          {activeDiscountTab === 'company' && (
-            <div className="flex gap-2">
-              <Input
-                placeholder={t("EnterDiscountCode")}
-                value={discountCode}
-                onChange={(e) => setDiscountCode(e.target.value)}
-                className="bg-white"
-              />
-              <Button onClick={handleApplyDiscount} disabled={isCheckingDiscount}>
-                {t("Apply")}
-              </Button>
-            </div>
-          )}
-        </div>
-      )}
-
-
-
-
-
-
+    {/* Split - لون أزرق ثابت (كما في الصورة) */}
+    <button
+      onClick={handleAddSplit}
+      className="p-4 col-span-2 border-t border-l text-sm font-black bg-white  hover:bg-blue-50 transition-all"
+    >
+      {t("Split")}
+    </button>
+  </div>
+</div>
 
       {/* Amount Paid by Customer */}
       <div className="mb-4">
@@ -964,57 +882,8 @@ const CheckOut = ({
         )}
       </div>
 
-      {/* 🟢 Checkout Methods (يظهر عند الضغط على زر Checkout أو Pay) */}
-      {isCheckoutExpanded && (
-        <div className="border border-gray-300 rounded-lg overflow-hidden animate-in slide-in-from-top-2 duration-300">
-          <div className="bg-gray-100 p-3 font-bold text-sm text-center border-b">
-            {t("Checkout Methods")}
-          </div>
-          <div className="grid grid-cols-2 gap-0">
-            {financialAccounts.map((acc, index) => (
-              <button
-                key={acc.id}
-                onClick={() => {
-                  handleAccountChange(paymentSplits[0]?.id, String(acc.id));
-                  setIsDueOrder(false);
-                  setSelectedCustomer(null);
-                }}
-                className={`p-4 text-sm font-bold border-gray-200 transition-all
-                    ${index % 2 === 0 ? 'border-r' : ''} 
-                    ${index < financialAccounts.length - 2 ? 'border-b' : ''}
-                    ${paymentSplits.length === 1 &&
-                    paymentSplits[0]?.accountId === String(acc.id) &&
-                    !isDueOrder
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-white hover:bg-gray-50'
-                  }`}
-              >
-                {acc.name}
-              </button>
-            ))}
 
-            <button
-              onClick={() => {
-                setIsDueOrder(true);
-                setCustomerSelectionOpen(true);
-              }}
-              className={`p-4 col-span-1 border-t text-sm font-black transition-all ${isDueOrder
-                  ? 'bg-orange-500 text-white'
-                  : 'bg-white text-orange-600 hover:bg-orange-50'
-                }`}
-            >
-              {t("Due")}
-            </button>
 
-            <button
-              onClick={handleAddSplit}
-              className="p-4 col-span-1 border-t border-l text-sm font-black bg-white text-blue-600 hover:bg-blue-50 transition-all"
-            >
-              {t("Split")}
-            </button>
-          </div>
-        </div>
-      )}
       {/* 3. منطق عرض الـ Splits */}
       {(paymentSplits.length > 1 || isDueModuleAllowed || getDescriptionStatus(paymentSplits[0]?.accountId)) && (
         <div className="space-y-3 animate-in fade-in duration-300">
@@ -1117,33 +986,10 @@ const CheckOut = ({
       >
         {loading ? (
           <Loading />
-        ) : isCheckoutExpanded ? (
-          t("Confirm Order")
         ) : (
           t("Pay Now")
         )}
       </Button>
-
-
-      {/* Modals remain below */}
-      <FreeDiscountPasswordModal
-        isOpen={passwordModalOpen}
-        onClose={() => {
-          setPasswordModalOpen(false);
-          setFreeDiscount("");
-        }}
-        onConfirm={(password) => {
-          setPendingFreeDiscountPassword(password);
-          setPasswordModalOpen(false);
-          toast.success(t("Password Accepted"));
-          proceedWithOrderSubmission(
-            isDueOrder ? 1 : 0,
-            selectedCustomer?.id,
-            remainingAmount > 0.01 && isDueModuleAllowed ? remainingAmount : 0,
-            password
-          );
-        }}
-      />
 
       {/* Repeat Order Modal */}
       {showRepeatModal && (

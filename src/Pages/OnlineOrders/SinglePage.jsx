@@ -436,7 +436,7 @@ const SinglePage = () => {
 
                             <button
                               onClick={() => navigate(`/invoice/${orderNumPath}`)}
-                              className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-500 text-white rounded-lg font-TextFontMedium hover:bg-blue-600 transition"
+                              className="flex items-center justify-center gap-2 px-4 py-2 bg-bg-primary text-white rounded-lg font-TextFontMedium hover:bg-red-600 transition"
                             >
                               <FaPrint />
                               {t("View Invoice")}
