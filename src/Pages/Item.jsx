@@ -610,10 +610,11 @@ const groupsBarSection = (
     </div>
   );
 
-  const categoriesSection = (
+const categoriesSection = (
     <div
       dir={isArabic ? "rtl" : "ltr"}
-      className="w-1/4 min-w-[180px] bg-gray-50 rounded-xl overflow-y-auto border border-gray-200 p-2 space-y-2 scrollbar-width-none"
+      // التعديلات هنا: h-[calc(100vh-120px)] للتحديد الارتفاع، و sticky ليبقى ثابتاً
+      className="w-1/4 min-w-[180px] bg-gray-50 rounded-xl  border border-gray-200 p-2 space-y-2 overflow-y-auto scrollbar-width-none [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden w-64 sticky top-4 h-[calc(100vh-120px)]"
     >
       <h4 className="text-[10px] font-bold text-gray-400 uppercase px-2 mb-2 tracking-widest">
         {t("Categories")}
@@ -625,10 +626,11 @@ const groupsBarSection = (
           handleCategorySelect("all");
           setSelectedSubCategory(null);
         }}
-        className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all border ${selectedMainCategory === "all" && !selectedSubCategory
-          ? "bg-bg-primary text-white border-bg-primary shadow-sm"
-          : "bg-white text-gray-700 border-gray-100 hover:bg-red-50"
-          }`}
+        className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all border ${
+          selectedMainCategory === "all" && !selectedSubCategory
+            ? "bg-bg-primary text-white border-bg-primary shadow-sm"
+            : "bg-white text-gray-700 border-gray-100 hover:bg-red-50"
+        }`}
       >
         <div className="w-15 h-15 bg-gray-100 rounded-lg flex items-center justify-center text-lg shadow-inner">
           🍽️
@@ -636,62 +638,60 @@ const groupsBarSection = (
         <span className="font-bold text-sm">{t("All")}</span>
       </div>
 
-      {/* عرض الفئات الرئيسية + الفرعية تحتها */}
-      {finalCategories.map((cat) => {
-        const isMainSelected = selectedMainCategory === cat.id.toString();
-        const hasSubCategories = (cat.sub_categories?.length || 0) > 0;
+      {/* عرض الفئات الرئيسية + الفرعية */}
+      <div className="flex-1 overflow-y-auto space-y-2 pr-1"> 
+        {finalCategories.map((cat) => {
+          const isMainSelected = selectedMainCategory === cat.id.toString();
+          const hasSubCategories = (cat.sub_categories?.length || 0) > 0;
 
-        return (
-          <div key={cat.id} className="space-y-1">
-            {/* الفئة الرئيسية */}
-            <div
-              onClick={() => handleCategorySelect(cat.id)}
-              className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all border ${isMainSelected && !selectedSubCategory
-                ? "bg-bg-primary text-white border-bg-primary shadow-sm"
-                : "bg-white text-gray-700 border-gray-100 hover:bg-red-50"
+          return (
+            <div key={cat.id} className="space-y-1">
+              <div
+                onClick={() => handleCategorySelect(cat.id)}
+                className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all border ${
+                  isMainSelected && !selectedSubCategory
+                    ? "bg-bg-primary text-white border-bg-primary shadow-sm"
+                    : "bg-white text-gray-700 border-gray-100 hover:bg-red-50"
                 }`}
-            >
-              <img
-                src={cat.image_link}
-                alt={cat.name}
-                className="w-15 h-15 rounded-lg object-cover shadow-sm"
-              />
-              <span className="font-bold text-lg truncate flex-1">{cat.name}</span>
+              >
+                <img
+                  src={cat.image_link}
+                  alt={cat.name}
+                  className="w-12 h-12 rounded-lg object-cover shadow-sm"
+                />
+                <span className="font-bold text-sm truncate flex-1">{cat.name}</span>
+                {hasSubCategories && (
+                  <span className="text-[10px] opacity-70">
+                    {isMainSelected ? "▼" : "▶"}
+                  </span>
+                )}
+              </div>
 
-              {/* سهم صغير لو فيه sub-categories */}
-              {hasSubCategories && (
-                <span className="text-sm opacity-70">
-                  {isMainSelected ? "▼" : "▶"}
-                </span>
+              {/* Sub-categories */}
+              {isMainSelected && hasSubCategories && (
+                <div className="mr-4 space-y-1 mt-1 border-r-2 border-bg-primary/20 pr-2">
+                  {cat.sub_categories.map((sub) => (
+                    <div
+                      key={sub.id}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleCategorySelect(sub.id, true);
+                      }}
+                      className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-all border ${
+                        selectedSubCategory === sub.id.toString()
+                          ? "bg-bg-primary/80 text-white border-bg-primary"
+                          : "bg-white text-gray-600 border-gray-100 hover:bg-gray-50"
+                      }`}
+                    >
+                      <span className="text-xs font-medium truncate">{sub.name}</span>
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
-
-            {/* الـ Sub-categories تظهر فقط لو الفئة الرئيسية مختارة */}
-            {isMainSelected && hasSubCategories && (
-              <div className="ml-6 space-y-1 mt-1">
-                {cat.sub_categories.map((sub) => (
-                  <div
-                    key={sub.id}
-                    onClick={(e) => {
-                      e.stopPropagation(); // عشان ما يتفعلش click الرئيسية
-                      handleCategorySelect(sub.id, true);
-                    }}
-                    className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all border pl-4 ${selectedSubCategory === sub.id.toString()
-                      ? "bg-bg-primary/80 text-white border-bg-primary shadow-sm"
-                      : "bg-white/80 text-gray-700 border-gray-200 hover:bg-gray-100"
-                      }`}
-                  >
-                    <div className="w-10 h-10 bg-gray-100 rounded-md flex items-center justify-center text-base shadow-inner">
-                      ↳
-                    </div>
-                    <span className="font-medium text-base truncate">{sub.name}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
     </div>
   );
   const handleSaveModuleOrder = () => {
@@ -726,7 +726,7 @@ const groupsBarSection = (
         userError={userError}
         onClose={onClose}
       />
-      <div className="flex gap-4  ">
+      <div className="flex gap-4 items-start  ">
         {isArabic ? (
           <>
             {productsGridSection}

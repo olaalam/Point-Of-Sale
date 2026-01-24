@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import {
   Select,
@@ -30,9 +29,6 @@ import {
   printReceiptSilently,
 } from "../utils/printReceipt";
 import { useTranslation } from "react-i18next";
-// import { useIsDueModuleAllowed } from "../utils/dueModuleUtils";
-import FreeDiscountPasswordModal from "./FreeDiscountPasswordModal";
-import { ChevronDown } from "lucide-react"; // أيقونة السهم
 import { cn } from "@/lib/utils";
 const CheckOut = ({
   amountToPay,
@@ -47,9 +43,16 @@ const CheckOut = ({
   clearPaidItemsOnly,
   onClearCart,
   service_fees,
+  notes,
+  setNotes,
+  setSelectedDiscountId,
+  setFreeDiscount,
+
+  selectedDiscountId,
+  freeDiscount,
 }) => {
   const [showRepeatModal, setShowRepeatModal] = useState(false);
-const [pendingRepeatedPayload, setPendingRepeatedPayload] = useState(null);
+  const [pendingRepeatedPayload, setPendingRepeatedPayload] = useState(null);
   const cashierId = sessionStorage.getItem("cashier_id");
   const tableId = sessionStorage.getItem("table_id") || null;
   const [appliedDiscount, setAppliedDiscount] = useState(0);
@@ -58,7 +61,6 @@ const [pendingRepeatedPayload, setPendingRepeatedPayload] = useState(null);
   const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
   const lastSelectedGroup = sessionStorage.getItem("last_selected_group");
-  const [isDiscountExpanded, setIsDiscountExpanded] = useState(false);
   const [isCheckoutExpanded, setIsCheckoutExpanded] = useState(false);
   // const [dueModuleAmount, setDueModuleAmount] = useState(0);
   const { data: groupData } = useGet("cashier/group_product"); // الـ API اللي جبته
@@ -66,11 +68,6 @@ const [pendingRepeatedPayload, setPendingRepeatedPayload] = useState(null);
   const [passwordModalOpen, setPasswordModalOpen] = useState(false);
   const [pendingFreeDiscountPassword, setPendingFreeDiscountPassword] =
     useState("");
-  // في CheckOut.jsx نضيف:
-  const [activeDiscountTab, setActiveDiscountTab] = useState(null); // 'select' | 'free' | 'company'
-  const [showPaymentDropdown, setShowPaymentDropdown] = useState(false);
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = useState(null); // 'cash' | 'visa' | ...
-  const [selectedPaymentType, setSelectedPaymentType] = useState(null); // 'full' | 'split' | 'due'
   const isDueModuleAllowed = (() => {
     if (!orderType || !groupProducts || groupProducts.length === 0)
       return false;
@@ -87,11 +84,6 @@ const [pendingRepeatedPayload, setPendingRepeatedPayload] = useState(null);
   const { data: discountListData, loading: discountsLoading } = useGet(
     "captain/discount_list"
   );
-  const [selectedDiscountId, setSelectedDiscountId] = useState(null);
-
-  // 🟢 إضافة state للـ free_discount
-  const [freeDiscount, setFreeDiscount] = useState("");
-
   // === QZ Tray Connection ===
   useEffect(() => {
     qz.security.setCertificatePromise(function (resolve, reject) {
@@ -194,7 +186,6 @@ const [pendingRepeatedPayload, setPendingRepeatedPayload] = useState(null);
     const previous = parseFloat(totalDiscount || 0);
     return (itemDiscountsAmount + percentageDiscountAmount + previous).toFixed(2);
   }, [itemDiscountsAmount, percentageDiscountAmount, totalDiscount]);
-  const [orderNotes, setOrderNotes] = useState("");
   const [paymentSplits, setPaymentSplits] = useState([]);
   const [customerPaid, setCustomerPaid] = useState("");
   const [customerSelectionOpen, setCustomerSelectionOpen] = useState(false);
@@ -258,7 +249,6 @@ const [pendingRepeatedPayload, setPendingRepeatedPayload] = useState(null);
   const [orderId, setOrderId] = useState(null);
   const [isDueOrder, setIsDueOrder] = useState(false);
   const [discountCode, setDiscountCode] = useState("");
-  const [discountError, setDiscountError] = useState(null);
   const [isCheckingDiscount, setIsCheckingDiscount] = useState(false);
 
   // CheckOut.jsx (الكود بعد التعديل)
@@ -348,35 +338,7 @@ const [pendingRepeatedPayload, setPendingRepeatedPayload] = useState(null);
     }
   }, [requiredTotal]);
 
-  const handleApplyDiscount = async () => {
-    if (!discountCode) {
-      toast.error(t("PleaseEnterDiscountCode"));
-      return;
-    }
 
-    setIsCheckingDiscount(true);
-    setDiscountError(null);
-
-    try {
-      const response = await postData("cashier/check_discount_code", {
-        code: discountCode,
-      });
-      if (response.success) {
-        setAppliedDiscount(response.discount);
-        toast.success(t("DiscountApplied", { discount: response.discount }));
-      } else {
-        setAppliedDiscount(0);
-        setDiscountError("Invalid or Off discount code.");
-        toast.error(t("InvalidOrOffDiscountCode"));
-      }
-    } catch (e) {
-      setAppliedDiscount(0);
-      setDiscountError(e.message || "Failed to validate discount code.");
-      toast.error(e.message || t("FailedToValidateDiscountCode"));
-    } finally {
-      setIsCheckingDiscount(false);
-    }
-  };
 
   const handleAmountChange = (id, value) => {
     const newAmount = parseFloat(value) || 0;
@@ -478,12 +440,11 @@ const [pendingRepeatedPayload, setPendingRepeatedPayload] = useState(null);
     setAppliedDiscount(0);
     setSelectedDiscountId(null);
     setFreeDiscount("");
-    setOrderNotes("");
+    setNotes("");
     setCustomerPaid("");
     setSelectedCustomer(null);
     setIsDueOrder(false);
     setPaymentSplits([]);
-    setActiveDiscountTab(null);
     setOrderId(null);
     // إذا كان هناك مبالغ أخرى تأتي من Props مثل amountToPay 
     // فيجب تصفيرها من المكون الأب (Parent) عبر دالة onClearCart
@@ -533,6 +494,8 @@ const [pendingRepeatedPayload, setPendingRepeatedPayload] = useState(null);
         setOrderId(response.success.id);
         setDeliveryModelOpen(true);
       }
+      sessionStorage.removeItem("selected_captain_id");
+      sessionStorage.removeItem("selected_captain_name");
     };
 
     const freeDiscountValue = parseFloat(freeDiscount) || 0;
@@ -566,8 +529,8 @@ const [pendingRepeatedPayload, setPendingRepeatedPayload] = useState(null);
         orderItems: itemsForPayload,
         amountToPay: discountedAmount.toFixed(2),
         totalTax,
-        totalDiscount: finalTotalDiscount,
-        notes: orderNotes.trim() || "No special instructions",
+        totalDiscount: totalAppliedDiscount,
+        notes: notes.trim() || "",
         source,
         financialsPayload,
         cashierId,
@@ -576,114 +539,115 @@ const [pendingRepeatedPayload, setPendingRepeatedPayload] = useState(null);
         discountCode: appliedDiscount > 0 ? discountCode : undefined,
         due: due,
         user_id: customer_id,
-        discount_id: finalDiscountIdToSend,
+        discount_id: selectedDiscountId,
         module_id: moduleId,
         free_discount: freeDiscountValue > 0 ? freeDiscountValue : undefined,
         due_module: dueModuleValue > 0 ? dueModuleValue.toFixed(2) : undefined,
         service_fees,
         password: forcedPassword || pendingFreeDiscountPassword || undefined,
         repeated,
+
       });
     }
 
-try {
-  const response = await postData(endpoint, payload);
+    try {
+      const response = await postData(endpoint, payload);
 
-  console.log("📥 Backend Response (Success Path):", response);
+      console.log("📥 Backend Response (Success Path):", response);
 
-  if (response?.success) {
-    // 🟢 نجاح العملية (زي ما هو)
-    toast.success(due === 1 ? t("DueOrderCreated") : t("OrderPlaced"));
-    setPendingFreeDiscountPassword("");
+      if (response?.success) {
+        // 🟢 نجاح العملية (زي ما هو)
+        toast.success(due === 1 ? t("DueOrderCreated") : t("OrderPlaced"));
+        setPendingFreeDiscountPassword("");
 
-    if (due === 0) {
-      const receiptData = prepareReceiptData(
-        itemsForPayload,
-        discountedAmount || amountToPay,
-        totalTax,
-        finalTotalDiscount || totalDiscount,
-        appliedDiscount,
-        discountData,
-        orderType,
-        requiredTotal,
-        response.success,
-        response
-      );
-      printReceiptSilently(receiptData, response, () => {
-        handleNavigation(response);
-      });
-    } else {
-      handleNavigation(response);
+        if (due === 0) {
+          const receiptData = prepareReceiptData(
+            itemsForPayload,
+            discountedAmount || amountToPay,
+            totalTax,
+            finalTotalDiscount || totalDiscount,
+            appliedDiscount,
+            discountData,
+            orderType,
+            requiredTotal,
+            response.success,
+            response
+          );
+          printReceiptSilently(receiptData, response, () => {
+            handleNavigation(response);
+          });
+        } else {
+          handleNavigation(response);
+        }
+
+        onClearCart?.();
+        onClose?.();
+      }
+      // مفيش else هنا دلوقتي – كل الـ non-success بيروح للـ catch
+    } catch (error) {
+      console.log("🚨 Caught Error (likely 400):", error);
+
+      let backendResponse = null;
+
+      if (error.response && error.response.data) {
+        backendResponse = error.response.data;
+      } else if (error.response) {
+        backendResponse = error.response; // لو الـ data مش موجود
+      }
+
+      console.log("📥 Backend Response from Catch:", backendResponse);
+
+      if (backendResponse) {
+        const errorMessage = backendResponse.errors || backendResponse.message || backendResponse.error || "";
+        const trimmedError = typeof errorMessage === "string" ? errorMessage.trim() : "";
+        const lowerError = trimmedError.toLowerCase();
+
+        console.log("🔍 Error Message (raw):", errorMessage);
+        console.log("🔍 Error Message (trimmed & lower):", lowerError);
+
+        if (
+          trimmedError === "order is repeated" ||
+          trimmedError === "Order is repeated" ||
+          lowerError === "order is repeated" ||
+          lowerError.includes("order is repeated") ||
+          lowerError.includes("repeated") ||
+          lowerError.includes("مكرر")
+        ) {
+          console.log("✅ Repeated Order Detected – Opening Modal Now!");
+
+          // نخزن كل البيانات هنا مباشرة (كل الـ variables متاحة)
+          setPendingRepeatedPayload({
+            endpoint,
+            payload,
+            itemsForPayload,
+            discountedAmount: discountedAmount || amountToPay,
+            totalTax,
+            finalTotalDiscount: finalTotalDiscount || totalDiscount,
+            appliedDiscount,
+            discountData,
+            orderType,
+            requiredTotal,
+            due,
+            customer_id,
+            dueModuleValue,
+            forcedPassword: forcedPassword || pendingFreeDiscountPassword,
+          });
+
+          setShowRepeatModal(true);
+          setLoading(false);
+          isSubmitting.current = false;
+          return; // مهم – ميعملش toast
+        }
+      }
+
+      // أي خطأ (مش repeated أو no response) → toast عادي
+      toast.error(t("SubmissionFailed"));
+    } finally {
+      if (!showRepeatModal) {
+        setLoading(false);
+        isSubmitting.current = false;
+      }
     }
-
-    onClearCart?.();
-    onClose?.();
-  }
-  // مفيش else هنا دلوقتي – كل الـ non-success بيروح للـ catch
-} catch (error) {
-  console.log("🚨 Caught Error (likely 400):", error);
-
-  let backendResponse = null;
-
-  if (error.response && error.response.data) {
-    backendResponse = error.response.data;
-  } else if (error.response) {
-    backendResponse = error.response; // لو الـ data مش موجود
-  }
-
-  console.log("📥 Backend Response from Catch:", backendResponse);
-
-  if (backendResponse) {
-    const errorMessage = backendResponse.errors || backendResponse.message || backendResponse.error || "";
-    const trimmedError = typeof errorMessage === "string" ? errorMessage.trim() : "";
-    const lowerError = trimmedError.toLowerCase();
-
-    console.log("🔍 Error Message (raw):", errorMessage);
-    console.log("🔍 Error Message (trimmed & lower):", lowerError);
-
-    if (
-      trimmedError === "order is repeated" ||
-      trimmedError === "Order is repeated" ||
-      lowerError === "order is repeated" ||
-      lowerError.includes("order is repeated") ||
-      lowerError.includes("repeated") ||
-      lowerError.includes("مكرر")
-    ) {
-      console.log("✅ Repeated Order Detected – Opening Modal Now!");
-
-      // نخزن كل البيانات هنا مباشرة (كل الـ variables متاحة)
-      setPendingRepeatedPayload({
-        endpoint,
-        payload,
-        itemsForPayload,
-        discountedAmount: discountedAmount || amountToPay,
-        totalTax,
-        finalTotalDiscount: finalTotalDiscount || totalDiscount,
-        appliedDiscount,
-        discountData,
-        orderType,
-        requiredTotal,
-        due,
-        customer_id,
-        dueModuleValue,
-        forcedPassword: forcedPassword || pendingFreeDiscountPassword,
-      });
-
-      setShowRepeatModal(true);
-      setLoading(false);
-      isSubmitting.current = false;
-      return; // مهم – ميعملش toast
-    }
-  }
-
-  // أي خطأ (مش repeated أو no response) → toast عادي
-  toast.error(t("SubmissionFailed"));
-} finally {
-  if (!showRepeatModal) {
-    setLoading(false);
-    isSubmitting.current = false;
-  }
-}
   };
 
   const handleSelectCustomer = async (customer) => {
@@ -785,6 +749,7 @@ try {
         onAssign={handleAssignDelivery}
         onSkip={handleSkip}
       />
+
       {/* سيكشن الـ Due Module - المنصة تدفع الباقي */}
       {isDueModuleAllowed && remainingAmount > 0.01 && (
         <div className="mt-6 p-4 bg-red-50 border border-red-200 rounded-lg shadow-sm">
@@ -808,371 +773,300 @@ try {
           </Button>
         </div>
       )}
-      {!deliveryModelOpen && (
-        <div className="w-full space-y-4">
 
-          {/* 2. الديزاين المطلوب (Grid) */}
-          {/* 2. الديزاين المطور (Accordion Style) */}
-          <div className="grid grid-cols-2 border border-gray-300 rounded-lg overflow-hidden transition-all">
 
-            {/* العمود الأيسر: Discount */}
-            <div className="border-r border-gray-300 flex flex-col">
-              {/* Header قابل للضغط */}
-              <div
-                onClick={() => setIsDiscountExpanded(!isDiscountExpanded)}
-                className="bg-gray-100 p-2 flex items-center justify-center gap-2 cursor-pointer font-bold text-xs border-b border-gray-300 uppercase tracking-wider hover:bg-gray-200 transition-colors"
-              >
-                {t("Discount")}
-                <ChevronDown className={cn("w-3 h-3 transition-transform duration-300", !isDiscountExpanded && "-rotate-90")} />
-              </div>
 
-              {/* المحتوى يظهر فقط إذا كان expanded */}
-              <div className={cn(
-                "flex flex-col flex-grow transition-all duration-300 overflow-hidden",
-                isDiscountExpanded ? "max-h-[500px] opacity-100" : "max-h-0 opacity-0"
-              )}>
-                <button
-                  onClick={() => setActiveDiscountTab(activeDiscountTab === 'select' ? null : 'select')}
-                  className={`flex-1 p-4 border-b border-gray-200 text-sm font-semibold transition-colors ${activeDiscountTab === 'select' ? 'bg-blue-600 text-white' : 'text-gray-700 hover:bg-gray-50'}`}
-                >
-                  {t("Select")}
-                </button>
-                <button
-                  onClick={() => setActiveDiscountTab(activeDiscountTab === 'free' ? null : 'free')}
-                  className={`flex-1 p-4 border-b border-gray-200 text-sm font-semibold transition-colors ${activeDiscountTab === 'free' ? 'bg-purple-600 text-white' : 'text-gray-700 hover:bg-gray-50'}`}
-                >
-                  {t("Free")}
-                </button>
-                <button
-                  onClick={() => setActiveDiscountTab(activeDiscountTab === 'company' ? null : 'company')}
-                  className={`flex-1 p-4 text-sm font-semibold transition-colors ${activeDiscountTab === 'company' ? 'bg-green-600 text-white' : 'text-gray-700 hover:bg-gray-50'}`}
-                >
-                  {t("By Company")}
-                </button>
-              </div>
-            </div>
+      {/* 🟢 Checkout Methods (يظهر عند الضغط على زر Checkout أو Pay) */}
+<div className="border border-gray-300 rounded-lg overflow-hidden animate-in slide-in-from-top-2 duration-300">
+  <div className="bg-gray-100 p-3 font-bold text-sm text-center border-b">
+    {t("Checkout Methods")}
+  </div>
 
-            {/* العمود الأيمن: Checkout */}
-            <div className="flex flex-col">
-              {/* Header قابل للضغط */}
-              <div
-                onClick={() => setIsCheckoutExpanded(!isCheckoutExpanded)}
-                className="bg-gray-100 p-2 flex items-center justify-center gap-2 cursor-pointer font-bold text-xs border-b border-gray-300 uppercase tracking-wider hover:bg-gray-200 transition-colors"
-              >
-                {t("Checkout")}
-                <ChevronDown className={cn("w-3 h-3 transition-transform duration-300", !isCheckoutExpanded && "-rotate-90")} />
-              </div>
+  {/* قائمة الألوان الثابتة حسب الترتيب (يمكنك تعديل الترتيب أو الألوان حسب الحاجة) */}
+  {/* افترضي إن financialAccounts مرتبة كده: 0: Vodafone Cash (أخضر), 1: Instapay (أزرق), 2: Cash (أورانج), 3: New Visa 1 (بنفسجي), 4: Main Financial Account (أحمر أو أي لون) */}
+  <div className="grid grid-cols-2 gap-0">
+    {financialAccounts.map((acc, index) => {
+      const colorClasses = [
+        { bg: 'bg-green-600', text: 'text-green-600', hover: 'hover:bg-green-50' },   // أول واحد أخضر
+        { bg: 'bg-blue-600', text: 'text-blue-600', hover: 'hover:bg-blue-50' },      // ثاني أزرق
+        { bg: 'bg-orange-600', text: 'text-orange-600', hover: 'hover:bg-orange-50' }, // ثالث أورانج
 
-              {/* المحتوى يظهر فقط إذا كان expanded */}
-              <div className={cn(
-                "grid grid-cols-2 flex-grow transition-all duration-300 overflow-hidden",
-                isCheckoutExpanded ? "max-h-[500px] opacity-100" : "max-h-0 opacity-0"
-              )}>
-                {financialAccounts.map((acc, index) => (
-                  <button
-                    key={acc.id}
-                    onClick={() => {
-                      handleAccountChange(paymentSplits[0]?.id, String(acc.id));
-                      setIsDueOrder(false);
-                      setSelectedCustomer(null);
-                    }}
-                    className={`p-4 text-[10px] font-bold transition-all border-gray-200 
-          ${index % 2 === 0 ? 'border-r' : ''} 
-          ${index < financialAccounts.length - 1 ? 'border-b' : ''}
-          ${paymentSplits.length === 1 && paymentSplits[0]?.accountId === String(acc.id) && !isDueOrder ? 'bg-blue-600 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`}
+      ];
+
+      const color = colorClasses[index % colorClasses.length]; // لو أكتر من 5 هيعيد الدورة
+
+      const isSelected = paymentSplits.length === 1 &&
+        paymentSplits[0]?.accountId === String(acc.id) &&
+        !isDueOrder;
+
+      return (
+        <button
+          key={acc.id}
+          onClick={() => {
+            handleAccountChange(paymentSplits[0]?.id, String(acc.id));
+            setIsDueOrder(false);
+            setSelectedCustomer(null);
+          }}
+          className={cn(
+            "p-4 text-sm font-bold border-gray-200 transition-all",
+            index % 2 === 0 ? 'border-r' : '',
+            index < financialAccounts.length - 2 ? 'border-b' : '',
+            isSelected
+              ? `${color.bg} text-white`                      // لون الخلفية الكامل للـ selected
+              : `bg-white ${color.text} ${color.hover}`        // لون النص + hover للـ non-selected
+          )}
+        >
+          {acc.name}
+        </button>
+      );
+    })}
+
+    {/* Due - لون أورانج ثابت (كما في الصورة) */}
+    <button
+      onClick={() => {
+        setIsDueOrder(true);
+        setCustomerSelectionOpen(true);
+      }}
+      className={cn(
+        "p-4 col-span-1 border-t text-sm font-black transition-all",
+        isDueOrder
+          ? 'bg-orange-500 text-white'                       // selected: أورانج غامق
+          : 'bg-white text-orange-600 hover:bg-orange-50'    // non-selected: نص أورانج + hover
+      )}
+    >
+      {t("Due")}
+    </button>
+
+    {/* Split - لون أزرق ثابت (كما في الصورة) */}
+    <button
+      onClick={handleAddSplit}
+      className="p-4 col-span-2 border-t border-l text-sm font-black bg-white  hover:bg-blue-50 transition-all"
+    >
+      {t("Split")}
+    </button>
+  </div>
+</div>
+
+      {/* Amount Paid by Customer */}
+      <div className="mb-4">
+        <label className="text-xs font-bold text-gray-500 mb-1 block">
+          {t("Amount by Customer")}
+        </label>
+        <div className="relative">
+          <Input
+            type="number"
+            value={customerPaid}
+            onChange={(e) => setCustomerPaid(e.target.value)}
+            className="pl-12 py-6 text-xl font-bold"
+            placeholder="0.00"
+          />
+          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold">
+            EGP
+          </span>
+        </div>
+      </div>
+
+      {/* Summary */}
+      <div className="bg-gray-100 p-4 rounded-xl">
+        <p className="text-4xl text-center m-auto font-black text-red-700">
+          {requiredTotal.toFixed(2)} EGP
+        </p>
+
+        {parseFloat(customerPaid) > requiredTotal && (
+          <div className="flex justify-between items-center mt-2 pt-2 border-t border-gray-200 text-green-600 font-bold">
+            <span>{t("Change")}</span>
+            <span>
+              {(parseFloat(customerPaid) - requiredTotal).toFixed(2)} EGP
+            </span>
+          </div>
+        )}
+      </div>
+
+
+
+      {/* 3. منطق عرض الـ Splits */}
+      {(paymentSplits.length > 1 || isDueModuleAllowed || getDescriptionStatus(paymentSplits[0]?.accountId)) && (
+        <div className="space-y-3 animate-in fade-in duration-300">
+          <label className="text-xs font-bold text-gray-500 mb-1 block">
+            {t("Payment Details")}
+          </label>
+
+          {paymentSplits.map((split, index) => (
+            <div
+              key={split.id}
+              className="p-3 bg-gray-50 border rounded-lg space-y-3 shadow-sm"
+            >
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-bold text-gray-400">#{index + 1}</span>
+
+                <div className="flex-1">
+                  <Select
+                    value={String(split.accountId)}
+                    onValueChange={(val) => handleAccountChange(split.id, val)}
                   >
-                    {acc.name}
-                  </button>
-                ))}
+                    <SelectTrigger className="bg-white">
+                      <SelectValue placeholder={t("Select Account")} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {financialAccounts.map((acc) => (
+                        <SelectItem key={acc.id} value={String(acc.id)}>
+                          {acc.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
 
-                <button
-                  onClick={() => {
-                    setIsDueOrder(true);
-                    setCustomerSelectionOpen(true);
-                  }}
-                  className={`p-4 border-t border-gray-200 text-xs font-black transition-all ${isDueOrder ? 'bg-orange-500 text-white' : 'bg-white text-orange-600 hover:bg-orange-50'}`}
-                >
-                  {t("Due")}
-                </button>
-
-                <button
-                  onClick={handleAddSplit}
-                  className="p-4 border-t border-l border-gray-200 bg-white text-xs font-black text-blue-600 hover:bg-blue-50"
-                >
-                  {t("Split")}
-                </button>
-              </div>
-            </div>
-          </div>
-          {/* Breakdown Section */}
-          <div className="space-y-1 border-b pb-3 mb-3 text-sm text-gray-600">
-            <div className="flex justify-between">
-              <span>{t("Original Amount")}</span>
-              <span>{amountToPay.toFixed(2)} EGP</span>
-            </div>
-
-            {/* خصم كود الشركة */}
-            {appliedDiscount > 0 && (
-              <div className="flex justify-between text-green-600">
-                <span>{t("Company Discount")} ({appliedDiscount}%)</span>
-                <span>-{(amountToPay * (appliedDiscount / 100)).toFixed(2)} EGP</span>
-              </div>
-            )}
-
-            {/* خصم القائمة */}
-            {selectedDiscountAmount > 0 && (
-              <div className="flex justify-between text-blue-600">
-                <span>{t("List Discount")}</span>
-                <span>-{selectedDiscountAmount.toFixed(2)} EGP</span>
-              </div>
-            )}
-
-            {/* الخصم المجاني */}
-            {freeDiscount > 0 && (
-              <div className="flex justify-between text-purple-600">
-                <span>{t("Free Discount")}</span>
-                <span>-{parseFloat(freeDiscount).toFixed(2)} EGP</span>
-              </div>
-            )}
-
-            <div className="flex justify-between font-bold text-orange-600 pt-1 border-t border-dashed mt-1">
-              <span>{t("Remaining to Pay")}</span>
-              <span>{remainingAmount.toFixed(2)} EGP</span>
-            </div>
-          </div>
-          {/* 3. منطق عرض الـ Splits (المهم جداً لتوزيع المبالغ) */}
-          <div className="space-y-3">
-            {paymentSplits.map((split, index) => (
-              <div key={split.id} className="p-3 bg-gray-50 border rounded-lg space-y-3">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold text-gray-400">#{index + 1}</span>
-                  <div className="flex-1">
-                    <Select
-                      value={String(split.accountId)}
-                      onValueChange={(val) => handleAccountChange(split.id, val)}
-                    >
-                      <SelectTrigger className="bg-white">
-                        <SelectValue placeholder={t("Select Account")} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {financialAccounts.map((acc) => (
-                          <SelectItem key={acc.id} value={String(acc.id)}>{acc.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+                {/* المبلغ يظهر فقط في حالة الـ Split أو الـ Due لتقسيم المبالغ */}
+                {(paymentSplits.length > 1 || isDueModuleAllowed) && (
                   <div className="w-1/3 relative">
                     <Input
                       type="number"
                       value={split.amount === 0 ? "" : split.amount}
                       onChange={(e) => handleAmountChange(split.id, e.target.value)}
-                      className="bg-white pl-8"
+                      className="bg-white pl-8 font-bold"
                     />
-                    <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-gray-400">EGP</span>
-                  </div>
-                  {paymentSplits.length > 1 && (
-                    <Button variant="destructive" size="icon" className="h-9 w-9" onClick={() => handleRemoveSplit(split.id)}>
-                      ×
-                    </Button>
-                  )}
-                </div>
-
-                {/* تفاصيل الفيزا لكل Split */}
-                {getDescriptionStatus(split.accountId) && (
-                  <div className="flex gap-2 pl-6">
-                    <Input
-                      placeholder="Last 4 digits"
-                      value={split.checkout}
-                      onChange={(e) => handleDescriptionChange(split.id, e.target.value)}
-                      maxLength={4}
-                      className="w-1/4 bg-white"
-                    />
-                    <Input
-                      placeholder={t("TransactionID")}
-                      value={split.transition_id}
-                      onChange={(e) => handleTransitionIdChange(split.id, e.target.value)}
-                      className="flex-1 bg-white"
-                    />
+                    <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-gray-400">
+                      EGP
+                    </span>
                   </div>
                 )}
-              </div>
-            ))}
-          </div>
 
-          {/* 4. Discount Area Content */}
-          {activeDiscountTab && (
-            <div className="p-3 border rounded-lg bg-gray-50">
-              {activeDiscountTab === 'select' && (
-                <Select value={String(selectedDiscountId || "0")} onValueChange={(val) => setSelectedDiscountId(val === "0" ? null : parseInt(val))}>
-                  <SelectTrigger className="bg-white"><SelectValue placeholder={t("ChooseDiscount")} /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="0">{t("NoDiscount")}</SelectItem>
-                    {discountListData?.discount_list?.map((d) => (
-                      <SelectItem key={d.id} value={String(d.id)}>{d.name} ({d.amount}{d.type === "precentage" ? "%" : t("EGP")})</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-              {activeDiscountTab === 'free' && (
-                <Input type="number" placeholder={t("EnterFreeDiscount")} value={freeDiscount} onChange={(e) => setFreeDiscount(e.target.value)} className="bg-white" />
-              )}
-              {activeDiscountTab === 'company' && (
-                <div className="flex gap-2">
-                  <Input placeholder={t("EnterDiscountCode")} value={discountCode} onChange={(e) => setDiscountCode(e.target.value)} className="bg-white" />
-                  <Button onClick={handleApplyDiscount} disabled={isCheckingDiscount}>{t("Apply")}</Button>
+                {paymentSplits.length > 1 && (
+                  <Button
+                    variant="destructive"
+                    size="icon"
+                    className="h-9 w-9"
+                    onClick={() => handleRemoveSplit(split.id)}
+                  >
+                    ×
+                  </Button>
+                )}
+              </div>
+
+              {/* 🔵 يظهر دائماً للفيزا أو أي حساب له getDescriptionStatus = true */}
+              {getDescriptionStatus(split.accountId) && (
+                <div className="flex gap-2 pl-6 animate-in slide-in-from-top-1 duration-200">
+                  <div className="w-1/4">
+                    <Input
+                      placeholder="4 digits"
+                      value={split.checkout || ""}
+                      onChange={(e) => handleDescriptionChange(split.id, e.target.value)}
+                      maxLength={4}
+                      className="bg-white text-center"
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <Input
+                      placeholder={t("Transaction ID / Auth Code")}
+                      value={split.transition_id || ""}
+                      onChange={(e) => handleTransitionIdChange(split.id, e.target.value)}
+                      className="bg-white"
+                    />
+                  </div>
                 </div>
               )}
             </div>
-          )}
-
-          {/* 5. Order Notes */}
-          <Textarea
-            value={orderNotes}
-            onChange={(e) => setOrderNotes(e.target.value)}
-            className="w-full min-h-[60px] text-sm"
-            placeholder={t("Order Notes...")}
-          />
-
-          {/* 6. Amount Paid by Customer */}
-          <div className="space-y-1">
-            <label className="text-[10px] font-black text-gray-400 uppercase ml-1">{t("Amount Paid by Customer")}</label>
-            <div className="relative">
-              <Input
-                type="number"
-                value={customerPaid}
-                onChange={(e) => setCustomerPaid(e.target.value)}
-                className="pl-12 py-6 text-xl font-bold border-gray-300"
-                placeholder="0.00"
-              />
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold">EGP</span>
-            </div>
-          </div>
-
-          {/* 7. Summary */}
-          <div className="bg-gray-100 p-4 rounded-xl">
-
-
-            <p className="text-4xl text-center m-auto font-black text-red-700">{requiredTotal.toFixed(2)} EGP</p>
-
-            {parseFloat(customerPaid) > requiredTotal && (
-              <div className="flex justify-between items-center mt-2 pt-2 border-t border-gray-200 text-green-600 font-bold">
-                <span>{t("Change")}</span>
-                <span>{(parseFloat(customerPaid) - requiredTotal).toFixed(2)} EGP</span>
-              </div>
-            )}
-          </div>
-
-          {/* 8. Final Button (كامل الشروط) */}
-          <Button
-            className={`w-full py-8 rounded-xl text-xl font-black uppercase tracking-widest
-            ${loading || (!isTotalMet && !isDueOrder) || (isDueOrder && !selectedCustomer)
-                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                : 'bg-[#800000] hover:bg-[#a00000] text-white'}`}
-            disabled={loading || (!isTotalMet && !isDueOrder) || (isDueOrder && !selectedCustomer)}
-            onClick={handleSubmitOrder}
-          >
-            {loading ? <Loading /> :
-              isDueOrder ? (selectedCustomer ? t("Confirm Due Order") : t("Select Customer")) :
-                t("Pay Now")}
-          </Button>
+          ))}
         </div>
       )}
 
-      {/* Password Modal */}
-      <FreeDiscountPasswordModal
-        isOpen={passwordModalOpen}
-        onClose={() => { setPasswordModalOpen(false); setFreeDiscount(""); }}
-        onConfirm={(password) => {
-          setPendingFreeDiscountPassword(password);
-          setPasswordModalOpen(false);
-          toast.success(t("Password Accepted"));
-          proceedWithOrderSubmission(isDueOrder ? 1 : 0, selectedCustomer?.id, remainingAmount > 0.01 && isDueModuleAllowed ? remainingAmount : 0, password);
+      {/* الزر النهائي - Pay Button */}
+      <Button
+        className={`w-full py-8 rounded-xl text-xl font-black uppercase tracking-widest transition-all ${loading ? 'bg-gray-300' : 'bg-[#800000] hover:bg-[#a00000] text-white shadow-xl active:scale-95'
+          }`}
+        disabled={loading}
+        onClick={() => {
+          if (!isCheckoutExpanded) {
+            setIsCheckoutExpanded(true);
+          } else {
+            handleSubmitOrder();
+          }
         }}
-        
-      />
-{showRepeatModal && (
-  <div className="fixed inset-0 bg-black/50  flex items-center justify-center z-50">
-    <div className="bg-white rounded-xl p-6 max-w-sm w-full mx-4 shadow-2xl">
-      <h3 className="text-lg font-bold text-center mb-4">
-        {t("OrderRepeated") || "الطلب مكرر"}
-      </h3>
-      <p className="text-center text-gray-600 mb-8">
-        {t("DoYouWantToRepeatOrder") || "هل تريد تكرار نفس الطلب مرة أخرى؟"}
-      </p>
-      <div className="flex gap-3">
-        <Button
-          variant="outline"
-          className="flex-1"
-          onClick={() => {
-            setShowRepeatModal(false);
-            setPendingRepeatedPayload(null);
-            // نرجع الـ loading إلى false إذا لزم الأمر
-            isSubmitting.current = false;
-            setLoading(false);
-          }}
-        >
-          {t("Cancel") || "إلغاء"}
-        </Button>
-<Button
-  className="flex-1 bg-green-600 hover:bg-green-700"
-  onClick={async () => {
-    setShowRepeatModal(false);
-    const data = pendingRepeatedPayload;
-    if (!data) return;
+      >
+        {loading ? (
+          <Loading />
+        ) : (
+          t("Pay Now")
+        )}
+      </Button>
 
-    setLoading(true);
-    isSubmitting.current = true;
-
-    try {
-      const response = await postData(data.endpoint, {
-        ...data.payload,
-        repeated: "1",
-      });
-
-      if (response?.success) {
-        toast.success(t("OrderPlaced"));
-
-        const receiptData = prepareReceiptData(
-          data.itemsForPayload,
-          data.discountedAmount,
-          data.totalTax,
-          data.finalTotalDiscount,
-          data.appliedDiscount,
-          data.discountData,
-          data.orderType,
-          data.requiredTotal,
-          response.success,
-          response
-        );
-
-        if (data.due === 0) {
-          printReceiptSilently(receiptData, response, () => {
-            handleNavigation(response);
-          });
-        } else {
-          handleNavigation(response);
-        }
-
-        onClearCart?.();
-        onClose?.();
-      } else {
-        toast.error(response?.errors || t("FailedToProcessOrder"));
-      }
-    } catch (e) {
-      toast.error(e.message || t("SubmissionFailed"));
-    } finally {
-      setLoading(false);
-      isSubmitting.current = false;
-      setPendingRepeatedPayload(null);
-    }
-  }}
->
-  {t("ConfirmRepeat") || "تأكيد التكرار"}
-</Button>
-      </div>
-    </div>
-  </div>
-)}
+      {/* Repeat Order Modal */}
+      {showRepeatModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 max-w-sm w-full mx-4 shadow-2xl">
+            <h3 className="text-lg font-bold text-center mb-4">
+              {t("OrderRepeated") || "الطلب مكرر"}
+            </h3>
+            <p className="text-center text-gray-600 mb-8">
+              {t("DoYouWantToRepeatOrder") || "هل تريد تكرار نفس الطلب مرة أخرى؟"}
+            </p>
+            <div className="flex gap-3">
+              <button
+                className="flex-1 px-4 py-2 border rounded-lg hover:bg-gray-50"
+                onClick={() => {
+                  setShowRepeatModal(false);
+                  setPendingRepeatedPayload(null);
+                  isSubmitting.current = false;
+                  setLoading(false);
+                }}
+              >
+                {t("Cancel") || "إلغاء"}
+              </button>
+              <Button
+                className="flex-1 bg-green-600 hover:bg-green-700"
+                onClick={async () => {
+                  setShowRepeatModal(false);
+                  const data = pendingRepeatedPayload;
+                  if (!data) return;
+                  setLoading(true);
+                  isSubmitting.current = true;
+                  try {
+                    const response = await postData(data.endpoint, {
+                      ...data.payload,
+                      repeated: "1",
+                    });
+                    if (response?.success) {
+                      toast.success(t("OrderPlaced"));
+                      const receiptData = prepareReceiptData(
+                        data.itemsForPayload,
+                        data.discountedAmount,
+                        data.totalTax,
+                        data.finalTotalDiscount,
+                        data.appliedDiscount,
+                        data.discountData,
+                        data.orderType,
+                        data.requiredTotal,
+                        response.success,
+                        response
+                      );
+                      if (data.due === 0) {
+                        printReceiptSilently(receiptData, response, () => {
+                          handleNavigation(response);
+                        });
+                      } else {
+                        handleNavigation(response);
+                      }
+                      onClearCart?.();
+                      onClose?.();
+                    } else {
+                      toast.error(response?.errors || t("FailedToProcessOrder"));
+                    }
+                  } catch (e) {
+                    toast.error(e.message || t("SubmissionFailed"));
+                  } finally {
+                    setLoading(false);
+                    isSubmitting.current = false;
+                    setPendingRepeatedPayload(null);
+                  }
+                }}
+              >
+                {t("ConfirmRepeat") || "تأكيد التكرار"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

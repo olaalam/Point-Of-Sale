@@ -1,5 +1,5 @@
-import React from "react";
-import { UserCheck, ChevronLeft } from "lucide-react";
+import React, { useEffect, useState } from "react";
+import { UserCheck, ChevronLeft, User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -10,18 +10,23 @@ import {
 } from "@/components/ui/dialog";
 import Loading from "@/components/Loading";
 
-export default function CaptainSelectionModal({ 
-  isOpen, 
-  onOpenChange, 
-  captainsData, 
-  isLoading, 
-  t, 
-  disabled 
+export default function CaptainSelectionModal({
+  isOpen,
+  onOpenChange,
+  captainsData,
+  isLoading,
+  t,
+  disabled
 }) {
-    
+  const [selectedName, setSelectedName] = useState(sessionStorage.getItem("selected_captain_name"));
+  useEffect(() => {
+    const nameInSession = sessionStorage.getItem("selected_captain_name");
+    setSelectedName(nameInSession);
+  }, [isOpen]);
   const handleCaptainSelect = (captain) => {
     sessionStorage.setItem("selected_captain_id", captain.id);
     sessionStorage.setItem("selected_captain_name", captain.name);
+    setSelectedName(captain.name);
     onOpenChange(false); // إغلاق المودال
   };
 
@@ -30,10 +35,11 @@ export default function CaptainSelectionModal({
       <DialogTrigger asChild>
         <Button
           disabled={disabled}
-          className="bg-blue-600 hover:bg-blue-700 text-white text-sm flex items-center gap-2"
+          className={`${selectedName ? "bg-green-600 hover:bg-green-700" : "bg-blue-600 hover:bg-blue-700"
+            } text-white text-sm flex items-center gap-2 transition-colors`}
         >
-          <UserCheck size={16} />
-          {t("SelectCaptain") || "تعيين كابتن"}
+          {selectedName ? <User size={16} /> : <UserCheck size={16} />}
+          {selectedName ? selectedName : (t("SelectCaptain") || "تعيين كابتن")}
         </Button>
       </DialogTrigger>
 

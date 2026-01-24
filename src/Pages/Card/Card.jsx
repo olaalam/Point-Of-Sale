@@ -35,7 +35,6 @@ export default function Card({
   orderType,
   tableId,
   onClose,
-  userId,
 }) {
   const navigate = useNavigate();
   const { t, i18n } = useTranslation();
@@ -43,7 +42,8 @@ export default function Card({
   const { loading: apiLoading, postData } = usePost();
   const selectedUserData = JSON.parse(sessionStorage.getItem("selected_user_data") || "{}");
   const [isCheckoutVisible, setIsCheckoutVisible] = useState(false);
-  // استخراج رسوم التوصيل (فقط في حالة delivery)
+  const [selectedDiscountId, setSelectedDiscountId] = useState(null);
+  const [freeDiscount, setFreeDiscount] = useState("");  // استخراج رسوم التوصيل (فقط في حالة delivery)
   const deliveryFee = orderType === "delivery"
     ? Number(selectedUserData?.selectedAddress?.zone?.price || 0)
     : 0;
@@ -58,7 +58,7 @@ export default function Card({
   const [voidItemId, setVoidItemId] = useState(null);
   const [managerId, setManagerId] = useState("");
   const [managerPassword, setManagerPassword] = useState("");
-
+  const [notes, setNotes] = useState("");
   // Clear All Modals
   const [showClearAllConfirm, setShowClearAllConfirm] = useState(false);
   const [showClearAllManagerModal, setShowClearAllManagerModal] =
@@ -113,29 +113,26 @@ export default function Card({
     }
 
     // 2. جعل العناصر مختارة افتراضياً (Selected by default)
-    // نتحقق أن هناك عناصر، وأننا لم نقم باختيارها بالفعل (لتجنب اللوب اللانهائي)
     if (orderItems.length > 0) {
       const allIds = orderItems
         .filter(item => item.temp_id) // نختار فقط العناصر التي تملك temp_id
         .map((item) => item.temp_id);
 
-      // نقوم بتحديث الحالة فقط إذا كان هناك تغيير في عدد العناصر المختارة
-      // أو إذا كانت القائمة المختارة فارغة تماماً
       if (selectedItems.length !== allIds.length) {
         setSelectedItems(allIds);
       }
     }
   }, [orderItems]); // يعتمد على تغير قائمة العناصر
 
-const clearCart = () => {
-  updateOrderItems([]); // تصفير مصفوفة المنتجات
-  sessionStorage.removeItem("cart");
-  setSelectedItems([]);
-  setSelectedPaymentItems([]);
-  
-  // إذا كان هناك states أخرى للمبالغ في المكون الأب يتم تصفيرها هنا
-  toast.success(t("Allitemsclearedfromtheorder"));
-};
+  const clearCart = () => {
+    updateOrderItems([]); // تصفير مصفوفة المنتجات
+    sessionStorage.removeItem("cart");
+    setSelectedItems([]);
+    setSelectedPaymentItems([]);
+
+    // إذا كان هناك states أخرى للمبالغ في المكون الأب يتم تصفيرها هنا
+    toast.success(t("Allitemsclearedfromtheorder"));
+  };
   // Clear cart function
   const clearPaidItemsOnly = () => {
     // نحذف بس العناصر اللي تم اختيارها للدفع (selectedPaymentItems)
@@ -175,7 +172,7 @@ const clearCart = () => {
       toast.warning(t("Noitemstoclear"));
       return;
     }
-
+    setNotes("");
     // التحقق: هل يوجد أي عنصر بدأ التحضير فعلياً؟
     const needsManager = orderItems.some(item =>
       ["preparing", "pick_up", "done"].includes(item.preparation_status || "pending")
@@ -274,12 +271,6 @@ const clearCart = () => {
     printWindow.close();
   };
 
-  const hasAnyItemInPreparationOrLater = () => {
-    return orderItems.some(item => {
-      const status = item.preparation_status || "Pending";
-      return ["preparing", "pick_up", "done"].includes(status);
-    });
-  };
 
   return (
     <div
@@ -291,6 +282,7 @@ const clearCart = () => {
       <DineInformation onClose={onClose} />
       {/* Header Section */}
       <CardHeader
+        onSaveAsPending={() => orderActions.handleSaveAsPending(calculations.amountToPay, calculations.totalTax)}
         orderType={orderType}
         orderItems={orderItems}
         handleClearAllItems={handleClearAllItems}
@@ -413,8 +405,8 @@ const clearCart = () => {
 
       {/* Order Summary */}
       <OrderSummary
-      isCheckoutVisible={isCheckoutVisible}
-      onCheckout={() => setIsCheckoutVisible(prev => !prev)}
+        isCheckoutVisible={isCheckoutVisible}
+        onCheckout={() => setIsCheckoutVisible(prev => !prev)}
         orderType={orderType}
         subTotal={calculations.subTotal}
         totalTax={calculations.totalTax}
@@ -431,9 +423,15 @@ const clearCart = () => {
         orderItemsLength={orderItems.length}
         allItemsDone={allItemsDone}
         t={t}
+        notes={notes}
+        setNotes={setNotes}
         onPrint={handlePrint}
         orderItems={orderItems}
         tableId={tableId}
+        selectedDiscountId={selectedDiscountId}
+        setSelectedDiscountId={setSelectedDiscountId}
+        freeDiscount={freeDiscount}
+        setFreeDiscount={setFreeDiscount}
       />
 
       {/* Modals */}
@@ -519,24 +517,29 @@ const clearCart = () => {
         t={t}
       />
 
-{isCheckoutVisible && (
-      <CheckOut
-        totalDineInItems={orderItems.length}
-        amountToPay={calculations.amountToPay}
-        orderItems={calculations.checkoutItems}
-        updateOrderItems={updateOrderItems}
-        totalTax={calculations.totalTax}
-        totalDiscount={OTHER_CHARGE}
-        notes="Customer requested no plastic bag."
-        source="web"
-        orderType={orderType}
-        tableId={tableId}
-        onClearCart={clearCart}
-        clearPaidItemsOnly={clearPaidItemsOnly}
-        selectedPaymentItemIds={selectedPaymentItems}
-        service_fees={calculations.totalOtherCharge}
-        onClose={() => setIsCheckoutVisible(false)}
-      />
+      {isCheckoutVisible && (
+        <CheckOut
+          notes={notes}
+          setNotes={setNotes}
+          isCheckoutVisible={isCheckoutVisible}
+          totalDineInItems={orderItems.length}
+          amountToPay={calculations.amountToPay}
+          orderItems={calculations.checkoutItems}
+          updateOrderItems={updateOrderItems}
+          totalTax={calculations.totalTax}
+          totalDiscount={OTHER_CHARGE}
+          source="web"
+          orderType={orderType}
+          tableId={tableId}
+          onClearCart={clearCart}
+          clearPaidItemsOnly={clearPaidItemsOnly}
+          selectedPaymentItemIds={selectedPaymentItems}
+          service_fees={calculations.totalOtherCharge}
+          onClose={() => setIsCheckoutVisible(false)}
+          onCheckout={() => setIsCheckoutVisible(prev => !prev)}
+          selectedDiscountId={selectedDiscountId}
+          freeDiscount={freeDiscount}
+        />
       )}
 
       <ToastContainer />
