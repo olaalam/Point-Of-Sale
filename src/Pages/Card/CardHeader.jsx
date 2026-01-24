@@ -21,7 +21,7 @@ export default function CardHeader({
             className="bg-bg-primary text-white hover:bg-red-700 text-sm flex items-center justify-center gap-2 py-4"
             disabled={isLoading || orderItems.length === 0}
           >
-            {t("ClearAllItems")} ({orderItems.length || 0})
+            {t("ClearItems")} ({orderItems.length || 0})
           </Button>
           <Button
             onClick={handleViewOrders}
