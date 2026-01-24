@@ -1087,7 +1087,7 @@ export const prepareReceiptData = (
       sessionStorage.getItem("restaurant_address") || "العنوان",
     moduleOrderNumber: sessionStorage.getItem("module_order_number") || null,
     restaurantPhone: sessionStorage.getItem("restaurant_phone") || "",
-    receiptFooter: sessionStorage.getItem("receipt_footer") || "شكراً لزيارتكم",
+    receiptFooter: "شكراً لزيارتكم",
   };
 };
 

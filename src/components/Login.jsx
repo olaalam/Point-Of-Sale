@@ -121,10 +121,6 @@ sessionStorage.setItem("enter_amount", String(res.data.enter_amount ?? 0));
         sessionStorage.setItem("cashier_id", res.data.cashier.id);
       }
 
-      // --- 💡 الكود الجديد المطلوب لإضافته هنا ---
-      // (بفرض أن بيانات الفرع (المطعم) موجودة داخل الـ cashier object)
-      // (لو الأسماء دي مختلفة، عدّلها حسب الرد الفعلي من الـ API)
-
       const cashierData = res.data.cashier;
       let branchName = "اسم مطعمك"; // (قيمة افتراضية)
       let branchAddress = "عنوان مطعمك"; // (قيمة افتراضية)
@@ -152,10 +148,8 @@ sessionStorage.setItem("enter_amount", String(res.data.enter_amount ?? 0));
 
       sessionStorage.setItem("restaurant_address", branchAddress);
       sessionStorage.setItem("restaurant_phone", branchPhone);
-      sessionStorage.setItem("receipt_footer", receiptFooter);
-      // --- نهاية الكود الجديد ---
+      // sessionStorage.setItem("receipt_footer", receiptFooter);
 
-      // ✅ تأجيل التنقل خطوة صغيرة
       setTimeout(() => {
         navigate("/cashier", { replace: true });
       }, 100);

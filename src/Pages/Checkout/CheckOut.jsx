@@ -47,7 +47,6 @@ const CheckOut = ({
   setNotes,
   setSelectedDiscountId,
   setFreeDiscount,
-
   selectedDiscountId,
   freeDiscount,
 }) => {
@@ -62,8 +61,7 @@ const CheckOut = ({
   const [loading, setLoading] = useState(false);
   const lastSelectedGroup = sessionStorage.getItem("last_selected_group");
   const [isCheckoutExpanded, setIsCheckoutExpanded] = useState(false);
-  // const [dueModuleAmount, setDueModuleAmount] = useState(0);
-  const { data: groupData } = useGet("cashier/group_product"); // الـ API اللي جبته
+  const { data: groupData } = useGet("cashier/group_product");
   const groupProducts = groupData?.group_product || [];
   const [passwordModalOpen, setPasswordModalOpen] = useState(false);
   const [pendingFreeDiscountPassword, setPendingFreeDiscountPassword] =
@@ -288,7 +286,6 @@ const CheckOut = ({
     }
   }, []);
 
-  // Initialize default payment split - اختيار Visa كافتراضي لو موجود
   // Initialize default payment split - Default to Cash if available
   useEffect(() => {
     if (
@@ -337,8 +334,6 @@ const CheckOut = ({
       });
     }
   }, [requiredTotal]);
-
-
 
   const handleAmountChange = (id, value) => {
     const newAmount = parseFloat(value) || 0;
@@ -420,11 +415,6 @@ const CheckOut = ({
     setPaymentSplits((prev) => prev.filter((s) => s.id !== id));
   };
 
-  const getAccountNameById = (accountId) => {
-    const acc = financialAccounts?.find((a) => a.id === parseInt(accountId));
-    return acc ? acc.name : "Select Account";
-  };
-
   const getDescriptionStatus = (accountId) => {
     const acc = financialAccounts?.find((a) => a.id === parseInt(accountId));
     return acc?.description_status === 1;
@@ -434,7 +424,6 @@ const CheckOut = ({
     const acc = financialAccounts?.find((a) => a.id === parseInt(accountId));
     return acc?.name?.toLowerCase().includes("visa");
   };
-
 
   const resetCheckoutState = () => {
     setAppliedDiscount(0);
@@ -773,79 +762,74 @@ const CheckOut = ({
           </Button>
         </div>
       )}
-
-
-
       {/* 🟢 Checkout Methods (يظهر عند الضغط على زر Checkout أو Pay) */}
-<div className="border border-gray-300 rounded-lg overflow-hidden animate-in slide-in-from-top-2 duration-300">
-  <div className="bg-gray-100 p-3 font-bold text-sm text-center border-b">
-    {t("Checkout Methods")}
-  </div>
+      <div className="border border-gray-300 rounded-lg overflow-hidden animate-in slide-in-from-top-2 duration-300">
+        <div className="bg-gray-100 p-3 font-bold text-sm text-center border-b">
+          {t("Checkout Methods")}
+        </div>
 
-  {/* قائمة الألوان الثابتة حسب الترتيب (يمكنك تعديل الترتيب أو الألوان حسب الحاجة) */}
-  {/* افترضي إن financialAccounts مرتبة كده: 0: Vodafone Cash (أخضر), 1: Instapay (أزرق), 2: Cash (أورانج), 3: New Visa 1 (بنفسجي), 4: Main Financial Account (أحمر أو أي لون) */}
-  <div className="grid grid-cols-2 gap-0">
-    {financialAccounts.map((acc, index) => {
-      const colorClasses = [
-        { bg: 'bg-green-600', text: 'text-green-600', hover: 'hover:bg-green-50' },   // أول واحد أخضر
-        { bg: 'bg-blue-600', text: 'text-blue-600', hover: 'hover:bg-blue-50' },      // ثاني أزرق
-        { bg: 'bg-orange-600', text: 'text-orange-600', hover: 'hover:bg-orange-50' }, // ثالث أورانج
+        <div className="grid grid-cols-2 gap-0">
+          {financialAccounts.map((acc, index) => {
+            const colorClasses = [
+              { bg: 'bg-green-600', text: 'text-green-600', hover: 'hover:bg-green-50' },   // أول واحد أخضر
+              { bg: 'bg-blue-600', text: 'text-blue-600', hover: 'hover:bg-blue-50' },      // ثاني أزرق
+              { bg: 'bg-orange-600', text: 'text-orange-600', hover: 'hover:bg-orange-50' }, // ثالث أورانج
 
-      ];
+            ];
 
-      const color = colorClasses[index % colorClasses.length]; // لو أكتر من 5 هيعيد الدورة
+            const color = colorClasses[index % colorClasses.length]; // لو أكتر من 5 هيعيد الدورة
 
-      const isSelected = paymentSplits.length === 1 &&
-        paymentSplits[0]?.accountId === String(acc.id) &&
-        !isDueOrder;
+            const isSelected = paymentSplits.length === 1 &&
+              paymentSplits[0]?.accountId === String(acc.id) &&
+              !isDueOrder;
 
-      return (
-        <button
-          key={acc.id}
-          onClick={() => {
-            handleAccountChange(paymentSplits[0]?.id, String(acc.id));
-            setIsDueOrder(false);
-            setSelectedCustomer(null);
-          }}
-          className={cn(
-            "p-4 text-sm font-bold border-gray-200 transition-all",
-            index % 2 === 0 ? 'border-r' : '',
-            index < financialAccounts.length - 2 ? 'border-b' : '',
-            isSelected
-              ? `${color.bg} text-white`                      // لون الخلفية الكامل للـ selected
-              : `bg-white ${color.text} ${color.hover}`        // لون النص + hover للـ non-selected
-          )}
-        >
-          {acc.name}
-        </button>
-      );
-    })}
+            return (
+              <button
+                key={acc.id}
+                onClick={() => {
+                  handleAccountChange(paymentSplits[0]?.id, String(acc.id));
+                  setIsDueOrder(false);
+                  setSelectedCustomer(null);
+                }}
+                className={cn(
+                  "p-4 text-sm font-bold border-gray-200 transition-all",
+                  index % 2 === 0 ? 'border-r' : '',
+                  index < financialAccounts.length - 2 ? 'border-b' : '',
+                  isSelected
+                    ? `${color.bg} text-white`                      // لون الخلفية الكامل للـ selected
+                    : `bg-white ${color.text} ${color.hover}`        // لون النص + hover للـ non-selected
+                )}
+              >
+                {acc.name}
+              </button>
+            );
+          })}
 
-    {/* Due - لون أورانج ثابت (كما في الصورة) */}
-    <button
-      onClick={() => {
-        setIsDueOrder(true);
-        setCustomerSelectionOpen(true);
-      }}
-      className={cn(
-        "p-4 col-span-1 border-t text-sm font-black transition-all",
-        isDueOrder
-          ? 'bg-orange-500 text-white'                       // selected: أورانج غامق
-          : 'bg-white text-orange-600 hover:bg-orange-50'    // non-selected: نص أورانج + hover
-      )}
-    >
-      {t("Due")}
-    </button>
+          {/* Due - لون أورانج ثابت (كما في الصورة) */}
+          <button
+            onClick={() => {
+              setIsDueOrder(true);
+              setCustomerSelectionOpen(true);
+            }}
+            className={cn(
+              "p-4 col-span-1 border-t text-sm font-black transition-all",
+              isDueOrder
+                ? 'bg-orange-500 text-white'                       // selected: أورانج غامق
+                : 'bg-white text-orange-600 hover:bg-orange-50'    // non-selected: نص أورانج + hover
+            )}
+          >
+            {t("Due")}
+          </button>
 
-    {/* Split - لون أزرق ثابت (كما في الصورة) */}
-    <button
-      onClick={handleAddSplit}
-      className="p-4 col-span-2 border-t border-l text-sm font-black bg-white  hover:bg-blue-50 transition-all"
-    >
-      {t("Split")}
-    </button>
-  </div>
-</div>
+          {/* Split - لون أزرق ثابت (كما في الصورة) */}
+          <button
+            onClick={handleAddSplit}
+            className="p-4 col-span-2 border-t border-l text-sm font-black bg-white  hover:bg-blue-50 transition-all"
+          >
+            {t("Split")}
+          </button>
+        </div>
+      </div>
 
       {/* Amount Paid by Customer */}
       <div className="mb-4">
@@ -881,8 +865,6 @@ const CheckOut = ({
           </div>
         )}
       </div>
-
-
 
       {/* 3. منطق عرض الـ Splits */}
       {(paymentSplits.length > 1 || isDueModuleAllowed || getDescriptionStatus(paymentSplits[0]?.accountId)) && (
@@ -1070,5 +1052,4 @@ const CheckOut = ({
     </div>
   );
 };
-
 export default CheckOut;

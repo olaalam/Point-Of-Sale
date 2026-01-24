@@ -11,10 +11,8 @@ import ProductCard from "./ProductCard";
 import ProductModal from "./ProductModal";
 import { useTranslation } from "react-i18next";
 import { buildProductPayload } from "@/services/productProcessor";
-import { ArrowLeft, LayoutGrid, Tag } from "lucide-react";
 import ModuleOrderModal from "./ModuleOrderModal";
-const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || "https://bcknd.food2go.online/";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 const getAuthToken = () => sessionStorage.getItem("token");
 let resturant_logo = sessionStorage.getItem("resturant_logo");
 const apiFetcher = async (path) => {
@@ -484,94 +482,89 @@ export default function Item({ onAddToOrder, onClose }) {
       </div>
     </div>
   );
-const groupsBarSection = (
-  <div className={`flex gap-3 overflow-x-auto p-4 scrollbar-hide items-center`}>
-    {/* Favorite */}
-    <Button
-      onClick={() => {
-        handleGroupChange("all");
-        setSelectedMainCategory("all");
-        setSelectedSubCategory(null);
-      }}
-      className={`min-w-[100px] h-20 flex flex-col items-center justify-center rounded-xl border transition-all ${
-        selectedGroup === "all" && !isNormalPrice
+  const groupsBarSection = (
+    <div className={`flex gap-3 overflow-x-auto p-4 scrollbar-hide items-center`}>
+      {/* Favorite */}
+      <Button
+        onClick={() => {
+          handleGroupChange("all");
+          setSelectedMainCategory("all");
+          setSelectedSubCategory(null);
+        }}
+        className={`min-w-[100px] h-20 flex flex-col items-center justify-center rounded-xl border transition-all ${selectedGroup === "all" && !isNormalPrice
           ? "bg-bg-primary text-white border-bg-primary"
           : "bg-white text-gray-700 border-gray-200"
-      }`}
-    >
-      <span className="text-xl mb-1">❤️</span>
-      <span className="font-bold text-xs">{t("Favorite")}</span>
-    </Button>
+          }`}
+      >
+        <span className="text-xl mb-1">❤️</span>
+        <span className="font-bold text-xs">{t("Favorite")}</span>
+      </Button>
 
-    {/* Normal Prices */}
-    <Button
-      onClick={handleNormalPricesClick}
-      className={`group relative min-w-[100px] h-20 flex flex-col items-center justify-center rounded-xl border overflow-hidden p-0 transition-all duration-300 ${
-        isNormalPrice
+      {/* Normal Prices */}
+      <Button
+        onClick={handleNormalPricesClick}
+        className={`group relative min-w-[100px] h-20 flex flex-col items-center justify-center rounded-xl border overflow-hidden p-0 transition-all duration-300 ${isNormalPrice
           ? "border-bg-primary ring-2 ring-bg-primary/50"
           : "border-gray-200"
-      }`}
-    >
-      <div
-        className={`absolute inset-0 transition-opacity duration-300 ${
-          isNormalPrice ? "opacity-100" : "opacity-40 group-hover:opacity-100"
-        }`}
+          }`}
       >
-        <img
-          src={resturant_logo}
-          alt="logo"
-          className="w-full h-full object-cover"
-        />
-      </div>
-      <div className="absolute bottom-0 w-full py-1 bg-black/70 backdrop-blur-sm text-white transition-transform duration-300">
-        <span className="font-bold text-[10px] block px-1 truncate text-center uppercase">
-          {t("NormalPrices")}
-        </span>
-      </div>
-    </Button>
+        <div
+          className={`absolute inset-0 transition-opacity duration-300 ${isNormalPrice ? "opacity-100" : "opacity-40 group-hover:opacity-100"
+            }`}
+        >
+          <img
+            src={resturant_logo}
+            alt="logo"
+            className="w-full h-full object-cover"
+          />
+        </div>
+        <div className="absolute bottom-0 w-full py-1 bg-black/70 backdrop-blur-sm text-white transition-transform duration-300">
+          <span className="font-bold text-[10px] block px-1 truncate text-center uppercase">
+            {t("NormalPrices")}
+          </span>
+        </div>
+      </Button>
 
-    <div className="h-10 w-[2px] bg-gray-300 mx-1 flex-shrink-0 rounded-full" />
+      <div className="h-10 w-[2px] bg-gray-300 mx-1 flex-shrink-0 rounded-full" />
 
-    {/* الجروبات العادية – هنا نفتح المودال */}
-    {groupProducts.map((group) => {
-      const isActive =
-        selectedGroup === group.id.toString() && !isNormalPrice;
+      {/* الجروبات العادية – هنا نفتح المودال */}
+      {groupProducts.map((group) => {
+        const isActive =
+          selectedGroup === group.id.toString() && !isNormalPrice;
 
-      return (
-        <Button
-          key={group.id}
-          onClick={() => {
-            setTempGroupId(group.id);
-            setModuleOrderNumber(sessionStorage.getItem("module_order_number") || "");
-            setIsModuleOrderModalOpen(true);
-          }}
-          className={`group relative min-w-[100px] h-20 flex flex-col items-center justify-center rounded-xl border overflow-hidden p-0 transition-all duration-300 ${
-            isActive
+        return (
+          <Button
+            key={group.id}
+            onClick={() => {
+              setTempGroupId(group.id);
+              setModuleOrderNumber(sessionStorage.getItem("module_order_number") || "");
+              setIsModuleOrderModalOpen(true);
+            }}
+            className={`group relative min-w-[100px] h-20 flex flex-col items-center justify-center rounded-xl border overflow-hidden p-0 transition-all duration-300 ${isActive
               ? "border-bg-primary ring-2 ring-bg-primary/50"
               : "border-gray-200"
-          }`}
-        >
-          <div
-            className={`absolute inset-0 transition-opacity duration-300 ${
-              isActive ? "opacity-100" : "opacity-40 group-hover:opacity-100"
-            }`}
+              }`}
           >
-            <img
-              src={group.icon_link || "/default-group.png"}
-              alt={group.name}
-              className="w-full h-full object-cover"
-            />
-          </div>
-          <div className="absolute bottom-0 w-full py-1 bg-black/70 backdrop-blur-sm text-white transition-transform duration-300">
-            <span className="font-bold text-[10px] block px-1 truncate text-center uppercase">
-              {group.name}
-            </span>
-          </div>
-        </Button>
-      );
-    })}
-  </div>
-);
+            <div
+              className={`absolute inset-0 transition-opacity duration-300 ${isActive ? "opacity-100" : "opacity-40 group-hover:opacity-100"
+                }`}
+            >
+              <img
+                src={group.icon_link || "/default-group.png"}
+                alt={group.name}
+                className="w-full h-full object-cover"
+              />
+            </div>
+            <div className="absolute bottom-0 w-full py-1 bg-black/70 backdrop-blur-sm text-white transition-transform duration-300">
+              <span className="font-bold text-[10px] block px-1 truncate text-center uppercase">
+                {group.name}
+              </span>
+            </div>
+          </Button>
+        );
+      })}
+    </div>
+  );
 
   const productsGridSection = (
     <div className="flex-1 h-full pr-2" dir={isArabic ? "rtl" : "ltr"}>
@@ -610,7 +603,7 @@ const groupsBarSection = (
     </div>
   );
 
-const categoriesSection = (
+  const categoriesSection = (
     <div
       dir={isArabic ? "rtl" : "ltr"}
       // التعديلات هنا: h-[calc(100vh-120px)] للتحديد الارتفاع، و sticky ليبقى ثابتاً
@@ -626,11 +619,10 @@ const categoriesSection = (
           handleCategorySelect("all");
           setSelectedSubCategory(null);
         }}
-        className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all border ${
-          selectedMainCategory === "all" && !selectedSubCategory
-            ? "bg-bg-primary text-white border-bg-primary shadow-sm"
-            : "bg-white text-gray-700 border-gray-100 hover:bg-red-50"
-        }`}
+        className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all border ${selectedMainCategory === "all" && !selectedSubCategory
+          ? "bg-bg-primary text-white border-bg-primary shadow-sm"
+          : "bg-white text-gray-700 border-gray-100 hover:bg-red-50"
+          }`}
       >
         <div className="w-15 h-15 bg-gray-100 rounded-lg flex items-center justify-center text-lg shadow-inner">
           🍽️
@@ -639,7 +631,7 @@ const categoriesSection = (
       </div>
 
       {/* عرض الفئات الرئيسية + الفرعية */}
-      <div className="flex-1 overflow-y-auto space-y-2 pr-1"> 
+      <div className="flex-1 overflow-y-auto space-y-2 pr-1">
         {finalCategories.map((cat) => {
           const isMainSelected = selectedMainCategory === cat.id.toString();
           const hasSubCategories = (cat.sub_categories?.length || 0) > 0;
@@ -648,11 +640,10 @@ const categoriesSection = (
             <div key={cat.id} className="space-y-1">
               <div
                 onClick={() => handleCategorySelect(cat.id)}
-                className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all border ${
-                  isMainSelected && !selectedSubCategory
-                    ? "bg-bg-primary text-white border-bg-primary shadow-sm"
-                    : "bg-white text-gray-700 border-gray-100 hover:bg-red-50"
-                }`}
+                className={`flex items-center gap-3 p-2 rounded-lg cursor-pointer transition-all border ${isMainSelected && !selectedSubCategory
+                  ? "bg-bg-primary text-white border-bg-primary shadow-sm"
+                  : "bg-white text-gray-700 border-gray-100 hover:bg-red-50"
+                  }`}
               >
                 <img
                   src={cat.image_link}
@@ -677,11 +668,10 @@ const categoriesSection = (
                         e.stopPropagation();
                         handleCategorySelect(sub.id, true);
                       }}
-                      className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-all border ${
-                        selectedSubCategory === sub.id.toString()
-                          ? "bg-bg-primary/80 text-white border-bg-primary"
-                          : "bg-white text-gray-600 border-gray-100 hover:bg-gray-50"
-                      }`}
+                      className={`flex items-center gap-2 p-2 rounded-lg cursor-pointer transition-all border ${selectedSubCategory === sub.id.toString()
+                        ? "bg-bg-primary/80 text-white border-bg-primary"
+                        : "bg-white text-gray-600 border-gray-100 hover:bg-gray-50"
+                        }`}
                     >
                       <span className="text-xs font-medium truncate">{sub.name}</span>
                     </div>
@@ -695,9 +685,7 @@ const categoriesSection = (
     </div>
   );
   const handleSaveModuleOrder = () => {
-    // الحفظ في sessionStorage وتفعيل الجروب
     sessionStorage.setItem("module_order_number", moduleOrderNumber.trim());
-
     setIsNormalPrice(false);
     const id = tempGroupId.toString();
     sessionStorage.setItem("last_selected_group", id);
@@ -705,12 +693,9 @@ const categoriesSection = (
     setShowCategories(true);
     setSelectedMainCategory("all");
     setSelectedSubCategory(null);
-
-    // إغلاق المودال
     setIsModuleOrderModalOpen(false);
     setTempGroupId(null);
     setModuleOrderNumber("");
-
     toast.success(t("ModuleOrderNumberSaved") || "تم حفظ رقم الطلب بنجاح");
   };
   return (
