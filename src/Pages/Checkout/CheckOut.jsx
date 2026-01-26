@@ -779,9 +779,9 @@ const CheckOut = ({
 
             const color = colorClasses[index % colorClasses.length]; // لو أكتر من 5 هيعيد الدورة
 
-            const isSelected = paymentSplits.length === 1 &&
-              paymentSplits[0]?.accountId === String(acc.id) &&
-              !isDueOrder;
+const isSelected = paymentSplits.length === 1 &&
+                   String(paymentSplits[0]?.accountId) === String(acc.id) && // تحويل الطرفين لنص
+                   !isDueOrder;
 
             return (
               <button
@@ -796,7 +796,7 @@ const CheckOut = ({
                   index % 2 === 0 ? 'border-r' : '',
                   index < financialAccounts.length - 2 ? 'border-b' : '',
                   isSelected
-                    ? `${color.bg} text-white`                      // لون الخلفية الكامل للـ selected
+                 ? "border-l-4 border-l-bg-primary bg-red-50 shadow-sm  text-red-700"               // لون الخلفية الكامل للـ selected
                     : `bg-white ${color.text} ${color.hover}`        // لون النص + hover للـ non-selected
                 )}
               >
@@ -958,13 +958,7 @@ const CheckOut = ({
         className={`w-full py-8 rounded-xl text-xl font-black uppercase tracking-widest transition-all ${loading ? 'bg-gray-300' : 'bg-[#800000] hover:bg-[#a00000] text-white shadow-xl active:scale-95'
           }`}
         disabled={loading}
-        onClick={() => {
-          if (!isCheckoutExpanded) {
-            setIsCheckoutExpanded(true);
-          } else {
-            handleSubmitOrder();
-          }
-        }}
+        onClick={() => {handleSubmitOrder();}}
       >
         {loading ? (
           <Loading />
