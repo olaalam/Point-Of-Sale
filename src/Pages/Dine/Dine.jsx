@@ -11,16 +11,18 @@ import {
   UserCheck,
   Link,
   X,
+  Scissors,
 } from "lucide-react";
 import { useGet } from "@/Hooks/useGet";
 import { usePost } from "@/Hooks/usePost";
 import { usePut } from "@/Hooks/usePut";
 import Loading from "@/components/Loading";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { toast,ToastContainer } from "react-toastify";
+import { toast, ToastContainer } from "react-toastify";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import TableManagementActions from "./TableManagementActions";
 // 🟢 Modal لإدخال رقم التحضير
 const PreparationNumberModal = ({ isOpen, onClose, onSubmit, loading, tableName }) => {
   const [preparationNum, setPreparationNum] = useState("");
@@ -77,7 +79,7 @@ const PreparationNumberModal = ({ isOpen, onClose, onSubmit, loading, tableName 
               }
             }}
           />
-         
+
           <p className="text-xs text-gray-500 mt-2">
             {t("PreparationNumberHint")}
           </p>
@@ -140,7 +142,7 @@ const CustomStatusSelect = ({ table, statusOptions, onStatusChange }) => {
           className={`transition-transform ${isOpen ? "rotate-180" : ""}`}
         />
       </button>
-     
+
       {isOpen && (
         <div className="absolute top-full left-0 right-0 mt-1 z-[99999]">
           <div className="bg-white border border-gray-300 rounded-md shadow-xl overflow-hidden text-xs">
@@ -174,10 +176,13 @@ const Dine = () => {
   const [selectedLocationId, setSelectedLocationId] = useState(null);
   const locale = isArabic ? "ar" : "en";
   const orderType = sessionStorage.getItem("order_type") || "dine_in";
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const [selectedTablesList, setSelectedTablesList] = useState([]);
   // 🟢 State للـ Preparation Number Modal
   const [showPreparationModal, setShowPreparationModal] = useState(false);
   const [pendingTableSelection, setPendingTableSelection] = useState(null);
-  const { data, isLoading, error } = useGet(
+  const [handleSplitFromActions, setHandleSplitFromActions] = useState(null);
+  const { data, isLoading, error, refetch } = useGet(
     `captain/lists?branch_id=${branch_id}&module=${orderType}`
   );
   const { loading: transferLoading, postData } = usePost();
@@ -268,7 +273,7 @@ const Dine = () => {
     sessionStorage.setItem("order_type", "dine_in");
     sessionStorage.setItem("hall_name", selectedLocation?.name || "");
     sessionStorage.setItem("table_number", table.table_number || "");
-   
+
     if (preparationNumber) {
       sessionStorage.setItem("preparation_number", preparationNumber);
     }
@@ -297,19 +302,19 @@ const Dine = () => {
       } else {
         toast.error(response?.message || t("FailedToSavePreparationNumber"));
       }
-    }catch (err) {
-    console.error("Preparation number error details:", err);
+    } catch (err) {
+      console.error("Preparation number error details:", err);
 
-    // استخراج الرسالة من هيكل Axios الصحيح كما يظهر في الكونسول لديك
-    const serverMessage = 
-      err.response?.data?.errors?.preparation_num?.[0] || // المسار الأول: errors.preparation_num[0]
-      err.response?.data?.message ||                       // المسار الثاني: message العامة
-      t("FailedToSavePreparationNumber");                 // المسار الثالث: نص احتياطي
-console.log(serverMessage);
+      // استخراج الرسالة من هيكل Axios الصحيح كما يظهر في الكونسول لديك
+      const serverMessage =
+        err.response?.data?.errors?.preparation_num?.[0] || // المسار الأول: errors.preparation_num[0]
+        err.response?.data?.message ||                       // المسار الثاني: message العامة
+        t("FailedToSavePreparationNumber");                 // المسار الثالث: نص احتياطي
+      console.log(serverMessage);
 
-    toast.error(serverMessage);
-  }
-};
+      toast.error(serverMessage);
+    }
+  };
   // 🟢 دالة الإلغاء (Cancel) - التنقل بدون رقم تحضير
   const handleCancelPreparationModal = () => {
     setShowPreparationModal(false);
@@ -318,80 +323,90 @@ console.log(serverMessage);
       setPendingTableSelection(null);
     }
   };
-const handleSelectTable = async (table) => {
-  const transferPending = sessionStorage.getItem("transfer_pending") === "true";
-  const sourceTableId = sessionStorage.getItem("transfer_source_table_id");
+  const handleSelectTable = async (table) => {
+    if (isSelectionMode) {
 
-  // 🟢 حالة عملية Transfer (نقل الطلب)
-  if (transferPending) {
-    const cartIds = JSON.parse(sessionStorage.getItem("transfer_cart_ids") || "[]");
-    
-    if (cartIds.length > 0 && sourceTableId === table.id.toString()) {
-      toast.error(t("CannotTransferToSameTable"));
+
+      setSelectedTablesList(prev =>
+        prev.includes(table.id)
+          ? prev.filter(id => id !== table.id)
+          : [...prev, table.id]
+      );
       return;
     }
+    const transferPending = sessionStorage.getItem("transfer_pending") === "true";
+    const sourceTableId = sessionStorage.getItem("transfer_source_table_id");
 
-    const formData = new FormData();
-    formData.append("table_id", table.id);
-    cartIds.forEach((id, i) => formData.append(`cart_ids[${i}]`, id));
+    // 🟢 حالة عملية Transfer (نقل الطلب)
+    if (transferPending) {
+      const cartIds = JSON.parse(sessionStorage.getItem("transfer_cart_ids") || "[]");
 
-    try {
-      await postData(`cashier/transfer_order?locale=${locale}`, formData);
-      toast.success(t("OrderTransferredSuccessfully"));
-
-      // ✅ التعديل الأساسي: تحديث بيانات الطاولة الجديدة فوراً لضمان ظهورها في الواجهة
-      sessionStorage.setItem("table_id", table.id);
-      sessionStorage.setItem("table_number", table.table_number); // تحديث رقم الطاولة (مثل M-4)
-      
-      // تحديث اسم الصالة إذا كان متاحاً
-      const hallName = table.location_name || selectedLocation?.name || "";
-      if (hallName) {
-          sessionStorage.setItem("hall_name", hallName);
+      if (cartIds.length > 0 && sourceTableId === table.id.toString()) {
+        toast.error(t("CannotTransferToSameTable"));
+        return;
       }
 
-      // ✅ مسح بيانات التحويل المؤقتة
-      [
-        "transfer_cart_ids",
-        "transfer_first_cart_id",
-        "transfer_source_table_id",
-        "transfer_pending",
-      ].forEach((k) => sessionStorage.removeItem(k));
+      const formData = new FormData();
+      formData.append("table_id", table.id);
+      cartIds.forEach((id, i) => formData.append(`cart_ids[${i}]`, id));
 
-      // ✅ الانتقال مع تمرير البيانات في الـ state كدعم إضافي
-      navigate("/order-page", {
-        state: {
-          order_type: "dine_in",
-          table_id: table.id,
-          table_number: table.table_number,
-          transferred: true,
-        },
-      });
+      try {
+        await postData(`cashier/transfer_order?locale=${locale}`, formData);
+        toast.success(t("OrderTransferredSuccessfully"));
 
-      // إجبار المتصفح على التحديث لضمان قراءة المكونات الأخرى للقيم الجديدة من الـ storage
-      window.location.reload(); 
+        // ✅ التعديل الأساسي: تحديث بيانات الطاولة الجديدة فوراً لضمان ظهورها في الواجهة
+        sessionStorage.setItem("table_id", table.id);
+        sessionStorage.setItem("table_number", table.table_number); // تحديث رقم الطاولة (مثل M-4)
 
-    } catch (err) {
-      toast.error(err.response?.data?.message || t("FailedtotransfertablePleasetryagain"));
-    }
-  } else {
-    // 🟢 الحالة العادية (فتح طاولة جديدة)
-    const prepStatus = sessionStorage.getItem("preparation_num_status");
+        // تحديث اسم الصالة إذا كان متاحاً
+        const hallName = table.location_name || selectedLocation?.name || "";
+        if (hallName) {
+          sessionStorage.setItem("hall_name", hallName);
+        }
 
-    if (prepStatus === "1") {
-      setPendingTableSelection(table);
-      setShowPreparationModal(true);
+        // ✅ مسح بيانات التحويل المؤقتة
+        [
+          "transfer_cart_ids",
+          "transfer_first_cart_id",
+          "transfer_source_table_id",
+          "transfer_pending",
+        ].forEach((k) => sessionStorage.removeItem(k));
+
+        // ✅ الانتقال مع تمرير البيانات في الـ state كدعم إضافي
+        navigate("/order-page", {
+          state: {
+            order_type: "dine_in",
+            table_id: table.id,
+            table_number: table.table_number,
+            transferred: true,
+          },
+        });
+
+        // إجبار المتصفح على التحديث لضمان قراءة المكونات الأخرى للقيم الجديدة من الـ storage
+        window.location.reload();
+
+      } catch (err) {
+        toast.error(err.response?.data?.message || t("FailedtotransfertablePleasetryagain"));
+      }
     } else {
-      proceedToOrderPage(table, null);
+      // 🟢 الحالة العادية (فتح طاولة جديدة)
+      const prepStatus = sessionStorage.getItem("preparation_num_status");
+
+      if (prepStatus === "1") {
+        setPendingTableSelection(table);
+        setShowPreparationModal(true);
+      } else {
+        proceedToOrderPage(table, null);
+      }
     }
-  }
-};
-  const MergedTableCard = ({ table, onStatusChange }) => {
+  };
+  const MergedTableCard = ({ table, onStatusChange ,handleSplit }) => {
     const transferPending =
       sessionStorage.getItem("transfer_pending") === "true";
     const isSource =
       transferPending &&
       sessionStorage.getItem("transfer_source_table_id") ===
-        table.id.toString();
+      table.id.toString();
     return (
       <div
         className={`
@@ -406,16 +421,16 @@ const handleSelectTable = async (table) => {
           <Link size={10} />
           <span className="font-bold">{t("MergedTable")}</span>
         </div>
-<div className="text-center mb-2">
-  <div className="text-lg font-bold text-purple-800">
-    {table.table_number}
-  </div>
-  <div className="text-xs flex flex-col items-center justify-center gap-1">
-    <div className="flex items-center gap-1"><Users size={10} /> {table.capacity}</div>
-    {/* عرض التوقيت للطاولة المدمجة الأساسية إذا وجد */}
-    {table.current_status !== "available" && <LiveTimer startTime={table.start_timer} />}
-  </div>
-</div>
+        <div className="text-center mb-2">
+          <div className="text-lg font-bold text-purple-800">
+            {table.table_number}
+          </div>
+          <div className="text-xs flex flex-col items-center justify-center gap-1">
+            <div className="flex items-center gap-1"><Users size={10} /> {table.capacity}</div>
+            {/* عرض التوقيت للطاولة المدمجة الأساسية إذا وجد */}
+            {table.current_status !== "available" && <LiveTimer startTime={table.start_timer} />}
+          </div>
+        </div>
         <div className="grid grid-cols-2 gap-1 text-xs mb-2">
           {table.subTables.map((sub) => (
             <div
@@ -431,6 +446,20 @@ const handleSelectTable = async (table) => {
             </div>
           ))}
         </div>
+<div className="absolute top-1 right-1 flex gap-1 z-20">
+  <button
+    onClick={(e) => {
+      e.stopPropagation(); 
+      if (handleSplit) {
+        handleSplit(table.id);
+      }
+    }}
+    className="bg-red-500 text-white p-1 rounded hover:bg-red-600 transition-colors shadow-sm" 
+    title={t("SplitTable")}
+  >
+    <Scissors size={12} />
+  </button>
+</div>
         <CustomStatusSelect
           table={table}
           statusOptions={statusOptions}
@@ -449,19 +478,20 @@ const handleSelectTable = async (table) => {
       </div>
     );
   };
-  const TableCard = ({ table }) => {
+  const TableCard = ({ table ,handleSplit }) => {
     const transferPending =
       sessionStorage.getItem("transfer_pending") === "true";
     const isSource =
       transferPending &&
       sessionStorage.getItem("transfer_source_table_id") ===
-        table.id.toString();
+      table.id.toString();
     const { putData: putStatusChange } = usePut();
     const dynamicStatusOptions = statusOptions.filter((opt) =>
       opt.value === "reserved"
         ? ["available", "reserved"].includes(table.current_status)
         : true
     );
+    const isSelectedForMerge = selectedTablesList.includes(table.id);
     const handleStatusChange = async (status) => {
       try {
         await putStatusChange(
@@ -472,12 +502,12 @@ const handleSelectTable = async (table) => {
       } catch (err) {
 
         toast.error(err.response?.data?.errors || "Failed");
-        console.log(err.response?.data?.errors )
+        console.log(err.response?.data?.errors)
       }
     };
     if (table.isMerged) {
       return (
-        <MergedTableCard table={table} onStatusChange={handleStatusChange} />
+        <MergedTableCard table={table} onStatusChange={handleStatusChange} handleSplit={handleSplit} />
       );
     }
     return (
@@ -491,21 +521,34 @@ const handleSelectTable = async (table) => {
           ${transferPending && !isSource ? "ring-2 ring-green-400" : ""}
           hover:shadow-md
           ${transferLoading ? "opacity-50 pointer-events-none" : ""}
+          ${isSelectedForMerge ? "ring-4 ring-purple-600 scale-95" : ""}
         `}
         onClick={() => !transferLoading && handleSelectTable(table)}
       >
-<div className="text-2xl font-bold mb-1">{table.table_number}</div>
-<div className="flex flex-col items-center justify-center gap-1 text-sm mb-2">
-  <div className="flex items-center gap-1">
-    <Users size={14} />
-    <span>{table.capacity}</span>
-  </div>
-  
-  {/* عرض العداد إذا كانت الطاولة غير متاحة (بها زبائن) */}
-  {table.current_status !== "available" && table.start_timer && (
-    <LiveTimer startTime={table.start_timer} />
-  )}
-</div>
+        <div className="text-2xl font-bold mb-1">{table.table_number}</div>
+        <div className="flex flex-col items-center justify-center gap-1 text-sm mb-2">
+          <div className="flex items-center gap-1">
+            <Users size={14} />
+            <span>{table.capacity}</span>
+          </div>
+
+          {/* عرض العداد إذا كانت الطاولة غير متاحة (بها زبائن) */}
+          {table.current_status !== "available" && table.start_timer && (
+            <LiveTimer startTime={table.start_timer} />
+          )}
+        </div>
+        <div className="absolute top-1 right-1 flex gap-1">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              handleSplit(table.id); // استدعاء دالة الفصل
+            }}
+            className="bg-red-500 text-white p-1 rounded hover:bg-red-600 transition-colors"
+            title={t("SplitTable")}
+          >
+            <Scissors size={12} />
+          </button>
+        </div>
         <CustomStatusSelect
           table={table}
           statusOptions={dynamicStatusOptions}
@@ -539,9 +582,8 @@ const handleSelectTable = async (table) => {
   if (error) {
     return (
       <div
-        className={`p-8 text-center text-red-600 bg-red-50 rounded-lg shadow-md max-w-lg mx-auto mt-10 ${
-          isArabic ? "text-right" : "text-left"
-        }`}
+        className={`p-8 text-center text-red-600 bg-red-50 rounded-lg shadow-md max-w-lg mx-auto mt-10 ${isArabic ? "text-right" : "text-left"
+          }`}
         dir={isArabic ? "rtl" : "ltr"}
       >
         <p className="font-semibold">{t("Failedtoloadtables")}</p>
@@ -552,53 +594,53 @@ const handleSelectTable = async (table) => {
     );
   }
   const LiveTimer = ({ startTime }) => {
-  const [elapsed, setElapsed] = useState("");
+    const [elapsed, setElapsed] = useState("");
 
-  useEffect(() => {
-    if (!startTime) return;
+    useEffect(() => {
+      if (!startTime) return;
 
-    const calculateTime = () => {
-      const start = new Date(startTime.replace(/-/g, "/")); // لضمان التوافق مع كل المتصفحات
-      const now = new Date();
-      const diffInMs = Math.abs(now - start);
+      const calculateTime = () => {
+        const start = new Date(startTime.replace(/-/g, "/")); // لضمان التوافق مع كل المتصفحات
+        const now = new Date();
+        const diffInMs = Math.abs(now - start);
 
-      const hours = Math.floor(diffInMs / (1000 * 60 * 60));
-      const minutes = Math.floor((diffInMs % (1000 * 60 * 60)) / (1000 * 60));
-      const seconds = Math.floor((diffInMs % (1000 * 60)) / 1000);
+        const hours = Math.floor(diffInMs / (1000 * 60 * 60));
+        const minutes = Math.floor((diffInMs % (1000 * 60 * 60)) / (1000 * 60));
+        const seconds = Math.floor((diffInMs % (1000 * 60)) / 1000);
 
-      // تنسيق العرض: 01:25:05
-      const display = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-      setElapsed(display);
-    };
+        // تنسيق العرض: 01:25:05
+        const display = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+        setElapsed(display);
+      };
 
-    calculateTime(); // حساب فوري عند التحميل
-    const timer = setInterval(calculateTime, 1000); // تحديث كل ثانية
+      calculateTime(); // حساب فوري عند التحميل
+      const timer = setInterval(calculateTime, 1000); // تحديث كل ثانية
 
-    return () => clearInterval(timer);
-  }, [startTime]);
+      return () => clearInterval(timer);
+    }, [startTime]);
 
-  return startTime ? (
-    <div className="flex items-center justify-center gap-1 text-[10px] font-mono bg-black/10 rounded px-1 mt-1 text-gray-700">
-      <Clock size={10} />
-      <span>{elapsed}</span>
-    </div>
-  ) : null;
-};
+    return startTime ? (
+      <div className="flex items-center justify-center gap-1 text-[10px] font-mono bg-black/10 rounded px-1 mt-1 text-gray-700">
+        <Clock size={10} />
+        <span>{elapsed}</span>
+      </div>
+    ) : null;
+  };
   return (
     <div className="w-full bg-gray-50 p-4" dir={isArabic ? "rtl" : "ltr"}>
-                    <ToastContainer
-                position="top-right"
-                autoClose={3000}
-                hideProgressBar={false}
-                newestOnTop={false}
-                closeOnClick
-                rtl={false}
-               style={{ zIndex: 999999 }}
-                pauseOnFocusLoss
-                draggable
-                pauseOnHover
-                theme="light"
-              />
+      <ToastContainer
+        position="top-right"
+        autoClose={3000}
+        hideProgressBar={false}
+        newestOnTop={false}
+        closeOnClick
+        rtl={false}
+        style={{ zIndex: 999999 }}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+        theme="light"
+      />
       {/* 🟢 Preparation Number Modal */}
       <PreparationNumberModal
         isOpen={showPreparationModal}
@@ -618,13 +660,21 @@ const handleSelectTable = async (table) => {
           <p className="text-gray-500 text-sm mt-1">
             {sessionStorage.getItem("transfer_pending") === "true"
               ? t("SelectTableToTransferFrom", {
-                  sourceTableId: sessionStorage.getItem(
-                    "transfer_source_table_id"
-                  ),
-                })
+                sourceTableId: sessionStorage.getItem(
+                  "transfer_source_table_id"
+                ),
+              })
               : t("SelectTableToStartOrder")}
           </p>
         </div>
+        <TableManagementActions
+          selectedTables={selectedTablesList}
+          setSelectedTables={setSelectedTablesList}
+          isSelectionMode={isSelectionMode}
+          setIsSelectionMode={setIsSelectionMode}
+          onSuccess={refetch}
+          setSplitHandler={setHandleSplitFromActions}
+        />
         {locations.length > 0 ? (
           <Tabs
             value={selectedLocationId?.toString()}
@@ -638,7 +688,7 @@ const handleSelectTable = async (table) => {
                   value={loc.id.toString()}
                   className="text-xs data-[state=active]:bg-bg-primary data-[state=active]:text-white rounded-md"
                 >
-{t(loc.name) || loc.name}
+                  {t(loc.name) || loc.name}
                 </TabsTrigger>
               ))}
             </TabsList>
@@ -652,7 +702,7 @@ const handleSelectTable = async (table) => {
                   {tablesToDisplay.length > 0 ? (
                     <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10 gap-3 auto-rows-min">
                       {tablesToDisplay.map((table) => (
-                        <TableCard key={table.id} table={table} />
+                        <TableCard key={table.id} table={table} handleSplit={handleSplitFromActions}/>
                       ))}
                     </div>
                   ) : (
@@ -673,6 +723,6 @@ const handleSelectTable = async (table) => {
 
     </div>
   );
-  
+
 };
 export default Dine;
