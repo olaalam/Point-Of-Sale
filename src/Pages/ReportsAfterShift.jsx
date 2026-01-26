@@ -21,10 +21,10 @@ const SectionHeader = ({ icon: Icon, title }) => (
     {title}
   </h3>
 );
-  const userData = JSON.parse(sessionStorage.getItem("user") || "{}");
+const userData = JSON.parse(sessionStorage.getItem("user") || "{}");
 
-  const canShowTax = Number(userData.total_tax) === 1;
-  const canShowService = Number(userData.service_fees) === 1;
+const canShowTax = Number(userData.total_tax) === 1;
+const canShowService = Number(userData.service_fees) === 1;
 // ─── بطاقة إحصائية مبسطة ───
 const CompactStatCard = ({ icon: Icon, title, value }) => (
   <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
@@ -41,6 +41,8 @@ const CompactStatCard = ({ icon: Icon, title, value }) => (
 // ─── مكون تقرير الطباعة المنفصل ───
 const PrintableReport = React.forwardRef(({ reportData, t, formatAmount, isArabic }, ref) => {
   const { shift, financial_accounts, totals, stats } = reportData;
+
+  
   const showFullReport = reportData.report_role === "all";
 
   const netCashInDrawer = ((reportData.total_amount || 0));
@@ -332,25 +334,56 @@ const PrintableReport = React.forwardRef(({ reportData, t, formatAmount, isArabi
             );
           })}
           {/* إضافة الضرائب والخدمة في الطباعة */}
-{canShowTax && (
-  <div className="print-row">
-    <span>{t("TotalTax")}:</span>
-    <strong>{formatAmount(reportData.total_tax)}</strong>
-  </div>
-)}
+          {canShowTax && (
+            <div className="print-row">
+              <span>{t("TotalTax")}:</span>
+              <strong>{formatAmount(reportData.total_tax)}</strong>
+            </div>
+          )}
 
-{canShowService && (
-  <div className="print-row">
-    <span>{t("ServiceFees")}:</span>
-    <strong>{formatAmount(reportData.service_fees)}</strong>
-  </div>
-)}
+          {canShowService && (
+            <div className="print-row">
+              <span>{t("ServiceFees")}:</span>
+              <strong>{formatAmount(reportData.service_fees)}</strong>
+            </div>
+          )}
           <div className="print-divider" />
           <div className="print-row" style={{ fontSize: '12px', fontWeight: 'bold' }}>
             <span>{t("TotalCashInShift")}</span>
             <span>{formatAmount(totals?.grand_total)}</span>
           </div>
         </div>
+        {/* ─── إحصائيات الموديولات (group_modules) ─── */}
+        {reportData?.group_modules && reportData.group_modules.length > 0 && (
+          <div className="mt-6 pt-4 border-t border-gray-200">
+            <SectionHeader icon={FaFileInvoiceDollar} title={t("ModulesStatistics")} />
+            <div className="grid grid-cols-1 gap-3">
+              {reportData.group_modules.map((mod, index) => (
+                <div key={index} className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-sm font-medium text-gray-600">
+                      {mod.module ? t(mod.module) : t("GeneralSales")}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-xs text-gray-500">{t("TotalAmount")}</p>
+                      <p className="text-lg font-bold text-green-600">
+                        {formatAmount(mod.amount)}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500">{t("DueAmount")}</p>
+                      <p className="text-lg font-bold text-red-600">
+                        {formatAmount(mod.due)}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
         {/* Void Orders Section in Print */}
         {reportData.void_order_count > 0 && (
           <div className="print-section">
@@ -475,14 +508,7 @@ const PrintableReport = React.forwardRef(({ reportData, t, formatAmount, isArabi
               </div>
             )}
 
-            {/* Net Cash */}
-            <div className="print-total-box">
-              <div style={{ fontSize: '11px', marginBottom: '6px' }}>✅ {t("NetCashInDrawer")}</div>
-              <div className="print-total-value">{formatAmount(netCashInDrawer)}</div>
-              <div style={{ fontSize: '9px', marginTop: '4px', opacity: 0.8 }}>
-                ({t("TotalCashInShift")})
-              </div>
-            </div>
+
           </>
         )}
 
@@ -503,7 +529,7 @@ export default function EndShiftReportModal({ reportData, onClose, onConfirmClos
   const { t, i18n } = useTranslation();
   const isArabic = i18n.language === "ar";
   const printRef = useRef(null);
-  
+
 
 
   useEffect(() => {
@@ -596,7 +622,6 @@ export default function EndShiftReportModal({ reportData, onClose, onConfirmClos
           )}
 
           {/* ─── الحسابات المالية ─── */}
-          {/* ─── الحسابات المالية مع التفاصيل ─── */}
           <div className="space-y-4 mb-6 pt-4 border-t border-gray-100">
             <SectionHeader icon={FaMoneyBillWave} title={t("FinancialSummary")} />
 
@@ -673,27 +698,27 @@ export default function EndShiftReportModal({ reportData, onClose, onConfirmClos
                 );
               })}
             </div>
-            
-{/* إجمالي النقدية في الشيفت والحسابات الإضافية */}
-<div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-4 border-t border-gray-100">
-  {/* عرض الضريبة فقط إذا كانت الصلاحية 1 */}
-  {canShowTax && (
-    <div className="flex justify-between p-3 bg-gray-50 rounded-md border border-gray-200">
-      <span className="text-xs text-gray-600">{t("TotalTax")}</span>
-      <span className="text-sm font-bold text-gray-800">{formatAmount(reportData.total_tax)}</span>
-    </div>
-  )}
 
-  {/* عرض الخدمة فقط إذا كانت الصلاحية 1 */}
-  {canShowService && (
-    <div className="flex justify-between p-3 bg-gray-50 rounded-md border border-gray-200">
-      <span className="text-xs text-gray-600">{t("ServiceFees")}</span>
-      <span className="text-sm font-bold text-gray-800">{formatAmount(reportData.service_fees)}</span>
-    </div>
-  )}
-</div>
+            {/* إجمالي النقدية في الشيفت والحسابات الإضافية */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-4 border-t border-gray-100">
+              {/* عرض الضريبة فقط إذا كانت الصلاحية 1 */}
+              {canShowTax && (
+                <div className="flex justify-between p-3 bg-gray-50 rounded-md border border-gray-200">
+                  <span className="text-xs text-gray-600">{t("TotalTax")}</span>
+                  <span className="text-sm font-bold text-gray-800">{formatAmount(reportData.total_tax)}</span>
+                </div>
+              )}
 
-    {/* الصف القديم الخاص بالإجمالي (إذا أردت تفعيله)
+              {/* عرض الخدمة فقط إذا كانت الصلاحية 1 */}
+              {canShowService && (
+                <div className="flex justify-between p-3 bg-gray-50 rounded-md border border-gray-200">
+                  <span className="text-xs text-gray-600">{t("ServiceFees")}</span>
+                  <span className="text-sm font-bold text-gray-800">{formatAmount(reportData.service_fees)}</span>
+                </div>
+              )}
+            </div>
+
+            {/* الصف القديم الخاص بالإجمالي (إذا أردت تفعيله)
     {totals && (
       <div className="pt-2">
         <div className="flex justify-between items-center p-4 bg-gray-900 text-white rounded-lg text-lg font-bold">
@@ -705,6 +730,38 @@ export default function EndShiftReportModal({ reportData, onClose, onConfirmClos
       </div>
     )} */}
           </div>
+          {/* ─── مبيعات الموديولات في الطباعة ─── */}
+          {stats?.group_modules && stats.group_modules.length > 0 && (
+            <div style={{ marginTop: '15px', borderTop: '1px dashed #000', paddingTop: '10px' }}>
+              <h4 style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '8px', textAlign: 'center' }}>
+                {t("ModulesStatistics")}
+              </h4>
+              <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid #000' }}>
+                    <th style={{ textAlign: 'right', padding: '4px' }}>{t("Module")}</th>
+                    <th style={{ textAlign: 'center', padding: '4px' }}>{t("Amount")}</th>
+                    <th style={{ textAlign: 'left', padding: '4px' }}>{t("Due")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {stats.group_modules.map((mod, index) => (
+                    <tr key={index}>
+                      <td style={{ padding: '4px', textAlign: 'right' }}>
+                        {mod.module ? t(mod.module) : t("GeneralSales")}
+                      </td>
+                      <td style={{ padding: '4px', textAlign: 'center' }}>
+                        {formatAmount(mod.amount)}
+                      </td>
+                      <td style={{ padding: '4px', textAlign: 'left' }}>
+                        {formatAmount(mod.due)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
 
           {/* ─── الأقسام الكاملة (تظهر فقط في all) ─── */}
           {showFullReport && (
