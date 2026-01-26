@@ -478,10 +478,11 @@ ${moduleLine}
 
   <!-- Service Fees -->
   ${Number(receiptData.serviceFees) > 0 && design.services === 1
-      ? `<div class="totals-row">
-         <span>${isArabic ? "رسوم الخدمة" : "Service Fees"}</span>
-         <span>${Number(receiptData.serviceFees).toFixed(2)}</span>
-       </div>`
+      ? `
+       <div style="display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 13px;">
+    <span>${receiptData?.serviceTitle}:</span>
+    <span>${Number(receiptData.serviceFees).toFixed(2)}</span>
+  </div>`
       : ""
     }
 
@@ -1042,6 +1043,7 @@ export const prepareReceiptData = (
   return {
     invoiceNumber: response?.order_id || response?.order_number,
     serviceFees: Number(response?.service_fees || response?.service_fee || 0),
+    serviceTitle: response?.service_fees_title,
     table_number:
       response?.table_number || sessionStorage.getItem("table_number") || "N/A",
     dateFormatted: dateFormatted,
