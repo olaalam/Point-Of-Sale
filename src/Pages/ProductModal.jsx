@@ -21,8 +21,8 @@ const isSizeVariation = (variation) => {
   return name.includes('size') || name.includes('حجم') || name.includes('maqas') || name.includes('مقاس'); 
 };
 
-// --- 2. دالة حساب السعر المعدلة ---
-// 1. دالة حساب السعر
+
+
 export const calculateProductTotalPrice = (
   baseProduct,
   selectedVariation = {},
@@ -32,7 +32,7 @@ export const calculateProductTotalPrice = (
 ) => {
   const isWeightProduct = productType === "weight" || baseProduct.weight_status === 1;
 
-  // السعر الأساسي
+  // 1. السعر الأساسي الابتدائي
   let mainPrice = parseFloat(baseProduct.final_price || baseProduct.price_after_discount || baseProduct.price || 0);
 
   if (baseProduct.variations && Object.keys(selectedVariation).length > 0) {
@@ -40,41 +40,33 @@ export const calculateProductTotalPrice = (
       const selected = selectedVariation[variation.id];
       if (selected !== undefined) {
         
-        // --- Single Selection ---
         if (variation.type === 'single') {
           const opt = variation.options?.find(o => o.id === selected);
           if (opt) {
-            // هل ده حجم (Size)؟
-            if (isSizeVariation(variation)) {
-              // لو حجم، خد السعر النهائي بتاعه واستبدل السعر الأصلي
-              const sizePrice = parseFloat(opt.final_price ?? opt.total_option_price ?? opt.price_after_tax ?? 0);
-              if (sizePrice > 0) mainPrice = sizePrice;
+            // --- المنطق الجديد هنا ---
+            // إذا كان الخيار يحتوي على سعر كلي (total_option_price) نعتبره هو السعر الأساسي الجديد
+            const totalOptPrice = parseFloat(opt.total_option_price || 0);
+            
+            if (totalOptPrice > 0) {
+              // استبدال السعر الأساسي بسعر الخيار (مثل: 300 أو 350 في السوشي)
+              mainPrice = totalOptPrice;
+            } else if (isSizeVariation(variation)) {
+               // Fallback للأحجام لو السعر موجود في final_price
+               const sizePrice = parseFloat(opt.final_price || opt.price_after_tax || 0);
+               if (sizePrice > 0) mainPrice = sizePrice;
             } else {
-              // لو مش حجم (زي Your Choice)، دور على "price" الأول لأنه بيمثل الزيادة
-              // لو "price" بصفر، يبقى الزيادة صفر.
-              let extraCost = 0;
-              if (opt.price !== undefined && opt.price !== null) {
-                extraCost = parseFloat(opt.price);
-              } else {
-                // Fallback لو مفيش price
-                extraCost = parseFloat(opt.final_price ?? 0);
-                // حماية: لو سعر الإضافة هو هو سعر المنتج، غالباً دي مش إضافة، دي داتا متكررة
-                if (extraCost === mainPrice) extraCost = 0; 
-              }
-              mainPrice += extraCost;
+              // لو مجرد خيار عادي (إضافة إجبارية مثلاً) بنزود الـ price
+              mainPrice += parseFloat(opt.price || 0);
             }
           }
         } 
         
-        // --- Multiple Selection ---
         else if (variation.type === 'multiple') {
           const arr = Array.isArray(selected) ? selected : [selected];
           arr.forEach(id => {
             const opt = variation.options?.find(o => o.id === id);
             if (opt) {
-               // في المتعدد بنعتمد على ال price كزيادة
-               let extraCost = parseFloat(opt.price ?? opt.final_price ?? 0);
-               mainPrice += extraCost;
+               mainPrice += parseFloat(opt.price || opt.final_price || 0);
             }
           });
         }
@@ -82,18 +74,14 @@ export const calculateProductTotalPrice = (
     });
   }
 
-  // حساب الإضافات (Extras)
+  // 2. حساب الإضافات (Extras & Addons)
   let extrasPrice = 0;
   if (selectedExtras?.length > 0) {
-    const counts = {};
-    selectedExtras.forEach(id => { counts[id] = (counts[id] || 0) + 1; });
-    Object.entries(counts).forEach(([idStr, count]) => {
-      const id = parseInt(idStr);
+    selectedExtras.forEach(id => {
       let item = baseProduct.allExtras?.find(e => e.id === id) ||
                  baseProduct.addons?.find(a => a.id === id);
       if (item) {
-        const price = parseFloat(item.final_price || item.price || 0);
-        extrasPrice += price * count;
+        extrasPrice += parseFloat(item.final_price || item.price || 0);
       }
     });
   }
@@ -195,24 +183,19 @@ const { t , i18n } = useTranslation();
   
 
 const getVariationOptionDisplay = (option, variation) => {
-    // نحدد السعر اللي هنعرضه بناءً على نوع الفاريشن
-    let priceToDisplay = 0;
+  let priceToDisplay = 0;
 
-    if (isSizeVariation(variation)) {
-      // لو حجم، اعرض السعر النهائي
-      priceToDisplay = parseFloat(option.final_price ?? option.total_option_price ?? 0);
-      return `${option.name} (${priceToDisplay.toFixed(2)} ${t("EGP")})`;
-    } else {
-      // لو مش حجم، اعرض سعر الزيادة (price)
-      priceToDisplay = parseFloat(option.price ?? 0);
-      
-      // لو الزيادة 0، اعرض الاسم بس (أو كلمة Free)
-      if (priceToDisplay === 0) {
-        return option.name;
-      }
-      return `${option.name} (+${priceToDisplay.toFixed(2)} ${t("EGP")})`;
-    }
-  };
+  // إذا كان هناك سعر كلي للخيار، نعرضه كقيمة مطلقة
+  if (option.total_option_price > 0 || isSizeVariation(variation)) {
+    priceToDisplay = parseFloat(option.total_option_price || option.final_price || 0);
+    return `${option.name} (${priceToDisplay.toFixed(2)} ${t("EGP")})`;
+  } else {
+    // لو مجرد زيادة (Add-on variation)
+    priceToDisplay = parseFloat(option.price ?? 0);
+    if (priceToDisplay === 0) return option.name;
+    return `${option.name} (+${priceToDisplay.toFixed(2)} ${t("EGP")})`;
+  }
+};
   const handleWeightChange = (e) => {
     const value = e.target.value;
     if (value === '' || /^\d*\.?\d*$/.test(value)) {
