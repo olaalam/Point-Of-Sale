@@ -156,12 +156,12 @@ const confirmVoidItem = async (
     setBulkStatus,
     setSelectedItems
   ) => {
-    if (!bulkStatus || selectedItems.length === 0 || !tableId) {
-      toast.warning(
-        t("PleaseselectitemschooseastatusandensureaTableIDisset")
-      );
-      return;
-    }
+    // if (!bulkStatus || selectedItems.length === 0 || !tableId) {
+    //   toast.warning(
+    //     t("PleaseselectitemschooseastatusandensureaTableIDisset")
+    //   );
+    //   return;
+    // }
 
     const itemsToUpdate = orderItems.filter((item) =>
       selectedItems.includes(item.temp_id)
