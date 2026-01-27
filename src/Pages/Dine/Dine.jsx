@@ -400,7 +400,7 @@ const Dine = () => {
       }
     }
   };
-  const MergedTableCard = ({ table, onStatusChange ,handleSplit }) => {
+  const MergedTableCard = ({ table, onStatusChange, handleSplit }) => {
     const transferPending =
       sessionStorage.getItem("transfer_pending") === "true";
     const isSource =
@@ -443,23 +443,24 @@ const Dine = () => {
               <div className="flex items-center justify-center gap-0.5">
                 <Users size={8} /> {sub.capacity}
               </div>
+              
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (handleSplit) {
+                     handleSplit(sub.id);
+                    }
+                  }}
+                  className="bg-red-500 text-white p-1 rounded hover:bg-red-600 transition-colors shadow-sm"
+                  title={t("SplitTable")}
+                >
+                  <Scissors size={12} />
+                </button>
+              
             </div>
           ))}
         </div>
-<div className="absolute top-1 right-1 flex gap-1 z-20">
-  <button
-    onClick={(e) => {
-      e.stopPropagation(); 
-      if (handleSplit) {
-        handleSplit(table.id);
-      }
-    }}
-    className="bg-red-500 text-white p-1 rounded hover:bg-red-600 transition-colors shadow-sm" 
-    title={t("SplitTable")}
-  >
-    <Scissors size={12} />
-  </button>
-</div>
+
         <CustomStatusSelect
           table={table}
           statusOptions={statusOptions}
@@ -478,7 +479,7 @@ const Dine = () => {
       </div>
     );
   };
-  const TableCard = ({ table ,handleSplit }) => {
+  const TableCard = ({ table, handleSplit }) => {
     const transferPending =
       sessionStorage.getItem("transfer_pending") === "true";
     const isSource =
@@ -541,7 +542,7 @@ const Dine = () => {
           <button
             onClick={(e) => {
               e.stopPropagation();
-              handleSplit(table.id); // استدعاء دالة الفصل
+              handleSplit(sub.id); // استدعاء دالة الفصل
             }}
             className="bg-red-500 text-white p-1 rounded hover:bg-red-600 transition-colors"
             title={t("SplitTable")}
@@ -702,7 +703,7 @@ const Dine = () => {
                   {tablesToDisplay.length > 0 ? (
                     <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 xl:grid-cols-10 gap-3 auto-rows-min">
                       {tablesToDisplay.map((table) => (
-                        <TableCard key={table.id} table={table} handleSplit={handleSplitFromActions}/>
+                        <TableCard key={table.id} table={table} handleSplit={handleSplitFromActions} />
                       ))}
                     </div>
                   ) : (
