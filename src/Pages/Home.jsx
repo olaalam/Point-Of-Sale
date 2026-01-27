@@ -52,6 +52,7 @@ export default function Home() {
   // ✅ FIXED: Handle repeated orders from SinglePage and Delivery
   useEffect(() => {
     const { state: locationState } = location;
+    sessionStorage.removeItem("cart");
 
     // إذا جاي من repeated order (من SinglePage أو Delivery)
     if (locationState?.repeatedOrder && locationState?.tabValue === "take_away") {

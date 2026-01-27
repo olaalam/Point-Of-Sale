@@ -174,6 +174,7 @@ useEffect(() => {
 
     sessionStorage.setItem("tab", value);
     sessionStorage.setItem("order_type", value);
+    sessionStorage.removeItem("cart");
 
     if (value === "take_away") {
       sessionStorage.removeItem("table_id");
