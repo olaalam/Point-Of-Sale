@@ -125,12 +125,14 @@ export default function Item({ onAddToOrder, onClose }) {
   // 3. جلب البيانات الأساسية
   const allModulesEndpoint = useMemo(() => {
     return `captain/lists?branch_id=${branchIdState}&locale=${i18n.language}&module=${orderType}`;
-  }, [branchIdState, i18n.language]);
+  }, [branchIdState, i18n.language, orderType]);
   const { data: allModulesData, isLoading: isAllDataLoading } = useQuery({
-    queryKey: ["allData", branchIdState, i18n.language],
+    queryKey: ["allData", branchIdState, i18n.language, orderType],
     queryFn: () => apiFetcher(allModulesEndpoint),
     enabled: !!branchIdState,
-    staleTime: 5 * 60 * 1000,
+    staleTime: 0,           
+    gcTime: 0,              
+    refetchOnMount: true,
   });
   const finalCategories = useMemo(() => {
     if (isNormalPrice || selectedGroup === "all")
