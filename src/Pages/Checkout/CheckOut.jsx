@@ -506,7 +506,7 @@ const CheckOut = ({
     const hasDealItems = safeOrderItems.some((item) => item.is_deal);
     const endpoint = getOrderEndpoint(orderType, safeOrderItems, totalDineInItems, hasDealItems);
     const financialsPayload = buildFinancialsPayload(paymentSplits, financialAccounts);
-    const moduleId = sessionStorage.getItem("module_id");
+    const moduleId = sessionStorage.getItem("last_selected_group");
 
     let payload;
     if (hasDealItems) {

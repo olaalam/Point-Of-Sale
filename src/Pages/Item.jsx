@@ -276,6 +276,7 @@ export default function Item({ onAddToOrder, onClose }) {
           total_discount: "0.00",
           source: "web",
           products: [processedItem],
+          module_id: selectedGroup || null,
         };
         try {
           const response = await postOrder("cashier/dine_in_order", payload, {
