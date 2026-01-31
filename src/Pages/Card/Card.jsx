@@ -307,14 +307,15 @@ export default function Card({
           bulkStatus={bulkStatus}
           setBulkStatus={setBulkStatus}
           selectedItems={selectedItems}
-          onApplyStatus={() =>
+          onApplyStatus={(statusOverride) => {
+            const finalStatus = typeof statusOverride === 'string' ? statusOverride : bulkStatus;
             orderActions.applyBulkStatus(
               selectedItems,
-              bulkStatus,
+              finalStatus,
               setBulkStatus,
               setSelectedItems
-            )
-          }
+            );
+          }}
           onTransferOrder={(selected) => orderActions.handleTransferOrder(selected)}
           isLoading={apiLoading}
           currentLowestStatus={calculations.currentLowestSelectedStatus}

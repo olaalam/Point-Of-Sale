@@ -33,21 +33,14 @@ export default function BulkActionsBar({
   const [isOpen, setIsOpen] = useState(false);
 const [isCaptainModalOpen, setIsCaptainModalOpen] = useState(false);
   // دالة لتنفيذ حالة "Preparing" مباشرة
-  const handleQuickPrepare = () => {
-    setBulkStatus("preparing");
-    // ننتظر قليلاً للتأكد من تحديث الحالة ثم ننفذ الأكشن
-    setTimeout(() => {
-      onApplyStatus();
-    }, 0);
-  };
-
-    const handleQuickDone = () => {
-    setBulkStatus("done");
-    // ننتظر قليلاً للتأكد من تحديث الحالة ثم ننفذ الأكشن
-    setTimeout(() => {
-      onApplyStatus();
-    }, 0);
-  };
+const handleQuickPrepare = () => {
+  setBulkStatus("preparing"); 
+  onApplyStatus("preparing"); // نرسل الحالة مباشرة للدالة لضمان التنفيذ الفوري
+};
+const handleQuickDone = () => {
+  setBulkStatus("done");
+  onApplyStatus("done"); // نرسل الحالة مباشرة
+};
 
 
   const handleConfirmTransfer = () => {
