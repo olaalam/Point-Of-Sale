@@ -43,9 +43,9 @@ const PrintableReport = React.forwardRef(({ reportData, t, formatAmount, isArabi
   const { shift, financial_accounts, totals, stats } = reportData;
 
 
-  
 
-  
+
+
   const showFullReport = reportData.report_role === "all";
 
   const netCashInDrawer = ((reportData.total_amount || 0));
@@ -307,6 +307,12 @@ const PrintableReport = React.forwardRef(({ reportData, t, formatAmount, isArabi
 
             return (
               <div key={acc.financial_id} style={{ marginBottom: '8px', border: '1px solid #333', padding: '6px' }}>
+                {/* الفجوة المالية في الطباعة */}
+                <div className="print-row" style={{ marginTop: '20px', padding: '10px', border: '1px solid #000' }}>
+                  <span>الفجوة المالية (Gap): </span>
+                  <span>{formatAmount(reportData?.gap || 0)}</span>
+                </div>
+
                 <div className="print-row" style={{ fontWeight: 'bold', borderBottom: 'none' }}>
                   <span>{acc.financial_name}</span>
                   <span>{formatAmount(total)}</span>
@@ -356,25 +362,50 @@ const PrintableReport = React.forwardRef(({ reportData, t, formatAmount, isArabi
             <span>{formatAmount(reportData?.net_cash_drawer)}</span>
           </div>
         </div>
+
+
         {/* ─── إحصائيات الموديولات (group_modules) ─── */}
-{/* قسم مبيعات المنصات (طلبات، مرسول، إلخ) */}
-{reportData?.group_modules && (
-  <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-100">
-    <h3 className="font-bold text-gray-800 mb-2 flex items-center gap-2">
-      <FaShoppingCart className="text-blue-600" />
-      مبيعات المنصات
-    </h3>
-    <div className="space-y-2">
-      {reportData.group_modules.map((mod, index) => (
-        <div key={index} className="flex justify-between text-sm border-b border-blue-200 pb-1">
-          <span className="font-medium text-gray-700">{mod.module}</span>
-          <span className="font-bold text-blue-700">{formatAmount(mod.amount)}</span>
-          <span className="font-bold text-blue-700">{formatAmount(mod.due)}</span>
-        </div>
-      ))}
-    </div>
-  </div>
-)}
+        {/* قسم مبيعات المنصات (طلبات، مرسول، إلخ) */}
+        {reportData?.group_modules && (
+          <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-100">
+            <h3 className="font-bold text-gray-800 mb-2 flex items-center gap-2">
+              <FaShoppingCart className="text-blue-600" />
+              مبيعات المنصات
+            </h3>
+            <div className="space-y-2">
+              {reportData.group_modules.map((mod, index) => (
+                <div key={index} className="flex justify-between text-sm border-b border-blue-200 pb-1">
+                  <span className="font-medium text-gray-700">{mod.module}</span>
+                  <span className="font-bold text-blue-700">{formatAmount(mod.amount)}</span>
+                  <span className="font-bold text-blue-700">{formatAmount(mod.due)}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* إحصائيات القاعات في الطباعة */}
+        {reportData?.hall_orders && (
+          <div style={{ marginTop: '20px' }}>
+            <h3 style={{ borderBottom: '1px solid #000' }}>إحصائيات القاعات</h3>
+            <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '10px' }}>
+              <thead>
+                <tr>
+                  <th style={{ border: '1px solid #000', padding: '5px' }}>القاعة</th>
+                  <th style={{ border: '1px solid #000', padding: '5px' }}>عدد الطلبات</th>
+                </tr>
+              </thead>
+              <tbody>
+                {reportData.hall_orders.map(hall => (
+                  <tr key={hall.hall_id}>
+                    <td style={{ border: '1px solid #000', padding: '5px' }}>{hall.hall_name}</td>
+                    <td style={{ border: '1px solid #000', padding: '5px', textAlign: 'center' }}>{hall.order_count}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
         {/* Void Orders Section in Print */}
         {reportData.void_order_count > 0 && (
           <div className="print-section">
@@ -634,6 +665,12 @@ export default function EndShiftReportModal({ reportData, onClose, onConfirmClos
                     key={acc.financial_id}
                     className="border border-gray-200 rounded-lg overflow-hidden bg-white shadow-sm"
                   >
+                    <div className={`flex justify-between space-4 p-3 rounded-lg border ${reportData?.gap >= 0 ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+                      <span className="text-sm text-gray-600 font-medium">{t("ShiftGap")}</span>
+                      <span className={`text-xl font-bold ${reportData?.gap >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                        {formatAmount(reportData?.gap || 0)}
+                      </span>
+                    </div>
                     {/* الصف الرئيسي للحساب */}
                     <div className="p-4 bg-gradient-to-r from-gray-50 to-gray-100 flex justify-between items-center">
                       <div className="flex items-center gap-3">
@@ -652,6 +689,7 @@ export default function EndShiftReportModal({ reportData, onClose, onConfirmClos
                           {formatAmount(total)}
                         </p>
                       </div>
+
                     </div>
 
                     {/* التفاصيل الفرعية (Dine In, Take Away, Delivery) */}
@@ -711,14 +749,14 @@ export default function EndShiftReportModal({ reportData, onClose, onConfirmClos
 
             {/* الصف القديم الخاص بالإجمالي (إذا أردت تفعيله) */}
 
-      <div className="pt-2">
-        <div className="flex justify-between items-center p-4 bg-gray-900 text-white rounded-lg text-lg font-bold">
-          <span>{t("TotalCashInShift")}</span>
-          <span className="text-2xl">
-            {formatAmount(reportData.net_cash_drawer)}
-          </span>
-        </div>
-      </div>
+            <div className="pt-2">
+              <div className="flex justify-between items-center p-4 bg-gray-900 text-white rounded-lg text-lg font-bold">
+                <span>{t("TotalCashInShift")}</span>
+                <span className="text-2xl">
+                  {formatAmount(reportData.net_cash_drawer)}
+                </span>
+              </div>
+            </div>
           </div>
           {/* ─── مبيعات الموديولات في الطباعة ─── */}
           {reportData?.group_modules && (
@@ -750,6 +788,22 @@ export default function EndShiftReportModal({ reportData, onClose, onConfirmClos
                   ))}
                 </tbody>
               </table>
+            </div>
+          )}
+          {/* ─── إضافة قسم إحصائيات القاعات (Hall Orders) ─── */}
+          {reportData?.hall_orders && (
+            <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm mt-4">
+              <SectionHeader icon={FaShoppingCart} title={t("HallOrdersStats") || "إحصائيات القاعات"} />
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                {reportData.hall_orders.map((hall) => (
+                  <div key={hall.hall_id} className="p-3 bg-gray-50 rounded-lg border border-gray-100 flex justify-between items-center">
+                    <span className="text-sm font-medium text-gray-700">{hall.hall_name}</span>
+                    <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full text-xs font-bold">
+                      {hall.order_count}
+                    </span>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 
