@@ -166,15 +166,25 @@ useEffect(() => {
       .padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
   };
 
-  const handleTabChange = (value) => {
+const handleTabChange = (value) => {
     if (!permissions[value.replace("-", "_")]) {
       toast.warn(t("You do not have permission for this section"));
       return;
     }
 
+    // ✅ التعديل هنا: لا تمسح السلة إذا كانت تحتوي على بيانات "تكرار الطلب"
+    // نتحقق من وجود علامة repeatedOrder في الـ sessionStorage أو الـ state
+    const isRepeated = sessionStorage.getItem("is_repeating_order") === "true";
+
     sessionStorage.setItem("tab", value);
     sessionStorage.setItem("order_type", value);
-    sessionStorage.removeItem("cart");
+    
+    if (!isRepeated) {
+      sessionStorage.removeItem("cart");
+    } else {
+      // بعد ما ضمنا إننا مش هنمسحها، نشيل العلامة عشان المرات الجاية يمسح عادي
+      sessionStorage.removeItem("is_repeating_order");
+    }
 
     if (value === "take_away") {
       sessionStorage.removeItem("table_id");
@@ -190,7 +200,6 @@ useEffect(() => {
       navigate("/online-orders", { replace: true });
     }
   };
-
   const handleTables = () => {
     if (!permissions.dine_in) {
       toast.warn(t("You do not have permission for tables"));

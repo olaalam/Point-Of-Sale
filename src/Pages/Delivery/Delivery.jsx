@@ -269,7 +269,7 @@ const handleRepeatOrder = (order) => {
   sessionStorage.removeItem("order_type");
   sessionStorage.removeItem("table_id");
   sessionStorage.removeItem("delivery_user_id");
-  
+  sessionStorage.setItem("is_repeating_order", "true");
   // Set new order data
   sessionStorage.setItem("cart", JSON.stringify(mappedItems));
   sessionStorage.setItem("order_type", "take_away");
