@@ -83,46 +83,34 @@ const CheckOut = ({
     "captain/discount_list"
   );
   // === QZ Tray Connection ===
-  useEffect(() => {
-    qz.security.setCertificatePromise(function (resolve, reject) {
-      fetch("/point-of-sale/digital-certificate.txt")
-        .then((response) => response.text())
+useEffect(() => {
+  // 1. Certificate
+  qz.security.setCertificatePromise((resolve, reject) => {
+    fetch("/point-of-sale/digital-certificate.txt")
+      .then((response) => response.text())
+      .then(resolve)
+      .catch(reject);
+  });
+
+  qz.security.setSignatureAlgorithm("SHA512");
+
+  // 2. Signature (The Fix)
+  qz.security.setSignaturePromise((toSign) => {
+    return (resolve, reject) => {
+      fetch(`${baseUrl}api/sign-qz-request?request=${toSign}`)
+        .then((res) => res.text())
         .then(resolve)
         .catch(reject);
-    });
-
-    qz.security.setSignatureAlgorithm("SHA512");
-
-    qz.security.setSignaturePromise(function (toSign) {
-      return function (resolve, reject) {
-        const apiUrl = `${baseUrl}api/sign-qz-request?request=${toSign}`;
-
-        fetch(apiUrl)
-          .then((response) => {
-            if (!response.ok) {
-              throw new Error(`Server returned ${response.status}`);
-            }
-            return response.text();
-          })
-          .then(resolve)
-          .catch(reject);
-      };
-    });
-
-    qz.websocket
-      .connect()
-      .then(() => {
-        console.log("✅ Connected to QZ Tray");
-      })
-      .catch((err) => {
-        console.error("❌ QZ Tray connection error:", err);
-        toast.error(t("QZTrayNotRunning"));
-      });
-
-    return () => {
-      qz.websocket.disconnect();
     };
-  }, []);
+  });
+
+  // 3. Connect
+  if (!qz.websocket.isActive()) {
+    qz.websocket.connect()
+      .then(() => console.log("✅ Connected to QZ Tray"))
+      .catch((err) => console.error("❌ Connection error:", err));
+  }
+}, [baseUrl]);
 
   const { data: deliveryData } = useGet("cashier/delivery_lists");
   const { postData } = usePost();

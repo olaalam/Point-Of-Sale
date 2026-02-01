@@ -540,6 +540,8 @@ export default function Card({
           onCheckout={() => setIsCheckoutVisible(prev => !prev)}
           selectedDiscountId={selectedDiscountId}
           freeDiscount={freeDiscount}
+          setSelectedDiscountId={setSelectedDiscountId}
+          setFreeDiscount={setFreeDiscount}
         />
       )}
 
