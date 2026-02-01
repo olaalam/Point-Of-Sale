@@ -1,13 +1,5 @@
 //page for product card component that displays product details and allows adding to order (products div)
 import React, { useState } from "react";
-import {
-  Dialog,
-  DialogTrigger,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog";
 import { useTranslation } from "react-i18next";
 
 const ProductCard = ({ product, onAddToOrder, onOpenModal }) => {
@@ -45,7 +37,7 @@ const ProductCard = ({ product, onAddToOrder, onOpenModal }) => {
           className="w-full h-32 object-cover"
         />
         <div className="px-3">
-          <h3 className="text-base font-semibold text-gray-800 truncate">
+          <h3 className="text-base font-semibold text-gray-800 ">
             {product.name}
           </h3>
         </div>
