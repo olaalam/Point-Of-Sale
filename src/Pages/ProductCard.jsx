@@ -43,12 +43,27 @@ const ProductCard = ({ product, onAddToOrder, onOpenModal }) => {
         </div>
       </div>
 
-      {/* Price Section - النسخة المصححة */}
+{/* Price Section - التعامل مع الضريبة والخصم */}
       <div className="px-3">
         <div className="mt-1 text-sm font-bold text-bg-primary">
-          {hasRealDiscount ? (
+          {/* شرط: الضريبة مستبعدة وقيمتها أكبر من صفر */}
+          {product.taxes === "excluded" && Number(product.tax_val) > 0 ? (
+            <div className="flex flex-col">
+              <div className="flex items-center gap-1">
+                <span className="text-gray-400 text-xs line-through font-normal">
+                  {Number(product.price).toFixed(2)} {t("EGP")}
+                </span>
+                <span className="text-[10px] text-gray-400 font-normal">({t("BeforeTax")})</span>
+              </div>
+              <div className="text-bg-primary">
+                {Number(product.final_price).toFixed(2)} {t("EGP")}
+                <span className="text-[10px] ml-1 font-normal">({t("AfterTax")})</span>
+              </div>
+            </div>
+          ) : hasRealDiscount ? (
+            // حالة وجود خصم
             <>
-              <span className="text-red-600 line-through mr-1">
+              <span className="text-red-600 line-through mr-1 font-normal">
                 {originalPrice.toFixed(2)} {t("EGP")}
               </span>
               <span>
@@ -56,6 +71,7 @@ const ProductCard = ({ product, onAddToOrder, onOpenModal }) => {
               </span>
             </>
           ) : (
+            // السعر العادي (لو الضريبة 0 أو مشمولة)
             <span>
               {Number(product.final_price).toFixed(2)} {t("EGP")}
             </span>
