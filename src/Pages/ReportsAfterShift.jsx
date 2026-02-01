@@ -11,7 +11,7 @@ import {
   FaDollarSign,
   FaCheckCircle,
   FaPrint,
-  FaBan
+  FaBan,
 } from "react-icons/fa";
 
 // ─── ترويسة موحدة لأقسام التقرير ───
@@ -39,29 +39,50 @@ const CompactStatCard = ({ icon: Icon, title, value }) => (
 );
 
 // ─── مكون تقرير الطباعة المنفصل ───
-const PrintableReport = React.forwardRef(({ reportData, t, formatAmount, isArabic }, ref) => {
-  const { shift, financial_accounts, totals, stats } = reportData;
+const PrintableReport = React.forwardRef(
+  ({ reportData, t, formatAmount, isArabic }, ref) => {
+    const { shift, financial_accounts, totals, stats } = reportData;
 
+    const showFullReport = reportData.report_role === "all";
 
+    const netCashInDrawer = reportData.total_amount || 0;
 
+    // ✅ نفس المنطق من الـ UI الأصلي
+    const orderTypes = [
+      {
+        key: "dine_in",
+        label: t("DineIn"),
+        icon: "🍽️",
+        data: reportData.dine_in,
+      },
+      {
+        key: "take_away",
+        label: t("TakeAway"),
+        icon: "🥡",
+        data: reportData.take_away,
+      },
+      {
+        key: "delivery",
+        label: t("Delivery"),
+        icon: "🚗",
+        data: reportData.delivery,
+      },
+      {
+        key: "online",
+        label: t("OnlineOrders"),
+        icon: "💻",
+        data: reportData.online_order,
+      },
+    ];
 
-
-  const showFullReport = reportData.report_role === "all";
-
-  const netCashInDrawer = ((reportData.total_amount || 0));
-
-  // ✅ نفس المنطق من الـ UI الأصلي
-  const orderTypes = [
-    { key: "dine_in", label: t("DineIn"), icon: "🍽️", data: reportData.dine_in },
-    { key: "take_away", label: t("TakeAway"), icon: "🥡", data: reportData.take_away },
-    { key: "delivery", label: t("Delivery"), icon: "🚗", data: reportData.delivery },
-    { key: "online", label: t("OnlineOrders"), icon: "💻", data: reportData.online_order },
-  ];
-
-  return (
-    <div ref={ref} className="print-report-container" style={{ display: 'none' }}>
-      <style>
-        {`
+    return (
+      <div
+        ref={ref}
+        className="print-report-container"
+        style={{ display: "none" }}
+      >
+        <style>
+          {`
   @media print {
     @page {
       size: A4;
@@ -103,7 +124,7 @@ const PrintableReport = React.forwardRef(({ reportData, t, formatAmount, isArabi
     .print-table td {
       border: 1px solid #333 !important;
       padding: 6px 8px !important;
-      text-align: ${isArabic ? 'right' : 'left'} !important;
+      text-align: ${isArabic ? "right" : "left"} !important;
     }
 
     .print-table th {
@@ -266,293 +287,423 @@ const PrintableReport = React.forwardRef(({ reportData, t, formatAmount, isArabi
     }
   }
 `}
-      </style>
+        </style>
 
-      <div className="print-wrapper">
-        {/* Header */}
-        <div className="print-header">
-          <div className="print-title">📋 {t("EndShiftReport")}</div>
-          <div style={{ fontSize: '10px', marginTop: '4px' }}>
-            {new Date().toLocaleDateString(isArabic ? 'ar-EG' : 'en-US')} - {new Date().toLocaleTimeString(isArabic ? 'ar-EG' : 'en-US', { hour: '2-digit', minute: '2-digit' })}
-          </div>
-        </div>
-
-        {/* Shift Info */}
-        {showFullReport && shift && (
-          <div className="print-section">
-            <div className="print-section-title">📊 {t("ShiftInfo")}</div>
-            <div className="print-row">
-              <span>{t("Employee")}:</span>
-              <strong>{shift.employee_name}</strong>
-            </div>
-            <div className="print-row">
-              <span>{t("ShiftDuration")}:</span>
-              <strong>{shift.duration}</strong>
-            </div>
-            <div className="print-row">
-              <span>{t("TotalOrders")}:</span>
-              <strong>{reportData?.order_count || 0}</strong>
-            </div>
-          </div>
-        )}
-
-        {/* Financial Accounts */}
-        <div className="print-section">
-          <div className="print-section-title">💰 {t("FinancialSummary")}</div>
-          {financial_accounts?.map((acc) => {
-            const total =
-              (acc.total_amount_dine_in || 0) +
-              (acc.total_amount_take_away || 0) +
-              (acc.total_amount_delivery || 0);
-
-            return (
-              <div key={acc.financial_id} style={{ marginBottom: '8px', border: '1px solid #333', padding: '6px' }}>
-                {/* الفجوة المالية في الطباعة */}
-                <div className="print-row" style={{ marginTop: '20px', padding: '10px', border: '1px solid #000' }}>
-                  <span>الفجوة المالية (Gap): </span>
-                  <span>{formatAmount(reportData?.gap || 0)}</span>
-                </div>
-
-                <div className="print-row" style={{ fontWeight: 'bold', borderBottom: 'none' }}>
-                  <span>{acc.financial_name}</span>
-                  <span>{formatAmount(total)}</span>
-                </div>
-                {(acc.total_amount_dine_in > 0 || acc.total_amount_take_away > 0 || acc.total_amount_delivery > 0) && (
-                  <div style={{ fontSize: '9px', marginTop: '4px', paddingTop: '4px', borderTop: '1px dashed #ccc' }}>
-                    {acc.total_amount_dine_in > 0 && (
-                      <div className="print-row" style={{ padding: '2px 0' }}>
-                        <span>Dine In</span>
-                        <span>{formatAmount(acc.total_amount_dine_in)}</span>
-                      </div>
-                    )}
-                    {acc.total_amount_take_away > 0 && (
-                      <div className="print-row" style={{ padding: '2px 0' }}>
-                        <span>Take Away</span>
-                        <span>{formatAmount(acc.total_amount_take_away)}</span>
-                      </div>
-                    )}
-                    {acc.total_amount_delivery > 0 && (
-                      <div className="print-row" style={{ padding: '2px 0' }}>
-                        <span>Delivery</span>
-                        <span>{formatAmount(acc.total_amount_delivery)}</span>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-          {/* إضافة الضرائب والخدمة في الطباعة */}
-          {canShowTax && (
-            <div className="print-row">
-              <span>{t("TotalTax")}:</span>
-              <strong>{formatAmount(reportData.total_tax)}</strong>
-            </div>
-          )}
-
-          {canShowService && (
-            <div className="print-row">
-              <span>{t("ServiceFees")}:</span>
-              <strong>{formatAmount(reportData.service_fees)}</strong>
-            </div>
-          )}
-          <div className="print-divider" />
-          <div className="print-row" style={{ fontSize: '12px', fontWeight: 'bold' }}>
-            <span>{t("TotalCashInShift")}</span>
-            <span>{formatAmount(reportData?.net_cash_drawer)}</span>
-          </div>
-        </div>
-
-
-        {/* ─── إحصائيات الموديولات (group_modules) ─── */}
-        {/* قسم مبيعات المنصات (طلبات، مرسول، إلخ) */}
-        {reportData?.group_modules && (
-          <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-100">
-            <h3 className="font-bold text-gray-800 mb-2 flex items-center gap-2">
-              <FaShoppingCart className="text-blue-600" />
-              مبيعات المنصات
-            </h3>
-            <div className="space-y-2">
-              {reportData.group_modules.map((mod, index) => (
-                <div key={index} className="flex justify-between text-sm border-b border-blue-200 pb-1">
-                  <span className="font-medium text-gray-700">{mod.module}</span>
-                  <span className="font-bold text-blue-700">{formatAmount(mod.amount)}</span>
-                  <span className="font-bold text-blue-700">{formatAmount(mod.due)}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* إحصائيات القاعات في الطباعة */}
-        {reportData?.hall_orders && (
-          <div style={{ marginTop: '20px' }}>
-            <h3 style={{ borderBottom: '1px solid #000' }}>إحصائيات القاعات</h3>
-            <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '10px' }}>
-              <thead>
-                <tr>
-                  <th style={{ border: '1px solid #000', padding: '5px' }}>القاعة</th>
-                  <th style={{ border: '1px solid #000', padding: '5px' }}>عدد الطلبات</th>
-                </tr>
-              </thead>
-              <tbody>
-                {reportData.hall_orders.map(hall => (
-                  <tr key={hall.hall_id}>
-                    <td style={{ border: '1px solid #000', padding: '5px' }}>{hall.hall_name}</td>
-                    <td style={{ border: '1px solid #000', padding: '5px', textAlign: 'center' }}>{hall.order_count}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-        {/* Void Orders Section in Print */}
-        {reportData.void_order_count > 0 && (
-          <div className="print-section">
-            <div className="print-section-title">🚫 {t("VoidOrders")}</div>
-            <table className="print-void-table">
-              <thead>
-                <tr>
-                  <th>{t("VoidOrdersCount")}</th>
-                  <th>{t("VoidOrdersTotal")}</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr className="print-void-total">
-                  <td>{reportData.void_order_count}</td>
-                  <td>-{formatAmount(reportData.void_order_sum)}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {/* Orders by Type with Payment Methods */}
-        {showFullReport && (
-          <>
-            <div className="print-section">
-              <div className="print-section-title">🛒 {t("OrdersSummaryByType")}</div>
-
-              {orderTypes.map((type) => {
-                let typeTotal = 0;
-                let typeCount = 0;
-                let paymentMethods = [];
-
-                // ✅ نفس المنطق من الـ UI
-                if (type.key === "online") {
-                  const paid = type.data?.paid || [];
-                  const unpaid = type.data?.un_paid || [];
-                  typeCount = paid.length + unpaid.length;
-                  const allPayments = [...paid, ...unpaid];
-                  const methodsMap = {};
-
-                  allPayments.forEach(p => {
-                    const methodName = p.payment_method || t("Unknown");
-                    if (!methodsMap[methodName]) {
-                      methodsMap[methodName] = { amount: 0, count: 0 };
-                    }
-                    methodsMap[methodName].amount += p.amount || 0;
-                    methodsMap[methodName].count += 1;
-                    typeTotal += p.amount || 0;
-                  });
-
-                  paymentMethods = Object.entries(methodsMap).map(([name, data]) => ({ name, ...data }));
-                } else {
-                  typeCount = type.data?.count || 0;
-                  typeTotal = type.data?.amount || 0;
-
-                  if (type.data?.financial_accounts) {
-                    paymentMethods = type.data.financial_accounts.map(acc => ({
-                      name: acc.financial_name || acc.payment_method,
-                      amount: acc.total_amount || acc.amount,
-                      count: acc.count || 1
-                    }));
-                  }
-                }
-
-                if (typeCount === 0) return null;
-
-                return (
-                  <div key={type.key} className="print-order-card">
-                    <div className="print-order-header">
-                      <div>
-                        <span style={{ marginRight: '4px' }}>{type.icon}</span>
-                        <strong>{type.label}</strong>
-                        <span style={{ fontSize: '9px', marginLeft: '6px' }}>({typeCount} {t("Orders")})</span>
-                      </div>
-                      <strong>{formatAmount(typeTotal)}</strong>
-                    </div>
-
-                    {paymentMethods.length > 0 && (
-                      <div className="print-payment-breakdown">
-                        {paymentMethods.map((method, idx) => (
-                          <div key={idx} className="print-payment-row">
-                            <span>{method.name}</span>
-                            <span>{formatAmount(method.amount)}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                );
+        <div className="print-wrapper">
+          {/* Header */}
+          <div className="print-header">
+            <div className="print-title">📋 {t("EndShiftReport")}</div>
+            <div style={{ fontSize: "10px", marginTop: "4px" }}>
+              {new Date().toLocaleDateString(isArabic ? "ar-EG" : "en-US")} -{" "}
+              {new Date().toLocaleTimeString(isArabic ? "ar-EG" : "en-US", {
+                hour: "2-digit",
+                minute: "2-digit",
               })}
             </div>
+          </div>
 
-            {/* Expenses */}
-            {reportData.expenses?.length > 0 && (
-              <div className="print-section">
-                <div className="print-section-title">📝 {t("Expenses")}</div>
-                <table className="print-expense-table">
-                  <thead>
-                    <tr>
-                      <th>#</th>
-                      <th>{t("Description")}</th>
-                      <th>{t("Category")}</th>
-                      <th>{t("Amount")}</th>
+          {/* Shift Info */}
+          {showFullReport && shift && (
+            <div className="print-section">
+              <div className="print-section-title">📊 {t("ShiftInfo")}</div>
+              <div className="print-row">
+                <span>{t("Employee")}:</span>
+                <strong>{shift.employee_name}</strong>
+              </div>
+              <div className="print-row">
+                <span>{t("ShiftDuration")}:</span>
+                <strong>{shift.duration}</strong>
+              </div>
+              <div className="print-row">
+                <span>{t("TotalOrders")}:</span>
+                <strong>{reportData?.order_count || 0}</strong>
+              </div>
+            </div>
+          )}
 
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {reportData.expenses.map((exp, idx) => (
-                      <tr key={idx}>
-                        <td>{idx + 1}</td>
-                        <td>{exp.financial_account}</td>
-                        <td>{exp.category || t("N/A")}</td>
-                        <td>-{formatAmount(exp.total, "")}</td>
-                      </tr>
-                    ))}
-                    <tr className="print-expense-total">
-                      <td colSpan="3">{t("TotalExpenses")}</td>
-                      <td>-{formatAmount(reportData.expenses_total)}</td>
-                    </tr>
-                  </tbody>
-                </table>
+          {/* Financial Accounts */}
+          <div className="print-section">
+            <div className="print-section-title">
+              💰 {t("FinancialSummary")}
+            </div>
+            {financial_accounts?.map((acc) => {
+              const total =
+                (acc.total_amount_dine_in || 0) +
+                (acc.total_amount_take_away || 0) +
+                (acc.total_amount_delivery || 0);
+
+              return (
+                <div
+                  key={acc.financial_id}
+                  style={{
+                    marginBottom: "8px",
+                    border: "1px solid #333",
+                    padding: "6px",
+                  }}
+                >
+                  {/* الفجوة المالية في الطباعة */}
+                  <div
+                    className="print-row"
+                    style={{
+                      marginTop: "20px",
+                      padding: "10px",
+                      border: "1px solid #000",
+                    }}
+                  >
+                    <span>الفجوة المالية (Gap): </span>
+                    <span>{formatAmount(reportData?.gap || 0)}</span>
+                  </div>
+
+                  <div
+                    className="print-row"
+                    style={{ fontWeight: "bold", borderBottom: "none" }}
+                  >
+                    <span>{acc.financial_name}</span>
+                    <span>{formatAmount(total)}</span>
+                  </div>
+                  {(acc.total_amount_dine_in > 0 ||
+                    acc.total_amount_take_away > 0 ||
+                    acc.total_amount_delivery > 0) && (
+                    <div
+                      style={{
+                        fontSize: "9px",
+                        marginTop: "4px",
+                        paddingTop: "4px",
+                        borderTop: "1px dashed #ccc",
+                      }}
+                    >
+                      {acc.total_amount_dine_in > 0 && (
+                        <div className="print-row" style={{ padding: "2px 0" }}>
+                          <span>Dine In</span>
+                          <span>{formatAmount(acc.total_amount_dine_in)}</span>
+                        </div>
+                      )}
+                      {acc.total_amount_take_away > 0 && (
+                        <div className="print-row" style={{ padding: "2px 0" }}>
+                          <span>Take Away</span>
+                          <span>
+                            {formatAmount(acc.total_amount_take_away)}
+                          </span>
+                        </div>
+                      )}
+                      {acc.total_amount_delivery > 0 && (
+                        <div className="print-row" style={{ padding: "2px 0" }}>
+                          <span>Delivery</span>
+                          <span>{formatAmount(acc.total_amount_delivery)}</span>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+            {/* إضافة الضرائب والخدمة في الطباعة */}
+            {canShowTax && (
+              <div className="print-row">
+                <span>{t("TotalTax")}:</span>
+                <strong>{formatAmount(reportData.total_tax)}</strong>
               </div>
             )}
 
+            {canShowService && (
+              <div className="print-row">
+                <span>{t("ServiceFees")}:</span>
+                <strong>{formatAmount(reportData.service_fees)}</strong>
+              </div>
+            )}
+            <div className="print-divider" />
+            <div
+              className="print-row"
+              style={{ fontSize: "12px", fontWeight: "bold" }}
+            >
+              <span>{t("TotalCashInShift")}</span>
+              <span>{formatAmount(reportData?.net_cash_drawer)}</span>
+            </div>
+          </div>
 
-          </>
-        )}
+          {/* ─── إحصائيات الموديولات (group_modules) ─── */}
+          {/* قسم مبيعات المنصات (طلبات، مرسول، إلخ) */}
+          {reportData?.group_modules && (
+            <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-100">
+              <h3 className="font-bold text-gray-800 mb-2 flex items-center gap-2">
+                <FaShoppingCart className="text-blue-600" />
+                مبيعات المنصات
+              </h3>
+              <div className="space-y-2">
+                {reportData.group_modules.map((mod, index) => (
+                  <div
+                    key={index}
+                    className="flex justify-between text-sm border-b border-blue-200 pb-1"
+                  >
+                    <span className="font-medium text-gray-700">
+                      {mod.module}
+                    </span>
+                    <span className="font-bold text-blue-700">
+                      {formatAmount(mod.amount)}
+                    </span>
+                    <span className="font-bold text-blue-700">
+                      {formatAmount(mod.due)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
-        {/* Footer */}
-        <div className="print-footer">
-          <div>━━━━━━━━━━━━━━━━━━━━</div>
-          <div style={{ margin: '4px 0' }}>🙏 {t("ThankYou") || "شكراً لكم"}</div>
-          <div>{t("Powered by Food2Go - food2go.online")}</div>
+          {/* إحصائيات القاعات في الطباعة */}
+          {reportData?.hall_orders && (
+            <div style={{ marginTop: "20px" }}>
+              <h3 style={{ borderBottom: "1px solid #000" }}>
+                إحصائيات القاعات
+              </h3>
+              <table
+                style={{
+                  width: "100%",
+                  borderCollapse: "collapse",
+                  marginTop: "10px",
+                }}
+              >
+                <thead>
+                  <tr>
+                    <th style={{ border: "1px solid #000", padding: "5px" }}>
+                      القاعة
+                    </th>
+                    <th style={{ border: "1px solid #000", padding: "5px" }}>
+                      عدد الطلبات
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {reportData.hall_orders.map((hall) => (
+                    <tr key={hall.hall_id}>
+                      <td style={{ border: "1px solid #000", padding: "5px" }}>
+                        {hall.hall_name}
+                      </td>
+                      <td
+                        style={{
+                          border: "1px solid #000",
+                          padding: "5px",
+                          textAlign: "center",
+                        }}
+                      >
+                        {hall.order_count}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          {/* الجزء الخاص بالطباعة */}
+          {reportData?.captain_order && reportData.captain_order.length > 0 && (
+            <div
+              style={{
+                marginTop: "15px",
+                borderTop: "1px dashed #000",
+                paddingTop: "10px",
+              }}
+            >
+              <h3
+                style={{
+                  fontSize: "14px",
+                  textAlign: "center",
+                  marginBottom: "10px",
+                }}
+              >
+                {t("Captain Orders Summary")}
+              </h3>
+              <table
+                style={{
+                  width: "100%",
+                  fontSize: "12px",
+                  borderCollapse: "collapse",
+                }}
+              >
+                <thead>
+                  <tr style={{ borderBottom: "1px solid #eee" }}>
+                    <th style={{ textAlign: "right" }}>{t("Captain")}</th>
+                    <th style={{ textAlign: "center" }}>{t("Method")}</th>
+                    <th style={{ textAlign: "left" }}>{t("Total")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {reportData.captain_order.map((item, index) => (
+                    <tr
+                      key={index}
+                      style={{ borderBottom: "1px solid #f9f9f9" }}
+                    >
+                      <td style={{ padding: "4px 0" }}>{item.captain?.name}</td>
+                      <td style={{ textAlign: "center" }}>
+                        {item.financial_name}
+                      </td>
+                      <td style={{ textAlign: "left", fontWeight: "bold" }}>
+                        {formatAmount(item.total_financial)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          {/* Void Orders Section in Print */}
+          {reportData.void_order_count > 0 && (
+            <div className="print-section">
+              <div className="print-section-title">🚫 {t("VoidOrders")}</div>
+              <table className="print-void-table">
+                <thead>
+                  <tr>
+                    <th>{t("VoidOrdersCount")}</th>
+                    <th>{t("VoidOrdersTotal")}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr className="print-void-total">
+                    <td>{reportData.void_order_count}</td>
+                    <td>-{formatAmount(reportData.void_order_sum)}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* Orders by Type with Payment Methods */}
+          {showFullReport && (
+            <>
+              <div className="print-section">
+                <div className="print-section-title">
+                  🛒 {t("OrdersSummaryByType")}
+                </div>
+
+                {orderTypes.map((type) => {
+                  let typeTotal = 0;
+                  let typeCount = 0;
+                  let paymentMethods = [];
+
+                  // ✅ نفس المنطق من الـ UI
+                  if (type.key === "online") {
+                    const paid = type.data?.paid || [];
+                    const unpaid = type.data?.un_paid || [];
+                    typeCount = paid.length + unpaid.length;
+                    const allPayments = [...paid, ...unpaid];
+                    const methodsMap = {};
+
+                    allPayments.forEach((p) => {
+                      const methodName = p.payment_method || t("Unknown");
+                      if (!methodsMap[methodName]) {
+                        methodsMap[methodName] = { amount: 0, count: 0 };
+                      }
+                      methodsMap[methodName].amount += p.amount || 0;
+                      methodsMap[methodName].count += 1;
+                      typeTotal += p.amount || 0;
+                    });
+
+                    paymentMethods = Object.entries(methodsMap).map(
+                      ([name, data]) => ({ name, ...data }),
+                    );
+                  } else {
+                    typeCount = type.data?.count || 0;
+                    typeTotal = type.data?.amount || 0;
+
+                    if (type.data?.financial_accounts) {
+                      paymentMethods = type.data.financial_accounts.map(
+                        (acc) => ({
+                          name: acc.financial_name || acc.payment_method,
+                          amount: acc.total_amount || acc.amount,
+                          count: acc.count || 1,
+                        }),
+                      );
+                    }
+                  }
+
+                  if (typeCount === 0) return null;
+
+                  return (
+                    <div key={type.key} className="print-order-card">
+                      <div className="print-order-header">
+                        <div>
+                          <span style={{ marginRight: "4px" }}>
+                            {type.icon}
+                          </span>
+                          <strong>{type.label}</strong>
+                          <span style={{ fontSize: "9px", marginLeft: "6px" }}>
+                            ({typeCount} {t("Orders")})
+                          </span>
+                        </div>
+                        <strong>{formatAmount(typeTotal)}</strong>
+                      </div>
+
+                      {paymentMethods.length > 0 && (
+                        <div className="print-payment-breakdown">
+                          {paymentMethods.map((method, idx) => (
+                            <div key={idx} className="print-payment-row">
+                              <span>{method.name}</span>
+                              <span>{formatAmount(method.amount)}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Expenses */}
+              {reportData.expenses?.length > 0 && (
+                <div className="print-section">
+                  <div className="print-section-title">📝 {t("Expenses")}</div>
+                  <table className="print-expense-table">
+                    <thead>
+                      <tr>
+                        <th>#</th>
+                        <th>{t("Description")}</th>
+                        <th>{t("Category")}</th>
+                        <th>{t("Amount")}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {reportData.expenses.map((exp, idx) => (
+                        <tr key={idx}>
+                          <td>{idx + 1}</td>
+                          <td>{exp.financial_account}</td>
+                          <td>{exp.category || t("N/A")}</td>
+                          <td>-{formatAmount(exp.total, "")}</td>
+                        </tr>
+                      ))}
+                      <tr className="print-expense-total">
+                        <td colSpan="3">{t("TotalExpenses")}</td>
+                        <td>-{formatAmount(reportData.expenses_total)}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Footer */}
+          <div className="print-footer">
+            <div>━━━━━━━━━━━━━━━━━━━━</div>
+            <div style={{ margin: "4px 0" }}>
+              🙏 {t("ThankYou") || "شكراً لكم"}
+            </div>
+            <div>{t("Powered by Food2Go - food2go.online")}</div>
+          </div>
         </div>
       </div>
-    </div>
-  );
-});
-PrintableReport.displayName = 'PrintableReport';
+    );
+  },
+);
+PrintableReport.displayName = "PrintableReport";
 
 // ─── المكون الرئيسي ───
-export default function EndShiftReportModal({ reportData, onClose, onConfirmClose }) {
+export default function EndShiftReportModal({
+  reportData,
+  onClose,
+  onConfirmClose,
+}) {
   const { t, i18n } = useTranslation();
   const isArabic = i18n.language === "ar";
   const printRef = useRef(null);
-
-
 
   useEffect(() => {
     if (reportData && reportData.report_role === "unactive") {
@@ -574,7 +725,7 @@ export default function EndShiftReportModal({ reportData, onClose, onConfirmClos
   };
 
   // إصلاح الحساب بإضافة || 0
-  const netCashInDrawer = ((reportData.total_amount || 0));
+  const netCashInDrawer = reportData.total_amount || 0;
 
   // دالة الطباعة (المعدلة والمبسطة)
   const handlePrint = () => {
@@ -582,13 +733,13 @@ export default function EndShiftReportModal({ reportData, onClose, onConfirmClos
     if (!printContent) return;
 
     // إنشاء نافذة طباعة جديدة
-    const printWindow = window.open('', '_blank', 'width=350,height=600');
+    const printWindow = window.open("", "_blank", "width=350,height=600");
 
     // كتابة محتوى الـ HTML مباشرة من المكون المخفي
     // هذا يضمن أن التصميم الموجود في PrintableReport هو ما سيتم طباعته
     printWindow.document.write(`
       <!DOCTYPE html>
-      <html dir="${isArabic ? 'rtl' : 'ltr'}">
+      <html dir="${isArabic ? "rtl" : "ltr"}">
       <head>
         <meta charset="UTF-8">
         <title>${t("EndShiftReport")}</title>
@@ -618,7 +769,6 @@ export default function EndShiftReportModal({ reportData, onClose, onConfirmClos
         dir={isArabic ? "rtl" : "ltr"}
       >
         <div className="p-6">
-
           {/* ─── العنوان وزر الطباعة ─── */}
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-2xl font-bold text-gray-800">
@@ -630,22 +780,39 @@ export default function EndShiftReportModal({ reportData, onClose, onConfirmClos
               title={t("Print")}
             >
               <FaPrint className="text-lg" />
-              <span className="text-sm font-medium">{t("Print") || "طباعة"}</span>
+              <span className="text-sm font-medium">
+                {t("Print") || "طباعة"}
+              </span>
             </button>
           </div>
 
           {/* ─── معلومات الشيفت العامة ─── */}
           {showFullReport && shift && (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
-              <CompactStatCard icon={FaUser} title={t("Employee")} value={shift.employee_name} />
-              <CompactStatCard icon={FaClock} title={t("ShiftDuration")} value={shift.duration} />
-              <CompactStatCard icon={FaShoppingCart} title={t("TotalOrders")} value={stats?.total_orders ?? 0} />
+              <CompactStatCard
+                icon={FaUser}
+                title={t("Employee")}
+                value={shift.employee_name}
+              />
+              <CompactStatCard
+                icon={FaClock}
+                title={t("ShiftDuration")}
+                value={shift.duration}
+              />
+              <CompactStatCard
+                icon={FaShoppingCart}
+                title={t("TotalOrders")}
+                value={stats?.total_orders ?? 0}
+              />
             </div>
           )}
 
           {/* ─── الحسابات المالية ─── */}
           <div className="space-y-4 mb-6 pt-4 border-t border-gray-100">
-            <SectionHeader icon={FaMoneyBillWave} title={t("FinancialSummary")} />
+            <SectionHeader
+              icon={FaMoneyBillWave}
+              title={t("FinancialSummary")}
+            />
 
             <div className="space-y-4">
               {financial_accounts?.map((acc) => {
@@ -654,20 +821,26 @@ export default function EndShiftReportModal({ reportData, onClose, onConfirmClos
                   (acc.total_amount_take_away || 0) +
                   (acc.total_amount_delivery || 0);
 
-                const hasDetails = total > 0 && (
-                  acc.total_amount_dine_in > 0 ||
-                  acc.total_amount_take_away > 0 ||
-                  acc.total_amount_delivery > 0
-                );
+                const hasDetails =
+                  total > 0 &&
+                  (acc.total_amount_dine_in > 0 ||
+                    acc.total_amount_take_away > 0 ||
+                    acc.total_amount_delivery > 0);
 
                 return (
                   <div
                     key={acc.financial_id}
                     className="border border-gray-200 rounded-lg overflow-hidden bg-white shadow-sm"
                   >
-                    <div className={`flex justify-between space-4 p-3 rounded-lg border ${reportData?.gap >= 0 ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
-                      <span className="text-sm text-gray-600 font-medium">{t("ShiftGap")}</span>
-                      <span className={`text-xl font-bold ${reportData?.gap >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                    <div
+                      className={`flex justify-between space-4 p-3 rounded-lg border ${reportData?.gap >= 0 ? "bg-green-50 border-green-200" : "bg-red-50 border-red-200"}`}
+                    >
+                      <span className="text-sm text-gray-600 font-medium">
+                        {t("ShiftGap")}
+                      </span>
+                      <span
+                        className={`text-xl font-bold ${reportData?.gap >= 0 ? "text-green-700" : "text-red-700"}`}
+                      >
                         {formatAmount(reportData?.gap || 0)}
                       </span>
                     </div>
@@ -678,9 +851,13 @@ export default function EndShiftReportModal({ reportData, onClose, onConfirmClos
                           <FaMoneyBillWave className="text-lg text-green-600" />
                         </div>
                         <div>
-                          <h4 className="font-bold text-gray-800">{acc.financial_name}</h4>
+                          <h4 className="font-bold text-gray-800">
+                            {acc.financial_name}
+                          </h4>
                           {acc.count !== undefined && (
-                            <p className="text-xs text-gray-600">{acc.count} {t("Orders")}</p>
+                            <p className="text-xs text-gray-600">
+                              {acc.count} {t("Orders")}
+                            </p>
                           )}
                         </div>
                       </div>
@@ -689,7 +866,6 @@ export default function EndShiftReportModal({ reportData, onClose, onConfirmClos
                           {formatAmount(total)}
                         </p>
                       </div>
-
                     </div>
 
                     {/* التفاصيل الفرعية (Dine In, Take Away, Delivery) */}
@@ -734,15 +910,21 @@ export default function EndShiftReportModal({ reportData, onClose, onConfirmClos
               {canShowTax && (
                 <div className="flex justify-between p-3 bg-gray-50 rounded-md border border-gray-200">
                   <span className="text-xs text-gray-600">{t("TotalTax")}</span>
-                  <span className="text-sm font-bold text-gray-800">{formatAmount(reportData.total_tax)}</span>
+                  <span className="text-sm font-bold text-gray-800">
+                    {formatAmount(reportData.total_tax)}
+                  </span>
                 </div>
               )}
 
               {/* عرض الخدمة فقط إذا كانت الصلاحية 1 */}
               {canShowService && (
                 <div className="flex justify-between p-3 bg-gray-50 rounded-md border border-gray-200">
-                  <span className="text-xs text-gray-600">{t("ServiceFees")}</span>
-                  <span className="text-sm font-bold text-gray-800">{formatAmount(reportData.service_fees)}</span>
+                  <span className="text-xs text-gray-600">
+                    {t("ServiceFees")}
+                  </span>
+                  <span className="text-sm font-bold text-gray-800">
+                    {formatAmount(reportData.service_fees)}
+                  </span>
                 </div>
               )}
             </div>
@@ -760,28 +942,53 @@ export default function EndShiftReportModal({ reportData, onClose, onConfirmClos
           </div>
           {/* ─── مبيعات الموديولات في الطباعة ─── */}
           {reportData?.group_modules && (
-            <div style={{ marginTop: '15px', borderTop: '1px dashed #000', paddingTop: '10px' }}>
-              <h4 style={{ fontSize: '14px', fontWeight: 'bold', marginBottom: '8px', textAlign: 'center' }}>
+            <div
+              style={{
+                marginTop: "15px",
+                borderTop: "1px dashed #000",
+                paddingTop: "10px",
+              }}
+            >
+              <h4
+                style={{
+                  fontSize: "14px",
+                  fontWeight: "bold",
+                  marginBottom: "8px",
+                  textAlign: "center",
+                }}
+              >
                 {t("ModulesStatistics")}
               </h4>
-              <table style={{ width: '100%', fontSize: '12px', borderCollapse: 'collapse' }}>
+              <table
+                style={{
+                  width: "100%",
+                  fontSize: "12px",
+                  borderCollapse: "collapse",
+                }}
+              >
                 <thead>
-                  <tr style={{ borderBottom: '1px solid #000' }}>
-                    <th style={{ textAlign: 'right', padding: '4px' }}>{t("Module")}</th>
-                    <th style={{ textAlign: 'center', padding: '4px' }}>{t("Amount")}</th>
-                    <th style={{ textAlign: 'left', padding: '4px' }}>{t("Due")}</th>
+                  <tr style={{ borderBottom: "1px solid #000" }}>
+                    <th style={{ textAlign: "right", padding: "4px" }}>
+                      {t("Module")}
+                    </th>
+                    <th style={{ textAlign: "center", padding: "4px" }}>
+                      {t("Amount")}
+                    </th>
+                    <th style={{ textAlign: "left", padding: "4px" }}>
+                      {t("Due")}
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {reportData?.group_modules.map((mod, index) => (
                     <tr key={index}>
-                      <td style={{ padding: '4px', textAlign: 'right' }}>
+                      <td style={{ padding: "4px", textAlign: "right" }}>
                         {mod.module ? t(mod.module) : t("GeneralSales")}
                       </td>
-                      <td style={{ padding: '4px', textAlign: 'center' }}>
+                      <td style={{ padding: "4px", textAlign: "center" }}>
                         {formatAmount(mod.amount)}
                       </td>
-                      <td style={{ padding: '4px', textAlign: 'left' }}>
+                      <td style={{ padding: "4px", textAlign: "left" }}>
                         {formatAmount(mod.due)}
                       </td>
                     </tr>
@@ -793,11 +1000,19 @@ export default function EndShiftReportModal({ reportData, onClose, onConfirmClos
           {/* ─── إضافة قسم إحصائيات القاعات (Hall Orders) ─── */}
           {reportData?.hall_orders && (
             <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm mt-4">
-              <SectionHeader icon={FaShoppingCart} title={t("HallOrdersStats") || "إحصائيات القاعات"} />
+              <SectionHeader
+                icon={FaShoppingCart}
+                title={t("HallOrdersStats") || "إحصائيات القاعات"}
+              />
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                 {reportData.hall_orders.map((hall) => (
-                  <div key={hall.hall_id} className="p-3 bg-gray-50 rounded-lg border border-gray-100 flex justify-between items-center">
-                    <span className="text-sm font-medium text-gray-700">{hall.hall_name}</span>
+                  <div
+                    key={hall.hall_id}
+                    className="p-3 bg-gray-50 rounded-lg border border-gray-100 flex justify-between items-center"
+                  >
+                    <span className="text-sm font-medium text-gray-700">
+                      {hall.hall_name}
+                    </span>
                     <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full text-xs font-bold">
                       {hall.order_count}
                     </span>
@@ -807,23 +1022,77 @@ export default function EndShiftReportModal({ reportData, onClose, onConfirmClos
             </div>
           )}
 
+          {/* ─── قسم طلبات الكابتن Captain Orders ─── */}
+          {reportData?.captain_order && reportData.captain_order.length > 0 && (
+            <div className="mt-6 border-t pt-4">
+              <SectionHeader
+                icon={FaUser}
+                title={t("Captain Orders Financials")}
+              />
+              <div className="space-y-3">
+                {reportData.captain_order.map((item, index) => (
+                  <div
+                    key={index}
+                    className="flex justify-between items-center p-3 bg-blue-50 rounded-lg border border-blue-100"
+                  >
+                    <div>
+                      <p className="font-bold text-gray-800">
+                        {item.captain?.name || t("Unknown Captain")}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {t("Payment Method")}: {item.financial_name} |{" "}
+                        {t("Status")}: {t(item.status_payment)}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-bold text-blue-700">
+                        {formatAmount(item.total_financial)}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* ─── الأقسام الكاملة (تظهر فقط في all) ─── */}
           {showFullReport && (
             <div className="mt-8 space-y-8">
-
               {/* ─── جدول أنواع الطلبات مع التفاصيل المالية ─── */}
               <div>
-                <SectionHeader icon={FaShoppingCart} title={t("OrdersSummaryByType")} />
+                <SectionHeader
+                  icon={FaShoppingCart}
+                  title={t("OrdersSummaryByType")}
+                />
 
                 <div className="space-y-4">
                   {(() => {
                     const orderTypesList = [
-                      { key: "dine_in", label: t("DineIn"), icon: "🍽️", data: reportData.dine_in },
-                      { key: "take_away", label: t("TakeAway"), icon: "🥡", data: reportData.take_away },
-                      { key: "delivery", label: t("Delivery"), icon: "🚗", data: reportData.delivery },
-                      { key: "online", label: t("OnlineOrders"), icon: "💻", data: reportData.online_order },
+                      {
+                        key: "dine_in",
+                        label: t("DineIn"),
+                        icon: "🍽️",
+                        data: reportData.dine_in,
+                      },
+                      {
+                        key: "take_away",
+                        label: t("TakeAway"),
+                        icon: "🥡",
+                        data: reportData.take_away,
+                      },
+                      {
+                        key: "delivery",
+                        label: t("Delivery"),
+                        icon: "🚗",
+                        data: reportData.delivery,
+                      },
+                      {
+                        key: "online",
+                        label: t("OnlineOrders"),
+                        icon: "💻",
+                        data: reportData.online_order,
+                      },
                     ];
-
 
                     return (
                       <>
@@ -840,27 +1109,35 @@ export default function EndShiftReportModal({ reportData, onClose, onConfirmClos
                               const allPayments = [...paid, ...unpaid];
                               const methodsMap = {};
 
-                              allPayments.forEach(p => {
-                                const methodName = p.payment_method || t("Unknown");
+                              allPayments.forEach((p) => {
+                                const methodName =
+                                  p.payment_method || t("Unknown");
                                 if (!methodsMap[methodName]) {
-                                  methodsMap[methodName] = { amount: 0, count: 0 };
+                                  methodsMap[methodName] = {
+                                    amount: 0,
+                                    count: 0,
+                                  };
                                 }
                                 methodsMap[methodName].amount += p.amount || 0;
                                 methodsMap[methodName].count += 1;
                                 typeTotal += p.amount || 0;
                               });
 
-                              paymentMethods = Object.entries(methodsMap).map(([name, data]) => ({ name, ...data }));
+                              paymentMethods = Object.entries(methodsMap).map(
+                                ([name, data]) => ({ name, ...data }),
+                              );
                             } else {
                               typeCount = type.data?.count || 0;
                               typeTotal = type.data?.amount || 0;
 
                               if (type.data?.financial_accounts) {
-                                paymentMethods = type.data.financial_accounts.map(acc => ({
-                                  name: acc.financial_name || acc.payment_method,
-                                  amount: acc.total_amount || acc.amount,
-                                  count: acc.count || 1
-                                }));
+                                paymentMethods =
+                                  type.data.financial_accounts.map((acc) => ({
+                                    name:
+                                      acc.financial_name || acc.payment_method,
+                                    amount: acc.total_amount || acc.amount,
+                                    count: acc.count || 1,
+                                  }));
                               }
                             }
                             if (typeCount === 0) return null;
@@ -875,8 +1152,12 @@ export default function EndShiftReportModal({ reportData, onClose, onConfirmClos
                                   <div className="flex items-center gap-2">
                                     <span className="text-xl">{type.icon}</span>
                                     <div>
-                                      <h4 className="font-semibold text-base text-gray-800">{type.label}</h4>
-                                      <p className="text-xs text-gray-600">{typeCount} {t("Orders")}</p>
+                                      <h4 className="font-semibold text-base text-gray-800">
+                                        {type.label}
+                                      </h4>
+                                      <p className="text-xs text-gray-600">
+                                        {typeCount} {t("Orders")}
+                                      </p>
                                     </div>
                                   </div>
                                   <div className="text-right">
@@ -898,7 +1179,9 @@ export default function EndShiftReportModal({ reportData, onClose, onConfirmClos
                                           key={idx}
                                           className="flex justify-between items-center px-2 py-1 bg-gray-50 rounded-sm text-xs"
                                         >
-                                          <p className="text-gray-700">{method.name}</p>
+                                          <p className="text-gray-700">
+                                            {method.name}
+                                          </p>
                                           <p className="font-medium text-gray-800">
                                             {formatAmount(method.amount)}
                                           </p>
@@ -916,8 +1199,14 @@ export default function EndShiftReportModal({ reportData, onClose, onConfirmClos
                         <div className="mt-4 bg-gray-800 text-white rounded-lg p-5 shadow-md">
                           <div className="flex items-center justify-center">
                             <div>
-                              <p className="text-sm opacity-80 mb-1">{t("TotalAllOrders")}</p>
-                              <p className="text-2xl font-black"> {t("Orders")} {reportData?.order_count || 0} </p>
+                              <p className="text-sm opacity-80 mb-1">
+                                {t("TotalAllOrders")}
+                              </p>
+                              <p className="text-2xl font-black">
+                                {" "}
+                                {t("Orders")}{" "}
+                                {reportData?.order_count || 0}{" "}
+                              </p>
                             </div>
                             {/* <div className="text-right">
                               <p className="text-sm opacity-80 mb-1">{t("TotalAmount")}</p>
@@ -944,8 +1233,12 @@ export default function EndShiftReportModal({ reportData, onClose, onConfirmClos
                     <table className="min-w-full bg-white text-sm">
                       <thead className="bg-red-50 border-b border-gray-300">
                         <tr className="[&>th]:px-4 [&>th]:py-3 [&>th]:font-semibold [&>th]:uppercase text-xs text-gray-700">
-                          <th className="text-center">{t("VoidOrdersCount")}</th>
-                          <th className="text-center">{t("VoidOrdersTotal")} ({t("EGP")})</th>
+                          <th className="text-center">
+                            {t("VoidOrdersCount")}
+                          </th>
+                          <th className="text-center">
+                            {t("VoidOrdersTotal")} ({t("EGP")})
+                          </th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-100">
@@ -973,14 +1266,15 @@ export default function EndShiftReportModal({ reportData, onClose, onConfirmClos
 
                   <div className="overflow-x-auto rounded-xl border border-gray-300 shadow-sm">
                     <table className="min-w-full bg-white text-sm">
-
                       {/* Header */}
                       <thead className="bg-gray-100 border-b border-gray-300">
                         <tr className="[&>th]:px-4 [&>th]:py-3 [&>th]:font-semibold [&>th]:uppercase text-xs text-gray-700">
                           <th className="text-center w-16">#</th>
                           <th className="text-center">{t("Description")}</th>
                           <th className="text-center">{t("Category")}</th>
-                          <th className="text-center">{t("Amount")} ({t("EGP")})</th>
+                          <th className="text-center">
+                            {t("Amount")} ({t("EGP")})
+                          </th>
                         </tr>
                       </thead>
 
@@ -991,7 +1285,9 @@ export default function EndShiftReportModal({ reportData, onClose, onConfirmClos
                             key={idx}
                             className="hover:bg-gray-50 transition-colors duration-150 [&>td]:px-4 [&>td]:py-3"
                           >
-                            <td className="text-center text-gray-700">{idx + 1}</td>
+                            <td className="text-center text-gray-700">
+                              {idx + 1}
+                            </td>
 
                             <td className="text-center font-medium text-gray-800">
                               {exp.financial_account}
@@ -1008,47 +1304,60 @@ export default function EndShiftReportModal({ reportData, onClose, onConfirmClos
 
                         {/* Total Row 👉 الآن مضبوط 100% */}
                         <tr className="bg-gray-800 text-white font-semibold">
-                          <td colSpan={3} className="px-4 py-3 text-center text-base">
+                          <td
+                            colSpan={3}
+                            className="px-4 py-3 text-center text-base"
+                          >
                             {t("TotalExpenses")}
                           </td>
                           <td className="px-4 py-3 text-center text-lg font-bold">
                             {formatAmount(reportData.expenses_total)}
                           </td>
                         </tr>
-
                       </tbody>
                     </table>
                   </div>
                 </div>
               )}
 
-
               {/* ─── الإجمالي النهائي الصافي */}
               <div className="p-5 bg-gray-800 text-white rounded-lg text-center shadow-lg border border-gray-700">
                 <FaCheckCircle className="text-3xl mx-auto mb-2 text-white opacity-90" />
-                <p className="text-lg font-semibold mb-2">{t("NetCashInDrawer")}</p>
+                <p className="text-lg font-semibold mb-2">
+                  {t("NetCashInDrawer")}
+                </p>
                 <p className="text-4xl font-black">
                   {formatAmount(netCashInDrawer)}
                 </p>
                 <p className="text-xs opacity-80 mt-1">
-                  ({t("TotalCashInShift")} - {t("TotalExpenses")} - {t("VoidOrdersTotal")})
+                  ({t("TotalCashInShift")} - {t("TotalExpenses")} -{" "}
+                  {t("VoidOrdersTotal")})
                 </p>
               </div>
 
               {/* ─── إحصائيات إضافية ─── */}
               {stats && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-4 border-t border-gray-100">
-                  <CompactStatCard icon={FaFileInvoiceDollar} title={t("TotalSales")} value={formatAmount(stats.total_amount, "")} />
-                  <CompactStatCard icon={FaDollarSign} title={t("NetCash")} value={formatAmount(stats.net_cash ?? totals?.grand_total, "")} />
+                  <CompactStatCard
+                    icon={FaFileInvoiceDollar}
+                    title={t("TotalSales")}
+                    value={formatAmount(stats.total_amount, "")}
+                  />
+                  <CompactStatCard
+                    icon={FaDollarSign}
+                    title={t("NetCash")}
+                    value={formatAmount(
+                      stats.net_cash ?? totals?.grand_total,
+                      "",
+                    )}
+                  />
                 </div>
               )}
-
             </div>
           )}
 
           {/* ─── الأزرار ─── */}
           <div className="flex gap-3 mt-8 pt-4 border-t border-gray-200">
-
             <button
               onClick={onConfirmClose}
               className="flex-1 py-2.5 bg-gray-800 text-white rounded-lg font-semibold hover:bg-gray-700 transition text-sm"
@@ -1056,7 +1365,6 @@ export default function EndShiftReportModal({ reportData, onClose, onConfirmClos
               {t("ConfirmCloseShift")}
             </button>
           </div>
-
         </div>
       </div>
 
