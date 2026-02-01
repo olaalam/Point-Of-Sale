@@ -417,7 +417,7 @@ const PrintableReport = React.forwardRef(
               style={{ fontSize: "12px", fontWeight: "bold" }}
             >
               <span>{t("TotalCashInShift")}</span>
-              <span>{formatAmount(reportData?.net_cash_drawer)}</span>
+              <span> {formatAmount(netCashInDrawer)}</span>
             </div>
           </div>
 
@@ -680,6 +680,34 @@ const PrintableReport = React.forwardRef(
             </>
           )}
 
+          {/* --- إضافة صافي النقد في الدرج --- */}
+          <div
+            style={{
+              marginTop: "15px",
+              padding: "10px",
+              border: "1px dashed #000",
+              backgroundColor: "#f9f9f9",
+              textAlign: "center",
+            }}
+          >
+            <div style={{ fontSize: "14px", fontWeight: "bold" }}>
+              {t("NetCashInDrawer")} (صافي النقد)
+            </div>
+            <div
+              style={{
+                fontSize: "22px",
+                fontWeight: "black",
+                marginTop: "5px",
+              }}
+            >
+              {formatAmount(reportData?.net_cash_drawer)}
+            </div>
+            <div style={{ fontSize: "10px", marginTop: "4px" }}>
+              ({t("TotalCashInShift")} - {t("TotalExpenses")} -{" "}
+              {t("VoidOrdersTotal")})
+            </div>
+          </div>
+
           {/* Footer */}
           <div className="print-footer">
             <div>━━━━━━━━━━━━━━━━━━━━</div>
@@ -935,7 +963,7 @@ export default function EndShiftReportModal({
               <div className="flex justify-between items-center p-4 bg-gray-900 text-white rounded-lg text-lg font-bold">
                 <span>{t("TotalCashInShift")}</span>
                 <span className="text-2xl">
-                  {formatAmount(reportData.net_cash_drawer)}
+                  {formatAmount(reportData?.total_amount)}
                 </span>
               </div>
             </div>
@@ -1327,7 +1355,7 @@ export default function EndShiftReportModal({
                   {t("NetCashInDrawer")}
                 </p>
                 <p className="text-4xl font-black">
-                  {formatAmount(netCashInDrawer)}
+                  {formatAmount(reportData?.net_cash_drawer)}
                 </p>
                 <p className="text-xs opacity-80 mt-1">
                   ({t("TotalCashInShift")} - {t("TotalExpenses")} -{" "}

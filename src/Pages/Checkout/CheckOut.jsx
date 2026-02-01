@@ -60,7 +60,6 @@ const CheckOut = ({
   const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
   const lastSelectedGroup = sessionStorage.getItem("last_selected_group");
-  const [isCheckoutExpanded, setIsCheckoutExpanded] = useState(false);
   const { data: groupData } = useGet("cashier/group_product");
   const groupProducts = groupData?.group_product || [];
   const [passwordModalOpen, setPasswordModalOpen] = useState(false);
@@ -235,7 +234,6 @@ useEffect(() => {
   const [orderId, setOrderId] = useState(null);
   const [isDueOrder, setIsDueOrder] = useState(false);
   const [discountCode, setDiscountCode] = useState("");
-  const [isCheckingDiscount, setIsCheckingDiscount] = useState(false);
 
   // CheckOut.jsx (الكود بعد التعديل)
   const requiredTotal = useMemo(() => {
