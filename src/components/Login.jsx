@@ -91,9 +91,8 @@ export default function LoginPage() {
         res.data.preparation_num_status
       );
       sessionStorage.setItem("scale", String(res.data.scale || ""));
-sessionStorage.setItem("enter_amount", String(res.data.enter_amount ?? 0));
+      sessionStorage.setItem("enter_amount", String(res.data.cashier.enter_amount ?? 0));
 
-      console.log(res.data.preparation_num_status);
 
       // تخزين صوت الإشعارات
       if (res.data.notification_sound) {
