@@ -150,19 +150,13 @@ const confirmVoidItem = async (
   }
 };
 
-  const applyBulkStatus = async (
+const applyBulkStatus = async (
     selectedItems,
     bulkStatus,
     setBulkStatus,
     setSelectedItems
   ) => {
-    // if (!bulkStatus || selectedItems.length === 0 || !tableId) {
-    //   toast.warning(
-    //     t("PleaseselectitemschooseastatusandensureaTableIDisset")
-    //   );
-    //   return;
-    // }
-
+    // التحقق من وجود عناصر للتحديث
     const itemsToUpdate = orderItems.filter((item) =>
       selectedItems.includes(item.temp_id)
     );
@@ -172,9 +166,12 @@ const confirmVoidItem = async (
       return;
     }
 
+    // تصفية العناصر التي تحتاج لإرسال للباك إند
     const itemsForApi = itemsToUpdate.filter(
       (item) => PREPARATION_STATUSES[bulkStatus]?.canSendToAPI && item.cart_id
     );
+
+    let apiResponse = null; // متغير لحفظ الرد
 
     if (itemsForApi.length > 0) {
       const formData = new FormData();
@@ -189,24 +186,31 @@ const confirmVoidItem = async (
       });
 
       try {
-        await postData("cashier/preparing", formData);
+        // ✅ تعديل: استلام الرد من السيرفر
+        apiResponse = await postData("cashier/preparing", formData);
+        
         toast.success(
           `Successfully updated ${itemsForApi.length} items to ${PREPARATION_STATUSES[bulkStatus].label}`
         );
       } catch (err) {
         toast.error(err.response?.data?.message || t("Failedtoupdatestatus"));
-        return;
+        return null; // توقف في حالة الخطأ
       }
     }
 
+    // تحديث الحالة في الواجهة الأمامية (UI)
     const updatedItems = orderItems.map((item) =>
       selectedItems.includes(item.temp_id)
         ? { ...item, preparation_status: bulkStatus }
         : item
     );
+    
     updateOrderItems(updatedItems);
     setSelectedItems([]);
     setBulkStatus("");
+
+    // ✅ التعديل الأهم: إرجاع الرد لكي تراه دالة الطباعة في BulkActionsBar
+    return apiResponse;
   };
 
 const handleTransferOrder = (selectedTempIds = []) => {

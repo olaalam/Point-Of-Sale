@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/dialog";
 import { PREPARATION_STATUSES, statusOrder } from "./constants";
 import CaptainSelectionModal from "../CaptainSelectionModal";
+import { prepareReceiptData, printReceiptSilently } from "../utils/printReceipt";
 export default function BulkActionsBar({
   bulkStatus,
   setBulkStatus,
@@ -27,16 +28,44 @@ export default function BulkActionsBar({
   isLoading,
   currentLowestStatus,
   t,
+  orderItems,
   captainsData,
   loadingCaptains,
 }) {
   const [isOpen, setIsOpen] = useState(false);
 const [isCaptainModalOpen, setIsCaptainModalOpen] = useState(false);
   // دالة لتنفيذ حالة "Preparing" مباشرة
-const handleQuickPrepare = () => {
-  setBulkStatus("preparing"); 
-  onApplyStatus("preparing"); // نرسل الحالة مباشرة للدالة لضمان التنفيذ الفوري
+const handleQuickPrepare = async () => {
+  setBulkStatus("preparing");
+
+  try {
+    const response = await onApplyStatus("preparing");
+
+    // نتحقق إن السيرفر رد ببيانات المطبخ فعلاً
+    if (response && response.kitchen_items) {
+      
+      // 1. تجهيز بيانات الإيصال الأساسية
+      const receiptData = {
+        table_number: response.table_number || "N/A",
+        orderType: "dine_in",
+        success: response.success,
+        // هنا بنبعت الـ kitchen_items زي ما هي جاية من السيرفر
+        kitchen_items: response.kitchen_items 
+      };
+
+      // 2. استدعاء الطباعة مباشرة
+      // دالة printReceiptSilently هي اللي هتلف جواه وتطبع لكل طابعة الـ IP بتاعها
+      printReceiptSilently(receiptData, response, () => {
+        console.log("✅ تمت عملية إرسال أوامر الطباعة للمطابخ");
+      });
+
+    }
+  } catch (error) {
+    console.error("Print Process Error:", error);
+  }
 };
+
+
 const handleQuickDone = () => {
   setBulkStatus("done");
   onApplyStatus("done"); // نرسل الحالة مباشرة

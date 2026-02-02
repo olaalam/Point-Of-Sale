@@ -306,16 +306,20 @@ export default function Card({
         <BulkActionsBar
           bulkStatus={bulkStatus}
           setBulkStatus={setBulkStatus}
+          orderItems={orderItems}
           selectedItems={selectedItems}
-          onApplyStatus={(statusOverride) => {
-            const finalStatus = typeof statusOverride === 'string' ? statusOverride : bulkStatus;
-            orderActions.applyBulkStatus(
-              selectedItems,
-              finalStatus,
-              setBulkStatus,
-              setSelectedItems
-            );
-          }}
+
+onApplyStatus={async (statusOverride) => {
+      const finalStatus = typeof statusOverride === 'string' ? statusOverride : bulkStatus;
+      
+      // يجب إضافة return و await هنا لضمان وصول البيانات للـ BulkActionsBar
+      return await orderActions.applyBulkStatus(
+        selectedItems,
+        finalStatus,
+        setBulkStatus,
+        setSelectedItems
+      );
+    }}
           onTransferOrder={(selected) => orderActions.handleTransferOrder(selected)}
           isLoading={apiLoading}
           currentLowestStatus={calculations.currentLowestSelectedStatus}
