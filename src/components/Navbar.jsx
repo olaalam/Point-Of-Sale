@@ -13,7 +13,8 @@ import {
   FaDollarSign,
   FaTruck,
   FaBell,
-  FaChevronDown // ✅ جديد للسهم في الجرس
+  FaChevronDown, // ✅ جديد للسهم في الجرس
+  FaUtensils
 } from "react-icons/fa";
 import { useTranslation } from "react-i18next";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -49,8 +50,8 @@ export default function Navbar() {
   const [pendingPassword, setPendingPassword] = useState(""); // الباسورد المؤقت
   const [endShiftReport, setEndShiftReport] = useState(null);
   const [reportLoading, setReportLoading] = useState(false);
-const audioRef = useRef(null);      // ماسك ملف الصوت
-const previousCountRef = useRef(0);
+  const audioRef = useRef(null);      // ماسك ملف الصوت
+  const previousCountRef = useRef(0);
   // ✅ حالة الـ Dropdown للإشعارات
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
@@ -66,21 +67,21 @@ const previousCountRef = useRef(0);
 
   const currentTab = sessionStorage.getItem("tab") || "take_away";
   const isArabic = i18n.language === "ar";
-useEffect(() => {
-  const storedSound = sessionStorage.getItem("notification_sound") || FALLBACK_SOUND;
-  audioRef.current = new Audio(storedSound);
-  audioRef.current.load();
-  
-  // تلميح اختياري: تشغيل صامت عند أول ضغطة للمستخدم لفك حظر الصوت في المتصفح
-  const enableAudio = () => {
+  useEffect(() => {
+    const storedSound = sessionStorage.getItem("notification_sound") || FALLBACK_SOUND;
+    audioRef.current = new Audio(storedSound);
+    audioRef.current.load();
+
+    // تلميح اختياري: تشغيل صامت عند أول ضغطة للمستخدم لفك حظر الصوت في المتصفح
+    const enableAudio = () => {
       audioRef.current.play().then(() => {
-          audioRef.current.pause();
-          audioRef.current.currentTime = 0;
-      }).catch(() => {});
+        audioRef.current.pause();
+        audioRef.current.currentTime = 0;
+      }).catch(() => { });
       window.removeEventListener('click', enableAudio);
-  };
-  window.addEventListener('click', enableAudio);
-}, []);
+    };
+    window.addEventListener('click', enableAudio);
+  }, []);
   // ✅ جلب عدد الإشعارات والطلبات الجديدة بدقة من الـ API
   const { data: notificationsData, refetch: refetchNotifications } = useGet(
     "cashier/orders/notifications",
@@ -91,31 +92,31 @@ useEffect(() => {
   const notifications = notificationsData?.orders || [];
 
   // تحديث العدد من الـ API
-// ده الـ useEffect اللي بيشتغل لما الداتا تيجي من الـ API
-useEffect(() => {
-  if (notificationsData?.orders_count !== undefined) {
-    const newCount = notificationsData.orders_count;
+  // ده الـ useEffect اللي بيشتغل لما الداتا تيجي من الـ API
+  useEffect(() => {
+    if (notificationsData?.orders_count !== undefined) {
+      const newCount = notificationsData.orders_count;
 
-    // اللوجيك الجديد: لو العدد الجديد أكبر من القديم -> شغل الصوت
-    if (newCount > previousCountRef.current) {
-      if (audioRef.current) {
-        // تحديث مصدر الصوت لو اتغير في الـ SessionStorage
-        const currentStoredSound = sessionStorage.getItem("notification_sound") || FALLBACK_SOUND;
-        if (audioRef.current.src !== currentStoredSound) {
+      // اللوجيك الجديد: لو العدد الجديد أكبر من القديم -> شغل الصوت
+      if (newCount > previousCountRef.current) {
+        if (audioRef.current) {
+          // تحديث مصدر الصوت لو اتغير في الـ SessionStorage
+          const currentStoredSound = sessionStorage.getItem("notification_sound") || FALLBACK_SOUND;
+          if (audioRef.current.src !== currentStoredSound) {
             audioRef.current.src = currentStoredSound;
-        }
-        
-        // تشغيل الصوت
-        audioRef.current.play().catch((e) => console.warn("Audio play blocked:", e));
-        toast.info(t("New Order Received!"));
-      }
-    }
+          }
 
-    // تحديث الحالة والـ Ref عشان المقارنة الجاية
-    setNotificationCount(newCount);
-    previousCountRef.current = newCount;
-  }
-}, [notificationsData, t]);
+          // تشغيل الصوت
+          audioRef.current.play().catch((e) => console.warn("Audio play blocked:", e));
+          toast.info(t("New Order Received!"));
+        }
+      }
+
+      // تحديث الحالة والـ Ref عشان المقارنة الجاية
+      setNotificationCount(newCount);
+      previousCountRef.current = newCount;
+    }
+  }, [notificationsData, t]);
 
 
 
@@ -166,7 +167,7 @@ useEffect(() => {
       .padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
   };
 
-const handleTabChange = (value) => {
+  const handleTabChange = (value) => {
     if (!permissions[value.replace("-", "_")]) {
       toast.warn(t("You do not have permission for this section"));
       return;
@@ -178,7 +179,7 @@ const handleTabChange = (value) => {
 
     sessionStorage.setItem("tab", value);
     sessionStorage.setItem("order_type", value);
-    
+
     if (!isRepeated) {
       sessionStorage.removeItem("cart");
     } else {
@@ -212,6 +213,7 @@ const handleTabChange = (value) => {
   const handleAllOrders = () => navigate("/all-orders");
   const handleExpenses = () => setShowExpensesModal(true);
   const handleDeliveryOrder = () => navigate("/deliveryOrders");
+  const handleDineInOrder = () => navigate("/dine-in-orders");
 
   // ===== إغلاق الشيفت =====
   const handleCloseShift = () => {
@@ -221,7 +223,7 @@ const handleTabChange = (value) => {
     }
     setShowPasswordModal(true);
   };
-// دالة مساعدة للإغلاق التلقائي بدون إدخال كاش
+  // دالة مساعدة للإغلاق التلقائي بدون إدخال كاش
   const handleAutoCashConfirmed = async (password) => {
     setReportLoading(true);
     try {
@@ -252,12 +254,12 @@ const handleTabChange = (value) => {
   const handlePasswordConfirmed = (password) => {
     setPendingPassword(password);
     setShowPasswordModal(false);
-const enterAmountStatus = sessionStorage.getItem("enter_amount");
+    const enterAmountStatus = sessionStorage.getItem("enter_amount");
 
     if (enterAmountStatus === "1") {
       // إذا كانت 1، نفتح مودال إدخال الكاش
       setShowCashInputModal(true);
-      setCashAmount(""); 
+      setCashAmount("");
     } else {
       // إذا كانت 0، ننتقل مباشرة لجلب التقرير بمبلغ افتراضي 0
       handleAutoCashConfirmed(password);
@@ -475,6 +477,16 @@ const enterAmountStatus = sessionStorage.getItem("enter_amount");
                     <FaTruck className="text-lg" />
                   </button>
                 )}
+                {/* زر Dine Orders (منفصل عن الـ tab) */}
+                {permissions.dine_in && (
+                  <button
+                    onClick={handleDineInOrder}
+                    className="p-2 border border-bg-primary rounded-lg hover:bg-bg-primary hover:text-white text-bg-primary transition"
+                    title={t("DineInOrder")}
+                  >
+                    <FaUtensils className="text-lg" />
+                  </button>
+                )}
               </TabsList>
             </Tabs>
           </div>
@@ -531,14 +543,12 @@ const enterAmountStatus = sessionStorage.getItem("enter_amount");
               <span className="text-sm font-medium">AR</span>
               <button
                 onClick={toggleLanguage}
-                className={`relative inline-flex h-6 w-12 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
-                  isArabic ? "bg-bg-primary" : "bg-gray-300"
-                }`}
+                className={`relative inline-flex h-6 w-12 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${isArabic ? "bg-bg-primary" : "bg-gray-300"
+                  }`}
               >
                 <span
-                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                    !isArabic ? "translate-x-6" : "translate-x-0"
-                  }`}
+                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${!isArabic ? "translate-x-6" : "translate-x-0"
+                    }`}
                 />
               </button>
               <span className="text-sm font-medium">EN</span>
