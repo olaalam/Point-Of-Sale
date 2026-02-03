@@ -15,10 +15,10 @@ export default function PendingOrders() {
   const { t, i18n } = useTranslation();
   const locale = i18n.language || "en";
 
-  const { 
-    data: orderDetailsData, 
-    loading: orderLoading, 
-    error: orderError 
+  const {
+    data: orderDetailsData,
+    loading: orderLoading,
+    error: orderError
   } = useGet(orderDetailsEndpoint);
 
   useEffect(() => {
@@ -35,74 +35,78 @@ export default function PendingOrders() {
     }
   }, [orderError]);
 
-// داخل useEffect الخاص بـ orderDetailsData في PendingOrders.jsx
-useEffect(() => {
-  if (orderDetailsData && orderDetailsData.id) {
-    const order = orderDetailsData;
-    const mappedOrderDetails = [];
+  // داخل useEffect الخاص بـ orderDetailsData في PendingOrders.jsx
+  useEffect(() => {
+    // التأكد من وجود البيانات الأساسية للطلب
+    if (orderDetailsData && orderDetailsData.id) {
+      const orderRawData = orderDetailsData;
+      const mappedOrderDetails = [];
 
-    order.order_details?.forEach((detail) => {
-      detail.product?.forEach((productWrapper) => {
-        const actualProductData = productWrapper.product;
+      // التغيير هنا: الوصول إلى orderDetailsData.order مباشرة
+      const itemsArray = orderRawData.order || [];
 
-        if (actualProductData) {
+      itemsArray.forEach((item) => {
+        const productInfo = item.product;
+
+        if (productInfo) {
           mappedOrderDetails.push({
-            // البيانات التي يتوقعها OrderPage.jsx
-            product_id: actualProductData.id,
-            product_name: actualProductData.name || "Unknown Product",
-            
-            // السعر والكمية بتنسيق عددي
-            price: parseFloat(actualProductData.price_after_discount || actualProductData.price || 0),
-            count: parseInt(productWrapper.count || 1),
-            
-            // حل مشكلة [object Object] في الإضافات
-            // نقوم باستخراج المعرفات فقط أو التأكد من بنية الكائن
-            addons: Array.isArray(actualProductData.addons) 
-              ? actualProductData.addons.map(addon => ({
-                  id: addon.id,
-                  name: addon.name,
-                  price: addon.price
-                })) 
+            // البيانات الأساسية المتوقعة في صفحة OrderPage
+            product_id: productInfo.id,
+            product_name: productInfo.name || "Unknown Product",
+
+            // تحويل السعر والكمية إلى أرقام لضمان العمليات الحسابية
+            price: parseFloat(productInfo.price_after_discount || productInfo.price || 0),
+            count: parseInt(item.count || 1),
+
+            // معالجة الإضافات (Addons)
+            addons: Array.isArray(item.addons)
+              ? item.addons.map(addon => ({
+                id: addon.id,
+                name: addon.name,
+                price: parseFloat(addon.price || 0)
+              }))
               : [],
-            
-            // الخيارات (Variations)
-            variation_name: detail.variations?.[0]?.name || null,
-            
-            // حقول إضافية مطلوبة في السلة
-            temp_id: `pending_${actualProductData.id}_${Math.random().toString(36).substr(2, 5)}`,
-            notes: productWrapper.notes || "",
+
+            // معالجة الاختلافات (Variations)
+            variation_id: item.variations?.[0]?.id || null,
+            variation_name: item.variations?.[0]?.name || null,
+
+            // بيانات تقنية للسلة
+            temp_id: `pending_${productInfo.id}_${Math.random().toString(36).substr(2, 5)}`,
+            notes: item.notes || "",
             preparation_status: "pending",
-            type: "main_item"
+            type: "main_item",
+            image: productInfo.image_link
           });
         }
       });
-    });
 
-    const orderData = {
-      orderId: order.id,
-      orderDetails: mappedOrderDetails,
-      orderNumber: order.order_number,
-      totalAmount: order.amount,
-      notes: order.notes,
-      orderType: "take_away"
-    };
+      const finalOrderData = {
+        orderId: orderRawData.id,
+        orderDetails: mappedOrderDetails,
+        orderNumber: orderRawData.order_number,
+        totalAmount: orderRawData.amount,
+        notes: orderRawData.notes,
+        orderType: "take_away"
+      };
 
-    // حفظ السلة بالبنية الجديدة
-    sessionStorage.setItem("cart", JSON.stringify(mappedOrderDetails));
+      // تخزين البيانات في sessionStorage لتستقبلها صفحة الكاشير الرئيسية
+      sessionStorage.setItem("cart", JSON.stringify(mappedOrderDetails));
 
-    navigate("/", { 
-      state: { 
-        activeTab: "takeaway",
-        orderType: "take_away",
-        pendingOrder: orderData 
-      } 
-    });
-  }
-}, [orderDetailsData, navigate]);
+      // التوجيه إلى الصفحة الرئيسية مع إرسال حالة الطلب المعلق
+      navigate("/", {
+        state: {
+          activeTab: "takeaway",
+          orderType: "take_away",
+          pendingOrder: finalOrderData
+        }
+      });
+    }
+  }, [orderDetailsData, navigate]);
 
   const handleSelectOrder = (orderId) => {
     if (orderLoading || selectedOrderId) return;
-    
+
     console.log("Selecting order:", orderId);
     setSelectedOrderId(orderId);
     setOrderDetailsEndpoint(`cashier/get_order/${orderId}?locale=${locale}`);
@@ -113,30 +117,27 @@ useEffect(() => {
       const date = new Date(dateString);
       return date.toLocaleDateString() + " " + date.toLocaleTimeString();
     } catch (err) {
-      toast.error("Invalid date format",err);
+      toast.error("Invalid date format", err);
       return dateString;
     }
   };
 
-  const formatOrderItems = (orderDetails) => {
-    if (!Array.isArray(orderDetails)) return "No items";
-    
+  const formatOrderItems = (orderArray) => {
+    if (!Array.isArray(orderArray)) return t("Noitems");
+
     const items = [];
-    orderDetails.forEach(orderDetail => {
-      if (orderDetail.product && Array.isArray(orderDetail.product)) {
-        orderDetail.product.forEach(productItem => {
-          if (productItem.product && productItem.product.name) {
-            items.push(`${productItem.product.name} x${productItem.count || 1}`);
-          }
-        });
-      } else if (orderDetail.product_name) {
-        items.push(`${orderDetail.product_name} x${orderDetail.count || 1}`);
-      } else if (orderDetail.name) {
-        items.push(`${orderDetail.name} x${orderDetail.count || 1}`);
+    orderArray.forEach(item => {
+      // في الريسبونس الجديد الاسم موجود داخل item.product.name
+      if (item.product && item.product.name) {
+        items.push(`${item.product.name} x${item.count || 1}`);
+      }
+      // احتياطياً إذا كان الاسم في المستوى الأعلى
+      else if (item.name) {
+        items.push(`${item.name} x${item.count || 1}`);
       }
     });
-    
-    return items.length > 0 ? items.join(", ") : "No items available";
+
+    return items.length > 0 ? items.join(", ") : t("Noitemsavailable");
   };
 
   return (
@@ -162,9 +163,9 @@ useEffect(() => {
         {error && (
           <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
             <p className="text-red-600">{t("Errorloadingpendingorders")}: {error}</p>
-            <Button 
-              onClick={refetch} 
-              variant="outline" 
+            <Button
+              onClick={refetch}
+              variant="outline"
               className="mt-2"
               disabled={loading}
             >
@@ -179,17 +180,16 @@ useEffect(() => {
               <div className="col-span-full text-center py-12">
                 <Package className="mx-auto mb-4 text-gray-400" size={64} />
                 <p className="text-gray-500 text-lg">{t("Nopendingordersfound")}</p>
-  
+
               </div>
             ) : (
               pendingOrders.all_orders.map((order) => (
                 <div
                   key={order.id}
-                  className={`bg-white rounded-lg shadow-md border hover:shadow-lg transition-all duration-200 cursor-pointer transform hover:scale-[1.02] ${
-                    selectedOrderId === order.id 
-                      ? 'ring-2 ring-orange-500 bg-orange-50 shadow-xl' 
+                  className={`bg-white rounded-lg shadow-md border hover:shadow-lg transition-all duration-200 cursor-pointer transform hover:scale-[1.02] ${selectedOrderId === order.id
+                      ? 'ring-2 ring-orange-500 bg-orange-50 shadow-xl'
                       : 'hover:border-orange-200'
-                  } ${orderLoading && selectedOrderId === order.id ? 'pointer-events-none opacity-75' : ''}`}
+                    } ${orderLoading && selectedOrderId === order.id ? 'pointer-events-none opacity-75' : ''}`}
                   onClick={() => handleSelectOrder(order.id)}
                 >
                   <div className="p-6 relative">
@@ -208,7 +208,7 @@ useEffect(() => {
                         </span>
                       </div>
                     </div>
-                    
+
                     <div className="space-y-2 mb-4">
                       <div className="flex justify-between text-sm">
                         <span className="text-gray-600">{t("Customer")}:</span>
@@ -232,16 +232,17 @@ useEffect(() => {
                         </div>
                       )}
                     </div>
-                    
-                    {order.order_details && (
+
+                    {order.order && (
                       <div className="border-t pt-3">
                         <p className="text-xs text-gray-600 mb-1">{t("Items")}:</p>
                         <p className="text-sm text-gray-800 line-clamp-2">
-                          {formatOrderItems(order.order_details)}
+                          {/* تأكد أنك تمرر order.order هنا وليس order.order_details */}
+                          {formatOrderItems(order.order)}
                         </p>
                       </div>
                     )}
-                    
+
                     {selectedOrderId === order.id && orderLoading && (
                       <div className="absolute inset-0 bg-white bg-opacity-90 flex items-center justify-center rounded-lg">
                         <div className="flex flex-col items-center gap-3">
@@ -250,7 +251,7 @@ useEffect(() => {
                         </div>
                       </div>
                     )}
-                    
+
                     {!orderLoading && (
                       <div className="absolute bottom-4 right-4 opacity-60 group-hover:opacity-100 transition-opacity">
                         <div className="w-2 h-2 bg-orange-400 rounded-full animate-pulse"></div>
