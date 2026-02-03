@@ -1140,7 +1140,9 @@ export const printReceiptSilently = async (
           ])
         );
       } else if (orderType === "take_away" || orderType === "takeaway") {
+        const shouldPrintDouble = localStorage.getItem("print_double_takeaway") === "true";
         // Take Away → طباعة إيصال بسيط (نسخة العميل)
+        if (shouldPrintDouble) {
         const simpleHtml = formatSimpleCustomerCopy(receiptData);
         printJobs.push(
           qz.print(cashierConfig, [
@@ -1148,6 +1150,7 @@ export const printReceiptSilently = async (
           ])
         );
       }
+    }
       // Dine In أو غيره → لا طباعة إضافية
     } catch (err) {
       console.error(err);
