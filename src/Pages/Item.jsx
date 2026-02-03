@@ -130,8 +130,8 @@ export default function Item({ onAddToOrder, onClose }) {
     queryKey: ["allData", branchIdState, i18n.language, orderType],
     queryFn: () => apiFetcher(allModulesEndpoint),
     enabled: !!branchIdState,
-    staleTime: 0,           
-    gcTime: 0,              
+    staleTime: 0,
+    gcTime: 0,
     refetchOnMount: true,
   });
   const finalCategories = useMemo(() => {
@@ -245,8 +245,8 @@ export default function Item({ onAddToOrder, onClose }) {
   const handleAddToOrder = useCallback(
     async (product, options = {}) => {
       const { customQuantity = 1 } = options;
-      const finalQuantity = product.quantity || customQuantity;
-      const pricePerUnit = product.totalPrice
+      const finalQuantity = product.quantity || product.count || customQuantity;
+       const pricePerUnit = product.totalPrice
         ? (product.totalPrice / finalQuantity)
         : parseFloat(product.final_price || product.price_after_discount || 0);
       const totalAmount = pricePerUnit * finalQuantity;
@@ -273,7 +273,7 @@ export default function Item({ onAddToOrder, onClose }) {
           cashier_id: sessionStorage.getItem("cashier_id"),
           amount: totalAmount.toFixed(2),
           // total_tax: (totalAmount * 0.14).toFixed(2),
-          total_tax: ( (product.tax_val || 0) * finalQuantity ).toFixed(2),
+          total_tax: ((product.tax_val || 0) * finalQuantity).toFixed(2),
           total_discount: "0.00",
           source: "web",
           products: [processedItem],
@@ -416,6 +416,7 @@ export default function Item({ onAddToOrder, onClose }) {
                     ...found,
                     // الكمية = الوزن بالكيلو (مع 3 أرقام عشرية)
                     count: Number(weightKg.toFixed(3)),
+                    quantity: Number(weightKg.toFixed(3)),
                     price: unitPrice, // سعر الكيلو
                     totalPrice: Number(totalPrice.toFixed(2)),
 
