@@ -10,7 +10,7 @@ const DineInReport = () => {
   const [filters, setFilters] = useState({ financial_id: "", captain_id: "" });
 
   // 1. جلب قائمة الصالات
-  const { data: selectionData } = useGet("captain/selection_lists?branch_id=4");
+  const { data: selectionData } = useGet("cashier/reports/captain_lists?branch_id=4&locale=ar");
 
   // 2. هوك جلب التقرير (Instance)
   // خلي بالك: الـ useGet عندك بتعمل fetch أول ما الـ endpoint يتوجد
@@ -22,8 +22,8 @@ const DineInReport = () => {
   const { postData, loading: posting } = usePost();
 
   useEffect(() => {
-    if (selectionData?.cafe_location?.length > 0 && !activeLocationId) {
-      setActiveLocationId(selectionData.cafe_location[0].id);
+    if (selectionData?.halls?.length > 0 && !activeLocationId) {
+      setActiveLocationId(selectionData.halls[0].id);
     }
   }, [selectionData, activeLocationId]);
 
@@ -35,12 +35,12 @@ const DineInReport = () => {
         ...filters, 
         location_id: activeLocationId 
       });
-      toast.success("تم اعتماد التقرير بنجاح! 🎉");
+      toast.success("تم فلترة التقرير بنجاح! 🎉");
     } catch (err) {
         console.log(err)
         console.log(err?.response?.data?.errors );
         
-      toast.error(err?.response?.data?.errors || err.message || "حدث خطأ أثناء اعتماد التقرير.");
+      toast.error(err?.response?.data?.errors || err.message || "حدث خطأ أثناء فلترة التقرير.");
     }
   };
 
@@ -49,7 +49,7 @@ const DineInReport = () => {
         <ToastContainer position="top-right" autoClose={3000} />
       {/* التابات */}
       <div className="flex border-b mb-4">
-        {selectionData?.cafe_location?.map((loc) => (
+        {selectionData?.halls?.map((loc) => (
           <button 
             key={loc.id}
             onClick={() => setActiveLocationId(loc.id)}
@@ -69,7 +69,7 @@ const DineInReport = () => {
             onChange={(e) => setFilters({...filters, financial_id: e.target.value})}
           >
             <option value="">كل الطرق</option>
-            {selectionData?.financial_account?.map(f => (
+            {selectionData?.financial_accounts?.map(f => (
               <option key={f.id} value={f.id}>{f.name}</option>
             ))}
           </select>
@@ -82,8 +82,10 @@ const DineInReport = () => {
             onChange={(e) => setFilters({...filters, captain_id: e.target.value})}
           >
             <option value="">كل الكباتن</option>
-            {/* ماب الكباتن هنا لو متاحين */}
-          </select>
+            {selectionData?.captain_orders?.map(c => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))} 
+                     </select>
         </div>
 
         {/* الزرار بجانب الفلاتر */}

@@ -976,26 +976,43 @@ export default function OrderSummary({
         </div>
       )}
       {/* Modals remain below */}
-      <FreeDiscountPasswordModal
-        isOpen={passwordModalOpen}
-        onClose={() => {
-          setPasswordModalOpen(false);
-          setTempFreeDiscount(""); // نصفر الإنبوت المؤقت بس، مش نلغي الخصم لو كان موجود
-        }}
-        onConfirm={(password) => {
-          // هنا بنطبق الخصم بعد ما الباسورد يتقبل (مش بنستخدم الباسورد فعليًا للتحقق من الباك، لو عايزة تحققي هتحتاجي API)
-          const discountAmount = parseFloat(tempFreeDiscount);
+<FreeDiscountPasswordModal
+  isOpen={passwordModalOpen}
+  onClose={() => {
+    setPasswordModalOpen(false);
+    setTempFreeDiscount(""); 
+  }}
+  onConfirm={async (password) => { // أضفنا async هنا
+    const discountAmount = parseFloat(tempFreeDiscount);
 
-          if (!isNaN(discountAmount) && discountAmount > 0) {
-            setFreeDiscount(discountAmount.toFixed(2)); // نحط القيمة النهائية في الـ prop اللي جاي من Card.jsx
-            toast.success(t("Free discount applied") + `: ${discountAmount} EGP`);
-          }
+    if (isNaN(discountAmount) || discountAmount <= 0) {
+      toast.error(t("Please enter a valid amount"));
+      return;
+    }
 
-          setTempFreeDiscount(""); // نصفر الإنبوت
-          setPasswordModalOpen(false);
-          setActiveDiscountTab(null); // اختياري: نقفل الـ tab بعد التطبيق عشان الواجهة تبقى نضيفة
-        }}
-      />
+    try {
+      // تشغيل الـ API للتحقق من الباسوورد
+      const response = await postData(`cashier/free_discount_check?password=${password}`, {});
+      
+      if (response.success) {
+        // لو الباسوورد صح، نطبق الخصم
+        setFreeDiscount(discountAmount.toFixed(2));
+        toast.success(t("Free discount applied") + `: ${discountAmount} EGP`);
+        
+        // تنظيف الحالة وإغلاق المودال
+        setTempFreeDiscount("");
+        setPasswordModalOpen(false);
+        setActiveDiscountTab(null);
+      } else {
+        // لو الباسوورد غلط (حسب رد الباك إند)
+        toast.error(response.message || t("Invalid Password"));
+      }
+    } catch (error) {
+      console.error("Discount Error:", error);
+      toast.error(error?.response?.data?.message || t("Verification failed"));
+    }
+  }}
+/>
     </div>
   );
 }
