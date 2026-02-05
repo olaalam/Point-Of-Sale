@@ -43,7 +43,8 @@ export default function Card({
   const selectedUserData = JSON.parse(sessionStorage.getItem("selected_user_data") || "{}");
   const [isCheckoutVisible, setIsCheckoutVisible] = useState(false);
   const [selectedDiscountId, setSelectedDiscountId] = useState(null);
-  const [freeDiscount, setFreeDiscount] = useState("");  // استخراج رسوم التوصيل (فقط في حالة delivery)
+  const [freeDiscount, setFreeDiscount] = useState("");
+  const [freeDiscountPassword, setFreeDiscountPassword] = useState("");
   const deliveryFee = orderType === "delivery"
     ? Number(selectedUserData?.selectedAddress?.zone?.price || 0)
     : 0;
@@ -309,17 +310,17 @@ export default function Card({
           orderItems={orderItems}
           selectedItems={selectedItems}
 
-onApplyStatus={async (statusOverride) => {
-      const finalStatus = typeof statusOverride === 'string' ? statusOverride : bulkStatus;
-      
-      // يجب إضافة return و await هنا لضمان وصول البيانات للـ BulkActionsBar
-      return await orderActions.applyBulkStatus(
-        selectedItems,
-        finalStatus,
-        setBulkStatus,
-        setSelectedItems
-      );
-    }}
+          onApplyStatus={async (statusOverride) => {
+            const finalStatus = typeof statusOverride === 'string' ? statusOverride : bulkStatus;
+
+            // يجب إضافة return و await هنا لضمان وصول البيانات للـ BulkActionsBar
+            return await orderActions.applyBulkStatus(
+              selectedItems,
+              finalStatus,
+              setBulkStatus,
+              setSelectedItems
+            );
+          }}
           onTransferOrder={(selected) => orderActions.handleTransferOrder(selected)}
           isLoading={apiLoading}
           currentLowestStatus={calculations.currentLowestSelectedStatus}
@@ -437,6 +438,7 @@ onApplyStatus={async (statusOverride) => {
         setSelectedDiscountId={setSelectedDiscountId}
         freeDiscount={freeDiscount}
         setFreeDiscount={setFreeDiscount}
+        setFreeDiscountPassword={setFreeDiscountPassword}
       />
 
       {/* Modals */}
@@ -544,6 +546,7 @@ onApplyStatus={async (statusOverride) => {
           onCheckout={() => setIsCheckoutVisible(prev => !prev)}
           selectedDiscountId={selectedDiscountId}
           freeDiscount={freeDiscount}
+          freeDiscountPassword={freeDiscountPassword}
           setSelectedDiscountId={setSelectedDiscountId}
           setFreeDiscount={setFreeDiscount}
         />

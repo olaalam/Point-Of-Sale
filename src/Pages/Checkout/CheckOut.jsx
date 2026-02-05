@@ -49,6 +49,7 @@ const CheckOut = ({
   setFreeDiscount,
   selectedDiscountId,
   freeDiscount,
+  freeDiscountPassword,
 }) => {
   const [showRepeatModal, setShowRepeatModal] = useState(false);
   const [pendingRepeatedPayload, setPendingRepeatedPayload] = useState(null);
@@ -62,9 +63,6 @@ const CheckOut = ({
   const lastSelectedGroup = sessionStorage.getItem("last_selected_group");
   const { data: groupData } = useGet("cashier/group_product");
   const groupProducts = groupData?.group_product || [];
-  const [passwordModalOpen, setPasswordModalOpen] = useState(false);
-  const [pendingFreeDiscountPassword, setPendingFreeDiscountPassword] =
-    useState("");
   const isDueModuleAllowed = (() => {
     if (!orderType || !groupProducts || groupProducts.length === 0)
       return false;
@@ -82,34 +80,34 @@ const CheckOut = ({
     "captain/discount_list"
   );
   // === QZ Tray Connection ===
-useEffect(() => {
-  // 1. Certificate
-  qz.security.setCertificatePromise((resolve, reject) => {
-    fetch("/point-of-sale/digital-certificate.txt")
-      .then((response) => response.text())
-      .then(resolve)
-      .catch(reject);
-  });
-
-  qz.security.setSignatureAlgorithm("SHA512");
-
-  // 2. Signature (The Fix)
-  qz.security.setSignaturePromise((toSign) => {
-    return (resolve, reject) => {
-      fetch(`${baseUrl}api/sign-qz-request?request=${toSign}`)
-        .then((res) => res.text())
+  useEffect(() => {
+    // 1. Certificate
+    qz.security.setCertificatePromise((resolve, reject) => {
+      fetch("/point-of-sale/digital-certificate.txt")
+        .then((response) => response.text())
         .then(resolve)
         .catch(reject);
-    };
-  });
+    });
 
-  // 3. Connect
-  if (!qz.websocket.isActive()) {
-    qz.websocket.connect()
-      .then(() => console.log("✅ Connected to QZ Tray"))
-      .catch((err) => console.error("❌ Connection error:", err));
-  }
-}, [baseUrl]);
+    qz.security.setSignatureAlgorithm("SHA512");
+
+    // 2. Signature (The Fix)
+    qz.security.setSignaturePromise((toSign) => {
+      return (resolve, reject) => {
+        fetch(`${baseUrl}api/sign-qz-request?request=${toSign}`)
+          .then((res) => res.text())
+          .then(resolve)
+          .catch(reject);
+      };
+    });
+
+    // 3. Connect
+    if (!qz.websocket.isActive()) {
+      qz.websocket.connect()
+        .then(() => console.log("✅ Connected to QZ Tray"))
+        .catch((err) => console.error("❌ Connection error:", err));
+    }
+  }, [baseUrl]);
 
   const { data: deliveryData } = useGet("cashier/delivery_lists");
   const { postData } = usePost();
@@ -474,8 +472,10 @@ useEffect(() => {
     };
 
     const freeDiscountValue = parseFloat(freeDiscount) || 0;
-    if (freeDiscountValue > 0 && !forcedPassword && !pendingFreeDiscountPassword) {
-      setPasswordModalOpen(true);
+    const finalPassword = forcedPassword || freeDiscountPassword;
+
+    if (freeDiscountValue > 0 && !finalPassword) {
+      toast.error(t("FreeDiscountPasswordMissing"));
       isSubmitting.current = false;
       setLoading(false);
       return;
@@ -519,7 +519,7 @@ useEffect(() => {
         free_discount: freeDiscountValue > 0 ? freeDiscountValue : undefined,
         due_module: dueModuleValue > 0 ? dueModuleValue.toFixed(2) : undefined,
         service_fees,
-        password: forcedPassword || pendingFreeDiscountPassword || undefined,
+        password: finalPassword || undefined,
         repeated,
 
       });
@@ -533,7 +533,6 @@ useEffect(() => {
       if (response?.success) {
         // 🟢 نجاح العملية (زي ما هو)
         toast.success(due === 1 ? t("DueOrderCreated") : t("OrderPlaced"));
-        setPendingFreeDiscountPassword("");
 
         if (due === 0) {
           const receiptData = prepareReceiptData(
@@ -643,7 +642,7 @@ useEffect(() => {
     // 🟢 أول سطر: لو القفل مقفول اخرج فوراً
     if (isSubmitting.current) return;
 
-    if (!isTotalMet || totalScheduled === 0) {
+    if (!isTotalMet || (requiredTotal > 0 && totalScheduled === 0)) {
       return toast.error(t("TotalMustEqual", { amount: requiredTotal.toFixed(2) }));
     }
 
@@ -749,73 +748,75 @@ useEffect(() => {
         </div>
       )}
       {/* 🟢 Checkout Methods (يظهر عند الضغط على زر Checkout أو Pay) */}
-      <div className="border border-gray-300 rounded-lg overflow-hidden animate-in slide-in-from-top-2 duration-300">
-        <div className="bg-gray-100 p-3 font-bold text-sm text-center border-b">
-          {t("Checkout Methods")}
+      {requiredTotal > 0 && (
+        <div className="border border-gray-300 rounded-lg overflow-hidden animate-in slide-in-from-top-2 duration-300">
+          <div className="bg-gray-100 p-3 font-bold text-sm text-center border-b">
+            {t("Checkout Methods")}
+          </div>
+
+          <div className="grid grid-cols-2 gap-0">
+            {financialAccounts.map((acc, index) => {
+              const colorClasses = [
+                { bg: 'bg-green-600', text: 'text-green-600', hover: 'hover:bg-green-50' },   // أول واحد أخضر
+                { bg: 'bg-blue-600', text: 'text-blue-600', hover: 'hover:bg-blue-50' },      // ثاني أزرق
+                { bg: 'bg-orange-600', text: 'text-orange-600', hover: 'hover:bg-orange-50' }, // ثالث أورانج
+
+              ];
+
+              const color = colorClasses[index % colorClasses.length]; // لو أكتر من 5 هيعيد الدورة
+
+              const isSelected = paymentSplits.length === 1 &&
+                String(paymentSplits[0]?.accountId) === String(acc.id) && // تحويل الطرفين لنص
+                !isDueOrder;
+
+              return (
+                <button
+                  key={acc.id}
+                  onClick={() => {
+                    handleAccountChange(paymentSplits[0]?.id, String(acc.id));
+                    setIsDueOrder(false);
+                    setSelectedCustomer(null);
+                  }}
+                  className={cn(
+                    "p-4 text-sm font-bold border-gray-200 transition-all",
+                    index % 2 === 0 ? 'border-r' : '',
+                    index < financialAccounts.length - 2 ? 'border-b' : '',
+                    isSelected
+                      ? "border-l-4 border-l-bg-primary bg-red-50 shadow-sm  text-red-700"               // لون الخلفية الكامل للـ selected
+                      : `bg-white ${color.text} ${color.hover}`        // لون النص + hover للـ non-selected
+                  )}
+                >
+                  {acc.name}
+                </button>
+              );
+            })}
+
+            {/* Due - لون أورانج ثابت (كما في الصورة) */}
+            <button
+              onClick={() => {
+                setIsDueOrder(true);
+                setCustomerSelectionOpen(true);
+              }}
+              className={cn(
+                "p-4 col-span-1 border-t text-sm font-black transition-all",
+                isDueOrder
+                  ? 'bg-orange-500 text-white'                       // selected: أورانج غامق
+                  : 'bg-white text-orange-600 hover:bg-orange-50'    // non-selected: نص أورانج + hover
+              )}
+            >
+              {t("Due")}
+            </button>
+
+            {/* Split - لون أزرق ثابت (كما في الصورة) */}
+            <button
+              onClick={handleAddSplit}
+              className="p-4 col-span-2 border-t border-l text-sm font-black bg-white  hover:bg-blue-50 transition-all"
+            >
+              {t("Split")}
+            </button>
+          </div>
         </div>
-
-        <div className="grid grid-cols-2 gap-0">
-          {financialAccounts.map((acc, index) => {
-            const colorClasses = [
-              { bg: 'bg-green-600', text: 'text-green-600', hover: 'hover:bg-green-50' },   // أول واحد أخضر
-              { bg: 'bg-blue-600', text: 'text-blue-600', hover: 'hover:bg-blue-50' },      // ثاني أزرق
-              { bg: 'bg-orange-600', text: 'text-orange-600', hover: 'hover:bg-orange-50' }, // ثالث أورانج
-
-            ];
-
-            const color = colorClasses[index % colorClasses.length]; // لو أكتر من 5 هيعيد الدورة
-
-const isSelected = paymentSplits.length === 1 &&
-                   String(paymentSplits[0]?.accountId) === String(acc.id) && // تحويل الطرفين لنص
-                   !isDueOrder;
-
-            return (
-              <button
-                key={acc.id}
-                onClick={() => {
-                  handleAccountChange(paymentSplits[0]?.id, String(acc.id));
-                  setIsDueOrder(false);
-                  setSelectedCustomer(null);
-                }}
-                className={cn(
-                  "p-4 text-sm font-bold border-gray-200 transition-all",
-                  index % 2 === 0 ? 'border-r' : '',
-                  index < financialAccounts.length - 2 ? 'border-b' : '',
-                  isSelected
-                 ? "border-l-4 border-l-bg-primary bg-red-50 shadow-sm  text-red-700"               // لون الخلفية الكامل للـ selected
-                    : `bg-white ${color.text} ${color.hover}`        // لون النص + hover للـ non-selected
-                )}
-              >
-                {acc.name}
-              </button>
-            );
-          })}
-
-          {/* Due - لون أورانج ثابت (كما في الصورة) */}
-          <button
-            onClick={() => {
-              setIsDueOrder(true);
-              setCustomerSelectionOpen(true);
-            }}
-            className={cn(
-              "p-4 col-span-1 border-t text-sm font-black transition-all",
-              isDueOrder
-                ? 'bg-orange-500 text-white'                       // selected: أورانج غامق
-                : 'bg-white text-orange-600 hover:bg-orange-50'    // non-selected: نص أورانج + hover
-            )}
-          >
-            {t("Due")}
-          </button>
-
-          {/* Split - لون أزرق ثابت (كما في الصورة) */}
-          <button
-            onClick={handleAddSplit}
-            className="p-4 col-span-2 border-t border-l text-sm font-black bg-white  hover:bg-blue-50 transition-all"
-          >
-            {t("Split")}
-          </button>
-        </div>
-      </div>
+      )}
 
       {/* Amount Paid by Customer */}
       <div className="mb-4">
@@ -944,7 +945,7 @@ const isSelected = paymentSplits.length === 1 &&
         className={`w-full py-8 rounded-xl text-xl font-black uppercase tracking-widest transition-all ${loading ? 'bg-gray-300' : 'bg-[#800000] hover:bg-[#a00000] text-white shadow-xl active:scale-95'
           }`}
         disabled={loading}
-        onClick={() => {handleSubmitOrder();}}
+        onClick={() => { handleSubmitOrder(); }}
       >
         {loading ? (
           <Loading />

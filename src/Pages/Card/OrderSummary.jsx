@@ -452,6 +452,7 @@ export default function OrderSummary({
   setSelectedDiscountId,
   freeDiscount,
   setFreeDiscount,
+  setFreeDiscountPassword,
 }) {
   const printRef = useRef();
   console.log("Current orderType:", orderType);
@@ -976,43 +977,44 @@ export default function OrderSummary({
         </div>
       )}
       {/* Modals remain below */}
-<FreeDiscountPasswordModal
-  isOpen={passwordModalOpen}
-  onClose={() => {
-    setPasswordModalOpen(false);
-    setTempFreeDiscount(""); 
-  }}
-  onConfirm={async (password) => { // أضفنا async هنا
-    const discountAmount = parseFloat(tempFreeDiscount);
+      <FreeDiscountPasswordModal
+        isOpen={passwordModalOpen}
+        onClose={() => {
+          setPasswordModalOpen(false);
+          setTempFreeDiscount("");
+        }}
+        onConfirm={async (password) => { // أضفنا async هنا
+          const discountAmount = parseFloat(tempFreeDiscount);
 
-    if (isNaN(discountAmount) || discountAmount <= 0) {
-      toast.error(t("Please enter a valid amount"));
-      return;
-    }
+          if (isNaN(discountAmount) || discountAmount <= 0) {
+            toast.error(t("Please enter a valid amount"));
+            return;
+          }
 
-    try {
-      // تشغيل الـ API للتحقق من الباسوورد
-      const response = await postData(`cashier/free_discount_check?password=${password}`, {});
-      
-      if (response.success) {
-        // لو الباسوورد صح، نطبق الخصم
-        setFreeDiscount(discountAmount.toFixed(2));
-        toast.success(t("Free discount applied") + `: ${discountAmount} EGP`);
-        
-        // تنظيف الحالة وإغلاق المودال
-        setTempFreeDiscount("");
-        setPasswordModalOpen(false);
-        setActiveDiscountTab(null);
-      } else {
-        // لو الباسوورد غلط (حسب رد الباك إند)
-        toast.error(response.message || t("Invalid Password"));
-      }
-    } catch (error) {
-      console.error("Discount Error:", error);
-      toast.error(error?.response?.data?.message || t("Verification failed"));
-    }
-  }}
-/>
+          try {
+            // تشغيل الـ API للتحقق من الباسوورد
+            const response = await postData(`cashier/free_discount_check?password=${password}`, {});
+
+            if (response.success) {
+              // لو الباسوورد صح، نطبق الخصم
+              setFreeDiscount(discountAmount.toFixed(2));
+              setFreeDiscountPassword(password);
+              toast.success(t("Free discount applied") + `: ${discountAmount} EGP`);
+
+              // تنظيف الحالة وإغلاق المودال
+              setTempFreeDiscount("");
+              setPasswordModalOpen(false);
+              setActiveDiscountTab(null);
+            } else {
+              // لو الباسوورد غلط (حسب رد الباك إند)
+              toast.error(response.message || t("Invalid Password"));
+            }
+          } catch (error) {
+            console.error("Discount Error:", error);
+            toast.error(error?.response?.data?.message || t("Verification failed"));
+          }
+        }}
+      />
     </div>
   );
 }
