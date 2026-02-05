@@ -4,6 +4,12 @@ import { useNavigate } from "react-router-dom";
 import { toast, ToastContainer } from "react-toastify";
 import { useTranslation } from "react-i18next";
 import { usePost } from "@/Hooks/usePost";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 // Components
 import Loading from "@/components/Loading";
@@ -524,33 +530,40 @@ export default function Card({
         t={t}
       />
 
-      {isCheckoutVisible && (
-        <CheckOut
-          notes={notes}
-          setNotes={setNotes}
-          isCheckoutVisible={isCheckoutVisible}
-          totalDineInItems={orderItems.length}
-          amountToPay={calculations.amountToPay}
-          orderItems={calculations.checkoutItems}
-          updateOrderItems={updateOrderItems}
-          totalTax={calculations.totalTax}
-          totalDiscount={OTHER_CHARGE}
-          source="web"
-          orderType={orderType}
-          tableId={tableId}
-          onClearCart={clearCart}
-          clearPaidItemsOnly={clearPaidItemsOnly}
-          selectedPaymentItemIds={selectedPaymentItems}
-          service_fees={calculations.totalOtherCharge}
-          onClose={() => setIsCheckoutVisible(false)}
-          onCheckout={() => setIsCheckoutVisible(prev => !prev)}
-          selectedDiscountId={selectedDiscountId}
-          freeDiscount={freeDiscount}
-          freeDiscountPassword={freeDiscountPassword}
-          setSelectedDiscountId={setSelectedDiscountId}
-          setFreeDiscount={setFreeDiscount}
-        />
-      )}
+      <Dialog open={isCheckoutVisible} onOpenChange={setIsCheckoutVisible}>
+        <DialogContent className="max-w-5xl h-[90vh] overflow-y-auto bg-white p-0">
+          <DialogHeader className="p-3 border-b">
+            <DialogTitle>{t("Checkout")}</DialogTitle>
+          </DialogHeader>
+          <div className="p-4 pt-1">
+            <CheckOut
+              notes={notes}
+              setNotes={setNotes}
+              isCheckoutVisible={isCheckoutVisible}
+              totalDineInItems={orderItems.length}
+              amountToPay={calculations.amountToPay}
+              orderItems={calculations.checkoutItems}
+              updateOrderItems={updateOrderItems}
+              totalTax={calculations.totalTax}
+              totalDiscount={OTHER_CHARGE}
+              source="web"
+              orderType={orderType}
+              tableId={tableId}
+              onClearCart={clearCart}
+              clearPaidItemsOnly={clearPaidItemsOnly}
+              selectedPaymentItemIds={selectedPaymentItems}
+              service_fees={calculations.totalOtherCharge}
+              onClose={() => setIsCheckoutVisible(false)}
+              onCheckout={() => setIsCheckoutVisible(prev => !prev)}
+              selectedDiscountId={selectedDiscountId}
+              freeDiscount={freeDiscount}
+              freeDiscountPassword={freeDiscountPassword}
+              setSelectedDiscountId={setSelectedDiscountId}
+              setFreeDiscount={setFreeDiscount}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <ToastContainer />
       <div style={{ display: "none" }}>

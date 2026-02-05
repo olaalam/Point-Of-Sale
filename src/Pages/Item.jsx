@@ -246,7 +246,7 @@ export default function Item({ onAddToOrder, onClose }) {
     async (product, options = {}) => {
       const { customQuantity = 1 } = options;
       const finalQuantity = product.quantity || product.count || customQuantity;
-       const pricePerUnit = product.totalPrice
+      const pricePerUnit = product.totalPrice
         ? (product.totalPrice / finalQuantity)
         : parseFloat(product.final_price || product.price_after_discount || 0);
       const totalAmount = pricePerUnit * finalQuantity;
@@ -582,7 +582,7 @@ export default function Item({ onAddToOrder, onClose }) {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 px-4 pb-4">
+          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-9 gap-3 px-4 pb-4">
             {productsToDisplay.map((product) => (
               <ProductCard
                 key={product.id}

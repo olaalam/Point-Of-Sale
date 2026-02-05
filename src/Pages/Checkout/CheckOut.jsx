@@ -695,7 +695,7 @@ const CheckOut = ({
   };
 
   return (
-    <div className="w-full bg-white mt-4 animate-in fade-in slide-in-from-top-4 duration-500">
+    <div className="w-full bg-white animate-in fade-in slide-in-from-top-4 duration-500">
       {/* 1. Modals - (كاملة كما هي بكل اللوجيك) */}
       <CustomerSelectionModal
         isOpen={customerSelectionOpen}
@@ -726,7 +726,7 @@ const CheckOut = ({
 
       {/* سيكشن الـ Due Module - المنصة تدفع الباقي */}
       {isDueModuleAllowed && remainingAmount > 0.01 && (
-        <div className="mt-6 p-4 bg-red-50 border border-red-200 rounded-lg shadow-sm">
+        <div className="p-4  bg-red-50 border border-red-200 rounded-lg shadow-sm">
           <div className="text-center mb-4">
             <p className="text-lg font-bold text-red-600">
               {t("PlatformWillPayRemaining")} (Due Module):{" "}
