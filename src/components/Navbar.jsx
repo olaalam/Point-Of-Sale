@@ -6,26 +6,32 @@ import { useGet } from "@/Hooks/useGet";
 import { useShift } from "@/context/ShiftContext";
 import { toast } from "react-toastify";
 import {
-  FaUserCircle,
-  FaUsers,
-  FaListAlt,
-  FaTable,
-  FaDollarSign,
-  FaTruck,
   FaBell,
-  FaChevronDown, // ✅ جديد للسهم في الجرس
-  FaUtensils
+  FaChevronDown,
 } from "react-icons/fa";
 import { useTranslation } from "react-i18next";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import axios from "axios";
 import logo from "@/assets/logo.jpg";
+import {
+  User,
+  LogOut,
+  Clock,
+  Globe,
+} from "lucide-react";
 
 // المودالز
 import ExpensesModal from "@/Pages/ExpensesModal";
 import PasswordConfirmModal from "@/Pages/PasswordConfirmModal";
 import EndShiftReportModal from "@/Pages/ReportsAfterShift";
-import Notifications from "@/components/Notifications"; // ✅ محتفظ بيه تمامًا زي ما هو
 
 export default function Navbar() {
   const FALLBACK_SOUND = "https://www.soundjay.com/buttons/sounds/button-1.mp3";
@@ -47,16 +53,14 @@ export default function Navbar() {
   const [showReportModal, setShowReportModal] = useState(false);
   const [notificationCount, setNotificationCount] = useState(0);
   const [cashAmount, setCashAmount] = useState("");
-  const [pendingPassword, setPendingPassword] = useState(""); // الباسورد المؤقت
+  const [pendingPassword, setPendingPassword] = useState("");
   const [endShiftReport, setEndShiftReport] = useState(null);
   const [reportLoading, setReportLoading] = useState(false);
-  const audioRef = useRef(null);      // ماسك ملف الصوت
+  const audioRef = useRef(null);
   const previousCountRef = useRef(0);
-  // ✅ حالة الـ Dropdown للإشعارات
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
 
-  // ✅ Permissions من الـ user
   const userData = JSON.parse(sessionStorage.getItem("user") || "{}");
   const permissions = {
     online_order: userData.online_order === 1,
@@ -72,7 +76,6 @@ export default function Navbar() {
     audioRef.current = new Audio(storedSound);
     audioRef.current.load();
 
-    // تلميح اختياري: تشغيل صامت عند أول ضغطة للمستخدم لفك حظر الصوت في المتصفح
     const enableAudio = () => {
       audioRef.current.play().then(() => {
         audioRef.current.pause();
@@ -82,45 +85,35 @@ export default function Navbar() {
     };
     window.addEventListener('click', enableAudio);
   }, []);
-  // ✅ جلب عدد الإشعارات والطلبات الجديدة بدقة من الـ API
+
   const { data: notificationsData, refetch: refetchNotifications } = useGet(
     "cashier/orders/notifications",
     { useCache: false }
   );
 
-  // قائمة الطلبات الجديدة (array من order IDs)
   const notifications = notificationsData?.orders || [];
 
-  // تحديث العدد من الـ API
-  // ده الـ useEffect اللي بيشتغل لما الداتا تيجي من الـ API
   useEffect(() => {
     if (notificationsData?.orders_count !== undefined) {
       const newCount = notificationsData.orders_count;
 
-      // اللوجيك الجديد: لو العدد الجديد أكبر من القديم -> شغل الصوت
       if (newCount > previousCountRef.current) {
         if (audioRef.current) {
-          // تحديث مصدر الصوت لو اتغير في الـ SessionStorage
           const currentStoredSound = sessionStorage.getItem("notification_sound") || FALLBACK_SOUND;
           if (audioRef.current.src !== currentStoredSound) {
             audioRef.current.src = currentStoredSound;
           }
 
-          // تشغيل الصوت
           audioRef.current.play().catch((e) => console.warn("Audio play blocked:", e));
           toast.info(t("New Order Received!"));
         }
       }
 
-      // تحديث الحالة والـ Ref عشان المقارنة الجاية
       setNotificationCount(newCount);
       previousCountRef.current = newCount;
     }
   }, [notificationsData, t]);
 
-
-
-  // Polling كل 15 ثانية عشان العدد يفضل دقيق دايماً
   useEffect(() => {
     if (!permissions.online_order) return;
     const interval = setInterval(() => {
@@ -129,7 +122,6 @@ export default function Navbar() {
     return () => clearInterval(interval);
   }, [refetchNotifications, permissions.online_order]);
 
-  // إغلاق الـ Dropdown عند كليك خارجها
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -173,8 +165,6 @@ export default function Navbar() {
       return;
     }
 
-    // ✅ التعديل هنا: لا تمسح السلة إذا كانت تحتوي على بيانات "تكرار الطلب"
-    // نتحقق من وجود علامة repeatedOrder في الـ sessionStorage أو الـ state
     const isRepeated = sessionStorage.getItem("is_repeating_order") === "true";
 
     sessionStorage.setItem("tab", value);
@@ -183,7 +173,6 @@ export default function Navbar() {
     if (!isRepeated) {
       sessionStorage.removeItem("cart");
     } else {
-      // بعد ما ضمنا إننا مش هنمسحها، نشيل العلامة عشان المرات الجاية يمسح عادي
       sessionStorage.removeItem("is_repeating_order");
     }
 
@@ -201,6 +190,7 @@ export default function Navbar() {
       navigate("/online-orders", { replace: true });
     }
   };
+
   const handleTables = () => {
     if (!permissions.dine_in) {
       toast.warn(t("You do not have permission for tables"));
@@ -215,7 +205,6 @@ export default function Navbar() {
   const handleDeliveryOrder = () => navigate("/deliveryOrders");
   const handleDineInOrder = () => navigate("/dine-in-orders");
 
-  // ===== إغلاق الشيفت =====
   const handleCloseShift = () => {
     if (!isShiftOpen) {
       toast.error(t("No active shift found"));
@@ -223,7 +212,7 @@ export default function Navbar() {
     }
     setShowPasswordModal(true);
   };
-  // دالة مساعدة للإغلاق التلقائي بدون إدخال كاش
+
   const handleAutoCashConfirmed = async (password) => {
     setReportLoading(true);
     try {
@@ -234,7 +223,7 @@ export default function Navbar() {
         `${baseUrl}cashier/reports/end_shift_report`,
         {
           password: password,
-          amount: 0, // نرسل 0 لأن المستخدم لم يُطلب منه الإدخال
+          amount: 0,
         },
         {
           headers: { Authorization: `Bearer ${token}` },
@@ -250,25 +239,20 @@ export default function Navbar() {
       setReportLoading(false);
     }
   };
-  // 1. بعد تأكيد الباسورد → نخزن الباسورد ونفتح مودال الكاش
+
   const handlePasswordConfirmed = (password) => {
     setPendingPassword(password);
     setShowPasswordModal(false);
     const enterAmountStatus = sessionStorage.getItem("enter_amount");
 
     if (enterAmountStatus === "1") {
-      // إذا كانت 1، نفتح مودال إدخال الكاش
       setShowCashInputModal(true);
       setCashAmount("");
     } else {
-      // إذا كانت 0، ننتقل مباشرة لجلب التقرير بمبلغ افتراضي 0
       handleAutoCashConfirmed(password);
     }
   };
 
-
-
-  // 2. بعد إدخال الكاش → نرسل الريبورت بالباسورد والمبلغ
   const handleCashConfirmed = async () => {
     if (!cashAmount || isNaN(cashAmount) || Number(cashAmount) < 0) {
       toast.error("Please enter a valid cash amount");
@@ -295,15 +279,13 @@ export default function Navbar() {
       setShowCashInputModal(false);
       setShowReportModal(true);
     } catch (err) {
-      const msg =
-        err.response?.data?.message || t("Invalid password or error occurred");
+      const msg = err.response?.data?.message || t("Invalid password or error occurred");
       toast.error(msg);
     } finally {
       setReportLoading(false);
     }
   };
 
-  // 3. إغلاق الشيفت النهائي بعد تأكيد الريبورت
   const handleFinalClose = async () => {
     try {
       setLoading(true);
@@ -340,7 +322,6 @@ export default function Navbar() {
     }
   };
 
-  // ✅ دالة جديدة لفتح طلب معين (mark as read + navigate)
   const handleOrderClick = async (orderId) => {
     try {
       const token = sessionStorage.getItem("token");
@@ -350,18 +331,12 @@ export default function Navbar() {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      // تحديث العدد فوريًا
       refetchNotifications();
-
-      // التنقل لصفحة الطلب
       navigate(`/online-orders/${orderId}`);
-
-      // إغلاق الـ Dropdown
       setIsDropdownOpen(false);
     } catch (err) {
       console.error("Error marking order as read:", err);
       toast.error("فشل في تحديث حالة الطلب");
-      // حتى لو فشل الـ API، نروح للطلب
       navigate(`/online-orders/${orderId}`);
       setIsDropdownOpen(false);
     }
@@ -370,14 +345,14 @@ export default function Navbar() {
   return (
     <>
       <div className="text-gray-800 px-4 md:px-6 w-full z-50 bg-white shadow-md">
-        <div className="flex items-center justify-between gap-4">
-          {/* الجزء الأيسر */}
-          <div className="flex items-center gap-2">
+        <div className="flex items-center justify-between gap-4 py-1.5">
+          {/* Left Section: Navigation */}
+          <div className="flex items-center gap-2 flex-1 pb-1">
             {location.pathname !== "/shift" &&
               location.pathname !== "/cashier" && (
                 <button
                   onClick={() => navigate(-1)}
-                  className="font-bold text-center px-1 pb-1 hover:bg-red-200 cursor-pointer hover:text-gray-800 rounded bg-bg-primary text-3xl text-white transition-colors duration-200"
+                  className="h-9 px-3 flex items-center justify-center font-bold text-center hover:bg-red-200 cursor-pointer hover:text-gray-800 rounded bg-bg-primary text-2xl text-white transition-colors duration-200"
                   title="Go back"
                 >
                   ←
@@ -385,212 +360,159 @@ export default function Navbar() {
               )}
 
             <button
-              onClick={() => navigate("/profile")}
-              className="text-gray-600 hover:text-[#910000]"
-            >
-              <FaUserCircle className="text-2xl md:text-3xl" />
-            </button>
-
-            <button
               onClick={handleDueUsers}
-              className="text-gray-600 hover:text-[#910000]"
+              className="h-9 px-3 text-[10px] md:text-sm font-bold bg-white text-bg-primary border border-bg-primary rounded-md hover:bg-bg-primary hover:text-white transition-all duration-200 whitespace-nowrap"
             >
-              <FaUsers className="text-2xl md:text-3xl" />
+              {t("Due")}
             </button>
 
             <button
               onClick={handleAllOrders}
-              className="text-gray-600 hover:text-[#910000]"
+              className="h-9 px-3 text-[10px] md:text-sm font-bold bg-white text-bg-primary border border-bg-primary rounded-md hover:bg-bg-primary hover:text-white transition-all duration-200 whitespace-nowrap"
               title={t("AllOrders")}
             >
-              <FaListAlt className="text-2xl md:text-3xl" />
+
+              {t("AllOrders")}
             </button>
 
             <button
               onClick={handleExpenses}
-              className="text-green-600 hover:text-green-800"
+              className="h-9 px-3 text-[10px] md:text-sm font-bold bg-white text-green-600 border border-green-600 rounded-md hover:bg-green-600 hover:text-white transition-all duration-200 whitespace-nowrap"
               title="Add Expense"
             >
-              <FaDollarSign className="text-2xl md:text-3xl" />
+              {t("Expenses")}
             </button>
 
             <Tabs value={currentTab} onValueChange={handleTabChange}>
               <TabsList className="flex gap-2 bg-transparent p-0 ml-2">
-                {/* Online Orders */}
                 {permissions.online_order && (
                   <TabsTrigger
                     value="online-order"
-                    className="px-3 py-1 text-sm font-semibold bg-white text-bg-primary border border-bg-primary data-[state=active]:bg-bg-primary data-[state=active]:text-white transition-colors duration-200"
+                    className="h-9 px-3 text-[10px] md:text-sm font-bold bg-white text-bg-primary border border-bg-primary data-[state=active]:bg-bg-primary data-[state=active]:text-white transition-all duration-200 whitespace-nowrap"
                   >
                     {t("OnlineOrders")}
                   </TabsTrigger>
                 )}
 
-                {/* Take Away */}
                 {permissions.take_away && (
                   <TabsTrigger
                     value="take_away"
-                    className="px-3 py-1 text-sm font-semibold bg-white text-bg-primary border border-bg-primary data-[state=active]:bg-bg-primary data-[state=active]:text-white transition-colors duration-200"
+                    className="h-9 px-3 text-[10px] md:text-sm font-bold bg-white text-bg-primary border border-bg-primary data-[state=active]:bg-bg-primary data-[state=active]:text-white transition-all duration-200 whitespace-nowrap"
                   >
                     {t("take_away")}
                   </TabsTrigger>
                 )}
 
-                {/* Delivery */}
                 {permissions.delivery && (
                   <TabsTrigger
                     value="delivery"
-                    className="px-3 py-1 text-sm font-semibold bg-white text-bg-primary border border-bg-primary data-[state=active]:bg-bg-primary data-[state=active]:text-white transition-colors duration-200"
+                    className="h-9 px-3 text-[10px] md:text-sm font-bold bg-white text-bg-primary border border-bg-primary data-[state=active]:bg-bg-primary data-[state=active]:text-white transition-all duration-200 whitespace-nowrap"
                   >
                     {t("Delivery")}
                   </TabsTrigger>
                 )}
 
-                {/* Dine In */}
                 {permissions.dine_in && (
                   <TabsTrigger
                     value="dine_in"
-                    className="px-3 py-1 text-sm font-semibold bg-white text-bg-primary border border-bg-primary data-[state=active]:bg-bg-primary data-[state=active]:text-white transition-colors duration-200"
+                    className="h-9 px-3 text-[10px] md:text-sm font-bold bg-white text-bg-primary border border-bg-primary data-[state=active]:bg-bg-primary data-[state=active]:text-white transition-all duration-200 whitespace-nowrap"
                   >
                     {t("Dinein")}
                   </TabsTrigger>
                 )}
 
-                {/* زر الطاولات */}
                 {permissions.dine_in && (
                   <button
                     onClick={handleTables}
-                    className="p-2 border border-bg-primary rounded-lg hover:bg-bg-primary hover:text-white text-bg-primary transition"
+                    className="h-9 px-3 text-[10px] md:text-sm font-bold bg-white text-bg-primary border border-bg-primary rounded-md hover:bg-bg-primary hover:text-white transition-all duration-200 whitespace-nowrap"
                     title={t("Tables")}
                   >
-                    <FaTable className="text-lg" />
+                    {t("Tables")}
                   </button>
                 )}
 
-                {/* زر Delivery Orders (منفصل عن الـ tab) */}
-                {permissions.delivery && (
-                  <button
-                    onClick={handleDeliveryOrder}
-                    className="p-2 border border-bg-primary rounded-lg hover:bg-bg-primary hover:text-white text-bg-primary transition"
-                    title={t("DeliveryOrder")}
-                  >
-                    <FaTruck className="text-lg" />
-                  </button>
-                )}
-                {/* زر Dine Orders (منفصل عن الـ tab) */}
-                {permissions.dine_in && (
-                  <button
-                    onClick={handleDineInOrder}
-                    className="p-2 border border-bg-primary rounded-lg hover:bg-bg-primary hover:text-white text-bg-primary transition"
-                    title={t("DineInOrder")}
-                  >
-                    <FaUtensils className="text-lg" />
-                  </button>
+                {(permissions.delivery || permissions.dine_in) && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button className="h-9 px-3 text-[10px] md:text-sm font-bold bg-white text-bg-primary border border-bg-primary rounded-md hover:bg-bg-primary hover:text-white transition-all duration-200 whitespace-nowrap cursor-pointer outline-none">
+                        {t("Reports")}
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="center" className="w-48 bg-white">
+                      {permissions.delivery && (
+                        <DropdownMenuItem onClick={handleDeliveryOrder} className="cursor-pointer py-2 px-3 text-xs font-bold text-gray-700">
+                          {t("DeliveryOrder")}
+                        </DropdownMenuItem>
+                      )}
+                      {permissions.dine_in && (
+                        <DropdownMenuItem onClick={handleDineInOrder} className="cursor-pointer py-2 px-3 text-xs font-bold text-gray-700">
+                          {t("DineInOrder")}
+                        </DropdownMenuItem>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 )}
               </TabsList>
             </Tabs>
           </div>
 
-          {/* اللوجو */}
-          <a
-            href="https://Food2go.online"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center justify-center"
-          >
-            <img
-              src={logo}
-              alt="Food2go Logo"
-              className="h-18 w-18 object-contain cursor-pointer"
-            />
-          </a>
+          {/* Center Section: Logo */}
+          <div className="flex-shrink-0 px-4">
+            <a
+              href="https://Food2go.online"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block"
+            >
+              <img
+                src={logo}
+                alt="Food2go Logo"
+                className="h-10 md:h-12 w-auto object-contain cursor-pointer"
+              />
+            </a>
+          </div>
 
-          {/* الجزء الأيمن */}
-          <div className="flex items-center gap-2">
+          {/* Right Section: Actions */}
+          <div className="flex items-center justify-end gap-2 flex-1">
             {location.pathname !== "/shift" &&
               location.pathname !== "/cashier" && (
-                <>
-                  <div className="flex items-center text-xs md:text-sm font-medium text-gray-600">
-                    <span className="text-gray-500 mr-1 hidden sm:inline">
-                      {t("shift")}:
-                    </span>
-                    <span className="bg-gray-100 px-2 py-1 rounded-md text-gray-800 text-xs md:text-sm">
-                      {formatElapsedTime()}
-                    </span>
-                  </div>
-
-                  <button
-                    onClick={handleCloseShift}
-                    disabled={loading || reportLoading}
-                    className="bg-[#910000] text-white px-3 py-1 md:px-4 md:py-2 rounded-md text-xs md:text-sm font-semibold hover:bg-red-700 disabled:opacity-50 transition"
-                  >
-                    {loading || reportLoading ? (
-                      "..."
-                    ) : (
-                      <>
-                        <span className="hidden md:inline">
-                          {t("closeshift")}
-                        </span>
-                        <span className="md:hidden">{t("Close")}</span>
-                      </>
-                    )}
-                  </button>
-                </>
+                <div className="flex items-center text-xs md:text-sm font-medium text-gray-600 bg-gray-50 px-2 py-0.5 rounded-md border border-gray-100">
+                  <span className="text-gray-500 mr-1 hidden sm:inline">
+                    {t("shift")}:
+                  </span>
+                  <span className="text-gray-800 font-bold">
+                    {formatElapsedTime()}
+                  </span>
+                </div>
               )}
 
-            {/* تبديل اللغة */}
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-medium">AR</span>
-              <button
-                onClick={toggleLanguage}
-                className={`relative inline-flex h-6 w-12 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${isArabic ? "bg-bg-primary" : "bg-gray-300"
-                  }`}
-              >
-                <span
-                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${!isArabic ? "translate-x-6" : "translate-x-0"
-                    }`}
-                />
-              </button>
-              <span className="text-sm font-medium">EN</span>
-            </div>
-
-            {/* ✅ الجرس مع Dropdown للإشعارات الجديدة */}
+            {/* Notifications Dropdown */}
             {permissions.online_order && (
               <div className="relative" ref={dropdownRef}>
                 <button
                   onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                  className="relative text-gray-600 hover:text-[#910000] transition flex items-center gap-1"
-                  title={t("OnlineOrders")}
+                  className="h-9 px-3 text-[10px] md:text-sm font-bold bg-white text-gray-600 border border-gray-300 rounded-md hover:bg-gray-100 transition-all duration-200 whitespace-nowrap flex items-center gap-1.5 cursor-pointer outline-none"
                 >
-                  <FaBell className="text-2xl md:text-3xl" />
+                  <FaBell className="text-lg" />
                   {notificationCount > 0 && (
-                    <span
-                      className={`absolute -top-1 ${isArabic ? "-left-1" : "-right-1"} bg-red-500 text-white text-xs font-bold rounded-full px-2 min-w-5 h-5 flex items-center justify-center shadow-md animate-pulse`}
-                    >
+                    <span className="bg-red-500 text-white text-[10px] font-bold rounded-full px-1.5 min-w-[18px] h-[18px] flex items-center justify-center shadow-sm">
                       {notificationCount > 99 ? "99+" : notificationCount}
                     </span>
                   )}
-                  <FaChevronDown className={`text-sm transition-transform duration-200 ${isDropdownOpen ? "rotate-180" : ""}`} />
+                  <FaChevronDown className={`text-[10px] transition-transform duration-200 ${isDropdownOpen ? "rotate-180" : ""}`} />
                 </button>
 
-                {/* الـ Dropdown نفسه */}
                 {isDropdownOpen && (
-                  <div
-                    className={`absolute ${isArabic ? "left-0" : "right-0"} mt-2 w-72 bg-white rounded-xl shadow-2xl border border-gray-200 z-50 max-h-96 overflow-y-auto`}
-                  >
+                  <div className={`absolute ${isArabic ? "left-0" : "right-0"} mt-2 w-72 bg-white rounded-xl shadow-2xl border border-gray-200 z-50 max-h-96 overflow-y-auto`}>
                     <div className="p-4 border-b border-gray-200 bg-gray-50 rounded-t-xl">
                       <h3 className="font-bold text-gray-800 text-lg">{t("New Orders")} ({notificationCount})</h3>
                     </div>
-
                     <div className="py-2">
                       {notifications.length > 0 ? (
                         <ul>
                           {notifications.map((orderId) => (
                             <li key={orderId}>
-                              <button
-                                onClick={() => handleOrderClick(orderId)}
-                                className="w-full px-4 py-3 hover:bg-gray-100 transition text-right flex items-center justify-between border-b border-gray-100 last:border-0"
-                              >
+                              <button onClick={() => handleOrderClick(orderId)} className="w-full px-4 py-3 hover:bg-gray-100 transition text-right flex items-center justify-between border-b border-gray-100 last:border-0 border-r-4 border-r-bg-primary">
                                 <div>
                                   <span className="font-semibold text-gray-800">Order #{orderId}</span>
                                   <span className="block text-sm text-gray-500 mt-1">{t("New Order")}</span>
@@ -604,42 +526,41 @@ export default function Navbar() {
                         <p className="p-8 text-center text-gray-500">{t("No new orders")}</p>
                       )}
                     </div>
-
                     <div className="p-4 border-t border-gray-200 bg-gray-50 rounded-b-xl">
-                      <button
-                        onClick={() => {
-                          handleTabChange("online-order");
-                          setIsDropdownOpen(false);
-                        }}
-                        className="w-full text-center text-[#910000] font-bold hover:underline"
-                      >
-                        {t("View All Orders")}
-                      </button>
+                      <button onClick={() => { handleTabChange("online-order"); setIsDropdownOpen(false); }} className="w-full text-center text-bg-primary font-bold hover:underline">{t("View All Orders")}</button>
                     </div>
                   </div>
                 )}
               </div>
             )}
 
-            {/* ✅ محتفظ بـ Notifications component زي ما هو */}
-            <Notifications />
-
-            <button
-              onClick={handleLogout}
-              className="bg-gray-200 text-gray-800 px-3 py-1 md:px-4 md:py-2 rounded-md text-xs md:text-sm font-semibold hover:bg-gray-300 transition"
-            >
-              <span className="hidden sm:inline">{t("logout")}</span>
-              <span className="sm:hidden">{t("Exit")}</span>
-            </button>
+            {/* Account Dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="h-9 px-3 text-[10px] md:text-sm font-bold bg-white text-gray-600 border border-gray-300 rounded-md hover:bg-gray-100 transition-all duration-200 whitespace-nowrap flex items-center gap-1.5 cursor-pointer outline-none">
+                  <span>{userData.name || t("Account")}</span>
+                  <FaChevronDown className="text-[10px] text-gray-400" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align={isArabic ? "start" : "end"} className="w-56 mt-2 bg-white">
+                <DropdownMenuLabel className="font-bold text-gray-700">{userData.name || t("UserAccount")}</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => navigate("/profile")} className="flex items-center gap-2 cursor-pointer py-2 px-3 font-semibold"><User className="w-4 h-4 text-gray-500" /><span>{t("Profile")}</span></DropdownMenuItem>
+                <DropdownMenuItem onClick={toggleLanguage} className="flex items-center gap-2 cursor-pointer py-2 px-3 font-semibold"><Globe className="w-4 h-4 text-gray-500" /><span>{isArabic ? "English" : "العربية"}</span></DropdownMenuItem>
+                {location.pathname !== "/shift" && location.pathname !== "/cashier" && isShiftOpen && (
+                  <DropdownMenuItem onClick={handleCloseShift} disabled={loading || reportLoading} className="flex items-center gap-2 cursor-pointer py-2 px-3 text-red-600 focus:text-red-600 font-semibold"><Clock className="w-4 h-4" /><span>{t("closeshift")}</span></DropdownMenuItem>
+                )}
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleLogout} className="flex items-center gap-2 cursor-pointer py-2 px-3 text-red-800 focus:text-white focus:bg-red-800 font-semibold"><LogOut className="w-4 h-4" /><span>{t("logout")}</span></DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
       </div>
 
-      {/* المودالز - كلها زي ما هي بدون أي تغيير أو اختصار */}
       {showExpensesModal && (
         <ExpensesModal onClose={() => setShowExpensesModal(false)} />
       )}
-
       {showPasswordModal && (
         <PasswordConfirmModal
           onConfirm={handlePasswordConfirmed}
@@ -647,7 +568,6 @@ export default function Navbar() {
           loading={reportLoading}
         />
       )}
-
       {showCashInputModal && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 backdrop-blur-sm">
           <div className="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md border border-gray-100">
@@ -655,7 +575,6 @@ export default function Navbar() {
               <h3 className="text-2xl font-bold text-gray-800">إغلاق الوردية</h3>
               <p className="text-gray-500 mt-2">كم المبلغ الموجود في العهدة الآن؟</p>
             </div>
-
             <div className="relative">
               <input
                 type="number"
@@ -667,13 +586,9 @@ export default function Navbar() {
               />
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 text-lg">EGP</span>
             </div>
-
             <div className="flex gap-4 mt-8">
               <button
-                onClick={() => {
-                  setShowCashInputModal(false);
-                  setCashAmount("");
-                }}
+                onClick={() => { setShowCashInputModal(false); setCashAmount(""); }}
                 className="flex-1 py-3 text-gray-600 font-semibold hover:bg-gray-100 rounded-xl transition"
               >
                 إلغاء
@@ -689,7 +604,6 @@ export default function Navbar() {
           </div>
         </div>
       )}
-
       {showReportModal && (
         <EndShiftReportModal
           reportData={endShiftReport}
