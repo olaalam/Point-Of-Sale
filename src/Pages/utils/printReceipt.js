@@ -1024,9 +1024,13 @@ export const prepareReceiptData = (
     "اسم المطعم";
 
   const itemsSource =
-    response && response.success && response.success.length > 0
+    response && response.success && Array.isArray(response.success)
       ? response.success
-      : orderItems;
+      : response && response.products && Array.isArray(response.products)
+        ? response.products
+        : Array.isArray(orderItems)
+          ? orderItems
+          : [];
 
   const dateObj = response?.date ? new Date(response.date) : new Date();
   const dateFormatted = dateObj.toLocaleDateString("en-GB", {
@@ -1056,8 +1060,8 @@ export const prepareReceiptData = (
       name: item.name,
       nameAr: item.name_ar || item.nameAr,
       nameEn: item.name_en || item.nameEn,
-      price: Number(item.price),
-      total: Number(item.total || item.price * item.count),
+      price: Number(item.price || item.final_price || 0),
+      total: Number(item.total || (Number(item.price || item.final_price || 0) * Number(item.count || item.qty || 1))),
       notes: item.notes || "",
       orderNote: response?.order_note || "", // ✅ إضافة ملاحظة الأوردر
 
@@ -1143,14 +1147,14 @@ export const printReceiptSilently = async (
         const shouldPrintDouble = localStorage.getItem("print_double_takeaway") === "true";
         // Take Away → طباعة إيصال بسيط (نسخة العميل)
         if (shouldPrintDouble) {
-        const simpleHtml = formatSimpleCustomerCopy(receiptData);
-        printJobs.push(
-          qz.print(cashierConfig, [
-            { type: "html", format: "plain", data: simpleHtml },
-          ])
-        );
+          const simpleHtml = formatSimpleCustomerCopy(receiptData);
+          printJobs.push(
+            qz.print(cashierConfig, [
+              { type: "html", format: "plain", data: simpleHtml },
+            ])
+          );
+        }
       }
-    }
       // Dine In أو غيره → لا طباعة إضافية
     } catch (err) {
       console.error(err);
