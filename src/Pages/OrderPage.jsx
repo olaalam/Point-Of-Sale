@@ -16,9 +16,9 @@ export default function OrderPage({
   onClose,
   discountData = { discount: 0, module: [] },
 }) {
-   const { i18n } = useTranslation()
+  const { i18n } = useTranslation()
   const locale = i18n.language === "ar" ? "ar" : "en";
-      const isArabic = i18n.language === "ar";
+  const isArabic = i18n.language === "ar";
   const [ordersByTable, setOrdersByTable] = useState({});
   const [ordersByUser, setOrdersByUser] = useState({});
   const [takeAwayItems, setTakeAwayItems] = useState(initialCart);
@@ -46,10 +46,10 @@ export default function OrderPage({
       const mappedItems = pendingOrder.orderDetails.map((detail, index) => ({
         id: detail.product_id || `pending_${index}`,
         temp_id: `pending_${detail.product_id || index}_${Date.now()}`,
-        name:     detail.name || 
-    detail.product_name || 
-    detail.product?.[0]?.product?.name || 
-    "Unknown Productييي",
+        name: detail.name ||
+          detail.product_name ||
+          detail.product?.[0]?.product?.name ||
+          "Unknown Productييي",
         price: parseFloat(detail.price || 0),
         originalPrice: parseFloat(detail.price || 0),
         count: parseInt(detail.count || 1),
@@ -98,13 +98,13 @@ export default function OrderPage({
     if (isDineIn && currentTableId && dineInData?.success) {
       const mappedItems = Array.isArray(dineInData.success)
         ? dineInData.success.map((item) => ({
-            ...item,
-            originalPrice: item.originalPrice ?? item.price ?? 0,
-            temp_id: item.temp_id || `dinein_${item.id}_${Date.now()}`,
-            count: parseInt(item.count || 1),
-            price: parseFloat(item.price || 0),
-            preparation_status: item.prepration || item.preparation_status || "pending",
-          }))
+          ...item,
+          originalPrice: item.originalPrice ?? item.price ?? 0,
+          temp_id: item.temp_id || `dinein_${item.id}_${Date.now()}`,
+          count: parseInt(item.count || 1),
+          price: parseFloat(item.price || 0),
+          preparation_status: item.prepration || item.preparation_status || "pending",
+        }))
         : [];
 
       setOrdersByTable((prev) => ({
@@ -115,30 +115,30 @@ export default function OrderPage({
   }, [isDineIn, currentTableId, dineInData]);
 
   // delivery: أضف originalPrice و temp_id
-// delivery: أضف originalPrice و temp_id + القراءة من sessionStorage عند الريفريش
+  // delivery: أضف originalPrice و temp_id + القراءة من sessionStorage عند الريفريش
   useEffect(() => {
     if (isDelivery && currentUserId) {
       // 1. لو فيه داتا جاية من السيرفر (الطلب محفوظ مسبقاً)
       if (dineInData?.success) {
         const mappedItems = Array.isArray(dineInData.success)
           ? dineInData.success.map((item) => ({
-              ...item,
-              originalPrice: item.originalPrice ?? item.price ?? 0,
-              temp_id: item.temp_id || `delivery_${item.id}_${Date.now()}`,
-              count: parseInt(item.count || 1),
-              price: parseFloat(item.price || 0),
-              preparation_status: item.prepration || item.preparation_status || "pending",
-            }))
+            ...item,
+            originalPrice: item.originalPrice ?? item.price ?? 0,
+            temp_id: item.temp_id || `delivery_${item.id}_${Date.now()}`,
+            count: parseInt(item.count || 1),
+            price: parseFloat(item.price || 0),
+            preparation_status: item.prepration || item.preparation_status || "pending",
+          }))
           : [];
 
         setOrdersByUser((prev) => ({
           ...prev,
           [currentUserId]: mappedItems,
         }));
-        
+
         // تحديث السيشين بالداتا اللي جت من السيرفر عشان تفضل معانا
         sessionStorage.setItem("cart", JSON.stringify(mappedItems));
-      } 
+      }
       // 2. 🟢 الجزء الجديد: لو مفيش داتا من السيرفر (زي حالة الريفريش لطلب جديد)
       else {
         const storedCart = sessionStorage.getItem("cart");
@@ -206,12 +206,12 @@ export default function OrderPage({
   const currentOrderItems = isDineIn
     ? ordersByTable[currentTableId] || []
     : isDelivery
-    ? ordersByUser[currentUserId] || []
-    : takeAwayItems;
+      ? ordersByUser[currentUserId] || []
+      : takeAwayItems;
 
-const updateOrderItems = (newItems) => {
+  const updateOrderItems = (newItems) => {
     const safeNewItems = Array.isArray(newItems) ? newItems : [];
-    
+
     // 1. تحديث الـ State حسب النوع
     if (isDineIn) {
       setOrdersByTable((prev) => ({ ...prev, [currentTableId]: safeNewItems }));
@@ -224,92 +224,98 @@ const updateOrderItems = (newItems) => {
     // 2. 🟢 المزامنة مع sessionStorage لكل الحالات لضمان وجود cart_id دائماً
     // هذا السطر يضمن أن أي موديول آخر (مثل تغيير الحالة) يجد البيانات
     sessionStorage.setItem("cart", JSON.stringify(safeNewItems));
-    
+
     console.log("💾 Updated cart in sessionStorage (All Modes):", safeNewItems);
   };
-const handleAddItem = (item) => {
-  // 1. تحقق إذا كان المنتج قادم من الميزان
-  const isScaleItem = item._source === "scale_barcode";
+  const handleAddItem = (item) => {
+    // 1. تحقق إذا كان المنتج قادم من الميزان
+    const isScaleItem = item._source === "scale_barcode";
 
-  if (currentOrderType === "dine_in") {
-    setOrdersByTable((prev) => {
-      const tableId = currentTableId;
-      const currentItems = prev[tableId] || [];
+    if (currentOrderType === "dine_in") {
+      setOrdersByTable((prev) => {
+        const tableId = currentTableId;
+        const currentItems = prev[tableId] || [];
 
-      // 2. إذا كان منتج ميزان، أضفه فوراً كسطر جديد دون بحث عن تكرار
-      if (isScaleItem) {
-        return {
-          ...prev,
-          [tableId]: [...currentItems, { ...item }],
-        };
-      }
-
-      // المنطق القديم للمنتجات العادية (دمج الكميات)
-      const existingItemIndex = currentItems.findIndex((i) =>
-        areProductsEqual(i, item)
-      );
-
-      if (existingItemIndex > -1) {
-        const updatedItems = [...currentItems];
-        updatedItems[existingItemIndex].count += item.count || 1;
-        return { ...prev, [tableId]: updatedItems };
-      }
-      return { ...prev, [tableId]: [...currentItems, item] };
-    });
-  } else {
-    // --- الجزء الخاص بالـ Takeaway و Delivery ---
-
-    // أ- تحديث الـ takeAwayItems (عشان الـ Takeaway يفضل شغال)
-    setTakeAwayItems((prev) => {
-      if (isScaleItem) {
-        return [...prev, { ...item }];
-      }
-      const existingItemIndex = prev.findIndex((i) => areProductsEqual(i, item));
-      if (existingItemIndex > -1) {
-        const updatedItems = [...prev];
-        updatedItems[existingItemIndex].count += item.count || 1;
-        return updatedItems;
-      }
-      return [...prev, item];
-    });
-
-    // ب- تحديث الـ ordersByUser (عشان الـ Delivery يظهر في الـ Card)
-    if (currentUserId) {
-      setOrdersByUser((prev) => {
-        const userId = currentUserId;
-        const currentItems = prev[userId] || [];
-
+        // 2. إذا كان منتج ميزان، أضفه فوراً كسطر جديد دون بحث عن تكرار
         if (isScaleItem) {
           return {
             ...prev,
-            [userId]: [...currentItems, { ...item }],
+            [tableId]: [...currentItems, { ...item }],
           };
         }
 
+        // المنطق القديم للمنتجات العادية (دمج الكميات)
         const existingItemIndex = currentItems.findIndex((i) =>
           areProductsEqual(i, item)
         );
 
         if (existingItemIndex > -1) {
           const updatedItems = [...currentItems];
-          updatedItems[existingItemIndex].count += item.count || 1;
-          return { ...prev, [userId]: updatedItems };
+          const addedCount = item.count || 1;
+          updatedItems[existingItemIndex].count += addedCount;
+          updatedItems[existingItemIndex].quantity = (updatedItems[existingItemIndex].quantity || 0) + addedCount;
+          return { ...prev, [tableId]: updatedItems };
         }
-        return { ...prev, [userId]: [...currentItems, item] };
+        return { ...prev, [tableId]: [...currentItems, item] };
       });
-    }
-  }
-  
-  // لضمان تحديث الواجهة
-  setRefreshTrigger((prev) => prev + 1);
-};
+    } else {
+      // --- الجزء الخاص بالـ Takeaway و Delivery ---
 
-const handleClose = () => {
+      // أ- تحديث الـ takeAwayItems (عشان الـ Takeaway يفضل شغال)
+      setTakeAwayItems((prev) => {
+        if (isScaleItem) {
+          return [...prev, { ...item }];
+        }
+        const existingItemIndex = prev.findIndex((i) => areProductsEqual(i, item));
+        if (existingItemIndex > -1) {
+          const updatedItems = [...prev];
+          const addedCount = item.count || 1;
+          updatedItems[existingItemIndex].count += addedCount;
+          updatedItems[existingItemIndex].quantity = (updatedItems[existingItemIndex].quantity || 0) + addedCount;
+          return updatedItems;
+        }
+        return [...prev, item];
+      });
+
+      // ب- تحديث الـ ordersByUser (عشان الـ Delivery يظهر في الـ Card)
+      if (currentUserId) {
+        setOrdersByUser((prev) => {
+          const userId = currentUserId;
+          const currentItems = prev[userId] || [];
+
+          if (isScaleItem) {
+            return {
+              ...prev,
+              [userId]: [...currentItems, { ...item }],
+            };
+          }
+
+          const existingItemIndex = currentItems.findIndex((i) =>
+            areProductsEqual(i, item)
+          );
+
+          if (existingItemIndex > -1) {
+            const updatedItems = [...currentItems];
+            const addedCount = item.count || 1;
+            updatedItems[existingItemIndex].count += addedCount;
+            updatedItems[existingItemIndex].quantity = (updatedItems[existingItemIndex].quantity || 0) + addedCount;
+            return { ...prev, [userId]: updatedItems };
+          }
+          return { ...prev, [userId]: [...currentItems, item] };
+        });
+      }
+    }
+
+    // لضمان تحديث الواجهة
+    setRefreshTrigger((prev) => prev + 1);
+  };
+
+  const handleClose = () => {
     // إذا تم تمرير onClose من الأب (Home.jsx)، نستخدمها
     // لأنها تحتوي على المنطق الصحيح للعودة لقائمة الديليفري دون تغيير التبويب
     if (onClose) {
       onClose();
-      return; 
+      return;
     }
 
     // هذا الكود الاحتياطي يعمل فقط إذا لم يتم تمرير onClose
