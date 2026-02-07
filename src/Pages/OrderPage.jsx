@@ -77,6 +77,7 @@ export default function OrderPage({
         orderNumber: pendingOrder.orderNumber,
         amount: pendingOrder.amount,
         notes: pendingOrder.notes,
+        prepare_order: pendingOrder.prepare_order, // ✅ Save preparation status for toggle logic
       }));
     } else if (!pendingOrderLoaded && currentOrderType === "take_away") {
       const storedCartString = sessionStorage.getItem("cart");

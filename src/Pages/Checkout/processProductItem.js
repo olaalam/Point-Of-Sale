@@ -11,8 +11,8 @@ export const processProductItem = (item) => {
       option_id: Array.isArray(group.selected_option_id)
         ? group.selected_option_id.map(id => id.toString())
         : group.selected_option_id
-        ? [group.selected_option_id.toString()]
-        : [],
+          ? [group.selected_option_id.toString()]
+          : [],
     })).filter(v => v.option_id.length > 0) || [];
 
   // 2. Addons - مع الـ price المطلوب
@@ -24,9 +24,9 @@ export const processProductItem = (item) => {
         const sourceAddon = (item.addons_list || []).find(a => a.id === addon.addon_id);
         if (sourceAddon) {
           addonPrice = parseFloat(
-            sourceAddon.price_after_discount || 
-            sourceAddon.price_after_tax || 
-            sourceAddon.price || 
+            sourceAddon.price_after_discount ||
+            sourceAddon.price_after_tax ||
+            sourceAddon.price ||
             0
           );
         }
@@ -38,7 +38,7 @@ export const processProductItem = (item) => {
       }
     });
   }
-  
+
   const extra_id = (item.selectedExtras || [])
     .filter(id => (item.allExtras || []).some(e => e.id === id))
     .map(id => id.toString());
@@ -136,6 +136,7 @@ export const buildOrderPayload = ({
   due_module,
   password,
   repeated = 0,
+  prepare_order,
 }) => {
   const basePayload = {
     amount: parseFloat(amountToPay).toFixed(2),
@@ -148,6 +149,7 @@ export const buildOrderPayload = ({
     due: due.toString(),
     order_pending: "0",
     ...(repeated === 1 && { repeated: "1" }),
+    ...(prepare_order !== undefined && { prepare_order: prepare_order.toString() }),
   };
 
   // 1. إرسال قيمة مصاريف الخدمة (Amount)
@@ -161,11 +163,11 @@ export const buildOrderPayload = ({
     basePayload.service_fees_id = storedServiceFeeId.toString();
   }
   // 🆕 3. إضافة module_order_number إذا كان موجود في sessionStorage
-const storedModuleOrderNumber = sessionStorage.getItem("module_order_number");
-if (storedModuleOrderNumber) {
-  basePayload.module_order_number = storedModuleOrderNumber.trim();
-}
-if (orderType === "dine_in") {
+  const storedModuleOrderNumber = sessionStorage.getItem("module_order_number");
+  if (storedModuleOrderNumber) {
+    basePayload.module_order_number = storedModuleOrderNumber.trim();
+  }
+  if (orderType === "dine_in") {
     const storedCaptainId = sessionStorage.getItem("selected_captain_id");
     if (storedCaptainId) {
       basePayload.captain_id = storedCaptainId.toString();

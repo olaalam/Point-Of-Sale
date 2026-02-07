@@ -72,6 +72,8 @@ export default function Card({
     useState(false);
   const [clearAllManagerId, setClearAllManagerId] = useState("");
   const [clearAllManagerPassword, setClearAllManagerPassword] = useState("");
+  const [showSavePendingModal, setShowSavePendingModal] = useState(false); // New state for Pending Modal
+
   const { data: serviceFeeData } =
     useServiceFee();
   // Custom Hooks
@@ -291,7 +293,7 @@ export default function Card({
       <DineInformation onClose={onClose} />
       {/* Header Section */}
       <CardHeader
-        onSaveAsPending={() => orderActions.handleSaveAsPending(calculations.amountToPay, calculations.totalTax)}
+        onSaveAsPending={() => setShowSavePendingModal(true)}
         orderType={orderType}
         orderItems={orderItems}
         handleClearAllItems={handleClearAllItems}
@@ -450,6 +452,46 @@ export default function Card({
       />
 
       {/* Modals */}
+      <Dialog open={showSavePendingModal} onOpenChange={setShowSavePendingModal}>
+        <DialogContent className="max-w-md bg-white p-6 rounded-lg">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold text-gray-800 mb-2">{t("SaveasPending")}</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-6 mt-2">
+            <p className="text-gray-600 text-lg">{t("IsThisOrderPrepared")}</p>
+            <div className="flex flex-col gap-3">
+              <button
+                onClick={() => {
+                  setShowSavePendingModal(false);
+                  orderActions.handleSaveAsPending(calculations.amountToPay, calculations.totalTax, "1", "1");
+                }}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white py-4 text-lg font-semibold shadow-md flex items-center justify-center gap-2 rounded-lg"
+              >
+                <span>✅</span> {t("Prepare & Pending")}
+              </button>
+              <button
+                onClick={() => {
+                  setShowSavePendingModal(false);
+                  orderActions.handleSaveAsPending(calculations.amountToPay, calculations.totalTax, "0", "1");
+                }}
+                className="w-full bg-gray-100 hover:bg-gray-200 text-gray-800 py-4 text-lg font-semibold border border-gray-300 shadow-sm rounded-lg"
+              >
+                {t("Pending Only")}
+              </button>
+              <button
+                onClick={() => {
+                  setShowSavePendingModal(false);
+                  orderActions.handleSaveAsPending(calculations.amountToPay, calculations.totalTax, "1", "0");
+                }}
+                className="w-full bg-red-600 hover:bg-red-700 text-white py-4 text-lg font-semibold shadow-md flex items-center justify-center gap-2 rounded-lg"
+              >
+                {t("Prepare Only")}
+              </button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <VoidItemModal
         open={showVoidModal}
         onOpenChange={setShowVoidModal}

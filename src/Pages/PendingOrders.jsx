@@ -11,6 +11,7 @@ export default function PendingOrders() {
   const navigate = useNavigate();
   const { data: pendingOrders, loading, error, refetch } = useGet("cashier/get_pending_orders");
   const [selectedOrderId, setSelectedOrderId] = useState(null);
+  const [selectedOrderPrepareStatus, setSelectedOrderPrepareStatus] = useState("0"); // Fallback state
   const [orderDetailsEndpoint, setOrderDetailsEndpoint] = useState(null);
   const { t, i18n } = useTranslation();
   const locale = i18n.language || "en";
@@ -40,6 +41,7 @@ export default function PendingOrders() {
   useEffect(() => {
     if (orderDetailsData && orderDetailsData.id) {
       const orderRawData = orderDetailsData;
+      console.log("🐛 PendingOrders API Data:", orderRawData);
       const mappedOrderDetails = [];
 
       // الهيكل قد يكون في order أو order_details
@@ -94,11 +96,27 @@ export default function PendingOrders() {
         orderId: orderRawData.id,
         orderDetails: mappedOrderDetails,
         totalAmount: parseFloat(orderRawData.amount || 0),
-        notes: orderRawData.notes
+        // Use API value first, then fallback to list value, then default "0"
+        prepare_order: orderRawData.prepare_order || orderRawData.order?.prepare_order || selectedOrderPrepareStatus || "0"
       };
+
+      console.log("🐛 PendingOrders: finalOrderData.prepare_order =", finalOrderData.prepare_order);
+      console.log("🐛 PendingOrders: selectedOrderPrepareStatus =", selectedOrderPrepareStatus);
 
       // حفظ البيانات الجديدة في sessionStorage للسلة
       sessionStorage.setItem("cart", JSON.stringify(mappedOrderDetails));
+
+      // ✅ حفظ prepare_order مباشرة في sessionStorage
+      sessionStorage.setItem("pending_order_info", JSON.stringify({
+        orderId: finalOrderData.orderId,
+        prepare_order: finalOrderData.prepare_order,
+        notes: finalOrderData.notes
+      }));
+
+      console.log("🐛 PendingOrders: Saved to sessionStorage:", {
+        orderId: finalOrderData.orderId,
+        prepare_order: finalOrderData.prepare_order
+      });
 
       // التوجيه لشاشة الـ POS مع البيانات
       navigate("/", {
@@ -111,11 +129,12 @@ export default function PendingOrders() {
   }, [orderDetailsData, navigate]);
 
 
-  const handleSelectOrder = (orderId) => {
+  const handleSelectOrder = (orderId, prepareStatus) => {
     if (orderLoading || selectedOrderId) return;
 
-    console.log("Selecting order:", orderId);
+    console.log("Selecting order:", orderId, "Prepare Status:", prepareStatus);
     setSelectedOrderId(orderId);
+    setSelectedOrderPrepareStatus(prepareStatus ? prepareStatus.toString() : "0");
     setOrderDetailsEndpoint(`cashier/get_order/${orderId}?locale=${locale}`);
   };
 
@@ -218,7 +237,7 @@ export default function PendingOrders() {
                     ? 'ring-2 ring-orange-500 bg-orange-50 shadow-xl'
                     : 'hover:border-orange-200'
                     } ${orderLoading && selectedOrderId === order.id ? 'pointer-events-none opacity-75' : ''}`}
-                  onClick={() => handleSelectOrder(order.id)}
+                  onClick={() => handleSelectOrder(order.id, order.prepare_order)}
                 >
                   <div className="p-6 relative">
                     <div className="flex justify-between items-start mb-4">
