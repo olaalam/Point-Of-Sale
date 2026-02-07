@@ -572,7 +572,7 @@ export default function Item({ onAddToOrder, onClose }) {
   );
 
   const productsGridSection = (
-    <div className="flex-1 h-full pr-2" dir={isArabic ? "rtl" : "ltr"}>
+    <div className="flex-1 h-[calc(100vh-120px)] overflow-y-auto pr-2 scrollbar-width-none [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden" dir={isArabic ? "rtl" : "ltr"}>
       {searchAndToggleSection}
       {groupsBarSection}
       {filteredProducts.length === 0 ? (
