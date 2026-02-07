@@ -91,6 +91,8 @@ export default function Card({
   const dealManagement = useDealManagement(orderItems, updateOrderItems, t);
   const orderActions = useOrderActions({
     orderItems,
+    notes,
+    setNotes,
     updateOrderItems,
     tableId,
     orderType,

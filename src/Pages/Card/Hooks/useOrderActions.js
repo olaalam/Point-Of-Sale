@@ -10,6 +10,8 @@ export function useOrderActions({
   postData,
   navigate,
   t,
+  notes,
+  setNotes,
   setItemLoadingStates,
 }) {
   const handleIncrease = (itemTempId) => {
@@ -273,7 +275,7 @@ const handleSaveAsPending = async (amountToPay, totalTax) => {
     amount: amountToPay.toString(),
     total_tax: totalTax.toString(),
     total_discount: "0",
-    notes: "Customer requested no plastic bag.",
+    notes: notes || "",
     source: "web",
     financials: [],
     order_pending: 1, // لإخباره أنه طلب معلق
@@ -298,7 +300,7 @@ const handleSaveAsPending = async (amountToPay, totalTax) => {
     sessionStorage.removeItem("pending_order_info");
   } catch (e) {
     console.error("❌ Error Detail:", e.response?.data);
-    toast.error(e.response?.data?.message || t("Failedtosaveaspending"));
+    toast.error(e.response?.data?.errors || t("Failedtosaveaspending"));
   }
 };
 
