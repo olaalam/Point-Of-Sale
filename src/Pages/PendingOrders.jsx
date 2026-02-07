@@ -35,30 +35,43 @@ export default function PendingOrders() {
     }
   }, [orderError]);
 
-  // داخل useEffect الخاص بـ orderDetailsData في PendingOrders.jsx
+
+
   useEffect(() => {
-    // التأكد من وجود البيانات الأساسية للطلب
     if (orderDetailsData && orderDetailsData.id) {
       const orderRawData = orderDetailsData;
       const mappedOrderDetails = [];
 
-      // التغيير هنا: الوصول إلى orderDetailsData.order مباشرة
-      const itemsArray = orderRawData.order || [];
+      // الهيكل قد يكون في order أو order_details
+      const itemsArray = orderRawData.order || orderRawData.order_details || [];
 
       itemsArray.forEach((item) => {
-        const productInfo = item.product;
+        let productInfo = null;
+        let itemCount = 1;
+
+        // 1. فحص الهيكل: إذا كان المنتج داخل مصفوفة (مثل الـ API الكبير)
+        if (Array.isArray(item.product) && item.product.length > 0) {
+          productInfo = item.product[0].product;
+          itemCount = Number(item.product[0].count);
+        }
+        // 2. إذا كان الهيكل كائن مباشر (مثل Details API)
+        else if (item.product) {
+          productInfo = item.product;
+          // التعديل الجذري هنا: البحث عن count داخل product أولاً ثم في item
+          itemCount = Number(productInfo.count || item.count || 1);
+        }
 
         if (productInfo) {
           mappedOrderDetails.push({
-            // البيانات الأساسية المتوقعة في صفحة OrderPage
             product_id: productInfo.id,
             product_name: productInfo.name || "Unknown Product",
 
-            // تحويل السعر والكمية إلى أرقام لضمان العمليات الحسابية
+            // التأكد من السعر
             price: parseFloat(productInfo.price_after_discount || productInfo.price || 0),
-            count: parseInt(item.count || 1),
 
-            // معالجة الإضافات (Addons)
+            // تعيين الكمية الصحيحة (التي أصبحت الآن 4 بدلاً من 1)
+            count: itemCount || 1,
+
             addons: Array.isArray(item.addons)
               ? item.addons.map(addon => ({
                 id: addon.id,
@@ -67,15 +80,11 @@ export default function PendingOrders() {
               }))
               : [],
 
-            // معالجة الاختلافات (Variations)
             variation_id: item.variations?.[0]?.id || null,
             variation_name: item.variations?.[0]?.name || null,
 
-            // بيانات تقنية للسلة
             temp_id: `pending_${productInfo.id}_${Math.random().toString(36).substr(2, 5)}`,
             notes: item.notes || "",
-            preparation_status: "pending",
-            type: "main_item",
             image: productInfo.image_link
           });
         }
@@ -84,25 +93,23 @@ export default function PendingOrders() {
       const finalOrderData = {
         orderId: orderRawData.id,
         orderDetails: mappedOrderDetails,
-        orderNumber: orderRawData.order_number,
-        totalAmount: orderRawData.amount,
-        notes: orderRawData.notes,
-        orderType: "take_away"
+        totalAmount: parseFloat(orderRawData.amount || 0),
+        notes: orderRawData.notes
       };
 
-      // تخزين البيانات في sessionStorage لتستقبلها صفحة الكاشير الرئيسية
+      // حفظ البيانات الجديدة في sessionStorage للسلة
       sessionStorage.setItem("cart", JSON.stringify(mappedOrderDetails));
 
-      // التوجيه إلى الصفحة الرئيسية مع إرسال حالة الطلب المعلق
+      // التوجيه لشاشة الـ POS مع البيانات
       navigate("/", {
         state: {
           activeTab: "takeaway",
-          orderType: "take_away",
           pendingOrder: finalOrderData
         }
       });
     }
   }, [orderDetailsData, navigate]);
+
 
   const handleSelectOrder = (orderId) => {
     if (orderLoading || selectedOrderId) return;
@@ -113,27 +120,48 @@ export default function PendingOrders() {
   };
 
   const formatDate = (dateString) => {
-    try {
-      const date = new Date(dateString);
-      return date.toLocaleDateString() + " " + date.toLocaleTimeString();
-    } catch (err) {
-      toast.error("Invalid date format", err);
+    // إذا كانت القيمة فارغة أو غير موجودة
+    if (!dateString) return "—";
+
+    const date = new Date(dateString);
+
+    // التحقق من صحة التاريخ (لأن try-catch لا تكتشف Invalid Date في JS)
+    if (isNaN(date.getTime())) {
+      // محاولة إرجاع نص التاريخ الأصلي بدلاً من Invalid Date
       return dateString;
     }
+
+    // التنسيق بناءً على لغة النظام
+    return date.toLocaleDateString(locale === "ar" ? "ar-EG" : "en-US", {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
   };
 
   const formatOrderItems = (orderArray) => {
     if (!Array.isArray(orderArray)) return t("Noitems");
 
     const items = [];
-    orderArray.forEach(item => {
-      // في الريسبونس الجديد الاسم موجود داخل item.product.name
-      if (item.product && item.product.name) {
-        items.push(`${item.product.name} x${item.count || 1}`);
-      }
-      // احتياطياً إذا كان الاسم في المستوى الأعلى
-      else if (item.name) {
-        items.push(`${item.name} x${item.count || 1}`);
+
+    orderArray.forEach(orderDetail => {
+      // في الـ API الكبير، البيانات موجودة داخل order_details -> product (وهي مصفوفة)
+      if (Array.isArray(orderDetail.product) && orderDetail.product.length > 0) {
+
+        orderDetail.product.forEach(p => {
+          // سحب الـ count وتحويله لرقم من داخل المصفوفة الداخلية
+          const itemCount = Number(p.count) || 1;
+          const productName = p.product?.name || t("UnknownProduct");
+
+          items.push(`${productName} x${itemCount}`);
+        });
+
+      } else if (orderDetail.product && orderDetail.product.name) {
+        // هذا الجزء احتياطي في حال كان الهيكل بسيطاً (كائن وليس مصفوفة)
+        const itemCount = Number(orderDetail.count) || 1;
+        items.push(`${orderDetail.product.name} x${itemCount}`);
       }
     });
 
@@ -187,8 +215,8 @@ export default function PendingOrders() {
                 <div
                   key={order.id}
                   className={`bg-white rounded-lg shadow-md border hover:shadow-lg transition-all duration-200 cursor-pointer transform hover:scale-[1.02] ${selectedOrderId === order.id
-                      ? 'ring-2 ring-orange-500 bg-orange-50 shadow-xl'
-                      : 'hover:border-orange-200'
+                    ? 'ring-2 ring-orange-500 bg-orange-50 shadow-xl'
+                    : 'hover:border-orange-200'
                     } ${orderLoading && selectedOrderId === order.id ? 'pointer-events-none opacity-75' : ''}`}
                   onClick={() => handleSelectOrder(order.id)}
                 >
@@ -199,7 +227,7 @@ export default function PendingOrders() {
                           {t("Order")} #{order.order_number || order.id}
                         </h3>
                         <p className="text-sm text-gray-500">
-                          {formatDate(order.created_at || order.date)}
+                          {formatDate(order.created_at || order.date || order.order_details?.[0]?.product?.[0]?.product?.created_at)}
                         </p>
                       </div>
                       <div className="flex items-center gap-2">
@@ -232,13 +260,13 @@ export default function PendingOrders() {
                         </div>
                       )}
                     </div>
-
-                    {order.order && (
+                    {/* داخل الـ map الخاص بـ pendingOrders.all_orders */}
+                    {order.order_details && (
                       <div className="border-t pt-3">
                         <p className="text-xs text-gray-600 mb-1">{t("Items")}:</p>
                         <p className="text-sm text-gray-800 line-clamp-2">
-                          {/* تأكد أنك تمرر order.order هنا وليس order.order_details */}
-                          {formatOrderItems(order.order)}
+                          {/* تمرير order_details بدلاً من order */}
+                          {formatOrderItems(order.order_details)}
                         </p>
                       </div>
                     )}
