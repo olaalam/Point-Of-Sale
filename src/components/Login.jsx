@@ -167,11 +167,11 @@ export default function LoginPage() {
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 min-h-screen">
       <div className="flex items-center justify-center p-8">
-        <div className="w-full max-w-md space-y-6">
-          <h1 className="text-3xl font-bold text-[#910000]">Food2go</h1>
+        <div className="w-full space-y-6">
+          <h1 className="text-5xl font-bold text-[#910000]">Food2go</h1>
           <div className="space-y-1">
-            <h2 className="text-xl font-semibold">{t("LoginTitle")}</h2>
-            <p className="text-sm text-gray-500">{t("WelcomeBack")}</p>
+            <h2 className="text-2xl font-semibold">{t("LoginTitle")}</h2>
+            <p className="text-lg text-gray-500">{t("WelcomeBack")}</p>
           </div>
           <form
             className="space-y-4"
