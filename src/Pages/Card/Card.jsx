@@ -282,6 +282,33 @@ export default function Card({
     printWindow.close();
   };
 
+  const handleTransferToDineIn = () => {
+    if (orderItems.length === 0) {
+      toast.warning(t("Noitemstotransfer"));
+      return;
+    }
+
+    // Calculate total discount from items
+    const totalItemDiscount = orderItems.reduce((sum, item) => {
+      const qty = (item.weight_status === 1 || item.weight_status === "1")
+        ? (item.quantity || item.count || 1)
+        : (item.count || 1);
+      return sum + (Number(item.discount_val || 0) * qty);
+    }, 0);
+
+    // Save current takeaway items to sessionStorage for the transfer
+    sessionStorage.setItem("transfer_takeaway_order", JSON.stringify({
+      orderItems,
+      amount: calculations.amountToPay,
+      totalTax: calculations.totalTax,
+      totalDiscount: totalItemDiscount.toFixed(2),
+      notes: notes,
+    }));
+    sessionStorage.setItem("transfer_takeaway_to_dine_in", "true");
+
+    navigate("/tables");
+  };
+
 
   return (
     <div
@@ -308,6 +335,7 @@ export default function Card({
         handleViewPendingOrders={() => navigate("/pending-orders")}
         onShowOfferModal={() => offerManagement.setShowOfferModal(true)}
         onShowDealModal={() => dealManagement.setShowDealModal(true)}
+        onTransferToDineIn={handleTransferToDineIn}
         isLoading={apiLoading}
         t={t}
       />

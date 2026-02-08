@@ -11,6 +11,7 @@ export default function CardHeader({
   onShowDealModal,
   isLoading,
   onSaveAsPending,
+  onTransferToDineIn,
   t,
 }) {
   return (
@@ -68,6 +69,12 @@ export default function CardHeader({
               className="flex-1 bg-orange-600 text-white hover:bg-orange-700 text-[10px] sm:text-xs px-1 py-4 h-full rounded-none"
             >
               {t("SaveasPending")}
+            </Button>
+            <Button
+              onClick={onTransferToDineIn}
+              className="flex-1 bg-blue-600 text-white hover:bg-blue-500 text-[10px] sm:text-xs px-1 py-4 h-full rounded-none"
+            >
+              {t("TransferToDineIn")}
             </Button>
           </div>
         )}

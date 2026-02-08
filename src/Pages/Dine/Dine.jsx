@@ -22,6 +22,7 @@ import { toast, ToastContainer } from "react-toastify";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { processProductItem } from "../Checkout/processProductItem";
 import TableManagementActions from "./TableManagementActions";
 // 🟢 Modal لإدخال رقم التحضير
 const PreparationNumberModal = ({ isOpen, onClose, onSubmit, loading, tableName }) => {
@@ -325,8 +326,6 @@ const Dine = () => {
   };
   const handleSelectTable = async (table) => {
     if (isSelectionMode) {
-
-
       setSelectedTablesList(prev =>
         prev.includes(table.id)
           ? prev.filter(id => id !== table.id)
@@ -334,6 +333,83 @@ const Dine = () => {
       );
       return;
     }
+
+    const takeawayTransferPending = sessionStorage.getItem("transfer_takeaway_to_dine_in") === "true";
+    if (takeawayTransferPending) {
+      const transferDataString = sessionStorage.getItem("transfer_takeaway_order");
+      if (!transferDataString) {
+        toast.error(t("NoOrderDataFoundForTransfer"));
+        return;
+      }
+
+      try {
+        const transferData = JSON.parse(transferDataString);
+        const products = transferData.orderItems.map(processProductItem);
+
+        const formData = new FormData();
+        formData.append("table_id", table.id);
+        formData.append("amount", transferData.amount);
+        formData.append("total_tax", transferData.totalTax);
+        formData.append("total_discount", transferData.totalDiscount || "0");
+        formData.append("notes", transferData.notes || "");
+
+        products.forEach((product, index) => {
+          formData.append(`products[${index}][product_id]`, product.product_id);
+          formData.append(`products[${index}][count]`, product.count);
+          formData.append(`products[${index}][price]`, product.price);
+          if (product.note) formData.append(`products[${index}][note]`, product.note);
+
+          // Variations
+          if (product.variation && product.variation.length > 0) {
+            product.variation.forEach((v, vIndex) => {
+              formData.append(`products[${index}][variation][${vIndex}][variation_id]`, v.variation_id);
+              v.option_id.forEach((optId, optIndex) => {
+                formData.append(`products[${index}][variation][${vIndex}][option_id][${optIndex}]`, optId);
+              });
+            });
+          }
+
+          // Addons
+          if (product.addons && product.addons.length > 0) {
+            product.addons.forEach((addon, aIndex) => {
+              formData.append(`products[${index}][addons][${aIndex}][addon_id]`, addon.addon_id);
+              formData.append(`products[${index}][addons][${aIndex}][count]`, addon.count);
+              formData.append(`products[${index}][addons][${aIndex}][price]`, addon.price);
+            });
+          }
+
+          // Extras
+          if (product.extra_id && product.extra_id.length > 0) {
+            product.extra_id.forEach((extId, eIndex) => {
+              formData.append(`products[${index}][extra_id][${eIndex}]`, extId);
+            });
+          }
+
+          // Excludes
+          if (product.exclude_id && product.exclude_id.length > 0) {
+            product.exclude_id.forEach((exId, exIndex) => {
+              formData.append(`products[${index}][exclude_id][${exIndex}]`, exId);
+            });
+          }
+        });
+
+        const response = await postData("cashier/take_away_dine_in", formData);
+
+        if (response?.success || response) {
+          toast.success(t("OrderTransferredSuccessfully"));
+          sessionStorage.removeItem("transfer_takeaway_to_dine_in");
+          sessionStorage.removeItem("transfer_takeaway_order");
+
+          // Redirect to order page for the new table in Dine In mode
+          proceedToOrderPage(table, null);
+        }
+      } catch (err) {
+        console.error("Transfer error:", err);
+        toast.error(err.response?.data?.message || t("FailedToTransferOrder"));
+      }
+      return;
+    }
+
     const transferPending = sessionStorage.getItem("transfer_pending") === "true";
     const sourceTableId = sessionStorage.getItem("transfer_source_table_id");
 
@@ -443,20 +519,20 @@ const Dine = () => {
               <div className="flex items-center justify-center gap-0.5">
                 <Users size={8} /> {sub.capacity}
               </div>
-              
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (handleSplit) {
-                     handleSplit(sub.id);
-                    }
-                  }}
-                  className="bg-red-500 text-white p-1 rounded hover:bg-red-600 transition-colors shadow-sm"
-                  title={t("SplitTable")}
-                >
-                  <Scissors size={12} />
-                </button>
-              
+
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (handleSplit) {
+                    handleSplit(sub.id);
+                  }
+                }}
+                className="bg-red-500 text-white p-1 rounded hover:bg-red-600 transition-colors shadow-sm"
+                title={t("SplitTable")}
+              >
+                <Scissors size={12} />
+              </button>
+
             </div>
           ))}
         </div>
@@ -654,18 +730,20 @@ const Dine = () => {
       <div className="mx-auto bg-white rounded-xl shadow-lg">
         <div className="p-6 border-b">
           <h1 className="text-2xl font-bold text-gray-800">
-            {sessionStorage.getItem("transfer_pending") === "true"
-              ? t("SelectNewTableForTransfer")
+            {sessionStorage.getItem("transfer_pending") === "true" || sessionStorage.getItem("transfer_takeaway_to_dine_in") === "true"
+              ? t("SelectTableForTransfer")
               : t("DineInTables")}
           </h1>
           <p className="text-gray-500 text-sm mt-1">
-            {sessionStorage.getItem("transfer_pending") === "true"
-              ? t("SelectTableToTransferFrom", {
-                sourceTableId: sessionStorage.getItem(
-                  "transfer_source_table_id"
-                ),
-              })
-              : t("SelectTableToStartOrder")}
+            {sessionStorage.getItem("transfer_takeaway_to_dine_in") === "true"
+              ? t("SelectTableToTransferTakeawayOrder")
+              : sessionStorage.getItem("transfer_pending") === "true"
+                ? t("SelectTableToTransferFrom", {
+                  sourceTableId: sessionStorage.getItem(
+                    "transfer_source_table_id"
+                  ),
+                })
+                : t("SelectTableToStartOrder")}
           </p>
         </div>
         <TableManagementActions
