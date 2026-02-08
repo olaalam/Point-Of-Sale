@@ -319,6 +319,13 @@ ${moduleLine}
             `
       : ""
     }
+            ${receiptData.orderNote
+      ? `<div class="order-note-box">
+                 ${isArabic ? " ملاحظة الطلب:" : " Order Note:"} ${receiptData.orderNote
+      }
+               </div>`
+      : ""
+    }
 
         <div class="section-header">${isArabic ? "الطلبات" : "ITEMS"}</div>
         <table class="items-table">
@@ -768,7 +775,7 @@ const formatKitchenReceipt = (receiptData, productsList = []) => {
   
         ${receiptData.orderNote
       ? `<div class="order-note-box">
-                 ${isArabic ? "📌 ملاحظة الطلب:" : "📌 Order Note:"} ${receiptData.orderNote
+                 ${isArabic ? " ملاحظة الطلب:" : " Order Note:"} ${receiptData.orderNote
       }
                </div>`
       : ""
@@ -1055,6 +1062,7 @@ export const prepareReceiptData = (
     table: sessionStorage.getItem("table_number") || "N/A",
     orderType: finalOrderType,
     financials: response?.financials || [],
+    orderNote: response?.order_note || "", // ✅ إضافة ملاحظة الأوردر على مستوى الـ receiptData
     items: itemsSource.map((item) => ({
       qty: item.count,
       name: item.name,
@@ -1063,7 +1071,6 @@ export const prepareReceiptData = (
       price: Number(item.price || item.final_price || 0),
       total: Number(item.total || (Number(item.price || item.final_price || 0) * Number(item.count || item.qty || 1))),
       notes: item.notes || "",
-      orderNote: response?.order_note || "", // ✅ إضافة ملاحظة الأوردر
 
       category_id: item.category_id || item.product?.category_id,
       id: item.id || item.product_id, // Important for kitchen mapping
@@ -1361,6 +1368,7 @@ export const printReceiptSilently = async (
           ...receiptData,
           items: kitchenItems,
           orderCount: kitchen.order_count ?? kitchenItems.reduce((sum, item) => sum + item.qty, 0),
+          orderNote: apiResponse?.order_note || receiptData.orderNote || "", // ✅ إضافة order_note
         };
 
         const kitchenHtml = getReceiptHTML(kitchenReceiptData, {
