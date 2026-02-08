@@ -495,6 +495,8 @@ const CheckOut = ({
     const moduleId = sessionStorage.getItem("last_selected_group");
 
     let payload;
+    let shouldSkipKitchenPrint = false; // ✅ Declare outside to be accessible later
+
     if (hasDealItems) {
       payload = buildDealPayload(safeOrderItems, financialsPayload);
     } else {
@@ -507,14 +509,19 @@ const CheckOut = ({
       let finalOrderPending = "0"; // Payment always completes order
       let finalPrepareOrder = "1"; // Default
 
-      // Toggle logic based on previous state
-      if (pendingOrderInfo && pendingOrderInfo.prepare_order !== undefined) {
-        if (Number(pendingOrderInfo.prepare_order) === 1) {
-          finalPrepareOrder = "0";
-        } else {
-          finalPrepareOrder = "1";
-        }
+      // ✅ Case 2: Prepare & Pending → Kitchen already printed
+      if (pendingOrderInfo.prepare === "1" && pendingOrderInfo.pending === "1") {
+        finalPrepareOrder = "0";
+        shouldSkipKitchenPrint = true; // Kitchen was printed when saving
       }
+      // ✅ Case 1: Pending Only → Normal flow
+      else {
+        finalPrepareOrder = "1";
+        shouldSkipKitchenPrint = false; // Print all receipts
+      }
+
+      console.log("🐛 CheckOut: finalPrepareOrder =", finalPrepareOrder);
+      console.log("🐛 CheckOut: shouldSkipKitchenPrint =", shouldSkipKitchenPrint);
 
       payload = buildOrderPayload({
         orderType,
@@ -566,9 +573,10 @@ const CheckOut = ({
             response.success,
             response
           );
+          // ✅ Pass shouldSkipKitchenPrint to printing function
           printReceiptSilently(receiptData, response, () => {
             handleNavigation(response);
-          });
+          }, { shouldSkipKitchenPrint });
         } else {
           handleNavigation(response);
         }

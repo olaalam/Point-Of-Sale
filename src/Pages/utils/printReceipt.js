@@ -1098,13 +1098,130 @@ export const prepareReceiptData = (
 };
 
 // ===================================================================
-// 9. دالة الطباعة
+// 9. دالة طباعة المطبخ فقط (Case 2: Prepare & Pending)
+// ===================================================================
+export const printKitchenOnly = async (receiptData, apiResponse, callback) => {
+  try {
+    if (!qz.websocket.isActive()) {
+      toast.error("❌ QZ Tray is not connected.");
+      if (callback) callback();
+      return;
+    }
+
+    const printJobs = [];
+    const kitchens = apiResponse?.kitchen_items || [];
+
+    for (const kitchen of kitchens) {
+      if (
+        !kitchen.print_name ||
+        kitchen.print_status !== 1 ||
+        !kitchen.order?.length
+      )
+        continue;
+
+      // === التجميع حسب id + notes + selected variation options + addons + extras + excludes ===
+      const grouped = new Map();
+
+      const getModifierKey = (item) => {
+        const stringifySimple = (arr) => {
+          if (!Array.isArray(arr)) return "";
+          return arr
+            .map((o) => o.id || o.name || o.option || o.variation || String(o))
+            .filter(Boolean)
+            .sort()
+            .join(",");
+        };
+
+        const addons = stringifySimple(item.addons_selected || item.addons || []);
+        const extras = stringifySimple(item.extras || []);
+        const excludes = stringifySimple(item.excludes || []);
+
+        const variationOptions = (item.variation_selected || item.variations || [])
+          .flatMap((group) => {
+            if (!group || !Array.isArray(group.options)) return [];
+            return group.options.map((opt) => opt.id || opt.name || "");
+          })
+          .filter(Boolean)
+          .sort()
+          .join(",");
+
+        return `${variationOptions}|${addons}|${extras}|${excludes}`;
+      };
+
+      kitchen.order.forEach((item) => {
+        const modifierKey = getModifierKey(item);
+        const baseKey = `${item.id || item.product_id || "unknown"}|${item.notes || "no-notes"}`;
+        const fullKey = `${baseKey}|${modifierKey}`;
+
+        if (!grouped.has(fullKey)) {
+          grouped.set(fullKey, {
+            ...item,
+            qty: 0,
+          });
+        }
+
+        const entry = grouped.get(fullKey);
+        entry.qty += Number(item.count || item.qty || 1);
+      });
+
+      const kitchenItems = Array.from(grouped.values()).map((group) => {
+        const original = receiptData.items.find(
+          (o) => o.id == group.id || o.id == group.product_id
+        );
+
+        return {
+          qty: group.qty,
+          name: group.name || original?.name || "غير معروف",
+          notes: group.notes || original?.notes || "",
+          addons: group.addons_selected || original?.addons || [],
+          extras: group.extras || original?.extras || [],
+          excludes: group.excludes || original?.excludes || [],
+          variations: group.variation_selected || original?.variations || [],
+          id: group.id || group.product_id,
+        };
+      });
+
+      const kitchenReceiptData = {
+        ...receiptData,
+        items: kitchenItems,
+        orderCount: kitchen.order_count ?? kitchenItems.reduce((sum, item) => sum + item.qty, 0),
+        orderNote: apiResponse?.order_note || receiptData.orderNote || "",
+      };
+
+      const kitchenHtml = getReceiptHTML(kitchenReceiptData, {
+        design: "kitchen",
+        type: "kitchen",
+      });
+
+      const config = qz.configs.create(kitchen.print_name);
+      printJobs.push(
+        qz.print(config, [{ type: "html", format: "plain", data: kitchenHtml }])
+      );
+    }
+
+    if (printJobs.length > 0) {
+      await Promise.all(printJobs);
+      toast.success("✅ تم طباعة إيصالات المطبخ");
+    }
+
+    if (callback) callback();
+  } catch (err) {
+    console.error("❌ Kitchen Print Error:", err);
+    toast.error("❌ فشل طباعة المطبخ");
+    if (callback) callback();
+  }
+};
+
+// ===================================================================
+// 10. دالة الطباعة الرئيسية
 // ===================================================================
 export const printReceiptSilently = async (
   receiptData,
   apiResponse,
-  callback
+  callback,
+  options = {}
 ) => {
+  const { shouldSkipKitchenPrint = false } = options;
   try {
     if (!qz.websocket.isActive()) {
       toast.error("❌ QZ Tray is not connected.");
@@ -1160,99 +1277,102 @@ export const printReceiptSilently = async (
       console.error(err);
       toast.error("خطأ في طابعة الكاشير");
     }
-    // 2. المطبخ
+
     // 2. المطبخ - مع الحفاظ على كل التفاصيل (addons, extras, variations, excludes)
-    const kitchens = apiResponse?.kitchen_items || [];
-    for (const kitchen of kitchens) {
-      if (
-        !kitchen.print_name ||
-        kitchen.print_status !== 1 ||
-        !kitchen.order?.length
-      )
-        continue;
+    // Skip kitchen printing if already printed (Case 2: Prepare & Pending)
+    if (!shouldSkipKitchenPrint) {
+      const kitchens = apiResponse?.kitchen_items || [];
+      for (const kitchen of kitchens) {
+        if (
+          !kitchen.print_name ||
+          kitchen.print_status !== 1 ||
+          !kitchen.order?.length
+        )
+          continue;
 
-      console.log("Kitchen:", kitchen.name);
-      console.log("Raw kitchen.order:", kitchen.order);
+        console.log("Kitchen:", kitchen.name);
+        console.log("Raw kitchen.order:", kitchen.order);
 
-      // === التجميع حسب id + notes + selected variation options + addons + extras + excludes ===
-      const grouped = new Map();
+        // === التجميع حسب id + notes + selected variation options + addons + extras + excludes ===
+        const grouped = new Map();
 
-      const getModifierKey = (item) => {
-        // دالة بسيطة لـ addons/extras/excludes (arrays بسيطة أو objects)
-        const stringifySimple = (arr) => {
-          if (!Array.isArray(arr)) return "";
-          return arr
-            .map((o) => o.id || o.name || o.option || o.variation || String(o))
+        const getModifierKey = (item) => {
+          // دالة بسيطة لـ addons/extras/excludes (arrays بسيطة أو objects)
+          const stringifySimple = (arr) => {
+            if (!Array.isArray(arr)) return "";
+            return arr
+              .map((o) => o.id || o.name || o.option || o.variation || String(o))
+              .filter(Boolean)
+              .sort()
+              .join(",");
+          };
+
+          const addons = stringifySimple(item.addons_selected || item.addons || []);
+          const extras = stringifySimple(item.extras || []);
+          const excludes = stringifySimple(item.excludes || []);
+
+          // المهم هنا: نستخرج الـ selected options الداخلية فقط (اللي بتميز الvariation)
+          const variationOptions = (item.variation_selected || item.variations || [])
+            .flatMap((group) => {
+              if (!group || !Array.isArray(group.options)) return [];
+              return group.options.map((opt) => opt.id || opt.name || "");
+            })
             .filter(Boolean)
             .sort()
             .join(",");
+
+          return `${variationOptions}|${addons}|${extras}|${excludes}`;
         };
 
-        const addons = stringifySimple(item.addons_selected || item.addons || []);
-        const extras = stringifySimple(item.extras || []);
-        const excludes = stringifySimple(item.excludes || []);
+        kitchen.order.forEach((item) => {
+          const modifierKey = getModifierKey(item);
+          const baseKey = `${item.id || item.product_id || "unknown"}|${item.notes || "no-notes"}`;
+          const fullKey = `${baseKey}|${modifierKey}`;
 
-        // المهم هنا: نستخرج الـ selected options الداخلية فقط (اللي بتميز الvariation)
-        const variationOptions = (item.variation_selected || item.variations || [])
-          .flatMap((group) => {
-            if (!group || !Array.isArray(group.options)) return [];
-            return group.options.map((opt) => opt.id || opt.name || "");
-          })
-          .filter(Boolean)
-          .sort()
-          .join(",");
+          if (!grouped.has(fullKey)) {
+            grouped.set(fullKey, {
+              ...item,       // نحتفظ بكل الdata الأصلية (بما فيها variation_selected كامل)
+              qty: 0,
+            });
+          }
 
-        return `${variationOptions}|${addons}|${extras}|${excludes}`;
-      };
+          const entry = grouped.get(fullKey);
+          entry.qty += Number(item.count || item.qty || 1);  // أضفنا item.qty كـ fallback
+        });
 
-      kitchen.order.forEach((item) => {
-        const modifierKey = getModifierKey(item);
-        const baseKey = `${item.id || item.product_id || "unknown"}|${item.notes || "no-notes"}`;
-        const fullKey = `${baseKey}|${modifierKey}`;
+        const kitchenItems = Array.from(grouped.values()).map((group) => {
+          const original = receiptData.items.find(
+            (o) => o.id == group.id || o.id == group.product_id
+          );
 
-        if (!grouped.has(fullKey)) {
-          grouped.set(fullKey, {
-            ...item,       // نحتفظ بكل الdata الأصلية (بما فيها variation_selected كامل)
-            qty: 0,
-          });
-        }
+          return {
+            qty: group.qty,
+            name: group.name || original?.name || "غير معروف",
+            notes: group.notes || original?.notes || "",
+            addons: group.addons_selected || original?.addons || [],
+            extras: group.extras || original?.extras || [],
+            excludes: group.excludes || original?.excludes || [],
+            variations: group.variation_selected || original?.variations || [],
+            id: group.id || group.product_id,
+          };
+        });
 
-        const entry = grouped.get(fullKey);
-        entry.qty += Number(item.count || item.qty || 1);  // أضفنا item.qty كـ fallback
-      });
+        const kitchenReceiptData = {
+          ...receiptData,
+          items: kitchenItems,
+          orderCount: kitchen.order_count ?? kitchenItems.reduce((sum, item) => sum + item.qty, 0),
+        };
 
-      const kitchenItems = Array.from(grouped.values()).map((group) => {
-        const original = receiptData.items.find(
-          (o) => o.id == group.id || o.id == group.product_id
+        const kitchenHtml = getReceiptHTML(kitchenReceiptData, {
+          design: "kitchen",
+          type: "kitchen",
+        });
+
+        const config = qz.configs.create(kitchen.print_name);
+        printJobs.push(
+          qz.print(config, [{ type: "html", format: "plain", data: kitchenHtml }])
         );
-
-        return {
-          qty: group.qty,
-          name: group.name || original?.name || "غير معروف",
-          notes: group.notes || original?.notes || "",
-          addons: group.addons_selected || original?.addons || [],
-          extras: group.extras || original?.extras || [],
-          excludes: group.excludes || original?.excludes || [],
-          variations: group.variation_selected || original?.variations || [],
-          id: group.id || group.product_id,
-        };
-      });
-
-      const kitchenReceiptData = {
-        ...receiptData,
-        items: kitchenItems,
-        orderCount: kitchen.order_count ?? kitchenItems.reduce((sum, item) => sum + item.qty, 0),
-      };
-
-      const kitchenHtml = getReceiptHTML(kitchenReceiptData, {
-        design: "kitchen",
-        type: "kitchen",
-      });
-
-      const config = qz.configs.create(kitchen.print_name);
-      printJobs.push(
-        qz.print(config, [{ type: "html", format: "plain", data: kitchenHtml }])
-      );
+      }
     }
 
     await Promise.all(printJobs);

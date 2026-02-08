@@ -289,20 +289,56 @@ export function useOrderActions({
     console.log("📦 Sending Pending Payload:", payload);
 
     try {
-      await postData("cashier/take_away_order", payload, {
+      const response = await postData("cashier/take_away_order", payload, {
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${sessionStorage.getItem("access_token")}`,
         },
       });
 
+      console.log("✅ Save Pending Response:", response);
+
       toast.success(t("Ordersavedaspending"));
+
+      // ✅ Case 2: Prepare & Pending → Print kitchen receipts immediately
+      if (prepareOrderValue === "1" && orderPendingValue === "1" && response) {
+        try {
+          // Import the required functions at the component level
+          const { printKitchenOnly, prepareReceiptData } = await import("@/Pages/utils/printReceipt");
+
+          // Get orderType from sessionStorage
+          const savedOrderType = sessionStorage.getItem("order_type") || "take_away";
+
+          const receiptData = prepareReceiptData(
+            orderItems,
+            amountToPay,
+            totalTax,
+            0, // totalDiscount
+            0, // appliedDiscount
+            {}, // discountData
+            savedOrderType,
+            amountToPay,
+            response.success,
+            response
+          );
+
+          printKitchenOnly(receiptData, response, () => {
+            console.log("✅ Kitchen receipts printed successfully");
+          });
+        } catch (printError) {
+          console.error("❌ Kitchen Print Error:", printError);
+          toast.warning("تم حفظ الطلب لكن فشلت طباعة المطبخ");
+        }
+      }
+
       updateOrderItems([]); // تفريغ السلة
       sessionStorage.removeItem("cart");
       sessionStorage.removeItem("pending_order_info");
     } catch (e) {
-      console.error("❌ Error Detail:", e.response?.data);
-      toast.error(e.response?.data?.errors || t("Failedtosaveaspending"));
+      console.error("❌ Save Pending Error:", e);
+      console.error("❌ Error Response:", e.response);
+      console.error("❌ Error Data:", e.response?.data);
+      toast.error(e.response?.data?.errors || e.message || t("Failedtosaveaspending"));
     }
   };
 
