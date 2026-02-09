@@ -209,6 +209,20 @@ const formatCashierReceipt = (receiptData) => {
         /* بيانات العميل */
         .cust-info { font-size: 12px; font-weight: bold; line-height: 1.4; padding: 5px; border: 1px dotted #000; margin-bottom: 5px; }
 
+        /* Cancelled Branding */
+        .cancelled-banner {
+            background-color: #d00;
+            color: #fff;
+            text-align: center;
+            font-size: 30px;
+            font-weight: 900;
+            padding: 10px 0;
+            margin: 10px 0;
+            transform: scale(1.05);
+            border: 4px double #fff;
+            outline: 4px solid #d00;
+        }
+
       </style>
     </head>
     <body>
@@ -236,6 +250,10 @@ const formatCashierReceipt = (receiptData) => {
 </div>
 
         <div class="order-badge">${orderTypeLabel}</div>
+        ${receiptData.isCancelled
+      ? `<div class="cancelled-banner">${isArabic ? "ملغي" : "CANCELLED"}</div>`
+      : ""
+    }
         ${tableLabel ? `<div class="table-info">${tableLabel}</div>` : ""}
 ${moduleLine}
 <table class="meta-grid">
@@ -719,6 +737,17 @@ const formatKitchenReceipt = (receiptData, productsList = []) => {
           body, html { width: 100%; margin: 0; padding: 0; font-family: 'Tahoma', sans-serif; direction: ${isArabic ? "rtl" : "ltr"
     }; }
           .header-box { border: 3px solid #000; display: flex; margin-bottom: 10px; min-height: 140px; }
+          .cancelled-banner {
+            background-color: #d00;
+            color: #fff;
+            text-align: center;
+            font-size: 32px;
+            font-weight: 900;
+            padding: 10px 0;
+            margin-bottom: 10px;
+            border: 4px double #fff;
+            outline: 4px solid #d00;
+          }
           .box-left { width: 60%; border-${isArabic ? "left" : "right"
     }: 3px solid #000; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 5px; }
           .box-right { width: 40%; display: flex; flex-direction: column; justify-content: space-between; }
@@ -772,6 +801,10 @@ const formatKitchenReceipt = (receiptData, productsList = []) => {
             <div class="row-label">${isArabic ? "إجمالي الأصناف" : "Total Items"}: ${totalItems}</div>
           </div>
         </div>
+        ${receiptData.isCancelled
+      ? `<div class="cancelled-banner">${isArabic ? "ملغي" : "CANCELLED"}</div>`
+      : ""
+    }
   
         ${receiptData.orderNote
       ? `<div class="order-note-box">
@@ -1101,6 +1134,7 @@ export const prepareReceiptData = (
     moduleOrderNumber: sessionStorage.getItem("module_order_number") || null,
     restaurantPhone: sessionStorage.getItem("restaurant_phone") || "",
     receiptFooter: "شكراً لزيارتكم",
+    isCancelled: !!response?.isCancelled,
   };
 };
 
@@ -1231,8 +1265,7 @@ export const printReceiptSilently = async (
   const { shouldSkipKitchenPrint = false } = options;
   try {
     if (!qz.websocket.isActive()) {
-      toast.error("❌ QZ Tray is not connected.");
-      callback();
+      toast.error("❌ QZ Tray is not connected. Please make sure QZ Tray is running.");
       return;
     }
 
