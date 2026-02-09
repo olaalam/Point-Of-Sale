@@ -53,7 +53,7 @@ useEffect(() => {
             
             // السعر والكمية بتنسيق عددي
             price: parseFloat(actualProductData.price_after_discount || actualProductData.price || 0),
-            count: parseInt(productWrapper.count || 1),
+            count: parseFloat(productWrapper.count || 1),
             
             // حل مشكلة [object Object] في الإضافات
             // نقوم باستخراج المعرفات فقط أو التأكد من بنية الكائن
