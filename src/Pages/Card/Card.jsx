@@ -378,6 +378,7 @@ export default function Card({
 
         <OrderTable
           orderItems={orderItems}
+          handleClearAllItems={handleClearAllItems}
           orderType={orderType}
           selectedItems={selectedItems}
           selectedPaymentItems={selectedPaymentItems}

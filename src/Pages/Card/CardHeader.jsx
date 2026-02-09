@@ -1,10 +1,18 @@
 import React from "react";
 import { Button } from "@/components/ui/button";
+import {
+  Clock,
+  Tag,
+  History,
+  Save,
+  MoveRight,
+  Gift
+} from "lucide-react";
+
 
 export default function CardHeader({
   orderType,
   orderItems,
-  handleClearAllItems,
   handleViewOrders,
   handleViewPendingOrders,
   onShowOfferModal,
@@ -15,70 +23,80 @@ export default function CardHeader({
   t,
 }) {
   return (
-    <div className="flex-shrink-0">
-      <div className="!p-4 flex md:flex-row flex-col gap-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-grow">
-          <Button
-            onClick={handleClearAllItems}
-            className="bg-bg-primary text-white hover:bg-red-700 text-sm flex items-center justify-center gap-2 py-4"
-            disabled={isLoading || orderItems.length === 0}
-          >
-            {t("ClearItems")} ({orderItems.length || 0})
-          </Button>
-          <Button
-            onClick={handleViewOrders}
-            className="bg-gray-500 text-white hover:bg-gray-600 text-sm py-4"
-            disabled={isLoading}
-          >
-            {t("ViewOrders")}
-          </Button>
+    <div className="flex flex-col gap-4 mb-4 bg-white  rounded-xl  ">
+      {/* شبكة الأزرار: 3 في كل صف بنفس الحجم */}
+      <div className="grid grid-cols-3 gap-2">
 
-          {orderType !== "delivery" && (
-            <>
-              <Button
-                onClick={onShowOfferModal}
-                className="bg-green-600 text-white hover:bg-green-700 text-sm py-4"
-                disabled={isLoading}
-              >
-                {t("ApplyOffer")}
-              </Button>
-              <Button
-                onClick={onShowDealModal}
-                className="bg-orange-600 text-white hover:bg-orange-700 text-sm py-4"
-                disabled={isLoading}
-              >
-                {t("ApplyDeal")}
-              </Button>
-            </>
-          )}
-        </div>
+        {/* زر الطلبات السابقة - متاح دائماً */}
+        <HeaderButton
+          onClick={handleViewOrders}
+          icon={<History size={20} />}
+          label={t("ViewOrders")}
+          color="bg-gray-500 hover:bg-gray-600"
+          disabled={isLoading}
+        />
+
+        {/* أزرار العروض والصفقات - تظهر حسب شرط الـ orderType في كودك */}
+        {orderType !== "delivery" && (
+          <>
+            <HeaderButton
+              onClick={onShowOfferModal}
+              icon={<Gift size={20} />}
+              label={t("ApplyOffer")}
+              color="bg-green-600 hover:bg-green-700"
+              disabled={isLoading}
+            />
+            <HeaderButton
+              onClick={onShowDealModal}
+              icon={<Tag size={20} />}
+              label={t("ApplyDeal")}
+              color="bg-orange-600 hover:bg-orange-700"
+              disabled={isLoading}
+            />
+          </>
+        )}
+
+        {/* أزرار الـ Take Away - تظهر حسب شرط الـ orderType في كودك */}
         {orderType === "take_away" && (
-          /* الحاوية الأساسية: جعلناها flex-1 لتأخذ المساحة المتاحة و w-full لضمان العرض الكامل */
-          <div className="flex md:flex-col flex-row items-stretch overflow-hidden rounded-md w-full md:w-40 flex-shrink-0">
-            <Button
+          <>
+            <HeaderButton
               onClick={handleViewPendingOrders}
-              // flex-1 تضمن أن الزر يأخذ نصف المساحة بالضبط
-              className="flex-1 bg-yellow-600 text-white hover:bg-yellow-500 text-[10px] sm:text-xs px-1 py-4 h-full rounded-none border-r border-white/20"
-            >
-              {t("PendingOrders")}
-            </Button>
-
-            <Button
+              icon={<Clock size={20} />}
+              label={t("PendingOrders")}
+              color="bg-yellow-600 hover:bg-yellow-500"
+              disabled={isLoading}
+            />
+            <HeaderButton
               onClick={onSaveAsPending}
-              // flex-1 تضمن أن الزر يأخذ النصف الثاني
-              className="flex-1 bg-orange-600 text-white hover:bg-orange-700 text-[10px] sm:text-xs px-1 py-4 h-full rounded-none"
-            >
-              {t("SaveasPending")}
-            </Button>
-            <Button
+              icon={<Save size={20} />}
+              label={t("SaveasPending")}
+              color="bg-orange-600 hover:bg-orange-700"
+              disabled={isLoading}
+            />
+            <HeaderButton
               onClick={onTransferToDineIn}
-              className="flex-1 bg-blue-600 text-white hover:bg-blue-500 text-[10px] sm:text-xs px-1 py-4 h-full rounded-none"
-            >
-              {t("TransferToDineIn")}
-            </Button>
-          </div>
+              icon={<MoveRight size={20} />}
+              label={t("Transfer To DineIn")}
+              color="bg-blue-600 hover:bg-blue-500"
+              disabled={isLoading}
+            />
+          </>
         )}
       </div>
     </div>
   );
 }
+
+// مكون الزر الموحد لضمان التناسق في الحجم والشكل
+const HeaderButton = ({ onClick, icon, label, color, disabled }) => (
+  <Button
+    onClick={onClick}
+    disabled={disabled}
+    className={`${color} text-white flex flex-col items-center justify-center gap-1 h-20 rounded-xl shadow-sm transition-all hover:scale-[1.02] active:scale-95 border-none p-1`}
+  >
+    {icon}
+    <span className="text-[12px] font-bold uppercase tracking-tighter text-center leading-tight whitespace-normal">
+      {label}
+    </span>
+  </Button>
+);

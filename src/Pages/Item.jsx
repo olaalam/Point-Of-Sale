@@ -523,11 +523,11 @@ export default function Item({ onAddToOrder, onClose }) {
             className="w-full h-full object-cover"
           />
         </div>
-        <div className="absolute bottom-0 w-full py-1 bg-black/70 backdrop-blur-sm text-white transition-transform duration-300">
+        {/* <div className="absolute bottom-0 w-full py-1 bg-black/70 backdrop-blur-sm text-white transition-transform duration-300">
           <span className="font-bold text-[10px] block px-1 truncate text-center uppercase">
             {t("NormalPrices")}
           </span>
-        </div>
+        </div> */}
       </Button>
 
       <div className="h-10 w-[2px] bg-gray-300 mx-1 flex-shrink-0 rounded-full" />
@@ -560,11 +560,11 @@ export default function Item({ onAddToOrder, onClose }) {
                 className="w-full h-full object-cover"
               />
             </div>
-            <div className="absolute bottom-0 w-full py-1 bg-black/70 backdrop-blur-sm text-white transition-transform duration-300">
+            {/* <div className="absolute bottom-0 w-full py-1 bg-black/70 backdrop-blur-sm text-white transition-transform duration-300">
               <span className="font-bold text-[10px] block px-1 truncate text-center uppercase">
                 {group.name}
               </span>
-            </div>
+            </div> */}
           </Button>
         );
       })}
