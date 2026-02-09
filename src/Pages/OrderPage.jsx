@@ -102,12 +102,7 @@ export default function OrderPage({
           ...item,
           originalPrice: item.originalPrice ?? item.price ?? 0,
           temp_id: item.temp_id || `dinein_${item.id}_${Date.now()}`,
-<<<<<<< HEAD
-          count: parseFloat(item.count || 1),
-=======
-          count: parseInt(item.count || 1),
->>>>>>> f06117310e9bc69c7b6e444fd8f19ed48a654cf2
-          price: parseFloat(item.price || 0),
+          count: parseFloat(item.count || 1), price: parseFloat(item.price || 0),
           preparation_status: item.prepration || item.preparation_status || "pending",
         }))
         : [];
@@ -130,12 +125,7 @@ export default function OrderPage({
             ...item,
             originalPrice: item.originalPrice ?? item.price ?? 0,
             temp_id: item.temp_id || `delivery_${item.id}_${Date.now()}`,
-<<<<<<< HEAD
-            count: parseFloat(item.count || 1),
-=======
-            count: parseInt(item.count || 1),
->>>>>>> f06117310e9bc69c7b6e444fd8f19ed48a654cf2
-            price: parseFloat(item.price || 0),
+            count: parseFloat(item.count || 1), price: parseFloat(item.price || 0),
             preparation_status: item.prepration || item.preparation_status || "pending",
           }))
           : [];
@@ -260,13 +250,9 @@ export default function OrderPage({
 
         if (existingItemIndex > -1) {
           const updatedItems = [...currentItems];
-<<<<<<< HEAD
-          updatedItems[existingItemIndex].count += item.count || 1;
-=======
-          const addedCount = item.count || 1;
+          const addedCount = parseFloat(item.count || 1);
           updatedItems[existingItemIndex].count += addedCount;
           updatedItems[existingItemIndex].quantity = (updatedItems[existingItemIndex].quantity || 0) + addedCount;
->>>>>>> f06117310e9bc69c7b6e444fd8f19ed48a654cf2
           return { ...prev, [tableId]: updatedItems };
         }
         return { ...prev, [tableId]: [...currentItems, item] };
@@ -282,13 +268,9 @@ export default function OrderPage({
         const existingItemIndex = prev.findIndex((i) => areProductsEqual(i, item));
         if (existingItemIndex > -1) {
           const updatedItems = [...prev];
-<<<<<<< HEAD
-          updatedItems[existingItemIndex].count += item.count || 1;
-=======
-          const addedCount = item.count || 1;
+          const addedCount = parseFloat(item.count || 1);
           updatedItems[existingItemIndex].count += addedCount;
           updatedItems[existingItemIndex].quantity = (updatedItems[existingItemIndex].quantity || 0) + addedCount;
->>>>>>> f06117310e9bc69c7b6e444fd8f19ed48a654cf2
           return updatedItems;
         }
         return [...prev, item];
@@ -313,13 +295,9 @@ export default function OrderPage({
 
           if (existingItemIndex > -1) {
             const updatedItems = [...currentItems];
-<<<<<<< HEAD
-            updatedItems[existingItemIndex].count += item.count || 1;
-=======
-            const addedCount = item.count || 1;
+            const addedCount = parseFloat(item.count || 1);
             updatedItems[existingItemIndex].count += addedCount;
             updatedItems[existingItemIndex].quantity = (updatedItems[existingItemIndex].quantity || 0) + addedCount;
->>>>>>> f06117310e9bc69c7b6e444fd8f19ed48a654cf2
             return { ...prev, [userId]: updatedItems };
           }
           return { ...prev, [userId]: [...currentItems, item] };

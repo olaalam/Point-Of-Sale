@@ -65,24 +65,6 @@ export default function PendingOrders() {
 
         if (productInfo) {
           mappedOrderDetails.push({
-<<<<<<< HEAD
-            // البيانات التي يتوقعها OrderPage.jsx
-            product_id: actualProductData.id,
-            product_name: actualProductData.name || "Unknown Product",
-            
-            // السعر والكمية بتنسيق عددي
-            price: parseFloat(actualProductData.price_after_discount || actualProductData.price || 0),
-            count: parseFloat(productWrapper.count || 1),
-            
-            // حل مشكلة [object Object] في الإضافات
-            // نقوم باستخراج المعرفات فقط أو التأكد من بنية الكائن
-            addons: Array.isArray(actualProductData.addons) 
-              ? actualProductData.addons.map(addon => ({
-                  id: addon.id,
-                  name: addon.name,
-                  price: addon.price
-                })) 
-=======
             product_id: productInfo.id,
             product_name: productInfo.name || "Unknown Product",
 
@@ -98,7 +80,6 @@ export default function PendingOrders() {
                 name: addon.name,
                 price: parseFloat(addon.price || 0)
               }))
->>>>>>> f06117310e9bc69c7b6e444fd8f19ed48a654cf2
               : [],
 
             variation_id: item.variations?.[0]?.id || null,
