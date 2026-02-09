@@ -27,14 +27,7 @@ export default function CardHeader({
       {/* شبكة الأزرار: 3 في كل صف بنفس الحجم */}
       <div className="grid grid-cols-3 gap-2">
 
-        {/* زر الطلبات السابقة - متاح دائماً */}
-        <HeaderButton
-          onClick={handleViewOrders}
-          icon={<History size={20} />}
-          label={t("ViewOrders")}
-          color="bg-gray-500 hover:bg-gray-600"
-          disabled={isLoading}
-        />
+
 
         {/* أزرار العروض والصفقات - تظهر حسب شرط الـ orderType في كودك */}
         {orderType !== "delivery" && (
@@ -42,7 +35,7 @@ export default function CardHeader({
             <HeaderButton
               onClick={onShowOfferModal}
               icon={<Gift size={20} />}
-              label={t("ApplyOffer")}
+              label={t("Points")}
               color="bg-green-600 hover:bg-green-700"
               disabled={isLoading}
             />
@@ -55,6 +48,14 @@ export default function CardHeader({
             />
           </>
         )}
+        {/* زر الطلبات السابقة - متاح دائماً */}
+        <HeaderButton
+          onClick={handleViewOrders}
+          icon={<History size={20} />}
+          label={t("ViewOrders")}
+          color="bg-gray-500 hover:bg-gray-600"
+          disabled={isLoading}
+        />
 
         {/* أزرار الـ Take Away - تظهر حسب شرط الـ orderType في كودك */}
         {orderType === "take_away" && (

@@ -582,16 +582,15 @@ export default function Item({ onAddToOrder, onClose }) {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-9 gap-3 px-4 pb-4">
-            {productsToDisplay.map((product) => (
-              <ProductCard
-                key={product.id}
-                product={product}
-                onAddToOrder={handleAddToOrder}
-                onOpenModal={openProductModal}
-                orderLoading={orderLoading}
-              />
-            ))}
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3 p-2">            {productsToDisplay.map((product) => (
+            <ProductCard
+              key={product.id}
+              product={product}
+              onAddToOrder={handleAddToOrder}
+              onOpenModal={openProductModal}
+              orderLoading={orderLoading}
+            />
+          ))}
           </div>
           {visibleProductCount < filteredProducts.length && (
             <div className="flex justify-center mt-8 pb-8">
