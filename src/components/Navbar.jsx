@@ -6,25 +6,40 @@ import { useGet } from "@/Hooks/useGet";
 import { useShift } from "@/context/ShiftContext";
 import { toast } from "react-toastify";
 import {
-  FaUserCircle,
-  FaUsers,
-  FaListAlt,
-  FaTable,
-  FaDollarSign,
-  FaTruck,
   FaBell,
-  FaChevronDown // ✅ جديد للسهم في الجرس
+  FaChevronDown,
+  FaUtensils,
+  FaMotorcycle,
+  FaShoppingBag,
+  FaGlobe,
+  FaMoneyBillWave,
+  FaEllipsisH,
+  FaHistory,
+  FaExclamationCircle,
 } from "react-icons/fa";
 import { useTranslation } from "react-i18next";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import axios from "axios";
 import logo from "@/assets/logo.jpg";
+import {
+  User,
+  LogOut,
+  Clock,
+  Globe,
+} from "lucide-react";
 
 // المودالز
 import ExpensesModal from "@/Pages/ExpensesModal";
 import PasswordConfirmModal from "@/Pages/PasswordConfirmModal";
 import EndShiftReportModal from "@/Pages/ReportsAfterShift";
-import Notifications from "@/components/Notifications"; // ✅ محتفظ بيه تمامًا زي ما هو
 
 export default function Navbar() {
   const FALLBACK_SOUND = "https://www.soundjay.com/buttons/sounds/button-1.mp3";
@@ -46,16 +61,14 @@ export default function Navbar() {
   const [showReportModal, setShowReportModal] = useState(false);
   const [notificationCount, setNotificationCount] = useState(0);
   const [cashAmount, setCashAmount] = useState("");
-  const [pendingPassword, setPendingPassword] = useState(""); // الباسورد المؤقت
+  const [pendingPassword, setPendingPassword] = useState("");
   const [endShiftReport, setEndShiftReport] = useState(null);
   const [reportLoading, setReportLoading] = useState(false);
-const audioRef = useRef(null);      // ماسك ملف الصوت
-const previousCountRef = useRef(0);
-  // ✅ حالة الـ Dropdown للإشعارات
+  const audioRef = useRef(null);
+  const previousCountRef = useRef(0);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
 
-  // ✅ Permissions من الـ user
   const userData = JSON.parse(sessionStorage.getItem("user") || "{}");
   const permissions = {
     online_order: userData.online_order === 1,
@@ -66,60 +79,49 @@ const previousCountRef = useRef(0);
 
   const currentTab = sessionStorage.getItem("tab") || "take_away";
   const isArabic = i18n.language === "ar";
-useEffect(() => {
-  const storedSound = sessionStorage.getItem("notification_sound") || FALLBACK_SOUND;
-  audioRef.current = new Audio(storedSound);
-  audioRef.current.load();
-  
-  // تلميح اختياري: تشغيل صامت عند أول ضغطة للمستخدم لفك حظر الصوت في المتصفح
-  const enableAudio = () => {
+  useEffect(() => {
+    const storedSound = sessionStorage.getItem("notification_sound") || FALLBACK_SOUND;
+    audioRef.current = new Audio(storedSound);
+    audioRef.current.load();
+
+    const enableAudio = () => {
       audioRef.current.play().then(() => {
-          audioRef.current.pause();
-          audioRef.current.currentTime = 0;
-      }).catch(() => {});
+        audioRef.current.pause();
+        audioRef.current.currentTime = 0;
+      }).catch(() => { });
       window.removeEventListener('click', enableAudio);
-  };
-  window.addEventListener('click', enableAudio);
-}, []);
-  // ✅ جلب عدد الإشعارات والطلبات الجديدة بدقة من الـ API
+    };
+    window.addEventListener('click', enableAudio);
+  }, []);
+
   const { data: notificationsData, refetch: refetchNotifications } = useGet(
     "cashier/orders/notifications",
     { useCache: false }
   );
 
-  // قائمة الطلبات الجديدة (array من order IDs)
   const notifications = notificationsData?.orders || [];
 
-  // تحديث العدد من الـ API
-// ده الـ useEffect اللي بيشتغل لما الداتا تيجي من الـ API
-useEffect(() => {
-  if (notificationsData?.orders_count !== undefined) {
-    const newCount = notificationsData.orders_count;
+  useEffect(() => {
+    if (notificationsData?.orders_count !== undefined) {
+      const newCount = notificationsData.orders_count;
 
-    // اللوجيك الجديد: لو العدد الجديد أكبر من القديم -> شغل الصوت
-    if (newCount > previousCountRef.current) {
-      if (audioRef.current) {
-        // تحديث مصدر الصوت لو اتغير في الـ SessionStorage
-        const currentStoredSound = sessionStorage.getItem("notification_sound") || FALLBACK_SOUND;
-        if (audioRef.current.src !== currentStoredSound) {
+      if (newCount > previousCountRef.current) {
+        if (audioRef.current) {
+          const currentStoredSound = sessionStorage.getItem("notification_sound") || FALLBACK_SOUND;
+          if (audioRef.current.src !== currentStoredSound) {
             audioRef.current.src = currentStoredSound;
+          }
+
+          audioRef.current.play().catch((e) => console.warn("Audio play blocked:", e));
+          toast.info(t("New Order Received!"));
         }
-        
-        // تشغيل الصوت
-        audioRef.current.play().catch((e) => console.warn("Audio play blocked:", e));
-        toast.info(t("New Order Received!"));
       }
+
+      setNotificationCount(newCount);
+      previousCountRef.current = newCount;
     }
+  }, [notificationsData, t]);
 
-    // تحديث الحالة والـ Ref عشان المقارنة الجاية
-    setNotificationCount(newCount);
-    previousCountRef.current = newCount;
-  }
-}, [notificationsData, t]);
-
-
-
-  // Polling كل 15 ثانية عشان العدد يفضل دقيق دايماً
   useEffect(() => {
     if (!permissions.online_order) return;
     const interval = setInterval(() => {
@@ -128,7 +130,6 @@ useEffect(() => {
     return () => clearInterval(interval);
   }, [refetchNotifications, permissions.online_order]);
 
-  // إغلاق الـ Dropdown عند كليك خارجها
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -166,23 +167,20 @@ useEffect(() => {
       .padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
   };
 
-const handleTabChange = (value) => {
+  const handleTabChange = (value) => {
     if (!permissions[value.replace("-", "_")]) {
       toast.warn(t("You do not have permission for this section"));
       return;
     }
 
-    // ✅ التعديل هنا: لا تمسح السلة إذا كانت تحتوي على بيانات "تكرار الطلب"
-    // نتحقق من وجود علامة repeatedOrder في الـ sessionStorage أو الـ state
     const isRepeated = sessionStorage.getItem("is_repeating_order") === "true";
 
     sessionStorage.setItem("tab", value);
     sessionStorage.setItem("order_type", value);
-    
+
     if (!isRepeated) {
       sessionStorage.removeItem("cart");
     } else {
-      // بعد ما ضمنا إننا مش هنمسحها، نشيل العلامة عشان المرات الجاية يمسح عادي
       sessionStorage.removeItem("is_repeating_order");
     }
 
@@ -200,6 +198,7 @@ const handleTabChange = (value) => {
       navigate("/online-orders", { replace: true });
     }
   };
+
   const handleTables = () => {
     if (!permissions.dine_in) {
       toast.warn(t("You do not have permission for tables"));
@@ -212,8 +211,8 @@ const handleTabChange = (value) => {
   const handleAllOrders = () => navigate("/all-orders");
   const handleExpenses = () => setShowExpensesModal(true);
   const handleDeliveryOrder = () => navigate("/deliveryOrders");
+  const handleDineInOrder = () => navigate("/dine-in-orders");
 
-  // ===== إغلاق الشيفت =====
   const handleCloseShift = () => {
     if (!isShiftOpen) {
       toast.error(t("No active shift found"));
@@ -221,7 +220,7 @@ const handleTabChange = (value) => {
     }
     setShowPasswordModal(true);
   };
-// دالة مساعدة للإغلاق التلقائي بدون إدخال كاش
+
   const handleAutoCashConfirmed = async (password) => {
     setReportLoading(true);
     try {
@@ -232,7 +231,7 @@ const handleTabChange = (value) => {
         `${baseUrl}cashier/reports/end_shift_report`,
         {
           password: password,
-          amount: 0, // نرسل 0 لأن المستخدم لم يُطلب منه الإدخال
+          amount: 0,
         },
         {
           headers: { Authorization: `Bearer ${token}` },
@@ -248,25 +247,20 @@ const handleTabChange = (value) => {
       setReportLoading(false);
     }
   };
-  // 1. بعد تأكيد الباسورد → نخزن الباسورد ونفتح مودال الكاش
+
   const handlePasswordConfirmed = (password) => {
     setPendingPassword(password);
     setShowPasswordModal(false);
-const enterAmountStatus = sessionStorage.getItem("enter_amount");
+    const enterAmountStatus = sessionStorage.getItem("enter_amount");
 
     if (enterAmountStatus === "1") {
-      // إذا كانت 1، نفتح مودال إدخال الكاش
       setShowCashInputModal(true);
-      setCashAmount(""); 
+      setCashAmount("");
     } else {
-      // إذا كانت 0، ننتقل مباشرة لجلب التقرير بمبلغ افتراضي 0
       handleAutoCashConfirmed(password);
     }
   };
 
-
-
-  // 2. بعد إدخال الكاش → نرسل الريبورت بالباسورد والمبلغ
   const handleCashConfirmed = async () => {
     if (!cashAmount || isNaN(cashAmount) || Number(cashAmount) < 0) {
       toast.error("Please enter a valid cash amount");
@@ -293,15 +287,13 @@ const enterAmountStatus = sessionStorage.getItem("enter_amount");
       setShowCashInputModal(false);
       setShowReportModal(true);
     } catch (err) {
-      const msg =
-        err.response?.data?.message || t("Invalid password or error occurred");
+      const msg = err.response?.data?.message || t("Invalid password or error occurred");
       toast.error(msg);
     } finally {
       setReportLoading(false);
     }
   };
 
-  // 3. إغلاق الشيفت النهائي بعد تأكيد الريبورت
   const handleFinalClose = async () => {
     try {
       setLoading(true);
@@ -338,7 +330,6 @@ const enterAmountStatus = sessionStorage.getItem("enter_amount");
     }
   };
 
-  // ✅ دالة جديدة لفتح طلب معين (mark as read + navigate)
   const handleOrderClick = async (orderId) => {
     try {
       const token = sessionStorage.getItem("token");
@@ -348,18 +339,12 @@ const enterAmountStatus = sessionStorage.getItem("enter_amount");
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      // تحديث العدد فوريًا
       refetchNotifications();
-
-      // التنقل لصفحة الطلب
       navigate(`/online-orders/${orderId}`);
-
-      // إغلاق الـ Dropdown
       setIsDropdownOpen(false);
     } catch (err) {
       console.error("Error marking order as read:", err);
       toast.error("فشل في تحديث حالة الطلب");
-      // حتى لو فشل الـ API، نروح للطلب
       navigate(`/online-orders/${orderId}`);
       setIsDropdownOpen(false);
     }
@@ -367,326 +352,316 @@ const enterAmountStatus = sessionStorage.getItem("enter_amount");
 
   return (
     <>
-      <div className="text-gray-800 px-4 md:px-6 w-full z-50 bg-white shadow-md">
-        <div className="flex items-center justify-between gap-4">
-          {/* الجزء الأيسر */}
-          <div className="flex items-center gap-2">
+      <div className="text-gray-800 px-4 w-full z-50 bg-white shadow-md relative min-h-[96px] flex items-center">
+        <div className="flex items-center justify-between w-full h-full py-1.5">
+          {/* Left Section: Navigation */}
+          <div className="flex items-center gap-2 flex-1 pb-1">
             {location.pathname !== "/shift" &&
               location.pathname !== "/cashier" && (
                 <button
                   onClick={() => navigate(-1)}
-                  className="font-bold text-center px-1 pb-1 hover:bg-red-200 cursor-pointer hover:text-gray-800 rounded bg-bg-primary text-3xl text-white transition-colors duration-200"
+                  className="w-12 h-12 flex items-center justify-center font-bold text-center hover:bg-bg-primary hover:text-white cursor-pointer rounded-xl bg-gray-50 text-gray-400 border border-gray-100 transition-all duration-300 shadow-sm"
                   title="Go back"
                 >
-                  ←
+                  <span className="text-3xl">←</span>
                 </button>
               )}
 
-            <button
-              onClick={() => navigate("/profile")}
-              className="text-gray-600 hover:text-[#910000]"
-            >
-              <FaUserCircle className="text-2xl md:text-3xl" />
-            </button>
-
-            <button
-              onClick={handleDueUsers}
-              className="text-gray-600 hover:text-[#910000]"
-            >
-              <FaUsers className="text-2xl md:text-3xl" />
-            </button>
-
-            <button
-              onClick={handleAllOrders}
-              className="text-gray-600 hover:text-[#910000]"
-              title={t("AllOrders")}
-            >
-              <FaListAlt className="text-2xl md:text-3xl" />
-            </button>
-
-            <button
-              onClick={handleExpenses}
-              className="text-green-600 hover:text-green-800"
-              title="Add Expense"
-            >
-              <FaDollarSign className="text-2xl md:text-3xl" />
-            </button>
-
-            <Tabs value={currentTab} onValueChange={handleTabChange}>
-              <TabsList className="flex gap-2 bg-transparent p-0 ml-2">
-                {/* Online Orders */}
-                {permissions.online_order && (
-                  <TabsTrigger
-                    value="online-order"
-                    className="px-3 py-1 text-sm font-semibold bg-white text-bg-primary border border-bg-primary data-[state=active]:bg-bg-primary data-[state=active]:text-white transition-colors duration-200"
-                  >
-                    {t("OnlineOrders")}
-                  </TabsTrigger>
-                )}
-
-                {/* Take Away */}
-                {permissions.take_away && (
-                  <TabsTrigger
-                    value="take_away"
-                    className="px-3 py-1 text-sm font-semibold bg-white text-bg-primary border border-bg-primary data-[state=active]:bg-bg-primary data-[state=active]:text-white transition-colors duration-200"
-                  >
-                    {t("take_away")}
-                  </TabsTrigger>
-                )}
-
-                {/* Delivery */}
-                {permissions.delivery && (
-                  <TabsTrigger
-                    value="delivery"
-                    className="px-3 py-1 text-sm font-semibold bg-white text-bg-primary border border-bg-primary data-[state=active]:bg-bg-primary data-[state=active]:text-white transition-colors duration-200"
-                  >
-                    {t("Delivery")}
-                  </TabsTrigger>
-                )}
-
-                {/* Dine In */}
-                {permissions.dine_in && (
-                  <TabsTrigger
-                    value="dine_in"
-                    className="px-3 py-1 text-sm font-semibold bg-white text-bg-primary border border-bg-primary data-[state=active]:bg-bg-primary data-[state=active]:text-white transition-colors duration-200"
-                  >
-                    {t("Dinein")}
-                  </TabsTrigger>
-                )}
-
-                {/* زر الطاولات */}
-                {permissions.dine_in && (
-                  <button
-                    onClick={handleTables}
-                    className="p-2 border border-bg-primary rounded-lg hover:bg-bg-primary hover:text-white text-bg-primary transition"
-                    title={t("Tables")}
-                  >
-                    <FaTable className="text-lg" />
-                  </button>
-                )}
-
-                {/* زر Delivery Orders (منفصل عن الـ tab) */}
-                {permissions.delivery && (
-                  <button
-                    onClick={handleDeliveryOrder}
-                    className="p-2 border border-bg-primary rounded-lg hover:bg-bg-primary hover:text-white text-bg-primary transition"
-                    title={t("DeliveryOrder")}
-                  >
-                    <FaTruck className="text-lg" />
-                  </button>
-                )}
-              </TabsList>
-            </Tabs>
-          </div>
-
-          {/* اللوجو */}
-          <a
-            href="https://Food2go.online"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center justify-center"
-          >
-            <img
-              src={logo}
-              alt="Food2go Logo"
-              className="h-18 w-18 object-contain cursor-pointer"
-            />
-          </a>
-
-          {/* الجزء الأيمن */}
-          <div className="flex items-center gap-2">
-            {location.pathname !== "/shift" &&
-              location.pathname !== "/cashier" && (
-                <>
-                  <div className="flex items-center text-xs md:text-sm font-medium text-gray-600">
-                    <span className="text-gray-500 mr-1 hidden sm:inline">
-                      {t("shift")}:
-                    </span>
-                    <span className="bg-gray-100 px-2 py-1 rounded-md text-gray-800 text-xs md:text-sm">
-                      {formatElapsedTime()}
-                    </span>
-                  </div>
-
-                  <button
-                    onClick={handleCloseShift}
-                    disabled={loading || reportLoading}
-                    className="bg-[#910000] text-white px-3 py-1 md:px-4 md:py-2 rounded-md text-xs md:text-sm font-semibold hover:bg-red-700 disabled:opacity-50 transition"
-                  >
-                    {loading || reportLoading ? (
-                      "..."
-                    ) : (
-                      <>
-                        <span className="hidden md:inline">
-                          {t("closeshift")}
-                        </span>
-                        <span className="md:hidden">{t("Close")}</span>
-                      </>
-                    )}
-                  </button>
-                </>
+            <div className="flex items-center gap-3 overflow-x-auto no-scrollbar py-3 px-1">
+              {/* Core Square Buttons */}
+              {permissions.take_away && (
+                <button
+                  onClick={() => handleTabChange("take_away")}
+                  className={`relative flex flex-col items-center justify-center min-w-[76px] h-[76px] rounded-2xl transition-all duration-300 border-2 overflow-hidden ${currentTab === "take_away"
+                    ? "bg-gradient-to-br from-bg-primary to-[#800000] text-white border-bg-primary shadow-xl scale-105"
+                    : "bg-white text-gray-500 border-gray-100 hover:border-bg-primary/20 hover:bg-gray-50 shadow-sm"
+                    }`}
+                >
+                  <FaShoppingBag className={`${currentTab === "take_away" ? "text-3xl" : "text-2xl"} mb-1 transition-all duration-300`} />
+                  <span className={`text-[11px] font-extrabold tracking-tight ${currentTab === "take_away" ? "text-white" : "text-gray-600"}`}>{t("take_away")}</span>
+                  {currentTab === "take_away" && <div className="absolute inset-0 bg-white/10 pointer-events-none" />}
+                </button>
               )}
 
-            {/* تبديل اللغة */}
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-medium">AR</span>
-              <button
-                onClick={toggleLanguage}
-                className={`relative inline-flex h-6 w-12 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out ${
-                  isArabic ? "bg-bg-primary" : "bg-gray-300"
-                }`}
-              >
-                <span
-                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                    !isArabic ? "translate-x-6" : "translate-x-0"
-                  }`}
-                />
-              </button>
-              <span className="text-sm font-medium">EN</span>
-            </div>
+              {permissions.delivery && (
+                <button
+                  onClick={() => handleTabChange("delivery")}
+                  className={`relative flex flex-col items-center justify-center min-w-[76px] h-[76px] rounded-2xl transition-all duration-300 border-2 overflow-hidden ${currentTab === "delivery"
+                    ? "bg-gradient-to-br from-bg-primary to-[#800000] text-white border-bg-primary shadow-xl scale-105"
+                    : "bg-white text-gray-500 border-gray-100 hover:border-bg-primary/20 hover:bg-gray-50 shadow-sm"
+                    }`}
+                >
+                  <FaMotorcycle className={`${currentTab === "delivery" ? "text-4xl" : "text-3xl"} mb-1 transition-all duration-300`} />
+                  <span className={`text-[11px] font-extrabold tracking-tight ${currentTab === "delivery" ? "text-white" : "text-gray-600"}`}>{t("Delivery")}</span>
+                  {currentTab === "delivery" && <div className="absolute inset-0 bg-white/10 pointer-events-none" />}
+                </button>
+              )}
 
-            {/* ✅ الجرس مع Dropdown للإشعارات الجديدة */}
+              {permissions.dine_in && (
+                <button
+                  onClick={() => handleTabChange("dine_in")}
+                  className={`relative flex flex-col items-center justify-center min-w-[76px] h-[76px] rounded-2xl transition-all duration-300 border-2 overflow-hidden ${currentTab === "dine_in"
+                    ? "bg-gradient-to-br from-bg-primary to-[#800000] text-white border-bg-primary shadow-xl scale-105"
+                    : "bg-white text-gray-500 border-gray-100 hover:border-bg-primary/20 hover:bg-gray-50 shadow-sm"
+                    }`}
+                >
+                  <FaUtensils className={`${currentTab === "dine_in" ? "text-3xl" : "text-2xl"} mb-1 transition-all duration-300`} />
+                  <span className={`text-[11px] font-extrabold tracking-tight ${currentTab === "dine_in" ? "text-white" : "text-gray-600"}`}>{t("Dinein")}</span>
+                  {currentTab === "dine_in" && <div className="absolute inset-0 bg-white/10 pointer-events-none" />}
+                </button>
+              )}
+
+              {permissions.online_order && (
+                <button
+                  onClick={() => handleTabChange("online-order")}
+                  className={`relative flex flex-col items-center justify-center min-w-[76px] h-[76px] rounded-2xl transition-all duration-300 border-2 overflow-hidden ${currentTab === "online-order"
+                    ? "bg-gradient-to-br from-bg-primary to-[#800000] text-white border-bg-primary shadow-xl scale-105"
+                    : "bg-white text-gray-500 border-gray-100 hover:border-bg-primary/20 hover:bg-gray-50 shadow-sm"
+                    }`}
+                >
+                  <FaGlobe className={`${currentTab === "online-order" ? "text-3xl" : "text-2xl"} mb-1 transition-all duration-300`} />
+                  <span className={`text-[11px] font-extrabold tracking-tight ${currentTab === "online-order" ? "text-white" : "text-gray-600"}`}>{t("OnlineOrders")}</span>
+                  {currentTab === "online-order" && <div className="absolute inset-0 bg-white/10 pointer-events-none" />}
+                </button>
+              )}
+
+              <button
+                onClick={handleExpenses}
+                className="group flex flex-col items-center justify-center min-w-[76px] h-[76px] rounded-2xl transition-all duration-300 border-2 bg-white text-green-600 border-green-50 hover:border-green-600 hover:bg-green-50 shadow-sm"
+              >
+                <FaMoneyBillWave className="text-3xl mb-1 group-hover:scale-110 transition-transform" />
+                <span className="text-[11px] font-extrabold tracking-tight text-green-700">{t("Expenses")}</span>
+              </button>
+
+              {/* More Dropdown */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className="flex flex-col items-center justify-center min-w-[76px] h-[76px] rounded-2xl transition-all duration-300 border-2 bg-white text-gray-400 border-gray-100 hover:border-gray-300 hover:bg-gray-50 shadow-sm outline-none">
+                    <FaEllipsisH className="text-3xl mb-1" />
+                    <span className="text-[11px] font-extrabold tracking-tight text-gray-500">{t("More")}</span>
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-56 bg-white shadow-xl border-gray-100 rounded-xl p-1">
+                  <DropdownMenuItem onClick={handleAllOrders} className="flex items-center gap-3 p-3 cursor-pointer hover:bg-gray-50 rounded-lg group">
+                    <div className="w-8 h-8 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                      <FaHistory size={14} />
+                    </div>
+                    <span className="font-bold text-gray-700">{t("AllOrders")}</span>
+                  </DropdownMenuItem>
+
+                  <DropdownMenuItem onClick={handleDueUsers} className="flex items-center gap-3 p-3 cursor-pointer hover:bg-gray-50 rounded-lg group">
+                    <div className="w-8 h-8 rounded-full bg-red-50 text-red-600 flex items-center justify-center group-hover:bg-red-600 group-hover:text-white transition-colors">
+                      <FaExclamationCircle size={14} />
+                    </div>
+                    <span className="font-bold text-gray-700">{t("Due")}</span>
+                  </DropdownMenuItem>
+
+                  {permissions.dine_in && (
+                    <DropdownMenuItem onClick={handleTables} className="flex items-center gap-3 p-3 cursor-pointer hover:bg-gray-50 rounded-lg group">
+                      <div className="w-8 h-8 rounded-full bg-orange-50 text-orange-600 flex items-center justify-center group-hover:bg-orange-600 group-hover:text-white transition-colors">
+                        <FaUtensils size={14} />
+                      </div>
+                      <span className="font-bold text-gray-700">{t("Tables")}</span>
+                    </DropdownMenuItem>
+                  )}
+
+                  {(permissions.delivery || permissions.dine_in) && (
+                    <>
+                      <DropdownMenuSeparator className="my-1 bg-gray-100" />
+                      <DropdownMenuLabel className="px-3 py-2 text-[10px] uppercase tracking-wider text-gray-400 font-bold">{t("Reports")}</DropdownMenuLabel>
+                      {permissions.delivery && (
+                        <DropdownMenuItem onClick={handleDeliveryOrder} className="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-red-50 text-gray-600 hover:text-bg-primary rounded-lg font-semibold">
+                          {t("DeliveryOrder")}
+                        </DropdownMenuItem>
+                      )}
+                      {permissions.dine_in && (
+                        <DropdownMenuItem onClick={handleDineInOrder} className="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-red-50 text-gray-600 hover:text-bg-primary rounded-lg font-semibold">
+                          {t("DineInOrder")}
+                        </DropdownMenuItem>
+                      )}
+                    </>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          </div>
+
+          {/* Center Section: Logo (Perfectly Centered) */}
+          <div className="absolute left-[55%] top-1/2 -translate-x-1/2 -translate-y-1/2 z-10">
+            <a
+              href="https://Food2go.online"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block"
+            >
+              <img
+                src={logo}
+                alt="Food2go Logo"
+                className="h-12 md:h-14 w-auto object-contain hover:scale-110 transition-transform duration-300 "
+              />
+            </a>
+          </div>
+
+          {/* Right Section: Actions */}
+          <div className="flex items-center justify-end gap-3 flex-1 py-1">
+            {location.pathname !== "/shift" &&
+              location.pathname !== "/cashier" && (
+                <div className="flex flex-col items-center justify-center min-w-[76px] h-[76px] rounded-2xl bg-gray-50 border-2 border-gray-100 text-gray-700 shadow-sm">
+                  <Clock className="w-6 h-6 mb-1 text-gray-400" />
+                  <span className="text-[11px] font-extrabold text-bg-primary">
+                    {formatElapsedTime()}
+                  </span>
+                </div>
+              )}
+
+            {/* Notifications Dropdown */}
             {permissions.online_order && (
               <div className="relative" ref={dropdownRef}>
                 <button
                   onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                  className="relative text-gray-600 hover:text-[#910000] transition flex items-center gap-1"
-                  title={t("OnlineOrders")}
+                  className="relative flex flex-col items-center justify-center min-w-[76px] h-[76px] rounded-2xl bg-white border-2 border-gray-100 text-gray-500 hover:border-bg-primary/20 hover:bg-gray-50 shadow-sm transition-all duration-300 outline-none"
                 >
-                  <FaBell className="text-2xl md:text-3xl" />
+                  <FaBell className="text-3xl mb-1 transition-all duration-300" />
+                  <span className="text-[11px] font-extrabold text-gray-400 uppercase tracking-tighter">{t("New")}</span>
                   {notificationCount > 0 && (
-                    <span
-                      className={`absolute -top-1 ${isArabic ? "-left-1" : "-right-1"} bg-red-500 text-white text-xs font-bold rounded-full px-2 min-w-5 h-5 flex items-center justify-center shadow-md animate-pulse`}
-                    >
+                    <span className="absolute top-2 right-2 bg-red-500 text-white text-[10px] font-bold rounded-full px-1.5 min-w-[20px] h-[20px] flex items-center justify-center shadow-md animate-pulse">
                       {notificationCount > 99 ? "99+" : notificationCount}
                     </span>
                   )}
-                  <FaChevronDown className={`text-sm transition-transform duration-200 ${isDropdownOpen ? "rotate-180" : ""}`} />
+                  {isDropdownOpen && <div className="absolute inset-0 bg-bg-primary/5 pointer-events-none rounded-2xl" />}
                 </button>
 
-                {/* الـ Dropdown نفسه */}
                 {isDropdownOpen && (
-                  <div
-                    className={`absolute ${isArabic ? "left-0" : "right-0"} mt-2 w-72 bg-white rounded-xl shadow-2xl border border-gray-200 z-50 max-h-96 overflow-y-auto`}
-                  >
-                    <div className="p-4 border-b border-gray-200 bg-gray-50 rounded-t-xl">
-                      <h3 className="font-bold text-gray-800 text-lg">{t("New Orders")} ({notificationCount})</h3>
+                  <div className={`absolute ${isArabic ? "left-0" : "right-0"} mt-3 w-80 bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 max-h-96 overflow-y-auto`}>
+                    <div className="p-4 border-b border-gray-100 bg-gray-50 rounded-t-2xl">
+                      <h3 className="font-extrabold text-gray-800 text-lg">{t("New Orders")} ({notificationCount})</h3>
                     </div>
-
                     <div className="py-2">
                       {notifications.length > 0 ? (
                         <ul>
                           {notifications.map((orderId) => (
                             <li key={orderId}>
-                              <button
-                                onClick={() => handleOrderClick(orderId)}
-                                className="w-full px-4 py-3 hover:bg-gray-100 transition text-right flex items-center justify-between border-b border-gray-100 last:border-0"
-                              >
+                              <button onClick={() => handleOrderClick(orderId)} className="w-full px-5 py-4 hover:bg-gray-50 transition text-right flex items-center justify-between border-b border-gray-50 last:border-0 border-r-4 border-r-bg-primary">
                                 <div>
-                                  <span className="font-semibold text-gray-800">Order #{orderId}</span>
-                                  <span className="block text-sm text-gray-500 mt-1">{t("New Order")}</span>
+                                  <span className="font-bold text-gray-800 text-base">Order #{orderId}</span>
+                                  <span className="block text-sm text-gray-400 mt-0.5">{t("New Order")}</span>
                                 </div>
-                                <span className="text-xs bg-red-100 text-red-600 px-2 py-1 rounded-full">{t("New")}</span>
+                                <span className="text-xs font-bold bg-red-100 text-red-600 px-3 py-1 rounded-full">{t("New")}</span>
                               </button>
                             </li>
                           ))}
                         </ul>
                       ) : (
-                        <p className="p-8 text-center text-gray-500">{t("No new orders")}</p>
+                        <div className="p-10 text-center">
+                          <FaBell className="text-4xl text-gray-200 mx-auto mb-3" />
+                          <p className="text-gray-400 font-bold">{t("No new orders")}</p>
+                        </div>
                       )}
                     </div>
-
-                    <div className="p-4 border-t border-gray-200 bg-gray-50 rounded-b-xl">
-                      <button
-                        onClick={() => {
-                          handleTabChange("online-order");
-                          setIsDropdownOpen(false);
-                        }}
-                        className="w-full text-center text-[#910000] font-bold hover:underline"
-                      >
-                        {t("View All Orders")}
-                      </button>
+                    <div className="p-4 border-t border-gray-100 bg-gray-50 rounded-b-2xl">
+                      <button onClick={() => { handleTabChange("online-order"); setIsDropdownOpen(false); }} className="w-full text-center text-bg-primary font-extrabold hover:underline">{t("View All Orders")}</button>
                     </div>
                   </div>
                 )}
               </div>
             )}
 
-            {/* ✅ محتفظ بـ Notifications component زي ما هو */}
-            <Notifications />
-
-            <button
-              onClick={handleLogout}
-              className="bg-gray-200 text-gray-800 px-3 py-1 md:px-4 md:py-2 rounded-md text-xs md:text-sm font-semibold hover:bg-gray-300 transition"
-            >
-              <span className="hidden sm:inline">{t("logout")}</span>
-              <span className="sm:hidden">{t("Exit")}</span>
-            </button>
+            {/* Account Dropdown */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="flex flex-col items-center justify-center min-w-[76px] h-[76px] rounded-2xl bg-white border-2 border-gray-100 text-gray-500 hover:border-bg-primary/20 hover:bg-gray-50 shadow-sm transition-all duration-300 outline-none">
+                  <User className="w-6 h-6 mb-1 text-gray-400" />
+                  <span className="text-[11px] font-extrabold text-gray-400 uppercase tracking-tighter truncate max-w-[65px]">{userData.name || t("User")}</span>
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align={isArabic ? "start" : "end"} className="w-64 mt-3 bg-white shadow-2xl border-gray-100 rounded-2xl p-1">
+                <DropdownMenuLabel className="font-extrabold text-gray-800 px-4 py-3">{userData.name || t("UserAccount")}</DropdownMenuLabel>
+                <DropdownMenuSeparator className="bg-gray-100" />
+                <DropdownMenuItem onClick={() => navigate("/profile")} className="flex items-center gap-3 p-3 cursor-pointer hover:bg-gray-50 rounded-xl font-bold text-gray-700">
+                  <User className="w-5 h-5 text-gray-400" />
+                  <span>{t("Profile")}</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={toggleLanguage} className="flex items-center gap-3 p-3 cursor-pointer hover:bg-gray-50 rounded-xl font-bold text-gray-700">
+                  <Globe className="w-5 h-5 text-gray-400" />
+                  <span>{isArabic ? "English" : "العربية"}</span>
+                </DropdownMenuItem>
+                {location.pathname !== "/shift" && location.pathname !== "/cashier" && isShiftOpen && (
+                  <DropdownMenuItem onClick={handleCloseShift} disabled={loading || reportLoading} className="flex items-center gap-3 p-3 cursor-pointer hover:bg-red-50 text-red-600 focus:text-red-600 rounded-xl font-bold">
+                    <Clock className="w-5 h-5" />
+                    <span>{t("closeshift")}</span>
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuSeparator className="bg-gray-100" />
+                <DropdownMenuItem onClick={handleLogout} className="flex items-center gap-3 p-3 cursor-pointer hover:bg-red-600 hover:text-white focus:bg-red-600 focus:text-white rounded-xl font-bold text-red-800">
+                  <LogOut className="w-5 h-5" />
+                  <span>{t("logout")}</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
-        </div>
-      </div>
+        </div >
+      </div >
 
-      {/* المودالز - كلها زي ما هي بدون أي تغيير أو اختصار */}
       {showExpensesModal && (
         <ExpensesModal onClose={() => setShowExpensesModal(false)} />
-      )}
-
-      {showPasswordModal && (
-        <PasswordConfirmModal
-          onConfirm={handlePasswordConfirmed}
-          onCancel={handleFinalClose}
-          loading={reportLoading}
-        />
-      )}
-
-      {showCashInputModal && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md border border-gray-100">
-            <div className="text-center mb-6">
-              <h3 className="text-2xl font-bold text-gray-800">إغلاق الوردية</h3>
-              <p className="text-gray-500 mt-2">كم المبلغ الموجود في العهدة الآن؟</p>
-            </div>
-
-            <div className="relative">
-              <input
-                type="number"
-                className="w-full p-4 bg-gray-50 border-2 border-gray-200 rounded-xl focus:border-bg-primary outline-none text-center text-3xl font-bold text-gray-700 transition-all"
-                placeholder="0.00"
-                value={cashAmount}
-                onChange={(e) => setCashAmount(e.target.value)}
-                autoFocus
-              />
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 text-lg">EGP</span>
-            </div>
-
-            <div className="flex gap-4 mt-8">
-              <button
-                onClick={() => {
-                  setShowCashInputModal(false);
-                  setCashAmount("");
-                }}
-                className="flex-1 py-3 text-gray-600 font-semibold hover:bg-gray-100 rounded-xl transition"
-              >
-                إلغاء
-              </button>
-              <button
-                onClick={handleCashConfirmed}
-                disabled={!cashAmount || reportLoading}
-                className="flex-1 py-3 bg-bg-primary text-white font-semibold rounded-xl shadow-lg hover:bg-red-700 transition disabled:opacity-50"
-              >
-                {reportLoading ? "جاري التحميل..." : "تأكيد وإرسال"}
-              </button>
+      )
+      }
+      {
+        showPasswordModal && (
+          <PasswordConfirmModal
+            onConfirm={handlePasswordConfirmed}
+            onCancel={handleFinalClose}
+            loading={reportLoading}
+          />
+        )
+      }
+      {
+        showCashInputModal && (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 backdrop-blur-sm">
+            <div className="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md border border-gray-100">
+              <div className="text-center mb-6">
+                <h3 className="text-2xl font-bold text-gray-800">إغلاق الوردية</h3>
+                <p className="text-gray-500 mt-2">كم المبلغ الموجود في العهدة الآن؟</p>
+              </div>
+              <div className="relative">
+                <input
+                  type="number"
+                  className="w-full p-4 bg-gray-50 border-2 border-gray-200 rounded-xl focus:border-bg-primary outline-none text-center text-3xl font-bold text-gray-700 transition-all"
+                  placeholder="0.00"
+                  value={cashAmount}
+                  onChange={(e) => setCashAmount(e.target.value)}
+                  autoFocus
+                />
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 text-lg">EGP</span>
+              </div>
+              <div className="flex gap-4 mt-8">
+                <button
+                  onClick={() => { setShowCashInputModal(false); setCashAmount(""); }}
+                  className="flex-1 py-3 text-gray-600 font-semibold hover:bg-gray-100 rounded-xl transition"
+                >
+                  إلغاء
+                </button>
+                <button
+                  onClick={handleCashConfirmed}
+                  disabled={!cashAmount || reportLoading}
+                  className="flex-1 py-3 bg-bg-primary text-white font-semibold rounded-xl shadow-lg hover:bg-red-700 transition disabled:opacity-50"
+                >
+                  {reportLoading ? "جاري التحميل..." : "تأكيد وإرسال"}
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
-
-      {showReportModal && (
-        <EndShiftReportModal
-          reportData={endShiftReport}
-          onClose={() => setShowReportModal(false)}
-          onConfirmClose={handleFinalClose}
-        />
-      )}
+        )
+      }
+      {
+        showReportModal && (
+          <EndShiftReportModal
+            reportData={endShiftReport}
+            onClose={() => setShowReportModal(false)}
+            onConfirmClose={handleFinalClose}
+          />
+        )
+      }
     </>
   );
 }

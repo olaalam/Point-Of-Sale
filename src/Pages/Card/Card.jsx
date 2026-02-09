@@ -4,6 +4,12 @@ import { useNavigate } from "react-router-dom";
 import { toast, ToastContainer } from "react-toastify";
 import { useTranslation } from "react-i18next";
 import { usePost } from "@/Hooks/usePost";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 // Components
 import Loading from "@/components/Loading";
@@ -43,7 +49,8 @@ export default function Card({
   const selectedUserData = JSON.parse(sessionStorage.getItem("selected_user_data") || "{}");
   const [isCheckoutVisible, setIsCheckoutVisible] = useState(false);
   const [selectedDiscountId, setSelectedDiscountId] = useState(null);
-  const [freeDiscount, setFreeDiscount] = useState("");  // استخراج رسوم التوصيل (فقط في حالة delivery)
+  const [freeDiscount, setFreeDiscount] = useState("");
+  const [freeDiscountPassword, setFreeDiscountPassword] = useState("");
   const deliveryFee = orderType === "delivery"
     ? Number(selectedUserData?.selectedAddress?.zone?.price || 0)
     : 0;
@@ -65,6 +72,8 @@ export default function Card({
     useState(false);
   const [clearAllManagerId, setClearAllManagerId] = useState("");
   const [clearAllManagerPassword, setClearAllManagerPassword] = useState("");
+  const [showSavePendingModal, setShowSavePendingModal] = useState(false); // New state for Pending Modal
+
   const { data: serviceFeeData } =
     useServiceFee();
   // Custom Hooks
@@ -84,6 +93,8 @@ export default function Card({
   const dealManagement = useDealManagement(orderItems, updateOrderItems, t);
   const orderActions = useOrderActions({
     orderItems,
+    notes,
+    setNotes,
     updateOrderItems,
     tableId,
     orderType,
@@ -271,6 +282,33 @@ export default function Card({
     printWindow.close();
   };
 
+  const handleTransferToDineIn = () => {
+    if (orderItems.length === 0) {
+      toast.warning(t("Noitemstotransfer"));
+      return;
+    }
+
+    // Calculate total discount from items
+    const totalItemDiscount = orderItems.reduce((sum, item) => {
+      const qty = (item.weight_status === 1 || item.weight_status === "1")
+        ? (item.quantity || item.count || 1)
+        : (item.count || 1);
+      return sum + (Number(item.discount_val || 0) * qty);
+    }, 0);
+
+    // Save current takeaway items to sessionStorage for the transfer
+    sessionStorage.setItem("transfer_takeaway_order", JSON.stringify({
+      orderItems,
+      amount: calculations.amountToPay,
+      totalTax: calculations.totalTax,
+      totalDiscount: totalItemDiscount.toFixed(2),
+      notes: notes,
+    }));
+    sessionStorage.setItem("transfer_takeaway_to_dine_in", "true");
+
+    navigate("/tables");
+  };
+
 
   return (
     <div
@@ -282,7 +320,7 @@ export default function Card({
       <DineInformation onClose={onClose} />
       {/* Header Section */}
       <CardHeader
-        onSaveAsPending={() => orderActions.handleSaveAsPending(calculations.amountToPay, calculations.totalTax)}
+        onSaveAsPending={() => setShowSavePendingModal(true)}
         orderType={orderType}
         orderItems={orderItems}
         handleClearAllItems={handleClearAllItems}
@@ -297,6 +335,7 @@ export default function Card({
         handleViewPendingOrders={() => navigate("/pending-orders")}
         onShowOfferModal={() => offerManagement.setShowOfferModal(true)}
         onShowDealModal={() => dealManagement.setShowDealModal(true)}
+        onTransferToDineIn={handleTransferToDineIn}
         isLoading={apiLoading}
         t={t}
       />
@@ -306,10 +345,14 @@ export default function Card({
         <BulkActionsBar
           bulkStatus={bulkStatus}
           setBulkStatus={setBulkStatus}
+          orderItems={orderItems}
           selectedItems={selectedItems}
-          onApplyStatus={(statusOverride) => {
+
+          onApplyStatus={async (statusOverride) => {
             const finalStatus = typeof statusOverride === 'string' ? statusOverride : bulkStatus;
-            orderActions.applyBulkStatus(
+
+            // يجب إضافة return و await هنا لضمان وصول البيانات للـ BulkActionsBar
+            return await orderActions.applyBulkStatus(
               selectedItems,
               finalStatus,
               setBulkStatus,
@@ -335,6 +378,7 @@ export default function Card({
 
         <OrderTable
           orderItems={orderItems}
+          handleClearAllItems={handleClearAllItems}
           orderType={orderType}
           selectedItems={selectedItems}
           selectedPaymentItems={selectedPaymentItems}
@@ -433,9 +477,45 @@ export default function Card({
         setSelectedDiscountId={setSelectedDiscountId}
         freeDiscount={freeDiscount}
         setFreeDiscount={setFreeDiscount}
+        setFreeDiscountPassword={setFreeDiscountPassword}
       />
 
       {/* Modals */}
+      <Dialog open={showSavePendingModal} onOpenChange={setShowSavePendingModal}>
+        <DialogContent className="max-w-md bg-white p-6 rounded-lg">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold text-gray-800 mb-2">{t("SaveasPending")}</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-6 mt-2">
+            <p className="text-gray-600 text-lg">{t("IsThisOrderPrepared")}</p>
+            <div className="flex flex-col gap-3">
+              <button
+                onClick={() => {
+                  setShowSavePendingModal(false);
+                  // Case 2: Prepare & Pending - Kitchen prints now, Cashier+Order at checkout
+                  sessionStorage.setItem("pending_order_info", JSON.stringify({ prepare: "1", pending: "1" }));
+                  orderActions.handleSaveAsPending(calculations.amountToPay, calculations.totalTax, "1", "1");
+                }}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white py-4 text-lg font-semibold shadow-md flex items-center justify-center gap-2 rounded-lg"
+              >
+                <span>✅</span> {t("Prepare & Pending")}
+              </button>
+              <button
+                onClick={() => {
+                  setShowSavePendingModal(false);
+                  // Case 1: Pending Only - All 3 receipts print at checkout
+                  sessionStorage.setItem("pending_order_info", JSON.stringify({ prepare: "0", pending: "1" }));
+                  orderActions.handleSaveAsPending(calculations.amountToPay, calculations.totalTax, "0", "1");
+                }}
+                className="w-full bg-gray-100 hover:bg-gray-200 text-gray-800 py-4 text-lg font-semibold border border-gray-300 shadow-sm rounded-lg"
+              >
+                {t("Pending Only")}
+              </button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <VoidItemModal
         open={showVoidModal}
         onOpenChange={setShowVoidModal}
@@ -518,32 +598,41 @@ export default function Card({
         t={t}
       />
 
-      {isCheckoutVisible && (
-        <CheckOut
-          notes={notes}
-          setNotes={setNotes}
-          isCheckoutVisible={isCheckoutVisible}
-          totalDineInItems={orderItems.length}
-          amountToPay={calculations.amountToPay}
-          orderItems={calculations.checkoutItems}
-          updateOrderItems={updateOrderItems}
-          totalTax={calculations.totalTax}
-          totalDiscount={OTHER_CHARGE}
-          source="web"
-          orderType={orderType}
-          tableId={tableId}
-          onClearCart={clearCart}
-          clearPaidItemsOnly={clearPaidItemsOnly}
-          selectedPaymentItemIds={selectedPaymentItems}
-          service_fees={calculations.totalOtherCharge}
-          onClose={() => setIsCheckoutVisible(false)}
-          onCheckout={() => setIsCheckoutVisible(prev => !prev)}
-          selectedDiscountId={selectedDiscountId}
-          freeDiscount={freeDiscount}
-          setSelectedDiscountId={setSelectedDiscountId}
-          setFreeDiscount={setFreeDiscount}
-        />
-      )}
+
+      <Dialog open={isCheckoutVisible} onOpenChange={setIsCheckoutVisible}>
+        <DialogContent className="max-w-5xl h-[90vh] overflow-y-auto bg-white p-0">
+          <DialogHeader className="p-3 border-b">
+            <DialogTitle>{t("Checkout")}</DialogTitle>
+          </DialogHeader>
+          <div className="p-4 pt-1">
+            <CheckOut
+              notes={notes}
+              setNotes={setNotes}
+              isCheckoutVisible={isCheckoutVisible}
+              totalDineInItems={orderItems.length}
+              amountToPay={calculations.amountToPay}
+              orderItems={calculations.checkoutItems}
+              updateOrderItems={updateOrderItems}
+              totalTax={calculations.totalTax}
+              totalDiscount={OTHER_CHARGE}
+              source="web"
+              orderType={orderType}
+              tableId={tableId}
+              onClearCart={clearCart}
+              clearPaidItemsOnly={clearPaidItemsOnly}
+              selectedPaymentItemIds={selectedPaymentItems}
+              service_fees={calculations.totalOtherCharge}
+              onClose={() => setIsCheckoutVisible(false)}
+              onCheckout={() => setIsCheckoutVisible(prev => !prev)}
+              selectedDiscountId={selectedDiscountId}
+              freeDiscount={freeDiscount}
+              freeDiscountPassword={freeDiscountPassword}
+              setSelectedDiscountId={setSelectedDiscountId}
+              setFreeDiscount={setFreeDiscount}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <ToastContainer />
       <div style={{ display: "none" }}>

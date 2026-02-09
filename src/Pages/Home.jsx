@@ -45,19 +45,25 @@ export default function Home() {
   useEffect(() => {
     setState((prevState) => {
       const newState = { ...prevState, ...initialState };
-      return newState.tabValue === prevState.tabValue ? prevState : newState;
+
+      // Update if tabValue, deliveryUserId, or tableId changed
+      const hasChanged =
+        newState.tabValue !== prevState.tabValue ||
+        newState.deliveryUserId !== prevState.deliveryUserId ||
+        newState.tableId !== prevState.tableId;
+
+      return hasChanged ? newState : prevState;
     });
   }, [initialState]);
 
   // ✅ FIXED: Handle repeated orders from SinglePage and Delivery
   useEffect(() => {
     const { state: locationState } = location;
-    if (!locationState?.repeatedOrder) {
-        // sessionStorage.removeItem("cart"); // يفضل عدم مسحها هنا أيضاً لو كان فيه repeatedOrder
-    }
 
-    if (locationState?.repeatedOrder && locationState?.tabValue === "take_away") {
-      // تأكيد تثبيت الحالة
+    // Check if this is a repeat order
+    const isRepeat = locationState?.repeatedOrder;
+
+    if (isRepeat && locationState?.tabValue === "take_away") {
       setState((prevState) => ({
         ...prevState,
         orderType: "take_away",
@@ -65,24 +71,21 @@ export default function Home() {
       }));
       return;
     }
-    sessionStorage.removeItem("cart");
 
-    // إذا جاي من repeated order (من SinglePage أو Delivery)
-    if (locationState?.repeatedOrder && locationState?.tabValue === "take_away") {
-      const storedCart = sessionStorage.getItem("cart");
-      if (storedCart) {
-        console.log("🔄 Loading repeated order cart:", JSON.parse(storedCart));
+    if (isRepeat && (locationState?.tabValue === "delivery" || locationState?.orderType === "delivery")) {
+      setState((prevState) => ({
+        ...prevState,
+        orderType: "delivery",
+        tabValue: "delivery",
+        deliveryUserId: locationState.userId || prevState.deliveryUserId,
+      }));
+      if (locationState.userId) {
+        sessionStorage.setItem("selected_user_id", locationState.userId);
       }
-
-      setState((prevState) => ({
-        ...prevState,
-        orderType: "take_away",
-        tabValue: "take_away",
-      }));
       return;
     }
 
-    // Handle delivery user selection
+    // Normal navigation with userId
     if (locationState && locationState.userId) {
       setState((prevState) => ({
         ...prevState,
@@ -93,6 +96,12 @@ export default function Home() {
       sessionStorage.setItem("selected_user_id", locationState.userId);
       sessionStorage.setItem("order_type", locationState.orderType || "delivery");
       sessionStorage.setItem("tab", locationState.orderType || "delivery");
+      return;
+    }
+
+    // Default: clear cart if not a repeat order and not selecting a user
+    if (!isRepeat && !locationState?.userId) {
+      sessionStorage.removeItem("cart");
     }
   }, [location]);
 
@@ -124,108 +133,108 @@ export default function Home() {
     fetchDiscount();
   }, [fetchDiscount]);
 
-const runTransferAPI = useCallback(
-  async (newTableId, sourceTableId, cartIds) => {
-    if (!newTableId || !sourceTableId || !cartIds || cartIds.length === 0) {
-      toast.error(t("IncompletetransferdataCannotcompletetransfer"));
-      clearTransferData();
-      return;
-    }
+  const runTransferAPI = useCallback(
+    async (newTableId, sourceTableId, cartIds) => {
+      if (!newTableId || !sourceTableId || !cartIds || cartIds.length === 0) {
+        toast.error(t("IncompletetransferdataCannotcompletetransfer"));
+        clearTransferData();
+        return;
+      }
 
-    const formData = new FormData();
-    formData.append("source_table_id", sourceTableId.toString());
-    formData.append("new_table_id", newTableId.toString());
-    cartIds.forEach((cart_id, index) => {
-      formData.append(`cart_ids[${index}]`, cart_id.toString());
-    });
+      const formData = new FormData();
+      formData.append("source_table_id", sourceTableId.toString());
+      formData.append("new_table_id", newTableId.toString());
+      cartIds.forEach((cart_id, index) => {
+        formData.append(`cart_ids[${index}]`, cart_id.toString());
+      });
 
-    try {
-      console.log("Starting Transfer API call...", { sourceTableId, newTableId, cartIds });
-      
-      const response = await postData("cashier/complete_transfer_order", formData);
+      try {
+        console.log("Starting Transfer API call...", { sourceTableId, newTableId, cartIds });
 
-      // ✅ تحديث المعرف الرقمي
-      sessionStorage.setItem("table_id", newTableId);
+        const response = await postData("cashier/complete_transfer_order", formData);
 
-      // ✅ التعديل الأساسي: تحديث رقم الطاولة من الرد القادم من السيرفر
-      // إذا كان السيرفر يرسل رقم الطاولة في الاستجابة (مثلاً table_number)
-      if (response?.table_number) {
-        sessionStorage.setItem("table_number", response.table_number);
-      } 
-      // ملحوظة: إذا كان السيرفر لا يرسل الرقم، يفضل جلب الرقم من كائن الطاولة المختار قبل مناداة الـ API
+        // ✅ تحديث المعرف الرقمي
+        sessionStorage.setItem("table_id", newTableId);
 
-      toast.success(t("Order transferred successfully"));
-      clearTransferData();
-      
+        // ✅ التعديل الأساسي: تحديث رقم الطاولة من الرد القادم من السيرفر
+        // إذا كان السيرفر يرسل رقم الطاولة في الاستجابة (مثلاً table_number)
+        if (response?.table_number) {
+          sessionStorage.setItem("table_number", response.table_number);
+        }
+        // ملحوظة: إذا كان السيرفر لا يرسل الرقم، يفضل جلب الرقم من كائن الطاولة المختار قبل مناداة الـ API
+
+        toast.success(t("Order transferred successfully"));
+        clearTransferData();
+
+        setState((prevState) => ({
+          ...prevState,
+          tableId: newTableId,
+          orderType: "dine_in",
+          tabValue: "dine_in",
+          isTransferring: false,
+          transferSourceTableId: null,
+          transferCartIds: null,
+        }));
+
+        // إعادة تحميل الصفحة لضمان تحديث كافة مكونات الواجهة (DineInformation, Header.. الخ)
+        setTimeout(() => {
+          window.location.reload();
+        }, 500);
+
+      } catch (error) {
+        console.error("Transfer API Failed:", error);
+        const errorMessage = error.response?.data?.message || t("FailedtocompletetransferPleasetryagain");
+        toast.error(errorMessage);
+        clearTransferData();
+        setState((prevState) => ({
+          ...prevState,
+          isTransferring: false,
+        }));
+      }
+    },
+    [postData, t]
+  );
+
+
+
+  const handleTableSelect = useCallback((tableObj) => {
+    // التأكد من استخراج البيانات سواء كان المرسل ID فقط أو Object
+    const newTableId = typeof tableObj === 'object' ? tableObj.id : tableObj;
+    const newTableNumber = tableObj?.table_number || tableObj?.name; // حسب المسمى عندك في مصفوفة الطاولات
+
+    const sourceTableId = sessionStorage.getItem("transfer_source_table_id");
+    const cartIds = JSON.parse(sessionStorage.getItem("transfer_cart_ids"));
+
+    if (state.isTransferring) {
+      if (!sourceTableId || !cartIds || cartIds.length === 0) {
+        toast.error(t("Cannot transfer order: Table ID or Cart IDs are missing."));
+        clearTransferData();
+        setState(prev => ({ ...prev, isTransferring: false }));
+        return;
+      }
+
+      // ✅ تخزين رقم الطاولة الجديد فوراً قبل مناداة الـ API لضمان التحديث
+      if (newTableNumber) {
+        sessionStorage.setItem("table_number", newTableNumber);
+      }
+
+      runTransferAPI(newTableId, sourceTableId, cartIds);
+    } else {
+      // المنطق الطبيعي
       setState((prevState) => ({
         ...prevState,
         tableId: newTableId,
         orderType: "dine_in",
         tabValue: "dine_in",
-        isTransferring: false,
-        transferSourceTableId: null,
-        transferCartIds: null,
       }));
-
-      // إعادة تحميل الصفحة لضمان تحديث كافة مكونات الواجهة (DineInformation, Header.. الخ)
-      setTimeout(() => {
-          window.location.reload();
-      }, 500);
-
-    } catch (error) {
-      console.error("Transfer API Failed:", error);
-      const errorMessage = error.response?.data?.message || t("FailedtocompletetransferPleasetryagain");
-      toast.error(errorMessage);
-      clearTransferData();
-      setState((prevState) => ({
-        ...prevState,
-        isTransferring: false,
-      }));
+      sessionStorage.setItem("table_id", newTableId);
+      if (newTableNumber) {
+        sessionStorage.setItem("table_number", newTableNumber);
+      }
+      sessionStorage.setItem("order_type", "dine_in");
+      sessionStorage.setItem("tab", "dine_in");
     }
-  },
-  [postData, t]
-);
-
-
-
-const handleTableSelect = useCallback((tableObj) => {
-  // التأكد من استخراج البيانات سواء كان المرسل ID فقط أو Object
-  const newTableId = typeof tableObj === 'object' ? tableObj.id : tableObj;
-  const newTableNumber = tableObj?.table_number || tableObj?.name; // حسب المسمى عندك في مصفوفة الطاولات
-
-  const sourceTableId = sessionStorage.getItem("transfer_source_table_id");
-  const cartIds = JSON.parse(sessionStorage.getItem("transfer_cart_ids"));
-
-  if (state.isTransferring) {
-    if (!sourceTableId || !cartIds || cartIds.length === 0) {
-      toast.error(t("Cannot transfer order: Table ID or Cart IDs are missing."));
-      clearTransferData();
-      setState(prev => ({ ...prev, isTransferring: false }));
-      return;
-    }
-    
-    // ✅ تخزين رقم الطاولة الجديد فوراً قبل مناداة الـ API لضمان التحديث
-    if (newTableNumber) {
-      sessionStorage.setItem("table_number", newTableNumber);
-    }
-    
-    runTransferAPI(newTableId, sourceTableId, cartIds);
-  } else {
-    // المنطق الطبيعي
-    setState((prevState) => ({
-      ...prevState,
-      tableId: newTableId,
-      orderType: "dine_in",
-      tabValue: "dine_in",
-    }));
-    sessionStorage.setItem("table_id", newTableId);
-    if (newTableNumber) {
-      sessionStorage.setItem("table_number", newTableNumber);
-    }
-    sessionStorage.setItem("order_type", "dine_in");
-    sessionStorage.setItem("tab", "dine_in");
-  }
-}, [state.isTransferring, runTransferAPI, t]);
+  }, [state.isTransferring, runTransferAPI, t]);
 
   const handleDeliveryUserSelect = useCallback((id) => {
     setState((prevState) => ({

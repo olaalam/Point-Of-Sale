@@ -13,29 +13,30 @@ import { useGet } from "@/Hooks/useGet";
 import { toast } from "react-toastify";
 import { X, Trash2 } from "lucide-react";
 import { useTranslation } from "react-i18next";
+import { prepareReceiptData, printReceiptSilently } from "../utils/printReceipt";
 
-export default function VoidOrderModal({ 
-  isOpen, 
-  onClose, 
-  orderId, 
+export default function VoidOrderModal({
+  isOpen,
+  onClose,
+  orderId,
   orderNumber,
-  onSuccess 
+  onSuccess
 }) {
   const [managerId, setManagerId] = useState("");
   const [managerPassword, setManagerPassword] = useState("");
   const [financialId, setFinancialId] = useState("");
   const [voidId, setVoidId] = useState("");
   const [voidReason, setVoidReason] = useState(""); // 🟢 هنا المستخدم يكتب السبب
-  
+
   const { t, i18n } = useTranslation();
   const isArabic = i18n.language === "ar";
   const { postData, loading } = usePost();
 
   // 🟢 استخدام useGet لجلب void lists
-  const { 
-    data: voidListsData, 
-    isLoading: loadingVoidLists, 
-    refetch: fetchVoidLists 
+  const {
+    data: voidListsData,
+    isLoading: loadingVoidLists,
+    refetch: fetchVoidLists
   } = useGet(null, { useCache: true });
 
   // 🟢 جلب الـ financial accounts من sessionStorage
@@ -94,17 +95,45 @@ export default function VoidOrderModal({
 
       if (response?.success) {
         toast.success(t("Ordervoidedsuccessfully"));
-        
+
+        // 🖨️ طباعة ريسبونت ملغي بعد النجاح مباشرة
+        try {
+          const printResponse = {
+            ...response,
+            isCancelled: true,
+            order_number: orderNumber,
+            order_id: orderId
+          };
+
+          const receiptData = prepareReceiptData(
+            response.products || [],
+            response.amount || 0,
+            response.total_tax || 0,
+            response.total_discount || 0,
+            0, null,
+            response.order_type || "take_away",
+            response.amount || 0,
+            null,
+            printResponse
+          );
+
+          await printReceiptSilently(receiptData, response, () => {
+            console.log("Cancelled receipt printed successfully");
+          });
+        } catch (printErr) {
+          console.error("Print Error after void:", printErr);
+        }
+
         // Reset form
         setManagerId("");
         setManagerPassword("");
         setFinancialId("");
         setVoidId("");
         setVoidReason("");
-        
+
         // Close modal
         onClose();
-        
+
         // 🔥 تأخير بسيط قبل الـ refresh عشان الـ backend يحدث الداتا
         setTimeout(() => {
           if (onSuccess) onSuccess();
@@ -113,26 +142,26 @@ export default function VoidOrderModal({
         toast.error(response?.data?.errors || t("Failedtovoidorder"));
       }
     } catch (err) {
-  console.error("Void Order Error:", err);
+      console.error("Void Order Error:", err);
 
-  // حاول تجيب الرسالة من الـ backend
-  let errorMessage = t("Anunexpectederroroccurred");
+      // حاول تجيب الرسالة من الـ backend
+      let errorMessage = t("Anunexpectederroroccurred");
 
-  if (err.response?.data) {
-    const { data } = err.response;
+      if (err.response?.data) {
+        const { data } = err.response;
 
-    // لو في field اسمه errors أو message
-    if (data.errors) {
-      errorMessage = data.errors;
-    } else if (data.message) {
-      errorMessage = data.message;
-    } else if (data.error) {
-      errorMessage = data.error;
+        // لو في field اسمه errors أو message
+        if (data.errors) {
+          errorMessage = data.errors;
+        } else if (data.message) {
+          errorMessage = data.message;
+        } else if (data.error) {
+          errorMessage = data.error;
+        }
+      }
+
+      toast.error(errorMessage);
     }
-  }
-
-  toast.error(errorMessage);
-}
 
   };
 
@@ -149,7 +178,7 @@ export default function VoidOrderModal({
   const handleVoidIdChange = (e) => {
     const selectedId = e.target.value;
     setVoidId(selectedId);
-    
+
     // املأ الـ void_reason تلقائياً من الاختيار
     const selectedVoid = voidLists.find(v => v.id.toString() === selectedId);
     if (selectedVoid) {
@@ -161,9 +190,9 @@ export default function VoidOrderModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent 
-              className="w-[90vw] !max-w-[500px] p-4 rounded-2xl shadow-2xl overflow-y-auto max-h-[90vh] scrollbar-width-none [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
-       
+      <DialogContent
+        className="w-[90vw] !max-w-[500px] p-4 rounded-2xl shadow-2xl overflow-y-auto max-h-[90vh] scrollbar-width-none [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+
         dir={isArabic ? "rtl" : "ltr"}
       >
         {/* Close Button */}
@@ -204,8 +233,8 @@ export default function VoidOrderModal({
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-red-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
             >
               <option value="">
-                {loadingVoidLists 
-                  ? t("Loading") || "Loading..." 
+                {loadingVoidLists
+                  ? t("Loading") || "Loading..."
                   : t("SelectVoidType") || "Select Void Type"
                 }
               </option>
@@ -302,23 +331,23 @@ export default function VoidOrderModal({
             >
               {loading ? (
                 <div className="flex items-center justify-center gap-2">
-                  <svg 
-                    className="animate-spin h-4 w-4" 
-                    xmlns="http://www.w3.org/2000/svg" 
-                    fill="none" 
+                  <svg
+                    className="animate-spin h-4 w-4"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
                     viewBox="0 0 24 24"
                   >
-                    <circle 
-                      className="opacity-25" 
-                      cx="12" 
-                      cy="12" 
-                      r="10" 
-                      stroke="currentColor" 
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
                       strokeWidth="4"
                     />
-                    <path 
-                      className="opacity-75" 
-                      fill="currentColor" 
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
                       d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                     />
                   </svg>

@@ -130,8 +130,8 @@ export default function Item({ onAddToOrder, onClose }) {
     queryKey: ["allData", branchIdState, i18n.language, orderType],
     queryFn: () => apiFetcher(allModulesEndpoint),
     enabled: !!branchIdState,
-    staleTime: 0,           
-    gcTime: 0,              
+    staleTime: 0,
+    gcTime: 0,
     refetchOnMount: true,
   });
   const finalCategories = useMemo(() => {
@@ -245,7 +245,7 @@ export default function Item({ onAddToOrder, onClose }) {
   const handleAddToOrder = useCallback(
     async (product, options = {}) => {
       const { customQuantity = 1 } = options;
-      const finalQuantity = product.quantity || customQuantity;
+      const finalQuantity = product.quantity || product.count || customQuantity;
       const pricePerUnit = product.totalPrice
         ? (product.totalPrice / finalQuantity)
         : parseFloat(product.final_price || product.price_after_discount || 0);
@@ -273,7 +273,7 @@ export default function Item({ onAddToOrder, onClose }) {
           cashier_id: sessionStorage.getItem("cashier_id"),
           amount: totalAmount.toFixed(2),
           // total_tax: (totalAmount * 0.14).toFixed(2),
-          total_tax: ( (product.tax_val || 0) * finalQuantity ).toFixed(2),
+          total_tax: ((product.tax_val || 0) * finalQuantity).toFixed(2),
           total_discount: "0.00",
           source: "web",
           products: [processedItem],
@@ -416,6 +416,7 @@ export default function Item({ onAddToOrder, onClose }) {
                     ...found,
                     // الكمية = الوزن بالكيلو (مع 3 أرقام عشرية)
                     count: Number(weightKg.toFixed(3)),
+                    quantity: Number(weightKg.toFixed(3)),
                     price: unitPrice, // سعر الكيلو
                     totalPrice: Number(totalPrice.toFixed(2)),
 
@@ -522,11 +523,11 @@ export default function Item({ onAddToOrder, onClose }) {
             className="w-full h-full object-cover"
           />
         </div>
-        <div className="absolute bottom-0 w-full py-1 bg-black/70 backdrop-blur-sm text-white transition-transform duration-300">
+        {/* <div className="absolute bottom-0 w-full py-1 bg-black/70 backdrop-blur-sm text-white transition-transform duration-300">
           <span className="font-bold text-[10px] block px-1 truncate text-center uppercase">
             {t("NormalPrices")}
           </span>
-        </div>
+        </div> */}
       </Button>
 
       <div className="h-10 w-[2px] bg-gray-300 mx-1 flex-shrink-0 rounded-full" />
@@ -559,11 +560,11 @@ export default function Item({ onAddToOrder, onClose }) {
                 className="w-full h-full object-cover"
               />
             </div>
-            <div className="absolute bottom-0 w-full py-1 bg-black/70 backdrop-blur-sm text-white transition-transform duration-300">
+            {/* <div className="absolute bottom-0 w-full py-1 bg-black/70 backdrop-blur-sm text-white transition-transform duration-300">
               <span className="font-bold text-[10px] block px-1 truncate text-center uppercase">
                 {group.name}
               </span>
-            </div>
+            </div> */}
           </Button>
         );
       })}
@@ -571,7 +572,7 @@ export default function Item({ onAddToOrder, onClose }) {
   );
 
   const productsGridSection = (
-    <div className="flex-1 h-full pr-2" dir={isArabic ? "rtl" : "ltr"}>
+    <div className="flex-1 h-[calc(100vh-120px)] overflow-y-auto pr-2 scrollbar-width-none [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden" dir={isArabic ? "rtl" : "ltr"}>
       {searchAndToggleSection}
       {groupsBarSection}
       {filteredProducts.length === 0 ? (
@@ -581,16 +582,15 @@ export default function Item({ onAddToOrder, onClose }) {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-3 px-4 pb-4">
-            {productsToDisplay.map((product) => (
-              <ProductCard
-                key={product.id}
-                product={product}
-                onAddToOrder={handleAddToOrder}
-                onOpenModal={openProductModal}
-                orderLoading={orderLoading}
-              />
-            ))}
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3 p-2">            {productsToDisplay.map((product) => (
+            <ProductCard
+              key={product.id}
+              product={product}
+              onAddToOrder={handleAddToOrder}
+              onOpenModal={openProductModal}
+              orderLoading={orderLoading}
+            />
+          ))}
           </div>
           {visibleProductCount < filteredProducts.length && (
             <div className="flex justify-center mt-8 pb-8">

@@ -26,6 +26,7 @@ import Policy from "./Pages/Policy";
 import FakeOrders from "./Pages/FakeOrders/FakeOrders";
 import DeliveryOrder from "./Pages/DeliveryOrder/DeliveryOrder";
 import InvoicePage from "./Pages/OnlineOrders/InvoicePage";
+import DineInReport from "./Pages/DineInReport/DineInReport";
 
 const router = createBrowserRouter(
   [
@@ -264,6 +265,14 @@ const router = createBrowserRouter(
           element:(
             <ProtectedRoute>
               <DeliveryOrder/>
+            </ProtectedRoute>
+          )
+        },
+                        {
+          path:"/dine-in-orders",
+          element:(
+            <ProtectedRoute>
+              <DineInReport/>
             </ProtectedRoute>
           )
         },

@@ -11,13 +11,13 @@ import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { FaEdit } from "react-icons/fa";
 import Loading from "@/components/Loading";
 import { useTranslation } from "react-i18next";
-
+import { Switch } from "@/components/ui/switch"; // تأكدي من وجود هذا المكون أو استبدليه بـ checkbox
 const Profile = () => {
   const { data, loading, refetch } = useGet("cashier/profile");
   const { postData, loading: updating } = usePost();
   const [open, setOpen] = useState(false);
-     const { t ,i18n } = useTranslation();
-      const isArabic = i18n.language === "ar";
+  const { t, i18n } = useTranslation();
+  const isArabic = i18n.language === "ar";
 
   const [form, setForm] = useState({
     user_name: "",
@@ -91,8 +91,21 @@ const Profile = () => {
 
   if (loading) return <Loading />;
 
+
+  const handleToggleReceipt = (checked) => {
+    setPrintDoubleReceipt(checked);
+    localStorage.setItem("print_double_takeaway", checked);
+    toast.info(checked ? t("Double receipt enabled") : t("Single receipt enabled"));
+  };
+  // إضافة حالة الـ Switch (تحميل القيمة الافتراضية من localStorage)
+  const [printDoubleReceipt, setPrintDoubleReceipt] = useState(
+    localStorage.getItem("print_double_takeaway") === "true"
+  );
+
+
+
   return (
-    <div  className="flex justify-center items-center min-h-screen bg-gradient-to-br from-gray-100 to-gray-200 p-4">
+    <div className="flex justify-center items-center min-h-screen bg-gradient-to-br from-gray-100 to-gray-200 p-4">
       <Card className="max-w-md w-full shadow-xl rounded-2xl overflow-hidden bg-white">
         <CardContent className="flex flex-col items-center p-8">
           <div className="relative group">
@@ -110,13 +123,26 @@ const Profile = () => {
 
           <h2 className="text-2xl font-bold text-gray-900">{data?.user_name || "No Name"}</h2>
           <p
-            className={`mt-2 text-sm font-medium px-3 py-1 rounded-full ${
-              data?.status === 1 ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
-            }`}
+            className={`mt-2 text-sm font-medium px-3 py-1 rounded-full ${data?.status === 1 ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+              }`}
           >
             {data?.status === 1 ? "Active" : "Inactive"}
           </p>
-
+          {/* القسم الجديد الخاص بإعدادات الطباعة */}
+          <div className="w-full mt-6 p-4 border rounded-xl bg-gray-50 flex items-center justify-between">
+            <div className="flex flex-col">
+              <Label className="font-bold text-gray-700">
+                {isArabic ? "طباعة إيصال مزدوج (تيك أواي)" : "Double Takeaway Receipt"}
+              </Label>
+              <span className="text-xs text-gray-500">
+                {isArabic ? "طباعة نسخة العميل مع الريسيت الأساسي" : "Print customer copy with main receipt"}
+              </span>
+            </div>
+            <Switch
+              checked={printDoubleReceipt}
+              onCheckedChange={handleToggleReceipt}
+            />
+          </div>
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
               <Button
@@ -131,7 +157,7 @@ const Profile = () => {
             <DialogContent className="max-w-md rounded-2xl bg-white p-6">
               <DialogHeader>
                 <DialogTitle className="text-xl font-bold text-gray-900">
-                {t("EditProfile")}
+                  {t("EditProfile")}
                 </DialogTitle>
               </DialogHeader>
 
@@ -151,9 +177,8 @@ const Profile = () => {
                   <Input
                     value={form.user_name}
                     onChange={(e) => setForm({ ...form, user_name: e.target.value })}
-                    className={`border-gray-300 focus:border-red-500 focus:ring-red-500 rounded-lg transition-all duration-200 ${
-                      errors.user_name ? "border-red-500" : ""
-                    }`}
+                    className={`border-gray-300 focus:border-red-500 focus:ring-red-500 rounded-lg transition-all duration-200 ${errors.user_name ? "border-red-500" : ""
+                      }`}
                     required
                   />
                   {errors.user_name && (
@@ -168,9 +193,8 @@ const Profile = () => {
                     placeholder="••••••"
                     value={form.password}
                     onChange={(e) => setForm({ ...form, password: e.target.value })}
-                    className={`border-gray-300 focus:border-red-500 focus:ring-red-500 rounded-lg transition-all duration-200 ${
-                      errors.password ? "border-red-500" : ""
-                    }`}
+                    className={`border-gray-300 focus:border-red-500 focus:ring-red-500 rounded-lg transition-all duration-200 ${errors.password ? "border-red-500" : ""
+                      }`}
                   />
                   {errors.password && (
                     <p className="text-red-500 text-xs mt-1">{errors.password}</p>
