@@ -20,9 +20,9 @@ export default function Delivery({ orderType: propOrderType }) {
   const navigate = useNavigate();
   const location = useLocation();
 
-// 🟢 نجيب user_id من ال URL
-const queryParams = new URLSearchParams(location.search);
-const userIdFromUrl = queryParams.get("user_id");
+  // 🟢 نجيب user_id من ال URL
+  const queryParams = new URLSearchParams(location.search);
+  const userIdFromUrl = queryParams.get("user_id");
   const [selecteduser, setSelecteduser] = useState(null);
   const [editData, setEditData] = useState({ name: "", phone: "" });
   const [openDialog, setOpenDialog] = useState(false);
@@ -36,121 +36,121 @@ const userIdFromUrl = queryParams.get("user_id");
   const [loadingOrders, setLoadingOrders] = useState(false);
   const [selectedOrderUserId, setSelectedOrderUserId] = useState(null);
 
-const { data, error, isLoading, refetch } = useGet("cashier/user", { useCache: true });
+  const { data, error, isLoading, refetch } = useGet("cashier/user", { useCache: true });
   const { postData, loading } = usePost();
 
-// في ملف Delivery.jsx
+  // في ملف Delivery.jsx
 
-useEffect(() => {
-  if (data?.users) {
-    
-    // 1. شوف لو في بحث متسجل في الـ Session
-    const savedQuery = sessionStorage.getItem("delivery_search_query");
-    
-    // 2. لو في بحث، طبق الفلتر على الداتا "الجديدة" فوراً
-    if (savedQuery) {
-      setSearchQuery(savedQuery);
-      
-      const lowerCaseQuery = savedQuery.toLowerCase();
-      const filtered = data.users.filter((user) => {
-        const fullName = `${user.f_name} ${user.l_name}`.toLowerCase();
-        const matchesName = fullName.includes(lowerCaseQuery);
-        const matchesPhone = user.phone && String(user.phone).includes(lowerCaseQuery);
-        return matchesName || matchesPhone;
-      });
-      
-      setFilteredusers(filtered); // اعرض المتفلتر بس
-    } else {
-      // 3. لو مفيش بحث، اعرض كله عادي
+  useEffect(() => {
+    if (data?.users) {
+
+      // 1. شوف لو في بحث متسجل في الـ Session
+      const savedQuery = sessionStorage.getItem("delivery_search_query");
+
+      // 2. لو في بحث، طبق الفلتر على الداتا "الجديدة" فوراً
+      if (savedQuery) {
+        setSearchQuery(savedQuery);
+
+        const lowerCaseQuery = savedQuery.toLowerCase();
+        const filtered = data.users.filter((user) => {
+          const fullName = `${user.f_name} ${user.l_name}`.toLowerCase();
+          const matchesName = fullName.includes(lowerCaseQuery);
+          const matchesPhone = user.phone && String(user.phone).includes(lowerCaseQuery);
+          return matchesName || matchesPhone;
+        });
+
+        setFilteredusers(filtered); // اعرض المتفلتر بس
+      } else {
+        // 3. لو مفيش بحث، اعرض كله عادي
+        setFilteredusers(data.users);
+      }
+
+      // --- باقي الكود زي ما هو ---
+
+      // 🟢 معالجة الـ refetch
+      const refetchParam = queryParams.get("refetch");
+      if (refetchParam === "true") {
+        refetch();
+        navigate(location.pathname + location.search.replace(/[?&]refetch=true/, ''), { replace: true });
+      }
+
+      // كود السكرول (Scroll)
+      const savedUserId = userIdFromUrl || sessionStorage.getItem("last_selected_user_id");
+      if (savedUserId) {
+        setTimeout(() => {
+          const element = document.getElementById(`user-card-${savedUserId}`);
+          if (element) {
+            element.scrollIntoView({ behavior: "smooth", block: "center" });
+            element.classList.add("ring-2", "ring-bg-primary");
+            setTimeout(() => element.classList.remove("ring-2", "ring-bg-primary"), 1500);
+          }
+        }, 500);
+      }
+    }
+  }, [data, userIdFromUrl, location.search]);
+
+
+
+  const handleInstantSearch = (query) => {
+    setSearchQuery(query);
+
+    // كل ما يتغير البحث → نحفظه في الـ sessionStorage
+    sessionStorage.setItem("delivery_search_query", query);
+
+    if (!data?.users) {
+      setFilteredusers([]);
+      return;
+    }
+
+    if (!query) {
       setFilteredusers(data.users);
-    }
-    
-    // --- باقي الكود زي ما هو ---
-    
-    // 🟢 معالجة الـ refetch
-    const refetchParam = queryParams.get("refetch");
-    if (refetchParam === "true") {
-      refetch();
-      navigate(location.pathname + location.search.replace(/[?&]refetch=true/, ''), { replace: true });
+      return;
     }
 
-    // كود السكرول (Scroll)
-    const savedUserId = userIdFromUrl || sessionStorage.getItem("last_selected_user_id");
-    if (savedUserId) {
-      setTimeout(() => {
-        const element = document.getElementById(`user-card-${savedUserId}`);
-        if (element) {
-          element.scrollIntoView({ behavior: "smooth", block: "center" });
-          element.classList.add("ring-2", "ring-bg-primary");
-          setTimeout(() => element.classList.remove("ring-2", "ring-bg-primary"), 1500);
-        }
-      }, 500);
-    }
-  }
-}, [data, userIdFromUrl, location.search]);
-
-
-
-const handleInstantSearch = (query) => {
-  setSearchQuery(query);
-  
-  // كل ما يتغير البحث → نحفظه في الـ sessionStorage
-  sessionStorage.setItem("delivery_search_query", query);
-
-  if (!data?.users) {
-    setFilteredusers([]);
-    return;
-  }
-
-  if (!query) {
-    setFilteredusers(data.users);
-    return;
-  }
-
-  const lowerCaseQuery = query.toLowerCase();
-  const filtered = data.users.filter((user) => {
-    const fullName = `${user.f_name} ${user.l_name}`.toLowerCase();
-    const matchesName = fullName.includes(lowerCaseQuery);
-    const matchesPhone =
-      user.phone && String(user.phone).includes(lowerCaseQuery);
-    return matchesName || matchesPhone;
-  });
-  setFilteredusers(filtered);
-};
+    const lowerCaseQuery = query.toLowerCase();
+    const filtered = data.users.filter((user) => {
+      const fullName = `${user.f_name} ${user.l_name}`.toLowerCase();
+      const matchesName = fullName.includes(lowerCaseQuery);
+      const matchesPhone =
+        user.phone && String(user.phone).includes(lowerCaseQuery);
+      return matchesName || matchesPhone;
+    });
+    setFilteredusers(filtered);
+  };
   const handleAddUser = () => {
     navigate("/add");
   };
 
-const handleEditClick = (user) => {
-  sessionStorage.setItem("last_selected_user_id", user.id); // 🟢 نحفظه
-  setSelecteduser(user);
-  setEditData({
-    f_name: user.f_name,
-    l_name: user.l_name,
-    phone: user.phone,
-    phone_2: user.phone_2,
-  });
-  setOpenDialog(true);
-};
+  const handleEditClick = (user) => {
+    sessionStorage.setItem("last_selected_user_id", user.id); // 🟢 نحفظه
+    setSelecteduser(user);
+    setEditData({
+      f_name: user.f_name,
+      l_name: user.l_name,
+      phone: user.phone,
+      phone_2: user.phone_2,
+    });
+    setOpenDialog(true);
+  };
 
 
-const handleSaveEdit = async () => {
-  if (!selecteduser) return;
-  if (isSubmitting || loading) return;
+  const handleSaveEdit = async () => {
+    if (!selecteduser) return;
+    if (isSubmitting || loading) return;
 
-  setIsSubmitting(true);
+    setIsSubmitting(true);
 
-  try {
-    await postData(`cashier/user/update/${selecteduser.id}`, editData);
-    setOpenDialog(false);
-    await refetch(); // تحديث البيانات
-    // 🟢 متشيليش last_selected_user_id هنا
-  } catch (error) {
-    console.error("Error updating user:", error);
-  } finally {
-    setIsSubmitting(false);
-  }
-};
+    try {
+      await postData(`cashier/user/update/${selecteduser.id}`, editData);
+      setOpenDialog(false);
+      await refetch(); // تحديث البيانات
+      // 🟢 متشيليش last_selected_user_id هنا
+    } catch (error) {
+      console.error("Error updating user:", error);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   const handleEditAddressClick = (address) => {
     navigate(`order-page/add/${address.id}`);
@@ -158,16 +158,16 @@ const handleSaveEdit = async () => {
 
   const handleConfirmDelivery = (user, addressId) => {
     try {
-    // هذا هو الـ API الذي طلبته
-  const { data, isLoading, error } = useGet(
-    `captain/lists?branch_id=${branch_id}&module=${orderType}`
-  );
-    
-    console.log("Module switched to delivery successfully");
-  } catch (err) {
-    console.error("Error switching module:", err);
-    // نكمل التنقل حتى لو فشل الـ API لضمان استمرارية العمل، أو يمكنك إيقافه حسب الرغبة
-  }
+      // هذا هو الـ API الذي طلبته
+      const { data, isLoading, error } = useGet(
+        `captain/lists?branch_id=${branch_id}&module=${orderType}`
+      );
+
+      console.log("Module switched to delivery successfully");
+    } catch (err) {
+      console.error("Error switching module:", err);
+      // نكمل التنقل حتى لو فشل الـ API لضمان استمرارية العمل، أو يمكنك إيقافه حسب الرغبة
+    }
     const selectedAddress = user.address.find((addr) => addr.id === addressId);
 
     sessionStorage.setItem("selected_user_id", user.id);
@@ -183,14 +183,14 @@ const handleSaveEdit = async () => {
       selectedAddress: selectedAddress,
     };
     sessionStorage.setItem("selected_user_data", JSON.stringify(userData));
-    
-    navigate("/delivery-order", {
+
+    navigate("/", {
       state: { orderType: "delivery", userId: user.id, addressId: addressId },
       replace: true,
     });
   };
 
-  
+
   // Function to fetch user's last orders
   const handleViewLastOrders = async (userId) => {
     setSelectedOrderUserId(userId);
@@ -204,7 +204,7 @@ const handleSaveEdit = async () => {
     try {
       const response = await postData("cashier/view_user_order", formData);
       console.log("Orders Response:", response);
-      
+
       if (response?.orders && Array.isArray(response.orders)) {
         setUserOrders(response.orders);
       } else {
@@ -219,21 +219,21 @@ const handleSaveEdit = async () => {
   };
 
   // Function to repeat an order (navigate to take_away with order data)
-const handleRepeatOrder = (order) => {
-  console.log("🔄 Repeating order:", order);
+  const handleRepeatOrder = (order) => {
+    console.log("🔄 Repeating order:", order);
 
-  // Map order details to cart format
-  const mappedItems = order.order_details.map((detail, index) => {
-    const product = detail.product && detail.product[0];
-    if (!product || !product.product) return null;
+    // Map order details to cart format
+    const mappedItems = order.order_details.map((detail, index) => {
+      const product = detail.product && detail.product[0];
+      if (!product || !product.product) return null;
 
-    const productData = product.product;
-    const count = parseInt(product.count) || 1;
-    const notes = product.notes || "";
+      const productData = product.product;
+      const count = parseInt(product.count) || 1;
+      const notes = product.notes || "";
 
-    // Map addons
-    const addons = detail.addons && Array.isArray(detail.addons)
-      ? detail.addons.map((addon) => ({
+      // Map addons
+      const addons = detail.addons && Array.isArray(detail.addons)
+        ? detail.addons.map((addon) => ({
           id: addon.addon_id || addon.id,
           name: addon.name || "Unknown Addon",
           price: parseFloat(addon.price || 0),
@@ -241,74 +241,82 @@ const handleRepeatOrder = (order) => {
           count: parseInt(addon.count || 1),
           preparation_status: "pending",
         }))
-      : [];
+        : [];
 
-    return {
-      id: productData.id,
-      temp_id: `repeat_${productData.id}_${Date.now()}_${index}`,
-      name: productData.name || "Unknown Product",
-      price: parseFloat(productData.price || 0),
-      originalPrice: parseFloat(productData.price || 0),
-      count: count,
-      notes: notes,
-      selectedVariation: detail.variations && detail.variations[0] ? detail.variations[0].name : null,
-      selectedExtras: detail.extras || [],
-      selectedAddons: addons,
-      selectedExcludes: detail.excludes || [],
-      preparation_status: "pending",
-      type: "main_item",
-      addons: addons,
-    };
-  }).filter(Boolean);
+      return {
+        id: productData.id,
+        temp_id: `repeat_${productData.id}_${Date.now()}_${index}`,
+        name: productData.name || "Unknown Product",
+        price: parseFloat(productData.price || 0),
+        originalPrice: parseFloat(productData.price || 0),
+        count: count,
+        notes: notes,
+        selectedVariation: detail.variations && detail.variations[0] ? detail.variations[0].name : null,
+        selectedExtras: detail.extras || [],
+        selectedAddons: addons,
+        selectedExcludes: detail.excludes || [],
+        preparation_status: "pending",
+        type: "main_item",
+        addons: addons,
+      };
+    }).filter(Boolean);
 
-  console.log("📦 Mapped Items for Cart:", mappedItems);
+    console.log("📦 Mapped Items for Cart:", mappedItems);
 
-  // Clear any existing order data first
-  sessionStorage.removeItem("selected_user_id");
-  sessionStorage.removeItem("selected_address_id");
-  sessionStorage.removeItem("order_type");
-  sessionStorage.removeItem("table_id");
-  sessionStorage.removeItem("delivery_user_id");
-  sessionStorage.setItem("is_repeating_order", "true");
-  // Set new order data
-  sessionStorage.setItem("cart", JSON.stringify(mappedItems));
-  sessionStorage.setItem("order_type", "take_away");
-  sessionStorage.setItem("tab", "take_away");
+    // Clear any existing order data first
+    sessionStorage.removeItem("selected_user_id");
+    sessionStorage.removeItem("selected_address_id");
+    sessionStorage.removeItem("order_type");
+    sessionStorage.removeItem("table_id");
+    sessionStorage.removeItem("delivery_user_id");
+    sessionStorage.setItem("is_repeating_order", "true");
+    // Set new order data
+    sessionStorage.setItem("cart", JSON.stringify(mappedItems));
+    sessionStorage.setItem("order_type", "delivery");
+    sessionStorage.setItem("tab", "delivery");
+    const userId = order.user_id || selectedOrderUserId;
+    sessionStorage.setItem("selected_user_id", userId || "");
 
-  console.log("✅ SessionStorage updated:", {
-    cart: mappedItems,
-    order_type: "take_away",
-    tab: "take_away"
-  });
+    // If order has address, save it too
+    if (order.address_id) {
+      sessionStorage.setItem("selected_address_id", order.address_id);
+    }
 
-  // Close modal first
-  setShowOrdersModal(false);
-
-  // Small delay to ensure state updates, then navigate
-  setTimeout(() => {
-    console.log("🚀 Navigating to home...");
-    navigate("/", {
-      state: { 
-        orderType: "take_away",
-        tabValue: "take_away",
-        repeatedOrder: true,
-        originalOrderNumber: order.order_number,
-        timestamp: Date.now()
-      },
-      replace: false
+    console.log("✅ SessionStorage updated:", {
+      cart: mappedItems,
+      order_type: "delivery",
+      tab: "delivery",
+      userId: userId
     });
-  }, 100);
-};
+
+    // Close modal first
+    setShowOrdersModal(false);
+
+    // Small delay to ensure state updates, then navigate
+    setTimeout(() => {
+      console.log("🚀 Navigating to home with delivery tab...");
+      navigate("/", {
+        state: {
+          orderType: "delivery",
+          tabValue: "delivery", // This must be delivery
+          userId: userId, // Pass user id to skip the user list
+          repeatedOrder: true,
+          originalOrderNumber: order.order_number,
+          timestamp: Date.now()
+        },
+        replace: true // Use replace to ensure it triggers state change correctly if on same path
+      });
+    }, 100);
+  };
 
   const isFormDisabled = loading || isSubmitting;
 
   console.log("Order Type:", orderType);
-  
+
   return (
-    <div 
-      className={`bg-gray-100 min-h-screen w-full ${
-        isArabic ? "text-right direction-rtl" : "text-left direction-ltr"
-      } ${!searchQuery && filteredusers.length === 0 ? "flex items-center justify-center" : ""}`}
+    <div
+      className={`bg-gray-100 min-h-screen w-full ${isArabic ? "text-right direction-rtl" : "text-left direction-ltr"
+        } ${!searchQuery && filteredusers.length === 0 ? "flex items-center justify-center" : ""}`}
       dir={isArabic ? "rtl" : "ltr"}
     >
       <div className="max-full mx-auto px-6 py-3">
@@ -341,11 +349,11 @@ const handleRepeatOrder = (order) => {
               </p>
             ) : (
               filteredusers.map((user) => (
-<div
-  id={`user-card-${user.id}`} // 🟢 هنا
-  key={user.id}
-  className="bg-white rounded-xl shadow-md p-6 transition hover:shadow-lg border"
->
+                <div
+                  id={`user-card-${user.id}`} // 🟢 هنا
+                  key={user.id}
+                  className="bg-white rounded-xl shadow-md p-6 transition hover:shadow-lg border"
+                >
 
                   {/* Header */}
                   <div className="flex justify-between items-start mb-4">
@@ -375,11 +383,10 @@ const handleRepeatOrder = (order) => {
                       user.address.map((address, index) => (
                         <div
                           key={`${user.id}-${address.id}-${index}`}
-                          className={`flex justify-between items-center p-3 rounded-lg cursor-pointer border transition-all ${
-                            selectedAddressId === address.id
-                              ? "bg-red-50 border-red-500"
-                              : "bg-gray-50"
-                          }`}
+                          className={`flex justify-between items-center p-3 rounded-lg cursor-pointer border transition-all ${selectedAddressId === address.id
+                            ? "bg-red-50 border-red-500"
+                            : "bg-gray-50"
+                            }`}
                           onClick={() => {
                             setSelectedAddressId(address.id);
                             setSelectedUserId(user.id);
@@ -460,83 +467,78 @@ const handleRepeatOrder = (order) => {
           <h2 className="text-xl font-semibold text-center text-bg-primary">
             {t("Edituser")}
           </h2>
-          
+
           <Input
             value={editData.f_name}
             onChange={(e) =>
               setEditData({ ...editData, f_name: e.target.value })
             }
             placeholder={t("FirstName")}
-            className={`border-gray-300 ${
-              isFormDisabled ? 'bg-gray-100 cursor-not-allowed opacity-60' : ''
-            }`}
+            className={`border-gray-300 ${isFormDisabled ? 'bg-gray-100 cursor-not-allowed opacity-60' : ''
+              }`}
             disabled={isFormDisabled}
           />
-          
+
           <Input
             value={editData.l_name}
             onChange={(e) =>
               setEditData({ ...editData, l_name: e.target.value })
             }
             placeholder={t("LastName")}
-            className={`border-gray-300 ${
-              isFormDisabled ? 'bg-gray-100 cursor-not-allowed opacity-60' : ''
-            }`}
+            className={`border-gray-300 ${isFormDisabled ? 'bg-gray-100 cursor-not-allowed opacity-60' : ''
+              }`}
             disabled={isFormDisabled}
           />
-          
+
           <Input
             value={editData.phone}
             onChange={(e) =>
               setEditData({ ...editData, phone: e.target.value })
             }
             placeholder={t("Phone")}
-            className={`border-gray-300 ${
-              isFormDisabled ? 'bg-gray-100 cursor-not-allowed opacity-60' : ''
-            }`}
+            className={`border-gray-300 ${isFormDisabled ? 'bg-gray-100 cursor-not-allowed opacity-60' : ''
+              }`}
             disabled={isFormDisabled}
           />
-          
+
           <Input
             value={editData.phone_2}
             onChange={(e) =>
               setEditData({ ...editData, phone_2: e.target.value })
             }
             placeholder={t("AnotherPhone")}
-            className={`border-gray-300 ${
-              isFormDisabled ? 'bg-gray-100 cursor-not-allowed opacity-60' : ''
-            }`}
+            className={`border-gray-300 ${isFormDisabled ? 'bg-gray-100 cursor-not-allowed opacity-60' : ''
+              }`}
             disabled={isFormDisabled}
           />
-          
+
           <Button
             onClick={handleSaveEdit}
             disabled={isFormDisabled}
-            className={`w-full transition-all ${
-              isFormDisabled
-                ? 'bg-gray-400 cursor-not-allowed opacity-60'
-                : 'bg-bg-primary hover:bg-red-700'
-            } text-white`}
+            className={`w-full transition-all ${isFormDisabled
+              ? 'bg-gray-400 cursor-not-allowed opacity-60'
+              : 'bg-bg-primary hover:bg-red-700'
+              } text-white`}
           >
             {isFormDisabled ? (
               <div className="flex items-center justify-center gap-2">
-                <svg 
-                  className="animate-spin h-4 w-4 text-white" 
-                  xmlns="http://www.w3.org/2000/svg" 
-                  fill="none" 
+                <svg
+                  className="animate-spin h-4 w-4 text-white"
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
                   viewBox="0 0 24 24"
                 >
-                  <circle 
-                    className="opacity-25" 
-                    cx="12" 
-                    cy="12" 
-                    r="10" 
-                    stroke="currentColor" 
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
                     strokeWidth="4"
                   />
-                  <path 
-                    className="opacity-75" 
-                    fill="currentColor" 
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
                     d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                   />
                 </svg>

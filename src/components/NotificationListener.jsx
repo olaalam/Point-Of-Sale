@@ -3,7 +3,7 @@ import { onMessage } from "firebase/messaging";
 import { messaging } from "../firebase";
 import { toast } from "react-toastify";
 
-const FALLBACK_URL = "https://www.soundjay.com/buttons/sounds/button-1.mp3";
+const FALLBACK_URL = "/NotificationSound.mp3";
 
 const NotificationListener = () => {
   // استخدام useRef للحفاظ على كائن الصوت حياً وجاهزاً
@@ -13,7 +13,7 @@ const NotificationListener = () => {
     // دالة لتجهيز الصوت مسبقاً (Preload)
     const prepareAudio = () => {
       const storedSound = sessionStorage.getItem("notification_sound") || FALLBACK_URL;
-      
+
       if (!audioRef.current) {
         audioRef.current = new Audio(storedSound);
         audioRef.current.crossOrigin = "anonymous";
@@ -30,7 +30,7 @@ const NotificationListener = () => {
           document.removeEventListener("click", prepareAudio);
           document.removeEventListener("touchstart", prepareAudio);
         })
-        .catch(err => console.warn("Wait for interaction...",err));
+        .catch(err => console.warn("Wait for interaction...", err));
     };
 
     document.addEventListener("click", prepareAudio);
@@ -44,9 +44,9 @@ const NotificationListener = () => {
         // تحديث المصدر إذا تغير في الـ Storage
         const currentStored = sessionStorage.getItem("notification_sound") || FALLBACK_URL;
         console.log(currentStored);
-        
+
         if (audioRef.current.src !== currentStored) {
-            audioRef.current.src = currentStored;
+          audioRef.current.src = currentStored;
         }
 
         audioRef.current.play().catch((err) => {
@@ -57,8 +57,8 @@ const NotificationListener = () => {
       }
 
       // تنفيذ تحديث الطلبات
-      const isNewOrder = payload.data?.type === "new_order" || 
-                         payload.notification?.title?.includes("طلب جديد");
+      const isNewOrder = payload.data?.type === "new_order" ||
+        payload.notification?.title?.includes("طلب جديد");
 
       if (isNewOrder) {
         toast.success(payload.notification?.body || "طلب جديد وصل!");

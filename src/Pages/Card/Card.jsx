@@ -282,6 +282,33 @@ export default function Card({
     printWindow.close();
   };
 
+  const handleTransferToDineIn = () => {
+    if (orderItems.length === 0) {
+      toast.warning(t("Noitemstotransfer"));
+      return;
+    }
+
+    // Calculate total discount from items
+    const totalItemDiscount = orderItems.reduce((sum, item) => {
+      const qty = (item.weight_status === 1 || item.weight_status === "1")
+        ? (item.quantity || item.count || 1)
+        : (item.count || 1);
+      return sum + (Number(item.discount_val || 0) * qty);
+    }, 0);
+
+    // Save current takeaway items to sessionStorage for the transfer
+    sessionStorage.setItem("transfer_takeaway_order", JSON.stringify({
+      orderItems,
+      amount: calculations.amountToPay,
+      totalTax: calculations.totalTax,
+      totalDiscount: totalItemDiscount.toFixed(2),
+      notes: notes,
+    }));
+    sessionStorage.setItem("transfer_takeaway_to_dine_in", "true");
+
+    navigate("/tables");
+  };
+
 
   return (
     <div
@@ -308,6 +335,7 @@ export default function Card({
         handleViewPendingOrders={() => navigate("/pending-orders")}
         onShowOfferModal={() => offerManagement.setShowOfferModal(true)}
         onShowDealModal={() => dealManagement.setShowDealModal(true)}
+        onTransferToDineIn={handleTransferToDineIn}
         isLoading={apiLoading}
         t={t}
       />
@@ -350,6 +378,7 @@ export default function Card({
 
         <OrderTable
           orderItems={orderItems}
+          handleClearAllItems={handleClearAllItems}
           orderType={orderType}
           selectedItems={selectedItems}
           selectedPaymentItems={selectedPaymentItems}
@@ -463,6 +492,8 @@ export default function Card({
               <button
                 onClick={() => {
                   setShowSavePendingModal(false);
+                  // Case 2: Prepare & Pending - Kitchen prints now, Cashier+Order at checkout
+                  sessionStorage.setItem("pending_order_info", JSON.stringify({ prepare: "1", pending: "1" }));
                   orderActions.handleSaveAsPending(calculations.amountToPay, calculations.totalTax, "1", "1");
                 }}
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white py-4 text-lg font-semibold shadow-md flex items-center justify-center gap-2 rounded-lg"
@@ -472,20 +503,13 @@ export default function Card({
               <button
                 onClick={() => {
                   setShowSavePendingModal(false);
+                  // Case 1: Pending Only - All 3 receipts print at checkout
+                  sessionStorage.setItem("pending_order_info", JSON.stringify({ prepare: "0", pending: "1" }));
                   orderActions.handleSaveAsPending(calculations.amountToPay, calculations.totalTax, "0", "1");
                 }}
                 className="w-full bg-gray-100 hover:bg-gray-200 text-gray-800 py-4 text-lg font-semibold border border-gray-300 shadow-sm rounded-lg"
               >
                 {t("Pending Only")}
-              </button>
-              <button
-                onClick={() => {
-                  setShowSavePendingModal(false);
-                  orderActions.handleSaveAsPending(calculations.amountToPay, calculations.totalTax, "1", "0");
-                }}
-                className="w-full bg-red-600 hover:bg-red-700 text-white py-4 text-lg font-semibold shadow-md flex items-center justify-center gap-2 rounded-lg"
-              >
-                {t("Prepare Only")}
               </button>
             </div>
           </div>

@@ -314,9 +314,19 @@ const PrintableReport = React.forwardRef(
                 <span>{t("ShiftDuration")}:</span>
                 <strong>{shift.duration}</strong>
               </div>
-              <div className="print-row">
-                <span>{t("TotalOrders")}:</span>
-                <strong>{reportData?.order_count || 0}</strong>
+              <div style={{ border: "1px solid #333", padding: "8px", margin: "8px 0" }}>
+                <div className="print-row">
+                  <span>{t("TotalOrdersCount")}:</span>
+                  <strong>{reportData?.order_count || 0}</strong>
+                </div>
+                <div className="print-row">
+                  <span>{t("TotalOrdersAmount")}:</span>
+                  <strong>{formatAmount(reportData?.total_orders)}</strong>
+                </div>
+              </div>
+              <div className="print-row" style={{ marginTop: "4px", paddingTop: "4px", borderTop: "1px solid #333" }}>
+                <span>{t("ActualTotalInDrawer")} (الفلوس الفعلية):</span>
+                <strong style={{ fontSize: "12px" }}>{formatAmount(reportData?.actual_total)}</strong>
               </div>
             </div>
           )}
@@ -364,36 +374,36 @@ const PrintableReport = React.forwardRef(
                   {(acc.total_amount_dine_in > 0 ||
                     acc.total_amount_take_away > 0 ||
                     acc.total_amount_delivery > 0) && (
-                    <div
-                      style={{
-                        fontSize: "9px",
-                        marginTop: "4px",
-                        paddingTop: "4px",
-                        borderTop: "1px dashed #ccc",
-                      }}
-                    >
-                      {acc.total_amount_dine_in > 0 && (
-                        <div className="print-row" style={{ padding: "2px 0" }}>
-                          <span>Dine In</span>
-                          <span>{formatAmount(acc.total_amount_dine_in)}</span>
-                        </div>
-                      )}
-                      {acc.total_amount_take_away > 0 && (
-                        <div className="print-row" style={{ padding: "2px 0" }}>
-                          <span>Take Away</span>
-                          <span>
-                            {formatAmount(acc.total_amount_take_away)}
-                          </span>
-                        </div>
-                      )}
-                      {acc.total_amount_delivery > 0 && (
-                        <div className="print-row" style={{ padding: "2px 0" }}>
-                          <span>Delivery</span>
-                          <span>{formatAmount(acc.total_amount_delivery)}</span>
-                        </div>
-                      )}
-                    </div>
-                  )}
+                      <div
+                        style={{
+                          fontSize: "9px",
+                          marginTop: "4px",
+                          paddingTop: "4px",
+                          borderTop: "1px dashed #ccc",
+                        }}
+                      >
+                        {acc.total_amount_dine_in > 0 && (
+                          <div className="print-row" style={{ padding: "2px 0" }}>
+                            <span>Dine In</span>
+                            <span>{formatAmount(acc.total_amount_dine_in)}</span>
+                          </div>
+                        )}
+                        {acc.total_amount_take_away > 0 && (
+                          <div className="print-row" style={{ padding: "2px 0" }}>
+                            <span>Take Away</span>
+                            <span>
+                              {formatAmount(acc.total_amount_take_away)}
+                            </span>
+                          </div>
+                        )}
+                        {acc.total_amount_delivery > 0 && (
+                          <div className="print-row" style={{ padding: "2px 0" }}>
+                            <span>Delivery</span>
+                            <span>{formatAmount(acc.total_amount_delivery)}</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
                 </div>
               );
             })}
@@ -681,30 +691,17 @@ const PrintableReport = React.forwardRef(
           )}
 
           {/* --- إضافة صافي النقد في الدرج --- */}
-          <div
-            style={{
-              marginTop: "15px",
-              padding: "10px",
-              border: "1px dashed #000",
-              backgroundColor: "#f9f9f9",
-              textAlign: "center",
-            }}
-          >
-            <div style={{ fontSize: "14px", fontWeight: "bold" }}>
-              {t("NetCashInDrawer")} (صافي النقد)
+          {/* --- صافي النقد والمبلغ الفعلي --- */}
+          <div style={{ marginTop: "15px", border: "1px double #000", padding: "10px" }}>
+            <div style={{ textAlign: "center", marginBottom: "8px" }}>
+              <div style={{ fontSize: "12px", fontWeight: "bold" }}>{t("NetCashInDrawer")} (صافي النقد)</div>
+              <div style={{ fontSize: "18px", fontWeight: "black" }}>{formatAmount(reportData?.net_cash_drawer)}</div>
+              <div style={{ fontSize: "9px" }}>({t("TotalCashInShift")} - {t("TotalExpenses")} - {t("VoidOrdersTotal")})</div>
             </div>
-            <div
-              style={{
-                fontSize: "22px",
-                fontWeight: "black",
-                marginTop: "5px",
-              }}
-            >
-              {formatAmount(reportData?.net_cash_drawer)}
-            </div>
-            <div style={{ fontSize: "10px", marginTop: "4px" }}>
-              ({t("TotalCashInShift")} - {t("TotalExpenses")} -{" "}
-              {t("VoidOrdersTotal")})
+
+            <div style={{ textAlign: "center", borderTop: "1px dashed #000", paddingTop: "8px" }}>
+              <div style={{ fontSize: "12px", fontWeight: "bold" }}>{t("ActualTotalInDrawer")} (الفلوس الفعلية)</div>
+              <div style={{ fontSize: "18px", fontWeight: "black" }}>{formatAmount(reportData?.actual_total)}</div>
             </div>
           </div>
 
@@ -861,13 +858,13 @@ export default function EndShiftReportModal({
                     className="border border-gray-200 rounded-lg overflow-hidden bg-white shadow-sm"
                   >
                     <div
-                      className={`flex justify-between space-4 p-3 rounded-lg border ${reportData?.gap >= 0 ? "bg-green-50 border-green-200" : "bg-red-50 border-red-200"}`}
+                      className={`flex justify-between space-4 p-3 rounded-lg border ${reportData?.gap >= 0 ? "bg-gray-50 border-gray-200" : "bg-red-50 border-red-200"}`}
                     >
                       <span className="text-sm text-gray-600 font-medium">
                         {t("ShiftGap")}
                       </span>
                       <span
-                        className={`text-xl font-bold ${reportData?.gap >= 0 ? "text-green-700" : "text-red-700"}`}
+                        className={`text-xl font-bold ${reportData?.gap >= 0 ? "text-gray-700" : "text-red-700"}`}
                       >
                         {formatAmount(reportData?.gap || 0)}
                       </span>
@@ -876,7 +873,7 @@ export default function EndShiftReportModal({
                     <div className="p-4 bg-gradient-to-r from-gray-50 to-gray-100 flex justify-between items-center">
                       <div className="flex items-center gap-3">
                         <div className="p-2 bg-white rounded-full shadow">
-                          <FaMoneyBillWave className="text-lg text-green-600" />
+                          <FaMoneyBillWave className="text-lg text-gray-600" />
                         </div>
                         <div>
                           <h4 className="font-bold text-gray-800">
@@ -1225,23 +1222,24 @@ export default function EndShiftReportModal({
 
                         {/* Grand Total Card */}
                         <div className="mt-4 bg-gray-800 text-white rounded-lg p-5 shadow-md">
-                          <div className="flex items-center justify-center">
-                            <div>
+                          <div className="flex items-center justify-between gap-6">
+                            <div className="text-center flex-1">
                               <p className="text-sm opacity-80 mb-1">
-                                {t("TotalAllOrders")}
+                                {t("TotalOrdersCount")}
                               </p>
                               <p className="text-2xl font-black">
-                                {" "}
-                                {t("Orders")}{" "}
-                                {reportData?.order_count || 0}{" "}
+                                {reportData?.order_count || 0}
                               </p>
                             </div>
-                            {/* <div className="text-right">
-                              <p className="text-sm opacity-80 mb-1">{t("TotalAmount")}</p>
-                              <p className="text-3xl font-black">
-                                {formatAmount(grandTotal, t("EGP"))}
+                            <div className="w-px h-10 bg-white/20"></div>
+                            <div className="text-center flex-1">
+                              <p className="text-sm opacity-80 mb-1">
+                                {t("TotalOrdersAmount")}
                               </p>
-                            </div> */}
+                              <p className="text-2xl font-black">
+                                {formatAmount(reportData?.total_orders)}
+                              </p>
+                            </div>
                           </div>
                         </div>
                       </>
@@ -1349,18 +1347,30 @@ export default function EndShiftReportModal({
               )}
 
               {/* ─── الإجمالي النهائي الصافي */}
-              <div className="p-5 bg-gray-800 text-white rounded-lg text-center shadow-lg border border-gray-700">
-                <FaCheckCircle className="text-3xl mx-auto mb-2 text-white opacity-90" />
-                <p className="text-lg font-semibold mb-2">
-                  {t("NetCashInDrawer")}
-                </p>
-                <p className="text-4xl font-black">
-                  {formatAmount(reportData?.net_cash_drawer)}
-                </p>
-                <p className="text-xs opacity-80 mt-1">
-                  ({t("TotalCashInShift")} - {t("TotalExpenses")} -{" "}
-                  {t("VoidOrdersTotal")})
-                </p>
+              <div className="flex flex-col gap-3">
+                <div className="p-5 bg-gray-800 text-white rounded-lg text-center shadow-lg border border-gray-700">
+                  <FaCheckCircle className="text-3xl mx-auto mb-2 text-white opacity-90" />
+                  <p className="text-lg font-semibold mb-2">
+                    {t("NetCashInDrawer")}
+                  </p>
+                  <p className="text-4xl font-black">
+                    {formatAmount(reportData?.net_cash_drawer)}
+                  </p>
+                  <p className="text-xs opacity-80 mt-1">
+                    ({t("TotalCashInShift")} - {t("TotalExpenses")} -{" "}
+                    {t("VoidOrdersTotal")})
+                  </p>
+                </div>
+
+                <div className="p-5 bg-gray-800 text-white rounded-lg text-center shadow-lg border border-gray-700">
+                  <FaMoneyBillWave className="text-3xl mx-auto mb-2 text-white opacity-90" />
+                  <p className="text-lg font-semibold mb-1">
+                    {t("ActualTotalInDrawer")} (الفلوس الفعليه)
+                  </p>
+                  <p className="text-4xl font-black">
+                    {formatAmount(reportData?.actual_total)}
+                  </p>
+                </div>
               </div>
 
               {/* ─── إحصائيات إضافية ─── */}

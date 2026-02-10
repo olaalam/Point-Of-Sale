@@ -523,11 +523,11 @@ export default function Item({ onAddToOrder, onClose }) {
             className="w-full h-full object-cover"
           />
         </div>
-        <div className="absolute bottom-0 w-full py-1 bg-black/70 backdrop-blur-sm text-white transition-transform duration-300">
+        {/* <div className="absolute bottom-0 w-full py-1 bg-black/70 backdrop-blur-sm text-white transition-transform duration-300">
           <span className="font-bold text-[10px] block px-1 truncate text-center uppercase">
             {t("NormalPrices")}
           </span>
-        </div>
+        </div> */}
       </Button>
 
       <div className="h-10 w-[2px] bg-gray-300 mx-1 flex-shrink-0 rounded-full" />
@@ -560,11 +560,11 @@ export default function Item({ onAddToOrder, onClose }) {
                 className="w-full h-full object-cover"
               />
             </div>
-            <div className="absolute bottom-0 w-full py-1 bg-black/70 backdrop-blur-sm text-white transition-transform duration-300">
+            {/* <div className="absolute bottom-0 w-full py-1 bg-black/70 backdrop-blur-sm text-white transition-transform duration-300">
               <span className="font-bold text-[10px] block px-1 truncate text-center uppercase">
                 {group.name}
               </span>
-            </div>
+            </div> */}
           </Button>
         );
       })}
@@ -582,16 +582,15 @@ export default function Item({ onAddToOrder, onClose }) {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-9 gap-3 px-4 pb-4">
-            {productsToDisplay.map((product) => (
-              <ProductCard
-                key={product.id}
-                product={product}
-                onAddToOrder={handleAddToOrder}
-                onOpenModal={openProductModal}
-                orderLoading={orderLoading}
-              />
-            ))}
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3 p-2">            {productsToDisplay.map((product) => (
+            <ProductCard
+              key={product.id}
+              product={product}
+              onAddToOrder={handleAddToOrder}
+              onOpenModal={openProductModal}
+              orderLoading={orderLoading}
+            />
+          ))}
           </div>
           {visibleProductCount < filteredProducts.length && (
             <div className="flex justify-center mt-8 pb-8">
