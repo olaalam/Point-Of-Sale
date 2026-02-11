@@ -300,16 +300,30 @@ export default function Navbar() {
       const token = sessionStorage.getItem("token");
       const endpoint = `${import.meta.env.VITE_API_BASE_URL}cashier/shift/close`;
 
+      // 1. قفل الشيفت أولاً
       await axios.get(endpoint, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
 
-      closeShift();
+      // 2. نداء الـ Logout API (وهو لسه معاه الـ Token في الميموري أو الـ Storage)
+      try {
+        await postData("api/logout", {});
+      } catch (logoutErr) {
+        console.error("Logout API failed, but shift was closed", logoutErr);
+      }
+
+      // 3. تنفيذ الـ Logic الداخلي للموقع
+      closeShift(); // لو دي Function بتغير State في الـ Context
+
+      // 4. تنظيف الـ Storage (خلينا في الـ removeItem لو محتاجة تحفظي اللغة)
       sessionStorage.removeItem("shift_start_time");
       sessionStorage.removeItem("shift_data");
-      sessionStorage.clear();
+      sessionStorage.removeItem("token");
+      // sessionStorage.clear(); // استخدميها لو عايزة تمسحي "كله" فعلاً
 
       toast.success(t("ShiftClosedSuccessfully"));
+
+      // 5. التوجيه
       navigate("/login");
     } catch (err) {
       console.error("Close shift error:", err);
