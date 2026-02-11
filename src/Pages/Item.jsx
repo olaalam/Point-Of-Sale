@@ -45,7 +45,7 @@ const apiPoster = async (path, body) => {
 const INITIAL_PRODUCT_ROWS = 2;
 const PRODUCTS_PER_ROW = 4;
 const PRODUCTS_TO_SHOW_INITIALLY = INITIAL_PRODUCT_ROWS * PRODUCTS_PER_ROW;
-export default function Item({ onAddToOrder, onClose, onClearCart }) {
+export default function Item({ onAddToOrder, onClose, onClearCart, cartHasItems }) {
   const [selectedMainCategory, setSelectedMainCategory] = useState("favorite");
   const [selectedSubCategory, setSelectedSubCategory] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -61,7 +61,7 @@ export default function Item({ onAddToOrder, onClose, onClearCart }) {
   const [selectedGroupInfo, setSelectedGroupInfo] = useState(null);
   const { t, i18n } = useTranslation();
   const scrollRef = useRef(null);
-  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [showClearModal, setShowClearModal] = useState(false);
   const [pendingAction, setPendingAction] = useState(null);
   const scannerInputRef = useRef(null);
   const {
@@ -80,8 +80,6 @@ export default function Item({ onAddToOrder, onClose, onClearCart }) {
     setQuantity,
     handleExtraDecrement,
   } = useProductModal();
-  // ده هيتركز تلقائيًا كل ما الصفحة تتحمل أو ترجع focus
-  // استبدل الـ useEffect القديم بهذا الكود في ملف Item.jsx
   useEffect(() => {
     const input = scannerInputRef.current;
     if (!input) return;
@@ -254,17 +252,28 @@ export default function Item({ onAddToOrder, onClose, onClearCart }) {
   };
 
   const handleNormalPricesClick = () => {
-    // مسح الـ cart قبل التبديل
-    if (onClearCart && !isNormalPrice) {
-      onClearCart();
-    }
+    // 1. تعريف ماذا سيحدث عند التحويل (هذا هو الكود القديم الخاص بك)
+    const performSwitch = () => {
+      if (onClearCart && !isNormalPrice) {
+        onClearCart();
+      }
+      setIsNormalPrice(true);
+      setSelectedGroup("none");
+      setShowCategories(true);
+      setSelectedMainCategory("all");
+      setSelectedSubCategory(null);
+      sessionStorage.removeItem("module_order_number");
+      setShowClearModal(false); // إغلاق المودال إن كان مفتوحاً
+    };
 
-    setIsNormalPrice(true);
-    setSelectedGroup("none");
-    setShowCategories(true);
-    setSelectedMainCategory("all");
-    setSelectedSubCategory(null);
-    sessionStorage.removeItem("module_order_number");
+    // 2. التحقق قبل التنفيذ
+    // لو احنا حالياً مش في الـ Normal والسلة فيها منتجات، طلع تحذير
+    if (!isNormalPrice && cartHasItems) {
+      setPendingAction(() => performSwitch); // خزن العملية عشان ننفذها لو داس موافق
+      setShowClearModal(true);
+    } else {
+      performSwitch(); // نفذ فوراً لو مفيش منتجات أو احنا في نفس المود
+    }
   };
 
   const handleGroupChange = (groupId) => {
@@ -669,23 +678,34 @@ export default function Item({ onAddToOrder, onClose, onClearCart }) {
 
 
   const handleSaveModuleOrder = () => {
-    // مسح الـ cart قبل التبديل للجروب موديول
-    if (onClearCart && isNormalPrice) {
-      onClearCart();
-    }
+    // 1. تعريف عملية التحويل والحفظ
+    const performSave = () => {
+      if (onClearCart && isNormalPrice) {
+        onClearCart();
+      }
+      sessionStorage.setItem("module_order_number", moduleOrderNumber.trim());
+      setIsNormalPrice(false);
+      const id = tempGroupId.toString();
+      sessionStorage.setItem("last_selected_group", id);
+      setSelectedGroup(id);
+      setShowCategories(true);
+      setSelectedMainCategory("all");
+      setSelectedSubCategory(null);
+      setIsModuleOrderModalOpen(false);
+      setTempGroupId(null);
+      setModuleOrderNumber("");
+      toast.success(t("ModuleOrderNumberSaved") || "تم حفظ رقم الطلب بنجاح");
+      setShowClearModal(false);
+    };
 
-    sessionStorage.setItem("module_order_number", moduleOrderNumber.trim());
-    setIsNormalPrice(false);
-    const id = tempGroupId.toString();
-    sessionStorage.setItem("last_selected_group", id);
-    setSelectedGroup(id);
-    setShowCategories(true);
-    setSelectedMainCategory("all");
-    setSelectedSubCategory(null);
-    setIsModuleOrderModalOpen(false);
-    setTempGroupId(null);
-    setModuleOrderNumber("");
-    toast.success(t("ModuleOrderNumberSaved") || "تم حفظ رقم الطلب بنجاح");
+    // 2. التحقق قبل التنفيذ
+    // لو احنا حالياً في Normal والسلة فيها منتجات، طلع تحذير
+    if (isNormalPrice && cartHasItems) {
+      setPendingAction(() => performSave);
+      setShowClearModal(true);
+    } else {
+      performSave();
+    }
   };
   return (
     <div
@@ -758,6 +778,48 @@ export default function Item({ onAddToOrder, onClose, onClearCart }) {
         groupImage={selectedGroupInfo?.image}
         groupName={selectedGroupInfo?.name}
       />
+      {/* --- بداية كود مودال تأكيد المسح --- */}
+      {showClearModal && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden transform transition-all scale-100">
+            <div className="p-6 text-center">
+              {/* أيقونة تحذير */}
+              <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-red-100 mb-4">
+                <svg className="h-8 w-8 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+
+              <h3 className="text-lg font-bold text-gray-900 mb-2">
+                {t("Attention") || "تنبيه"}
+              </h3>
+              <p className="text-sm text-gray-500 mb-6">
+                {t("ChangingModeWillClearCart") || "الانتقال لهذا النظام سيقوم بمسح محتويات السلة الحالية. هل أنت متأكد؟"}
+              </p>
+
+              <div className="flex gap-3 justify-center">
+                <Button
+                  onClick={() => setShowClearModal(false)}
+                  variant="outline"
+                  className="flex-1 border-gray-200 text-gray-700 hover:bg-gray-50"
+                >
+                  {t("Cancel") || "إلغاء"}
+                </Button>
+                <Button
+                  onClick={() => {
+                    if (pendingAction) pendingAction(); // تنفيذ العملية المؤجلة
+                  }}
+                  className="flex-1 bg-red-600 hover:bg-red-700 text-white border-none"
+                >
+                  {t("Confirm") || "موافق ومسح"}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* --- نهاية كود مودال تأكيد المسح --- */}
+
     </div>
   );
 }
