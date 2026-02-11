@@ -331,6 +331,24 @@ export default function OrderPage({
     navigate("/");
   };
 
+  const handleClearCart = () => {
+    console.log("🧹 Clearing cart due to price type change");
+
+    // مسح الـ state حسب نوع الطلب
+    if (isDineIn) {
+      setOrdersByTable((prev) => ({ ...prev, [currentTableId]: [] }));
+    } else if (isDelivery) {
+      setOrdersByUser((prev) => ({ ...prev, [currentUserId]: [] }));
+    } else {
+      setTakeAwayItems([]);
+    }
+
+    // مسح الـ sessionStorage
+    sessionStorage.setItem("cart", JSON.stringify([]));
+
+    console.log("✅ Cart cleared successfully");
+  };
+
   console.log("📋 OrderPage Current Items:", currentOrderItems);
   console.log("🎯 OrderPage Order Type:", currentOrderType);
 
@@ -354,6 +372,7 @@ export default function OrderPage({
       <div className="w-full lg:w-3/4  lg:mt-0">
         <Item
           onAddToOrder={handleAddItem}
+          onClearCart={handleClearCart}
           fetchEndpoint={fetchEndpoint}
           onClose={handleClose}
           refreshCartData={refreshCartData}
