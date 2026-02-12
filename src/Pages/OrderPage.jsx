@@ -352,7 +352,7 @@ export default function OrderPage({
 
   return (
     <div className="flex flex-col-reverse lg:flex-row gap-4 p-4 h-full  w-full" dir={isArabic ? "ltr" : "rtl"}>
-      <div className="w-full lg:w-[20%] ">
+      <div className="w-full lg:w-[25%] ">
         <Card
           key={refreshTrigger}
           onClose={onClose}
@@ -367,7 +367,7 @@ export default function OrderPage({
           discountData={discountData}
         />
       </div>
-      <div className="w-full lg:w-[80%]  lg:mt-0">
+      <div className="w-full lg:w-[75%]  lg:mt-0">
         <Item
           onAddToOrder={handleAddItem}
           onClearCart={handleClearCart}
