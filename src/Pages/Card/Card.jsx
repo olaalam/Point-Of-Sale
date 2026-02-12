@@ -313,8 +313,21 @@ export default function Card({
   return (
     <div
       ref={printRef}
-      className={`flex flex-col h-full ${isArabic ? "text-right direction-rtl" : "text-left direction-ltr"
-        }`}
+      className={`flex flex-col h-full 
+    /* خلفية بيضاء نقية مع ملمس ناعم */
+    bg-white 
+    /* ظل "عائم" احترافي يعطي عمقاً حقيقياً للكارت */
+    shadow-xl
+    /* حواف دائرية انسيابية جداً (Super Ellipse) */
+    rounded-[1rem] 
+    /* حدود خفيفة جداً تكاد لا تُرى لتحديد الأبعاد */
+    border border-red-200 border-[2px]
+    /* لضمان عدم خروج المحتوى عن انسيابية الزوايا */
+    overflow-hidden 
+    p-4
+    /* موازنة المسافات */
+    relative
+    ${isArabic ? "text-right" : "text-left"}`}
       dir={isArabic ? "rtl" : "ltr"}
     >
       <DineInformation onClose={onClose} />
