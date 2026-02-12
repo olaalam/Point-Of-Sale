@@ -70,36 +70,41 @@ export default function ExpensesModal({ onClose, expense = null, refetchParent }
         }
 
         const body = {
-             expense: expense_name,
+            expense: expense_name,
             category_id,
             amount,
             financial_account_id,
             note,
         };
 
-try {
-    if (isEditMode) {
-        await postData(`cashier/expenses_list/update/${expense.id}`, body);
-        toast.success(t("ExpenseUpdated"));
-        if (refetchParent) refetchParent();
-    } else {
-        await postData("cashier/expenses_list/add", body);
-        toast.success(t("ExpenseAdded"));
-    }
-    onClose();
-} catch (err) {
-    // Axios error عادةً بيكون موجود هنا
-    const message = err?.response?.data?.errors || err?.message || "Failed to save expense";
-    toast.error(message);
-    console.error("Expense submit error:", err);
-}
+        try {
+            if (isEditMode) {
+                await postData(`cashier/expenses_list/update/${expense.id}`, body);
+                toast.success(t("ExpenseUpdated"));
+                if (refetchParent) refetchParent();
+            } else {
+                await postData("cashier/expenses_list/add", body);
+                toast.success(t("ExpenseAdded"));
+            }
+            onClose();
+        } catch (err) {
+            // Axios error عادةً بيكون موجود هنا
+            const message = err?.response?.data?.errors || err?.message || "Failed to save expense";
+            toast.error(message);
+            console.error("Expense submit error:", err);
+        }
 
     };
 
     if (loading) return null;
 
     return (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[9999]">
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[9999]"
+            onClick={(e) => {
+                if (e.target === e.currentTarget) {
+                    onClose();
+                }
+            }}>
             <div className="bg-white rounded-xl p-6 w-[95%] max-w-md shadow-xl overflow-y-auto max-h-[90vh] scrollbar-width-none [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
 
                 {/* Header */}
@@ -109,7 +114,7 @@ try {
                     </h2>
                     <button
                         onClick={onClose}
-                        className="text-black text-xl font-bold"
+                        className="text-black text-3xl font-bold"
                     >
                         X
                     </button>
