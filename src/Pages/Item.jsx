@@ -569,7 +569,7 @@ export default function Item({ onAddToOrder, onClose, onClearCart, cartHasItems 
   const categoriesSection = (
     <div
       dir={isArabic ? "rtl" : "ltr"}
-      className="lg:w-64 w-full lg:sticky lg:top-4 lg:h-[calc(100vh-120px)] flex flex-col gap-2"
+      className="lg:w-45 w-full lg:sticky lg:top-4 lg:h-[calc(100vh-120px)] flex flex-col gap-2"
     >
       {/* الجزء العلوي: العنوان والأسهم بجانبه */}
       <div className="flex items-center justify-between px-2 mb-1">
@@ -723,19 +723,19 @@ export default function Item({ onAddToOrder, onClose, onClearCart, cartHasItems 
       <div className="flex flex-col lg:flex-row gap-4 items-start w-full px-2">
         {isArabic ? (
           <>
-            <div className="flex-1 w-full">
+            <div className=" w-full lg:w-[85%]">
               {productsGridSection}
             </div>
-            <div className="w-full lg:w-auto">
+            <div className="w-full lg:w-[15%]">
               {categoriesSection}
             </div>
           </>
         ) : (
           <>
-            <div className="flex-1 w-full">
+            <div className=" w-full lg:w-[85%]">
               {productsGridSection}
             </div>
-            <div className="w-full lg:w-auto">
+            <div className="w-full lg:w-[15%]">
               {categoriesSection}
             </div>
           </>
