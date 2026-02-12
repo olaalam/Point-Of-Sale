@@ -533,7 +533,7 @@ export default function Item({ onAddToOrder, onClose, onClearCart, cartHasItems 
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3 p-2">            {productsToDisplay.map((product) => (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5  gap-3 p-2">            {productsToDisplay.map((product) => (
             <ProductCard
               key={product.id}
               product={product}
