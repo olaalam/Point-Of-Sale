@@ -50,6 +50,7 @@ export default function Item({ onAddToOrder, onClose, onClearCart, cartHasItems 
   const [selectedSubCategory, setSelectedSubCategory] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [visibleProductCount, setVisibleProductCount] = useState(PRODUCTS_TO_SHOW_INITIALLY);
+  const [selectedOffer, setSelectedOffer] = useState(null);
   const [branchIdState, setBranchIdState] = useState(sessionStorage.getItem("branch_id"));
   const [productType, setProductType] = useState("piece");
   const [selectedGroup, setSelectedGroup] = useState("none");
@@ -180,6 +181,14 @@ export default function Item({ onAddToOrder, onClose, onClearCart, cartHasItems 
       : allModulesData?.products || [];
   }, [allModulesData, productType]);
 
+  const currentOffers = useMemo(() => {
+    if (!allModulesData) return [];
+    if (orderType === "take_away") return allModulesData.offers_take_away || [];
+    if (orderType === "dine_in") return allModulesData.offers_dine_id || [];
+    if (orderType === "delivery") return allModulesData.offers_delivery || [];
+    return [];
+  }, [allModulesData, orderType]);
+
   const allSubCategories = useMemo(() => {
     return finalCategories.flatMap(cat =>
       (cat.sub_categories || []).map(sub => ({
@@ -246,6 +255,7 @@ export default function Item({ onAddToOrder, onClose, onClearCart, cartHasItems 
     } else {
       setSelectedMainCategory(idStr);
       setSelectedSubCategory(null); // Reset sub
+      setSelectedOffer(null); // Reset offer
       setShowCategories(false);
       setVisibleProductCount(PRODUCTS_TO_SHOW_INITIALLY);
     }
@@ -548,6 +558,66 @@ export default function Item({ onAddToOrder, onClose, onClearCart, cartHasItems 
     </div>
   );
 
+  const offersGridSection = (
+    <div className="flex-1 h-[calc(100vh-120px)] overflow-y-auto pr-2 scrollbar-width-none [&::-webkit-scrollbar]:hidden" dir={isArabic ? "rtl" : "ltr"}>
+      {searchAndToggleSection}
+      {selectedOffer ? (
+        <div className="p-4">
+          <div className="flex items-center gap-4 mb-6">
+            <button
+              onClick={() => setSelectedOffer(null)}
+              className="p-2 rounded-full hover:bg-gray-100 transition-colors flex items-center gap-2 text-bg-primary font-bold"
+            >
+              {isArabic ? "➡️ عودة" : "⬅️ Back"}
+            </button>
+            <h2 className="text-xl font-bold">{selectedOffer.name}</h2>
+          </div>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3">
+            {selectedOffer.products.map((product) => (
+              <ProductCard
+                key={product.id}
+                product={product}
+                onAddToOrder={handleAddToOrder}
+                onOpenModal={openProductModal}
+                orderLoading={orderLoading}
+              />
+            ))}
+          </div>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 p-6">
+          {currentOffers.map((offer, idx) => (
+            <div
+              key={idx}
+              onClick={() => setSelectedOffer(offer)}
+              className="bg-white border-2 border-transparent hover:border-bg-primary rounded-3xl shadow-sm hover:shadow-2xl transition-all duration-300 cursor-pointer overflow-hidden group relative"
+            >
+              <div className="relative h-56 overflow-hidden">
+                <img
+                  src={offer.products[0]?.image_link || "/placeholder.png"}
+                  alt={offer.name}
+                  className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-60 group-hover:opacity-80 transition-opacity" />
+                <div className="absolute top-4 right-4 bg-red-600 text-white px-4 py-1.5 rounded-2xl text-sm font-black shadow-xl transform group-hover:scale-110 transition-transform">
+                  {offer.discount}% {t("OFF")}
+                </div>
+              </div>
+              <div className="absolute bottom-0 left-0 right-0 p-5 text-white">
+                <h3 className="font-black text-xl mb-1 drop-shadow-lg">
+                  {offer.name}
+                </h3>
+                <p className="text-sm font-medium opacity-90">
+                  {offer.products.length} {t("Products")}
+                </p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
   // 1. تأكدي من إضافة هذا الجزء قبل تعريف categoriesSection
 
   const scroll = (direction) => {
@@ -605,6 +675,27 @@ export default function Item({ onAddToOrder, onClose, onClearCart, cartHasItems 
         ref={scrollRef}
         className="flex lg:flex-col overflow-x-auto lg:overflow-y-auto pb-2 lg:pb-0 gap-2 scrollbar-hide scroll-smooth"
       >
+        {/* زر العروض */}
+        {currentOffers.length > 0 && (
+          <div
+            onClick={() => {
+              setSelectedMainCategory("offers");
+              setSelectedSubCategory(null);
+              setSelectedOffer(null);
+              setShowCategories(false);
+            }}
+            className={`flex items-center gap-2 lg:gap-3 p-2 lg:p-3 rounded-xl cursor-pointer transition-all border shrink-0 min-w-[120px] lg:min-w-0 ${selectedMainCategory === "offers"
+              ? "bg-bg-primary text-white border-bg-primary shadow-md"
+              : "bg-white text-gray-700 border-gray-100 hover:border-red-200"
+              }`}
+          >
+            <div className="w-8 h-8 lg:w-10 lg:h-10 bg-white/20 rounded-lg flex items-center justify-center text-base lg:text-lg">
+              🎁
+            </div>
+            <span className="font-bold text-xs lg:text-sm whitespace-nowrap">{t("Offers")}</span>
+          </div>
+        )}
+
         {/* زر المفضلة */}
         <div
           onClick={() => {
@@ -612,6 +703,7 @@ export default function Item({ onAddToOrder, onClose, onClearCart, cartHasItems 
             setSelectedGroup("all");
             setSelectedMainCategory("favorite");
             setSelectedSubCategory(null);
+            setSelectedOffer(null);
           }}
           className={`flex items-center gap-2 lg:gap-3 p-2 lg:p-3 rounded-xl cursor-pointer transition-all border shrink-0 min-w-[120px] lg:min-w-0 ${(selectedGroup === "all" || selectedMainCategory === "favorite") && !isNormalPrice
             ? "bg-bg-primary text-white border-bg-primary shadow-md"
@@ -721,7 +813,16 @@ export default function Item({ onAddToOrder, onClose, onClearCart, cartHasItems 
         onClose={onClose}
       />
       <div className="flex flex-col lg:flex-row gap-4 items-start w-full px-2">
-        {isArabic ? (
+        {selectedMainCategory === "offers" ? (
+          <>
+            <div className=" w-full lg:w-[85%]">
+              {offersGridSection}
+            </div>
+            <div className="w-full lg:w-[15%]">
+              {categoriesSection}
+            </div>
+          </>
+        ) : isArabic ? (
           <>
             <div className=" w-full lg:w-[85%]">
               {productsGridSection}
