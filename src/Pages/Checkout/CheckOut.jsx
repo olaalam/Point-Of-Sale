@@ -631,7 +631,7 @@ const CheckOut = ({
             due,
             customer_id,
             dueModuleValue,
-            forcedPassword: forcedPassword || pendingFreeDiscountPassword,
+            forcedPassword: forcedPassword,
           });
 
           setShowRepeatModal(true);

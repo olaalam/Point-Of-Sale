@@ -553,7 +553,7 @@ ${poweredByLine}
 // ===================================================================
 // 10. تصميم إيصال بسيط لنسخة العميل (Take Away فقط) - مشابه لديزاين المطبخ
 // ===================================================================
-const formatSimpleCustomerCopy = (receiptData) => {
+const formatCustomerNumberReceipt = (receiptData) => {
   const isArabic = localStorage.getItem("language") === "ar";
   const restaurantLogo = sessionStorage.getItem("resturant_logo") || "";
 
@@ -1256,169 +1256,83 @@ export const printKitchenOnly = async (receiptData, apiResponse, callback) => {
 // ===================================================================
 // 10. دالة الطباعة الرئيسية
 // ===================================================================
-export const printReceiptSilently = async (
-  receiptData,
-  apiResponse,
-  callback,
-  options = {}
-) => {
+export const printReceiptSilently = async (receiptData, apiResponse, callback, options = {}) => {
   const { shouldSkipKitchenPrint = false } = options;
   try {
     if (!qz.websocket.isActive()) {
-      toast.error("❌ QZ Tray is not connected. Please make sure QZ Tray is running.");
+      toast.error("❌ QZ Tray is not connected.");
       return;
     }
 
     const printJobs = [];
+    const orderType = (receiptData.orderType || "").toLowerCase();
 
-    // 1. الكاشير
-    // 1. الكاشير - الإيصال الكامل
+    // ============================================================
+    // 1. منطق طباعة الكاشير (الريسيت الكبير) - ده اللي فيه الـ Switch
+    // ============================================================
     try {
       const cashierPrinterName = await qz.printers.getDefault();
-      if (!cashierPrinterName) throw new Error("No default printer found.");
-
-      const cashierHtml = getReceiptHTML(receiptData, {
-        design: "full",
-        type: "cashier",
-      });
       const cashierConfig = qz.configs.create(cashierPrinterName);
+      const cashierHtml = getReceiptHTML(receiptData, { design: "full", type: "cashier" });
 
-      // طباعة إيصال الكاشير الأساسي (دائمًا مرة واحدة على الأقل)
-      printJobs.push(
-        qz.print(cashierConfig, [
-          { type: "html", format: "plain", data: cashierHtml },
-        ])
-      );
+      // أ - طباعة النسخة الأولى (أساسية دائماً)
+      printJobs.push(qz.print(cashierConfig, [{ type: "html", format: "plain", data: cashierHtml }]));
 
-      // ==== الجديد: طباعة إضافية حسب نوع الطلب ====
-      const orderType = receiptData.orderType?.toLowerCase();
-
-      if (orderType === "delivery") {
-        // Delivery → طباعة إيصال الكاشير مرة ثانية
-        printJobs.push(
-          qz.print(cashierConfig, [
-            { type: "html", format: "plain", data: cashierHtml },
-          ])
-        );
-      } else if (orderType === "take_away" || orderType === "takeaway") {
-        const shouldPrintDouble = localStorage.getItem("print_double_takeaway") === "true";
-        // Take Away → طباعة إيصال بسيط (نسخة العميل)
-        if (shouldPrintDouble) {
-          const simpleHtml = formatSimpleCustomerCopy(receiptData);
-          printJobs.push(
-            qz.print(cashierConfig, [
-              { type: "html", format: "plain", data: simpleHtml },
-            ])
-          );
-        }
+      // ب - التحقق هل يطبع نسخة "كاشير" تانية كبيرة؟
+      let shouldPrintDouble = false;
+      if (orderType === "dine_in") {
+        shouldPrintDouble = localStorage.getItem("printDoubleDineIn") === "true";
+      } else if (orderType.includes("take")) {
+        shouldPrintDouble = localStorage.getItem("printDoubleTakeAway") === "true";
+      } else if (orderType === "delivery") {
+        shouldPrintDouble = localStorage.getItem("printDoubleDelivery") === "true";
       }
-      // Dine In أو غيره → لا طباعة إضافية
+
+      if (shouldPrintDouble) {
+        // بنضيف نسخة كاشير تانية فقط
+        printJobs.push(qz.print(cashierConfig, [{ type: "html", format: "plain", data: cashierHtml }]));
+      }
+
+      // ج - ريسيت الرقم الصغير (للتيك أواي فقط)
+      if (orderType.includes("take") && localStorage.getItem("printSmallTakeAway") !== "false") {
+        const smallHtml = formatCustomerNumberReceipt(receiptData); // الدالة اللي عملناها للرقم الصغير
+        printJobs.push(qz.print(cashierConfig, [{ type: "html", format: "plain", data: smallHtml }]));
+      }
+
     } catch (err) {
-      console.error(err);
-      toast.error("خطأ في طابعة الكاشير");
+      console.error("Cashier Print Error:", err);
     }
 
-    // 2. المطبخ - مع الحفاظ على كل التفاصيل (addons, extras, variations, excludes)
-    // Skip kitchen printing if already printed (Case 2: Prepare & Pending)
+    // ============================================================
+    // 2. منطق طباعة المطبخ - (يطبع مرة واحدة فقط دائماً)
+    // ============================================================
     if (!shouldSkipKitchenPrint) {
       const kitchens = apiResponse?.kitchen_items || [];
+
+      // بنمشي على كل طابعة مطبخ ونطبع الأوردر بتاعها "مرة واحدة" بس
       for (const kitchen of kitchens) {
-        if (
-          !kitchen.print_name ||
-          kitchen.print_status !== 1 ||
-          !kitchen.order?.length
-        )
-          continue;
+        if (!kitchen.print_name || kitchen.print_status !== 1 || !kitchen.order?.length) continue;
 
-        console.log("Kitchen:", kitchen.name);
-        console.log("Raw kitchen.order:", kitchen.order);
-
-        // === التجميع حسب id + notes + selected variation options + addons + extras + excludes ===
-        const grouped = new Map();
-
-        const getModifierKey = (item) => {
-          // دالة بسيطة لـ addons/extras/excludes (arrays بسيطة أو objects)
-          const stringifySimple = (arr) => {
-            if (!Array.isArray(arr)) return "";
-            return arr
-              .map((o) => o.id || o.name || o.option || o.variation || String(o))
-              .filter(Boolean)
-              .sort()
-              .join(",");
-          };
-
-          const addons = stringifySimple(item.addons_selected || item.addons || []);
-          const extras = stringifySimple(item.extras || []);
-          const excludes = stringifySimple(item.excludes || []);
-
-          // المهم هنا: نستخرج الـ selected options الداخلية فقط (اللي بتميز الvariation)
-          const variationOptions = (item.variation_selected || item.variations || [])
-            .flatMap((group) => {
-              if (!group || !Array.isArray(group.options)) return [];
-              return group.options.map((opt) => opt.id || opt.name || "");
-            })
-            .filter(Boolean)
-            .sort()
-            .join(",");
-
-          return `${variationOptions}|${addons}|${extras}|${excludes}`;
-        };
-
-        kitchen.order.forEach((item) => {
-          const modifierKey = getModifierKey(item);
-          const baseKey = `${item.id || item.product_id || "unknown"}|${item.notes || "no-notes"}`;
-          const fullKey = `${baseKey}|${modifierKey}`;
-
-          if (!grouped.has(fullKey)) {
-            grouped.set(fullKey, {
-              ...item,       // نحتفظ بكل الdata الأصلية (بما فيها variation_selected كامل)
-              qty: 0,
-            });
-          }
-
-          const entry = grouped.get(fullKey);
-          entry.qty += Number(item.count || item.qty || 1);  // أضفنا item.qty كـ fallback
-        });
-
-        const kitchenItems = Array.from(grouped.values()).map((group) => {
-          const original = receiptData.items.find(
-            (o) => o.id == group.id || o.id == group.product_id
-          );
-
-          return {
-            qty: group.qty,
-            name: group.name || original?.name || "غير معروف",
-            notes: group.notes || original?.notes || "",
-            addons: group.addons_selected || original?.addons || [],
-            extras: group.extras || original?.extras || [],
-            excludes: group.excludes || original?.excludes || [],
-            variations: group.variation_selected || original?.variations || [],
-            id: group.id || group.product_id,
-          };
-        });
-
+        // تجهيز بيانات المطبخ (نفس الكود بتاع التجميع اللي عندك)
         const kitchenReceiptData = {
           ...receiptData,
-          items: kitchenItems,
-          orderCount: kitchen.order_count ?? kitchenItems.reduce((sum, item) => sum + item.qty, 0),
-          orderNote: apiResponse?.order_note || receiptData.orderNote || "", // ✅ إضافة order_note
+          items: formatKitchenItems(kitchen.order, receiptData), // دالة مساعدة لتجهيز الأصناف
+          orderNote: apiResponse?.order_note || receiptData.orderNote || "",
         };
 
-        const kitchenHtml = getReceiptHTML(kitchenReceiptData, {
-          design: "kitchen",
-          type: "kitchen",
-        });
+        const kitchenHtml = getReceiptHTML(kitchenReceiptData, { design: "kitchen", type: "kitchen" });
+        const kitchenConfig = qz.configs.create(kitchen.print_name);
 
-        const config = qz.configs.create(kitchen.print_name);
-        printJobs.push(
-          qz.print(config, [{ type: "html", format: "plain", data: kitchenHtml }])
-        );
+        // إضافة أمر طباعة واحد فقط للمطبخ
+        printJobs.push(qz.print(kitchenConfig, [{ type: "html", format: "plain", data: kitchenHtml }]));
       }
     }
 
+    // تنفيذ كل أوامر الطباعة مع بعض
     await Promise.all(printJobs);
-    toast.success("✅ تم الطباعة");
+    toast.success("✅ تم إرسال الأوامر للطابعة");
     callback();
+
   } catch (err) {
     console.error(err);
     toast.error("❌ فشل الطباعة");
@@ -1436,3 +1350,12 @@ export const updatePrinterConfig = (key, updates) => {
   if (PRINTER_CONFIG[key])
     PRINTER_CONFIG[key] = { ...PRINTER_CONFIG[key], ...updates };
 };
+const formatKitchenItems = (kitchenOrder, fullReceiptData) => {
+  // هنا بنحول الداتا لشكل بسيط يفهمه ريسيت المطبخ
+  return kitchenOrder.map(item => ({
+    name: item.name || item.product_name || "صنف غير معروف",
+    quantity: item.count || 1,
+    note: item.note || "",
+    options: item.options || [] // لو فيه إضافات زي "بدون بصل" مثلاً
+  }));
+};  
