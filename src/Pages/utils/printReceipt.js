@@ -1142,54 +1142,8 @@ export const prepareReceiptData = (
 // ===================================================================
 export const printKitchenOnly = async (receiptData, apiResponse, callback) => {
   try {
-<<<<<<< HEAD
-    // 1. التأكد أن البرنامج يعمل داخل Electron
-    if (!window.electronAPI) {
-      console.warn("Electron API not found. Printing via browser...");
-      // اختياري: يمكنك إضافة window.print() هنا كبديل للمتصفح العادي
-      callback();
-      return;
-    }
-
-    const allHtmlToPrint = [];
-
-    // --- 1. جزء الكاشير ---
-    try {
-      const cashierHtml = getReceiptHTML(receiptData, {
-        design: "full",
-        type: "cashier",
-      });
-
-      // طباعة إيصال الكاشير الأساسي
-      allHtmlToPrint.push(cashierHtml);
-
-      // طباعة إضافية حسب نوع الطلب
-      const orderType = receiptData.orderType?.toLowerCase();
-      if (orderType === "delivery") {
-        allHtmlToPrint.push(cashierHtml); // نسخة ثانية للدليفري
-      } else if (orderType === "take_away" || orderType === "takeaway") {
-        const shouldPrintDouble = localStorage.getItem("print_double_takeaway") === "true";
-        if (shouldPrintDouble) {
-          const simpleHtml = formatSimpleCustomerCopy(receiptData);
-          allHtmlToPrint.push(simpleHtml);
-        }
-      }
-    } catch (err) {
-      console.error("Error preparing cashier receipt:", err);
-      toast.error("خطأ في تجهيز فاتورة الكاشير");
-    }
-
-    // --- 2. جزء المطبخ ---
-=======
-    if (!qz.websocket.isActive()) {
-      toast.error("❌ QZ Tray is not connected.");
-      if (callback) callback();
-      return;
-    }
-
-    const printJobs = [];
->>>>>>> 16cbc3090a5db05e2fda9f598ea5dc55fa12a78d
     const kitchens = apiResponse?.kitchen_items || [];
+    const allHtmlToPrint = [];
 
     for (const kitchen of kitchens) {
       if (
@@ -1199,31 +1153,29 @@ export const printKitchenOnly = async (receiptData, apiResponse, callback) => {
       )
         continue;
 
-<<<<<<< HEAD
-      // (نفس منطق التجميع Grouping اللي عندك سيبيه زي ما هو لأنه بيجهز البيانات بس)
-=======
       // === التجميع حسب id + notes + selected variation options + addons + extras + excludes ===
->>>>>>> 16cbc3090a5db05e2fda9f598ea5dc55fa12a78d
       const grouped = new Map();
       const getModifierKey = (item) => {
         const stringifySimple = (arr) => {
           if (!Array.isArray(arr)) return "";
           return arr
             .map((o) => o.id || o.name || o.option || o.variation || String(o))
-            .filter(Boolean).sort().join(",");
+            .filter(Boolean)
+            .sort()
+            .join(",");
         };
         const addons = stringifySimple(item.addons_selected || item.addons || []);
         const extras = stringifySimple(item.extras || []);
         const excludes = stringifySimple(item.excludes || []);
-<<<<<<< HEAD
-=======
 
->>>>>>> 16cbc3090a5db05e2fda9f598ea5dc55fa12a78d
         const variationOptions = (item.variation_selected || item.variations || [])
           .flatMap((group) => {
             if (!group || !Array.isArray(group.options)) return [];
             return group.options.map((opt) => opt.id || opt.name || "");
-          }).filter(Boolean).sort().join(",");
+          })
+          .filter(Boolean)
+          .sort()
+          .join(",");
 
         return `${variationOptions}|${addons}|${extras}|${excludes}`;
       };
@@ -1233,21 +1185,19 @@ export const printKitchenOnly = async (receiptData, apiResponse, callback) => {
         const baseKey = `${item.id || item.product_id || "unknown"}|${item.notes || "no-notes"}`;
         const fullKey = `${baseKey}|${modifierKey}`;
         if (!grouped.has(fullKey)) {
-<<<<<<< HEAD
-          grouped.set(fullKey, { ...item, qty: 0 });
-=======
           grouped.set(fullKey, {
             ...item,
             qty: 0,
           });
->>>>>>> 16cbc3090a5db05e2fda9f598ea5dc55fa12a78d
         }
         const entry = grouped.get(fullKey);
         entry.qty += Number(item.count || item.qty || 1);
       });
 
       const kitchenItems = Array.from(grouped.values()).map((group) => {
-        const original = receiptData.items.find((o) => o.id == group.id || o.id == group.product_id);
+        const original = receiptData.items.find(
+          (o) => o.id == group.id || o.id == group.product_id
+        );
         return {
           qty: group.qty,
           name: group.name || original?.name || "غير معروف",
@@ -1272,24 +1222,28 @@ export const printKitchenOnly = async (receiptData, apiResponse, callback) => {
         type: "kitchen",
       });
 
-      allHtmlToPrint.push(kitchenHtml);
+      allHtmlToPrint.push({ html: kitchenHtml, printerName: kitchen.print_name });
     }
 
-    // --- 3. التنفيذ النهائي عبر Electron ---
+    // --- التنفيذ النهائي ---
     if (allHtmlToPrint.length > 0) {
-      // بنبعت كل الـ HTMLs اللي اتجمعت في مصفوفة واحدة للـ Electron
-      // ملحوظة: يمكنك تعديل main.js لاستقبال مصفوفة أو إرسالهم واحدة تلو الأخرى
-      for (const html of allHtmlToPrint) {
-        window.electronAPI.sendPrintOrder(html);
+      if (window.electronAPI) {
+        // طباعة عبر Electron
+        for (const job of allHtmlToPrint) {
+          window.electronAPI.sendPrintOrder(job.html, job.printerName);
+        }
+        toast.success("✅ تم إرسال أوامر المطبخ للطابعة");
+      } else if (typeof qz !== "undefined" && qz.websocket.isActive()) {
+        // طباعة عبر QZ Tray
+        const printJobs = allHtmlToPrint.map((job) => {
+          const config = qz.configs.create(job.printerName);
+          return qz.print(config, [{ type: "html", format: "plain", data: job.html }]);
+        });
+        await Promise.all(printJobs);
+        toast.success("✅ تم طباعة إيصالات المطبخ عبر QZ");
+      } else {
+        toast.warn("⚠️ لا يوجد وسيلة طباعة متاحة (Electron أو QZ Tray)");
       }
-      toast.success("✅ تم إرسال الأوامر للطابعة");
-    }
-
-<<<<<<< HEAD
-=======
-    if (printJobs.length > 0) {
-      await Promise.all(printJobs);
-      toast.success("✅ تم طباعة إيصالات المطبخ");
     }
 
     if (callback) callback();
@@ -1301,109 +1255,107 @@ export const printKitchenOnly = async (receiptData, apiResponse, callback) => {
 };
 
 // ===================================================================
-// 10. دالة الطباعة الرئيسية
+// 10. دالة الطباعة الرئيسية (Cashier + Kitchen)
 // ===================================================================
 export const printReceiptSilently = async (receiptData, apiResponse, callback, options = {}) => {
   const { shouldSkipKitchenPrint = false } = options;
   try {
-    if (!qz.websocket.isActive()) {
-      toast.error("❌ QZ Tray is not connected.");
-      return;
-    }
-
-    const printJobs = [];
     const orderType = (receiptData.orderType || "").toLowerCase();
+    const cashierHtml = getReceiptHTML(receiptData, { design: "full", type: "cashier" });
 
-    // ============================================================
-    // 1. منطق طباعة الكاشير (الريسيت الكبير) - ده اللي فيه الـ Switch
-    // ============================================================
-    try {
-      const cashierPrinterName = await qz.printers.getDefault();
-      const cashierConfig = qz.configs.create(cashierPrinterName);
-      const cashierHtml = getReceiptHTML(receiptData, { design: "full", type: "cashier" });
+    const printJobs = []; // لـ QZ Tray
+    const electronJobs = []; // لـ Electron
 
-      // أ - طباعة النسخة الأولى (أساسية دائماً)
-      printJobs.push(qz.print(cashierConfig, [{ type: "html", format: "plain", data: cashierHtml }]));
+    // --- 1. منطق طباعة الكاشير ---
+    // أ - النسخة الأساسية
+    electronJobs.push({ html: cashierHtml, type: "cashier" });
 
-      // ب - التحقق هل يطبع نسخة "كاشير" تانية كبيرة؟
-      let shouldPrintDouble = false;
-      if (orderType === "dine_in") {
-        shouldPrintDouble = localStorage.getItem("printDoubleDineIn") === "true";
-      } else if (orderType.includes("take")) {
-        shouldPrintDouble = localStorage.getItem("printDoubleTakeAway") === "true";
-      } else if (orderType === "delivery") {
-        shouldPrintDouble = localStorage.getItem("printDoubleDelivery") === "true";
-      }
-
-      if (shouldPrintDouble) {
-        // بنضيف نسخة كاشير تانية فقط
-        printJobs.push(qz.print(cashierConfig, [{ type: "html", format: "plain", data: cashierHtml }]));
-      }
-
-      // ج - ريسيت الرقم الصغير (للتيك أواي فقط)
-      if (orderType.includes("take") && localStorage.getItem("printSmallTakeAway") !== "false") {
-        const smallHtml = formatCustomerNumberReceipt(receiptData); // الدالة اللي عملناها للرقم الصغير
-        printJobs.push(qz.print(cashierConfig, [{ type: "html", format: "plain", data: smallHtml }]));
-      }
-
-    } catch (err) {
-      console.error("Cashier Print Error:", err);
+    // ب - التحقق من النسخ الإضافية
+    let shouldPrintDouble = false;
+    if (orderType === "dine_in") {
+      shouldPrintDouble = localStorage.getItem("printDoubleDineIn") === "true";
+    } else if (orderType.includes("take")) {
+      shouldPrintDouble = localStorage.getItem("printDoubleTakeAway") === "true";
+    } else if (orderType === "delivery") {
+      shouldPrintDouble = localStorage.getItem("printDoubleDelivery") === "true";
     }
 
-    // ============================================================
-    // 2. منطق طباعة المطبخ - (يطبع مرة واحدة فقط دائماً)
-    // ============================================================
+    if (shouldPrintDouble) {
+      electronJobs.push({ html: cashierHtml, type: "cashier" });
+    }
+
+    // ج - ريسيت الرقم الصغير (للتيك أواي فقط)
+    if (orderType.includes("take") && localStorage.getItem("printSmallTakeAway") !== "false") {
+      const smallHtml = formatCustomerNumberReceipt(receiptData);
+      electronJobs.push({ html: smallHtml, type: "small" });
+    }
+
+    // --- 2. منطق طباعة المطبخ ---
     if (!shouldSkipKitchenPrint) {
       const kitchens = apiResponse?.kitchen_items || [];
-
-      // بنمشي على كل طابعة مطبخ ونطبع الأوردر بتاعها "مرة واحدة" بس
       for (const kitchen of kitchens) {
         if (!kitchen.print_name || kitchen.print_status !== 1 || !kitchen.order?.length) continue;
 
-        // تجهيز بيانات المطبخ (نفس الكود بتاع التجميع اللي عندك)
         const kitchenReceiptData = {
           ...receiptData,
-          items: formatKitchenItems(kitchen.order, receiptData), // دالة مساعدة لتجهيز الأصناف
+          items: formatKitchenItems(kitchen.order, receiptData),
           orderNote: apiResponse?.order_note || receiptData.orderNote || "",
         };
 
         const kitchenHtml = getReceiptHTML(kitchenReceiptData, { design: "kitchen", type: "kitchen" });
-        const kitchenConfig = qz.configs.create(kitchen.print_name);
-
-        // إضافة أمر طباعة واحد فقط للمطبخ
-        printJobs.push(qz.print(kitchenConfig, [{ type: "html", format: "plain", data: kitchenHtml }]));
+        electronJobs.push({ html: kitchenHtml, printerName: kitchen.print_name, type: "kitchen" });
       }
     }
 
-    // تنفيذ كل أوامر الطباعة مع بعض
-    await Promise.all(printJobs);
-    toast.success("✅ تم إرسال الأوامر للطابعة");
->>>>>>> 16cbc3090a5db05e2fda9f598ea5dc55fa12a78d
-    callback();
+    // --- 3. التنفيذ النهائي ---
+    if (window.electronAPI) {
+      for (const job of electronJobs) {
+        // لو الـ job ملوش printerName (زي الكاشير)، هيروح كـ undefined
+        // والـ main.js هيعرف إنه يطبع Default
+        window.electronAPI.sendPrintOrder(job.html, job.printerName);
+      }
+      toast.success("✅ تم إرسال الأوامر للطابعة عبر Electron");
 
+    } else if (typeof qz !== "undefined" && qz.websocket.isActive()) {
+      const cashierPrinterName = await qz.printers.getDefault();
+      const cashierConfig = qz.configs.create(cashierPrinterName);
+
+      for (const job of electronJobs) {
+        const config = job.type === "kitchen" ? qz.configs.create(job.printerName) : cashierConfig;
+        printJobs.push(qz.print(config, [{ type: "html", format: "plain", data: job.html }]));
+      }
+      await Promise.all(printJobs);
+      toast.success("✅ تم طباعة الإيصالات عبر QZ");
+    } else {
+      toast.warn("⚠️ لا يوجد وسيلة طباعة متاحة (Electron أو QZ Tray)");
+    }
+
+    if (callback) callback();
   } catch (err) {
     console.error("Print Error:", err);
     toast.error("❌ فشل الطباعة");
-    callback();
+    if (callback) callback();
   }
 };
 
 export const addPrinterConfig = (key, config) => {
   PRINTER_CONFIG[key] = config;
 };
+
 export const getActivePrinters = () => {
   return Object.keys(PRINTER_CONFIG);
 };
+
 export const updatePrinterConfig = (key, updates) => {
   if (PRINTER_CONFIG[key])
     PRINTER_CONFIG[key] = { ...PRINTER_CONFIG[key], ...updates };
 };
+
 const formatKitchenItems = (kitchenOrder, fullReceiptData) => {
-  // هنا بنحول الداتا لشكل بسيط يفهمه ريسيت المطبخ
-  return kitchenOrder.map(item => ({
+  return kitchenOrder.map((item) => ({
     name: item.name || item.product_name || "صنف غير معروف",
     quantity: item.count || 1,
     note: item.note || "",
-    options: item.options || [] // لو فيه إضافات زي "بدون بصل" مثلاً
+    options: item.options || [],
   }));
-};  
+};
