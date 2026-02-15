@@ -1,6 +1,7 @@
 import React from "react";
 import ItemRow from "./ItemRow";
-
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Trash2 } from "lucide-react";
 export default function OrderTable({
   orderItems,
   orderType,
@@ -17,6 +18,8 @@ export default function OrderTable({
   allowQuantityEdit,
   itemLoadingStates,
   updateOrderItems,
+  handleClearAllItems,
+  isLoading,
   t,
 }) {
   return (
@@ -56,8 +59,29 @@ export default function OrderTable({
             <th className="py-3 px-4 text-right text-gray-600 font-semibold">
               {t("Total")}
             </th>
-            <th className="py-3 px-4 text-right text-gray-600 font-semibold">
-              {t("Void")}
+            <th className="px-4 py-2 text-center text-gray-700 font-bold border-b">
+              <div className="flex items-center justify-center gap-2">
+                {/* الكلمة الأساسية */}
+                <span>{t("Void")}</span>
+
+                {/* أيقونة مسح الكل التي طلبتيها */}
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        onClick={handleClearAllItems}
+                        disabled={isLoading || orderItems.length === 0}
+                        className=" text-red-500 hover:bg-red-50 rounded-full transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>{t("ClearAllItems")}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
             </th>
           </tr>
         </thead>

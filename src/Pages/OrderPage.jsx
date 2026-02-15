@@ -52,7 +52,7 @@ export default function OrderPage({
           "Unknown Productييي",
         price: parseFloat(detail.price || 0),
         originalPrice: parseFloat(detail.price || 0),
-        count: parseInt(detail.count || 1),
+        count: parseFloat(detail.count || 1),
         selectedVariation: detail.variation_name || null,
         selectedExtras: Array.isArray(detail.addons) ? detail.addons : [],
         selectedVariations: detail.variation_name ? [detail.variation_name] : [],
@@ -64,7 +64,7 @@ export default function OrderPage({
           name: addon.name || "Unknown Addon",
           price: parseFloat(addon.price || 0),
           originalPrice: parseFloat(addon.price || 0),
-          count: parseInt(addon.count || 1),
+          count: parseFloat(addon.count || 1),
           preparation_status: "pending",
         })) : [],
       }));
@@ -77,6 +77,7 @@ export default function OrderPage({
         orderNumber: pendingOrder.orderNumber,
         amount: pendingOrder.amount,
         notes: pendingOrder.notes,
+        prepare_order: pendingOrder.prepare_order, // ✅ Save preparation status for toggle logic
       }));
     } else if (!pendingOrderLoaded && currentOrderType === "take_away") {
       const storedCartString = sessionStorage.getItem("cart");
@@ -101,8 +102,7 @@ export default function OrderPage({
           ...item,
           originalPrice: item.originalPrice ?? item.price ?? 0,
           temp_id: item.temp_id || `dinein_${item.id}_${Date.now()}`,
-          count: parseInt(item.count || 1),
-          price: parseFloat(item.price || 0),
+          count: parseFloat(item.count || 1), price: parseFloat(item.price || 0),
           preparation_status: item.prepration || item.preparation_status || "pending",
         }))
         : [];
@@ -125,8 +125,7 @@ export default function OrderPage({
             ...item,
             originalPrice: item.originalPrice ?? item.price ?? 0,
             temp_id: item.temp_id || `delivery_${item.id}_${Date.now()}`,
-            count: parseInt(item.count || 1),
-            price: parseFloat(item.price || 0),
+            count: parseFloat(item.count || 1), price: parseFloat(item.price || 0),
             preparation_status: item.prepration || item.preparation_status || "pending",
           }))
           : [];
@@ -251,7 +250,7 @@ export default function OrderPage({
 
         if (existingItemIndex > -1) {
           const updatedItems = [...currentItems];
-          const addedCount = item.count || 1;
+          const addedCount = parseFloat(item.count || 1);
           updatedItems[existingItemIndex].count += addedCount;
           updatedItems[existingItemIndex].quantity = (updatedItems[existingItemIndex].quantity || 0) + addedCount;
           return { ...prev, [tableId]: updatedItems };
@@ -269,7 +268,7 @@ export default function OrderPage({
         const existingItemIndex = prev.findIndex((i) => areProductsEqual(i, item));
         if (existingItemIndex > -1) {
           const updatedItems = [...prev];
-          const addedCount = item.count || 1;
+          const addedCount = parseFloat(item.count || 1);
           updatedItems[existingItemIndex].count += addedCount;
           updatedItems[existingItemIndex].quantity = (updatedItems[existingItemIndex].quantity || 0) + addedCount;
           return updatedItems;
@@ -296,7 +295,7 @@ export default function OrderPage({
 
           if (existingItemIndex > -1) {
             const updatedItems = [...currentItems];
-            const addedCount = item.count || 1;
+            const addedCount = parseFloat(item.count || 1);
             updatedItems[existingItemIndex].count += addedCount;
             updatedItems[existingItemIndex].quantity = (updatedItems[existingItemIndex].quantity || 0) + addedCount;
             return { ...prev, [userId]: updatedItems };
@@ -330,12 +329,30 @@ export default function OrderPage({
     navigate("/");
   };
 
+  const handleClearCart = () => {
+    console.log("🧹 Clearing cart due to price type change");
+
+    // مسح الـ state حسب نوع الطلب
+    if (isDineIn) {
+      setOrdersByTable((prev) => ({ ...prev, [currentTableId]: [] }));
+    } else if (isDelivery) {
+      setOrdersByUser((prev) => ({ ...prev, [currentUserId]: [] }));
+    } else {
+      setTakeAwayItems([]);
+    }
+
+    // مسح الـ sessionStorage
+    sessionStorage.setItem("cart", JSON.stringify([]));
+
+    console.log("✅ Cart cleared successfully");
+  };
+
   console.log("📋 OrderPage Current Items:", currentOrderItems);
   console.log("🎯 OrderPage Order Type:", currentOrderType);
 
   return (
     <div className="flex flex-col-reverse lg:flex-row gap-4 p-4 h-full  w-full" dir={isArabic ? "ltr" : "rtl"}>
-      <div className="w-full lg:w-1/3 ">
+      <div className="w-full lg:w-[25%] ">
         <Card
           key={refreshTrigger}
           onClose={onClose}
@@ -350,13 +367,15 @@ export default function OrderPage({
           discountData={discountData}
         />
       </div>
-      <div className="w-full lg:w-3/4  lg:mt-0">
+      <div className="w-full lg:w-[75%]  lg:mt-0">
         <Item
           onAddToOrder={handleAddItem}
+          onClearCart={handleClearCart}
           fetchEndpoint={fetchEndpoint}
           onClose={handleClose}
           refreshCartData={refreshCartData}
           orderItems={currentOrderItems}
+          cartHasItems={currentOrderItems.length > 0}
         />
       </div>
     </div>

@@ -8,6 +8,14 @@ import { toast } from "react-toastify";
 import {
   FaBell,
   FaChevronDown,
+  FaUtensils,
+  FaMotorcycle,
+  FaShoppingBag,
+  FaGlobe,
+  FaMoneyBillWave,
+  FaEllipsisH,
+  FaHistory,
+  FaExclamationCircle,
 } from "react-icons/fa";
 import { useTranslation } from "react-i18next";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -292,16 +300,30 @@ export default function Navbar() {
       const token = sessionStorage.getItem("token");
       const endpoint = `${import.meta.env.VITE_API_BASE_URL}cashier/shift/close`;
 
+      // 1. قفل الشيفت أولاً
       await axios.get(endpoint, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
 
-      closeShift();
+      // 2. نداء الـ Logout API (وهو لسه معاه الـ Token في الميموري أو الـ Storage)
+      try {
+        await postData("api/logout", {});
+      } catch (logoutErr) {
+        console.error("Logout API failed, but shift was closed", logoutErr);
+      }
+
+      // 3. تنفيذ الـ Logic الداخلي للموقع
+      closeShift(); // لو دي Function بتغير State في الـ Context
+
+      // 4. تنظيف الـ Storage (خلينا في الـ removeItem لو محتاجة تحفظي اللغة)
       sessionStorage.removeItem("shift_start_time");
       sessionStorage.removeItem("shift_data");
-      sessionStorage.clear();
+      sessionStorage.removeItem("token");
+      // sessionStorage.clear(); // استخدميها لو عايزة تمسحي "كله" فعلاً
 
       toast.success(t("ShiftClosedSuccessfully"));
+
+      // 5. التوجيه
       navigate("/login");
     } catch (err) {
       console.error("Close shift error:", err);
@@ -344,120 +366,142 @@ export default function Navbar() {
 
   return (
     <>
-      <div className="text-gray-800 px-4 md:px-6 w-full z-50 bg-white shadow-md">
-        <div className="flex items-center justify-between gap-4 py-1.5">
+      <div className="text-gray-800 px-4 w-full z-50 bg-white shadow-md relative min-h-[96px] flex items-center">
+        <div className="flex items-center justify-between w-full h-full py-1.5">
           {/* Left Section: Navigation */}
           <div className="flex items-center gap-2 flex-1 pb-1">
             {location.pathname !== "/shift" &&
               location.pathname !== "/cashier" && (
                 <button
                   onClick={() => navigate(-1)}
-                  className="h-9 px-3 flex items-center justify-center font-bold text-center hover:bg-red-200 cursor-pointer hover:text-gray-800 rounded bg-bg-primary text-2xl text-white transition-colors duration-200"
+                  className="w-12 h-12 flex items-center justify-center font-bold text-center hover:bg-bg-primary hover:text-white cursor-pointer rounded-xl bg-gray-50 text-gray-400 border border-gray-100 transition-all duration-300 shadow-sm"
                   title="Go back"
                 >
-                  ←
+                  <span className="text-3xl">←</span>
                 </button>
               )}
 
-            <button
-              onClick={handleDueUsers}
-              className="h-9 px-3 text-[10px] md:text-sm font-bold bg-white text-bg-primary border border-bg-primary rounded-md hover:bg-bg-primary hover:text-white transition-all duration-200 whitespace-nowrap"
-            >
-              {t("Due")}
-            </button>
+            <div className="flex items-center gap-3 overflow-x-auto no-scrollbar py-3 px-1">
+              {/* Core Square Buttons */}
+              {permissions.take_away && (
+                <button
+                  onClick={() => handleTabChange("take_away")}
+                  className={`relative flex flex-col items-center justify-center min-w-[76px] h-[76px] rounded-2xl transition-all duration-300 border-2 overflow-hidden ${currentTab === "take_away"
+                    ? "bg-gradient-to-br from-bg-primary to-[#800000] text-white border-bg-primary shadow-xl scale-105"
+                    : "bg-white text-gray-500 border-gray-100 hover:border-bg-primary/20 hover:bg-gray-50 shadow-sm"
+                    }`}
+                >
+                  <FaShoppingBag className={`${currentTab === "take_away" ? "text-3xl" : "text-2xl"} mb-1 transition-all duration-300`} />
+                  <span className={`text-[11px] font-extrabold tracking-tight ${currentTab === "take_away" ? "text-white" : "text-gray-600"}`}>{t("take_away")}</span>
+                  {currentTab === "take_away" && <div className="absolute inset-0 bg-white/10 pointer-events-none" />}
+                </button>
+              )}
 
-            <button
-              onClick={handleAllOrders}
-              className="h-9 px-3 text-[10px] md:text-sm font-bold bg-white text-bg-primary border border-bg-primary rounded-md hover:bg-bg-primary hover:text-white transition-all duration-200 whitespace-nowrap"
-              title={t("AllOrders")}
-            >
+              {permissions.delivery && (
+                <button
+                  onClick={() => handleTabChange("delivery")}
+                  className={`relative flex flex-col items-center justify-center min-w-[76px] h-[76px] rounded-2xl transition-all duration-300 border-2 overflow-hidden ${currentTab === "delivery"
+                    ? "bg-gradient-to-br from-bg-primary to-[#800000] text-white border-bg-primary shadow-xl scale-105"
+                    : "bg-white text-gray-500 border-gray-100 hover:border-bg-primary/20 hover:bg-gray-50 shadow-sm"
+                    }`}
+                >
+                  <FaMotorcycle className={`${currentTab === "delivery" ? "text-4xl" : "text-3xl"} mb-1 transition-all duration-300`} />
+                  <span className={`text-[11px] font-extrabold tracking-tight ${currentTab === "delivery" ? "text-white" : "text-gray-600"}`}>{t("Delivery")}</span>
+                  {currentTab === "delivery" && <div className="absolute inset-0 bg-white/10 pointer-events-none" />}
+                </button>
+              )}
 
-              {t("AllOrders")}
-            </button>
+              {permissions.dine_in && (
+                <button
+                  onClick={() => handleTabChange("dine_in")}
+                  className={`relative flex flex-col items-center justify-center min-w-[76px] h-[76px] rounded-2xl transition-all duration-300 border-2 overflow-hidden ${currentTab === "dine_in"
+                    ? "bg-gradient-to-br from-bg-primary to-[#800000] text-white border-bg-primary shadow-xl scale-105"
+                    : "bg-white text-gray-500 border-gray-100 hover:border-bg-primary/20 hover:bg-gray-50 shadow-sm"
+                    }`}
+                >
+                  <FaUtensils className={`${currentTab === "dine_in" ? "text-3xl" : "text-2xl"} mb-1 transition-all duration-300`} />
+                  <span className={`text-[11px] font-extrabold tracking-tight ${currentTab === "dine_in" ? "text-white" : "text-gray-600"}`}>{t("Dinein")}</span>
+                  {currentTab === "dine_in" && <div className="absolute inset-0 bg-white/10 pointer-events-none" />}
+                </button>
+              )}
 
-            <button
-              onClick={handleExpenses}
-              className="h-9 px-3 text-[10px] md:text-sm font-bold bg-white text-green-600 border border-green-600 rounded-md hover:bg-green-600 hover:text-white transition-all duration-200 whitespace-nowrap"
-              title="Add Expense"
-            >
-              {t("Expenses")}
-            </button>
+              {permissions.online_order && (
+                <button
+                  onClick={() => handleTabChange("online-order")}
+                  className={`relative flex flex-col items-center justify-center min-w-[76px] h-[76px] rounded-2xl transition-all duration-300 border-2 overflow-hidden ${currentTab === "online-order"
+                    ? "bg-gradient-to-br from-bg-primary to-[#800000] text-white border-bg-primary shadow-xl scale-105"
+                    : "bg-white text-gray-500 border-gray-100 hover:border-bg-primary/20 hover:bg-gray-50 shadow-sm"
+                    }`}
+                >
+                  <FaGlobe className={`${currentTab === "online-order" ? "text-3xl" : "text-2xl"} mb-1 transition-all duration-300`} />
+                  <span className={`text-[11px] font-extrabold tracking-tight ${currentTab === "online-order" ? "text-white" : "text-gray-600"}`}>{t("OnlineOrders")}</span>
+                  {currentTab === "online-order" && <div className="absolute inset-0 bg-white/10 pointer-events-none" />}
+                </button>
+              )}
 
-            <Tabs value={currentTab} onValueChange={handleTabChange}>
-              <TabsList className="flex gap-2 bg-transparent p-0 ml-2">
-                {permissions.online_order && (
-                  <TabsTrigger
-                    value="online-order"
-                    className="h-9 px-3 text-[10px] md:text-sm font-bold bg-white text-bg-primary border border-bg-primary data-[state=active]:bg-bg-primary data-[state=active]:text-white transition-all duration-200 whitespace-nowrap"
-                  >
-                    {t("OnlineOrders")}
-                  </TabsTrigger>
-                )}
+              <button
+                onClick={handleExpenses}
+                className="group flex flex-col items-center justify-center min-w-[76px] h-[76px] rounded-2xl transition-all duration-300 border-2 bg-white text-green-600 border-green-50 hover:border-green-600 hover:bg-green-50 shadow-sm"
+              >
+                <FaMoneyBillWave className="text-3xl mb-1 group-hover:scale-110 transition-transform" />
+                <span className="text-[11px] font-extrabold tracking-tight text-green-700">{t("Expenses")}</span>
+              </button>
 
-                {permissions.take_away && (
-                  <TabsTrigger
-                    value="take_away"
-                    className="h-9 px-3 text-[10px] md:text-sm font-bold bg-white text-bg-primary border border-bg-primary data-[state=active]:bg-bg-primary data-[state=active]:text-white transition-all duration-200 whitespace-nowrap"
-                  >
-                    {t("take_away")}
-                  </TabsTrigger>
-                )}
-
-                {permissions.delivery && (
-                  <TabsTrigger
-                    value="delivery"
-                    className="h-9 px-3 text-[10px] md:text-sm font-bold bg-white text-bg-primary border border-bg-primary data-[state=active]:bg-bg-primary data-[state=active]:text-white transition-all duration-200 whitespace-nowrap"
-                  >
-                    {t("Delivery")}
-                  </TabsTrigger>
-                )}
-
-                {permissions.dine_in && (
-                  <TabsTrigger
-                    value="dine_in"
-                    className="h-9 px-3 text-[10px] md:text-sm font-bold bg-white text-bg-primary border border-bg-primary data-[state=active]:bg-bg-primary data-[state=active]:text-white transition-all duration-200 whitespace-nowrap"
-                  >
-                    {t("Dinein")}
-                  </TabsTrigger>
-                )}
-
-                {permissions.dine_in && (
-                  <button
-                    onClick={handleTables}
-                    className="h-9 px-3 text-[10px] md:text-sm font-bold bg-white text-bg-primary border border-bg-primary rounded-md hover:bg-bg-primary hover:text-white transition-all duration-200 whitespace-nowrap"
-                    title={t("Tables")}
-                  >
-                    {t("Tables")}
+              {/* More Dropdown */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button className="flex flex-col items-center justify-center min-w-[76px] h-[76px] rounded-2xl transition-all duration-300 border-2 bg-white text-gray-400 border-gray-100 hover:border-gray-300 hover:bg-gray-50 shadow-sm outline-none">
+                    <FaEllipsisH className="text-3xl mb-1" />
+                    <span className="text-[11px] font-extrabold tracking-tight text-gray-500">{t("More")}</span>
                   </button>
-                )}
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-56 bg-white shadow-xl border-gray-100 rounded-xl p-1">
+                  <DropdownMenuItem onClick={handleAllOrders} className="flex items-center gap-3 p-3 cursor-pointer hover:bg-gray-50 rounded-lg group">
+                    <div className="w-8 h-8 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-colors">
+                      <FaHistory size={14} />
+                    </div>
+                    <span className="font-bold text-gray-700">{t("AllOrders")}</span>
+                  </DropdownMenuItem>
 
-                {(permissions.delivery || permissions.dine_in) && (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <button className="h-9 px-3 text-[10px] md:text-sm font-bold bg-white text-bg-primary border border-bg-primary rounded-md hover:bg-bg-primary hover:text-white transition-all duration-200 whitespace-nowrap cursor-pointer outline-none">
-                        {t("Reports")}
-                      </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="center" className="w-48 bg-white">
+                  <DropdownMenuItem onClick={handleDueUsers} className="flex items-center gap-3 p-3 cursor-pointer hover:bg-gray-50 rounded-lg group">
+                    <div className="w-8 h-8 rounded-full bg-red-50 text-red-600 flex items-center justify-center group-hover:bg-red-600 group-hover:text-white transition-colors">
+                      <FaExclamationCircle size={14} />
+                    </div>
+                    <span className="font-bold text-gray-700">{t("Due")}</span>
+                  </DropdownMenuItem>
+
+                  {permissions.dine_in && (
+                    <DropdownMenuItem onClick={handleTables} className="flex items-center gap-3 p-3 cursor-pointer hover:bg-gray-50 rounded-lg group">
+                      <div className="w-8 h-8 rounded-full bg-orange-50 text-orange-600 flex items-center justify-center group-hover:bg-orange-600 group-hover:text-white transition-colors">
+                        <FaUtensils size={14} />
+                      </div>
+                      <span className="font-bold text-gray-700">{t("Tables")}</span>
+                    </DropdownMenuItem>
+                  )}
+
+                  {(permissions.delivery || permissions.dine_in) && (
+                    <>
+                      <DropdownMenuSeparator className="my-1 bg-gray-100" />
+                      <DropdownMenuLabel className="px-3 py-2 text-[10px] uppercase tracking-wider text-gray-400 font-bold">{t("Reports")}</DropdownMenuLabel>
                       {permissions.delivery && (
-                        <DropdownMenuItem onClick={handleDeliveryOrder} className="cursor-pointer py-2 px-3 text-xs font-bold text-gray-700">
+                        <DropdownMenuItem onClick={handleDeliveryOrder} className="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-red-50 text-gray-600 hover:text-bg-primary rounded-lg font-semibold">
                           {t("DeliveryOrder")}
                         </DropdownMenuItem>
                       )}
                       {permissions.dine_in && (
-                        <DropdownMenuItem onClick={handleDineInOrder} className="cursor-pointer py-2 px-3 text-xs font-bold text-gray-700">
+                        <DropdownMenuItem onClick={handleDineInOrder} className="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-red-50 text-gray-600 hover:text-bg-primary rounded-lg font-semibold">
                           {t("DineInOrder")}
                         </DropdownMenuItem>
                       )}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                )}
-              </TabsList>
-            </Tabs>
+                    </>
+                  )}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </div>
 
-          {/* Center Section: Logo */}
-          <div className="flex-shrink-0 px-4">
+          {/* Center Section: Logo (Perfectly Centered) */}
+          <div className="absolute left-[55%] top-1/2 -translate-x-1/2 -translate-y-1/2 z-10">
             <a
               href="https://Food2go.online"
               target="_blank"
@@ -467,20 +511,18 @@ export default function Navbar() {
               <img
                 src={logo}
                 alt="Food2go Logo"
-                className="h-10 md:h-12 w-auto object-contain cursor-pointer"
+                className="h-12 md:h-14 w-auto object-contain hover:scale-110 transition-transform duration-300 "
               />
             </a>
           </div>
 
           {/* Right Section: Actions */}
-          <div className="flex items-center justify-end gap-2 flex-1">
+          <div className="flex items-center justify-end gap-3 flex-1 py-1">
             {location.pathname !== "/shift" &&
               location.pathname !== "/cashier" && (
-                <div className="flex items-center text-xs md:text-sm font-medium text-gray-600 bg-gray-50 px-2 py-0.5 rounded-md border border-gray-100">
-                  <span className="text-gray-500 mr-1 hidden sm:inline">
-                    {t("shift")}:
-                  </span>
-                  <span className="text-gray-800 font-bold">
+                <div className="flex flex-col items-center justify-center min-w-[76px] h-[76px] rounded-2xl bg-gray-50 border-2 border-gray-100 text-gray-700 shadow-sm">
+                  <Clock className="w-6 h-6 mb-1 text-gray-400" />
+                  <span className="text-[11px] font-extrabold text-bg-primary">
                     {formatElapsedTime()}
                   </span>
                 </div>
@@ -491,43 +533,47 @@ export default function Navbar() {
               <div className="relative" ref={dropdownRef}>
                 <button
                   onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                  className="h-9 px-3 text-[10px] md:text-sm font-bold bg-white text-gray-600 border border-gray-300 rounded-md hover:bg-gray-100 transition-all duration-200 whitespace-nowrap flex items-center gap-1.5 cursor-pointer outline-none"
+                  className="relative flex flex-col items-center justify-center min-w-[76px] h-[76px] rounded-2xl bg-white border-2 border-gray-100 text-gray-500 hover:border-bg-primary/20 hover:bg-gray-50 shadow-sm transition-all duration-300 outline-none"
                 >
-                  <FaBell className="text-lg" />
+                  <FaBell className="text-3xl mb-1 transition-all duration-300" />
+                  <span className="text-[11px] font-extrabold text-gray-400 uppercase tracking-tighter">{t("New")}</span>
                   {notificationCount > 0 && (
-                    <span className="bg-red-500 text-white text-[10px] font-bold rounded-full px-1.5 min-w-[18px] h-[18px] flex items-center justify-center shadow-sm">
+                    <span className="absolute top-2 right-2 bg-red-500 text-white text-[10px] font-bold rounded-full px-1.5 min-w-[20px] h-[20px] flex items-center justify-center shadow-md animate-pulse">
                       {notificationCount > 99 ? "99+" : notificationCount}
                     </span>
                   )}
-                  <FaChevronDown className={`text-[10px] transition-transform duration-200 ${isDropdownOpen ? "rotate-180" : ""}`} />
+                  {isDropdownOpen && <div className="absolute inset-0 bg-bg-primary/5 pointer-events-none rounded-2xl" />}
                 </button>
 
                 {isDropdownOpen && (
-                  <div className={`absolute ${isArabic ? "left-0" : "right-0"} mt-2 w-72 bg-white rounded-xl shadow-2xl border border-gray-200 z-50 max-h-96 overflow-y-auto`}>
-                    <div className="p-4 border-b border-gray-200 bg-gray-50 rounded-t-xl">
-                      <h3 className="font-bold text-gray-800 text-lg">{t("New Orders")} ({notificationCount})</h3>
+                  <div className={`absolute ${isArabic ? "left-0" : "right-0"} mt-3 w-80 bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 max-h-96 overflow-y-auto`}>
+                    <div className="p-4 border-b border-gray-100 bg-gray-50 rounded-t-2xl">
+                      <h3 className="font-extrabold text-gray-800 text-lg">{t("New Orders")} ({notificationCount})</h3>
                     </div>
                     <div className="py-2">
                       {notifications.length > 0 ? (
                         <ul>
                           {notifications.map((orderId) => (
                             <li key={orderId}>
-                              <button onClick={() => handleOrderClick(orderId)} className="w-full px-4 py-3 hover:bg-gray-100 transition text-right flex items-center justify-between border-b border-gray-100 last:border-0 border-r-4 border-r-bg-primary">
+                              <button onClick={() => handleOrderClick(orderId)} className="w-full px-5 py-4 hover:bg-gray-50 transition text-right flex items-center justify-between border-b border-gray-50 last:border-0 border-r-4 border-r-bg-primary">
                                 <div>
-                                  <span className="font-semibold text-gray-800">Order #{orderId}</span>
-                                  <span className="block text-sm text-gray-500 mt-1">{t("New Order")}</span>
+                                  <span className="font-bold text-gray-800 text-base">Order #{orderId}</span>
+                                  <span className="block text-sm text-gray-400 mt-0.5">{t("New Order")}</span>
                                 </div>
-                                <span className="text-xs bg-red-100 text-red-600 px-2 py-1 rounded-full">{t("New")}</span>
+                                <span className="text-xs font-bold bg-red-100 text-red-600 px-3 py-1 rounded-full">{t("New")}</span>
                               </button>
                             </li>
                           ))}
                         </ul>
                       ) : (
-                        <p className="p-8 text-center text-gray-500">{t("No new orders")}</p>
+                        <div className="p-10 text-center">
+                          <FaBell className="text-4xl text-gray-200 mx-auto mb-3" />
+                          <p className="text-gray-400 font-bold">{t("No new orders")}</p>
+                        </div>
                       )}
                     </div>
-                    <div className="p-4 border-t border-gray-200 bg-gray-50 rounded-b-xl">
-                      <button onClick={() => { handleTabChange("online-order"); setIsDropdownOpen(false); }} className="w-full text-center text-bg-primary font-bold hover:underline">{t("View All Orders")}</button>
+                    <div className="p-4 border-t border-gray-100 bg-gray-50 rounded-b-2xl">
+                      <button onClick={() => { handleTabChange("online-order"); setIsDropdownOpen(false); }} className="w-full text-center text-bg-primary font-extrabold hover:underline">{t("View All Orders")}</button>
                     </div>
                   </div>
                 )}
@@ -537,80 +583,99 @@ export default function Navbar() {
             {/* Account Dropdown */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className="h-9 px-3 text-[10px] md:text-sm font-bold bg-white text-gray-600 border border-gray-300 rounded-md hover:bg-gray-100 transition-all duration-200 whitespace-nowrap flex items-center gap-1.5 cursor-pointer outline-none">
-                  <span>{userData.name || t("Account")}</span>
-                  <FaChevronDown className="text-[10px] text-gray-400" />
+                <button className="flex flex-col items-center justify-center min-w-[76px] h-[76px] rounded-2xl bg-white border-2 border-gray-100 text-gray-500 hover:border-bg-primary/20 hover:bg-gray-50 shadow-sm transition-all duration-300 outline-none">
+                  <User className="w-6 h-6 mb-1 text-gray-400" />
+                  <span className="text-[11px] font-extrabold text-gray-400 uppercase tracking-tighter truncate max-w-[65px]">{userData.name || t("User")}</span>
                 </button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align={isArabic ? "start" : "end"} className="w-56 mt-2 bg-white">
-                <DropdownMenuLabel className="font-bold text-gray-700">{userData.name || t("UserAccount")}</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => navigate("/profile")} className="flex items-center gap-2 cursor-pointer py-2 px-3 font-semibold"><User className="w-4 h-4 text-gray-500" /><span>{t("Profile")}</span></DropdownMenuItem>
-                <DropdownMenuItem onClick={toggleLanguage} className="flex items-center gap-2 cursor-pointer py-2 px-3 font-semibold"><Globe className="w-4 h-4 text-gray-500" /><span>{isArabic ? "English" : "العربية"}</span></DropdownMenuItem>
+              <DropdownMenuContent align={isArabic ? "start" : "end"} className="w-64 mt-3 bg-white shadow-2xl border-gray-100 rounded-2xl p-1">
+                <DropdownMenuLabel className="font-extrabold text-gray-800 px-4 py-3">{userData.name || t("UserAccount")}</DropdownMenuLabel>
+                <DropdownMenuSeparator className="bg-gray-100" />
+                <DropdownMenuItem onClick={() => navigate("/profile")} className="flex items-center gap-3 p-3 cursor-pointer hover:bg-gray-50 rounded-xl font-bold text-gray-700">
+                  <User className="w-5 h-5 text-gray-400" />
+                  <span>{t("Profile")}</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={toggleLanguage} className="flex items-center gap-3 p-3 cursor-pointer hover:bg-gray-50 rounded-xl font-bold text-gray-700">
+                  <Globe className="w-5 h-5 text-gray-400" />
+                  <span>{isArabic ? "English" : "العربية"}</span>
+                </DropdownMenuItem>
                 {location.pathname !== "/shift" && location.pathname !== "/cashier" && isShiftOpen && (
-                  <DropdownMenuItem onClick={handleCloseShift} disabled={loading || reportLoading} className="flex items-center gap-2 cursor-pointer py-2 px-3 text-red-600 focus:text-red-600 font-semibold"><Clock className="w-4 h-4" /><span>{t("closeshift")}</span></DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleCloseShift} disabled={loading || reportLoading} className="flex items-center gap-3 p-3 cursor-pointer hover:bg-red-50 text-red-600 focus:text-red-600 rounded-xl font-bold">
+                    <Clock className="w-5 h-5" />
+                    <span>{t("closeshift")}</span>
+                  </DropdownMenuItem>
                 )}
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleLogout} className="flex items-center gap-2 cursor-pointer py-2 px-3 text-red-800 focus:text-white focus:bg-red-800 font-semibold"><LogOut className="w-4 h-4" /><span>{t("logout")}</span></DropdownMenuItem>
+                <DropdownMenuSeparator className="bg-gray-100" />
+                <DropdownMenuItem onClick={handleLogout} className="flex items-center gap-3 p-3 cursor-pointer hover:bg-red-600 hover:text-white focus:bg-red-600 focus:text-white rounded-xl font-bold text-red-800">
+                  <LogOut className="w-5 h-5" />
+                  <span>{t("logout")}</span>
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
-        </div>
-      </div>
+        </div >
+      </div >
 
       {showExpensesModal && (
         <ExpensesModal onClose={() => setShowExpensesModal(false)} />
-      )}
-      {showPasswordModal && (
-        <PasswordConfirmModal
-          onConfirm={handlePasswordConfirmed}
-          onCancel={handleFinalClose}
-          loading={reportLoading}
-        />
-      )}
-      {showCashInputModal && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 backdrop-blur-sm">
-          <div className="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md border border-gray-100">
-            <div className="text-center mb-6">
-              <h3 className="text-2xl font-bold text-gray-800">إغلاق الوردية</h3>
-              <p className="text-gray-500 mt-2">كم المبلغ الموجود في العهدة الآن؟</p>
-            </div>
-            <div className="relative">
-              <input
-                type="number"
-                className="w-full p-4 bg-gray-50 border-2 border-gray-200 rounded-xl focus:border-bg-primary outline-none text-center text-3xl font-bold text-gray-700 transition-all"
-                placeholder="0.00"
-                value={cashAmount}
-                onChange={(e) => setCashAmount(e.target.value)}
-                autoFocus
-              />
-              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 text-lg">EGP</span>
-            </div>
-            <div className="flex gap-4 mt-8">
-              <button
-                onClick={() => { setShowCashInputModal(false); setCashAmount(""); }}
-                className="flex-1 py-3 text-gray-600 font-semibold hover:bg-gray-100 rounded-xl transition"
-              >
-                إلغاء
-              </button>
-              <button
-                onClick={handleCashConfirmed}
-                disabled={!cashAmount || reportLoading}
-                className="flex-1 py-3 bg-bg-primary text-white font-semibold rounded-xl shadow-lg hover:bg-red-700 transition disabled:opacity-50"
-              >
-                {reportLoading ? "جاري التحميل..." : "تأكيد وإرسال"}
-              </button>
+      )
+      }
+      {
+        showPasswordModal && (
+          <PasswordConfirmModal
+            onConfirm={handlePasswordConfirmed}
+            onCancel={handleFinalClose}
+            loading={reportLoading}
+          />
+        )
+      }
+      {
+        showCashInputModal && (
+          <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 backdrop-blur-sm">
+            <div className="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md border border-gray-100">
+              <div className="text-center mb-6">
+                <h3 className="text-2xl font-bold text-gray-800">إغلاق الوردية</h3>
+                <p className="text-gray-500 mt-2">كم المبلغ الموجود في العهدة الآن؟</p>
+              </div>
+              <div className="relative">
+                <input
+                  type="number"
+                  className="w-full p-4 bg-gray-50 border-2 border-gray-200 rounded-xl focus:border-bg-primary outline-none text-center text-3xl font-bold text-gray-700 transition-all"
+                  placeholder="0.00"
+                  value={cashAmount}
+                  onChange={(e) => setCashAmount(e.target.value)}
+                  autoFocus
+                />
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 text-lg">EGP</span>
+              </div>
+              <div className="flex gap-4 mt-8">
+                <button
+                  onClick={() => { setShowCashInputModal(false); setCashAmount(""); }}
+                  className="flex-1 py-3 text-gray-600 font-semibold hover:bg-gray-100 rounded-xl transition"
+                >
+                  إلغاء
+                </button>
+                <button
+                  onClick={handleCashConfirmed}
+                  disabled={!cashAmount || reportLoading}
+                  className="flex-1 py-3 bg-bg-primary text-white font-semibold rounded-xl shadow-lg hover:bg-red-700 transition disabled:opacity-50"
+                >
+                  {reportLoading ? "جاري التحميل..." : "تأكيد وإرسال"}
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
-      {showReportModal && (
-        <EndShiftReportModal
-          reportData={endShiftReport}
-          onClose={() => setShowReportModal(false)}
-          onConfirmClose={handleFinalClose}
-        />
-      )}
+        )
+      }
+      {
+        showReportModal && (
+          <EndShiftReportModal
+            reportData={endShiftReport}
+            onClose={() => setShowReportModal(false)}
+            onConfirmClose={handleFinalClose}
+          />
+        )
+      }
     </>
   );
 }

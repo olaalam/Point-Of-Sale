@@ -208,6 +208,20 @@ const formatCashierReceipt = (receiptData) => {
         /* بيانات العميل */
         .cust-info { font-size: 12px; font-weight: bold; line-height: 1.4; padding: 5px; border: 1px dotted #000; margin-bottom: 5px; }
 
+        /* Cancelled Branding */
+        .cancelled-banner {
+            background-color: #d00;
+            color: #fff;
+            text-align: center;
+            font-size: 30px;
+            font-weight: 900;
+            padding: 10px 0;
+            margin: 10px 0;
+            transform: scale(1.05);
+            border: 4px double #fff;
+            outline: 4px solid #d00;
+        }
+
       </style>
     </head>
     <body>
@@ -235,6 +249,10 @@ const formatCashierReceipt = (receiptData) => {
 </div>
 
         <div class="order-badge">${orderTypeLabel}</div>
+        ${receiptData.isCancelled
+      ? `<div class="cancelled-banner">${isArabic ? "ملغي" : "CANCELLED"}</div>`
+      : ""
+    }
         ${tableLabel ? `<div class="table-info">${tableLabel}</div>` : ""}
 ${moduleLine}
 <table class="meta-grid">
@@ -316,6 +334,13 @@ ${moduleLine}
       }
             </div>
             `
+      : ""
+    }
+            ${receiptData.orderNote
+      ? `<div class="order-note-box">
+                 ${isArabic ? " ملاحظة الطلب:" : " Order Note:"} ${receiptData.orderNote
+      }
+               </div>`
       : ""
     }
 
@@ -527,7 +552,7 @@ ${poweredByLine}
 // ===================================================================
 // 10. تصميم إيصال بسيط لنسخة العميل (Take Away فقط) - مشابه لديزاين المطبخ
 // ===================================================================
-const formatSimpleCustomerCopy = (receiptData) => {
+const formatCustomerNumberReceipt = (receiptData) => {
   const isArabic = localStorage.getItem("language") === "ar";
   const restaurantLogo = sessionStorage.getItem("resturant_logo") || "";
 
@@ -711,6 +736,17 @@ const formatKitchenReceipt = (receiptData, productsList = []) => {
           body, html { width: 100%; margin: 0; padding: 0; font-family: 'Tahoma', sans-serif; direction: ${isArabic ? "rtl" : "ltr"
     }; }
           .header-box { border: 3px solid #000; display: flex; margin-bottom: 10px; min-height: 140px; }
+          .cancelled-banner {
+            background-color: #d00;
+            color: #fff;
+            text-align: center;
+            font-size: 32px;
+            font-weight: 900;
+            padding: 10px 0;
+            margin-bottom: 10px;
+            border: 4px double #fff;
+            outline: 4px solid #d00;
+          }
           .box-left { width: 60%; border-${isArabic ? "left" : "right"
     }: 3px solid #000; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 5px; }
           .box-right { width: 40%; display: flex; flex-direction: column; justify-content: space-between; }
@@ -764,10 +800,14 @@ const formatKitchenReceipt = (receiptData, productsList = []) => {
             <div class="row-label">${isArabic ? "إجمالي الأصناف" : "Total Items"}: ${totalItems}</div>
           </div>
         </div>
+        ${receiptData.isCancelled
+      ? `<div class="cancelled-banner">${isArabic ? "ملغي" : "CANCELLED"}</div>`
+      : ""
+    }
   
         ${receiptData.orderNote
       ? `<div class="order-note-box">
-                 ${isArabic ? "📌 ملاحظة الطلب:" : "📌 Order Note:"} ${receiptData.orderNote
+                 ${isArabic ? " ملاحظة الطلب:" : " Order Note:"} ${receiptData.orderNote
       }
                </div>`
       : ""
@@ -1054,6 +1094,7 @@ export const prepareReceiptData = (
     table: sessionStorage.getItem("table_number") || "N/A",
     orderType: finalOrderType,
     financials: response?.financials || [],
+    orderNote: response?.order_note || "", // ✅ إضافة ملاحظة الأوردر على مستوى الـ receiptData
     items: itemsSource.map((item) => ({
       qty: item.count,
       name: item.name,
@@ -1062,7 +1103,6 @@ export const prepareReceiptData = (
       price: Number(item.price || item.final_price || 0),
       total: Number(item.total || (Number(item.price || item.final_price || 0) * Number(item.count || item.qty || 1))),
       notes: item.notes || "",
-      orderNote: response?.order_note || "", // ✅ إضافة ملاحظة الأوردر
 
       category_id: item.category_id || item.product?.category_id,
       id: item.id || item.product_id, // Important for kitchen mapping
@@ -1093,18 +1133,16 @@ export const prepareReceiptData = (
     moduleOrderNumber: sessionStorage.getItem("module_order_number") || null,
     restaurantPhone: sessionStorage.getItem("restaurant_phone") || "",
     receiptFooter: "شكراً لزيارتكم",
+    isCancelled: !!response?.isCancelled,
   };
 };
 
 // ===================================================================
-// 9. دالة الطباعة
+// 9. دالة طباعة المطبخ فقط (Case 2: Prepare & Pending)
 // ===================================================================
-export const printReceiptSilently = async (
-  receiptData,
-  apiResponse,
-  callback
-) => {
+export const printKitchenOnly = async (receiptData, apiResponse, callback) => {
   try {
+<<<<<<< HEAD
     // 1. التأكد أن البرنامج يعمل داخل Electron
     if (!window.electronAPI) {
       console.warn("Electron API not found. Printing via browser...");
@@ -1142,7 +1180,17 @@ export const printReceiptSilently = async (
     }
 
     // --- 2. جزء المطبخ ---
+=======
+    if (!qz.websocket.isActive()) {
+      toast.error("❌ QZ Tray is not connected.");
+      if (callback) callback();
+      return;
+    }
+
+    const printJobs = [];
+>>>>>>> 16cbc3090a5db05e2fda9f598ea5dc55fa12a78d
     const kitchens = apiResponse?.kitchen_items || [];
+
     for (const kitchen of kitchens) {
       if (
         !kitchen.print_name ||
@@ -1151,7 +1199,11 @@ export const printReceiptSilently = async (
       )
         continue;
 
+<<<<<<< HEAD
       // (نفس منطق التجميع Grouping اللي عندك سيبيه زي ما هو لأنه بيجهز البيانات بس)
+=======
+      // === التجميع حسب id + notes + selected variation options + addons + extras + excludes ===
+>>>>>>> 16cbc3090a5db05e2fda9f598ea5dc55fa12a78d
       const grouped = new Map();
       const getModifierKey = (item) => {
         const stringifySimple = (arr) => {
@@ -1163,6 +1215,10 @@ export const printReceiptSilently = async (
         const addons = stringifySimple(item.addons_selected || item.addons || []);
         const extras = stringifySimple(item.extras || []);
         const excludes = stringifySimple(item.excludes || []);
+<<<<<<< HEAD
+=======
+
+>>>>>>> 16cbc3090a5db05e2fda9f598ea5dc55fa12a78d
         const variationOptions = (item.variation_selected || item.variations || [])
           .flatMap((group) => {
             if (!group || !Array.isArray(group.options)) return [];
@@ -1177,7 +1233,14 @@ export const printReceiptSilently = async (
         const baseKey = `${item.id || item.product_id || "unknown"}|${item.notes || "no-notes"}`;
         const fullKey = `${baseKey}|${modifierKey}`;
         if (!grouped.has(fullKey)) {
+<<<<<<< HEAD
           grouped.set(fullKey, { ...item, qty: 0 });
+=======
+          grouped.set(fullKey, {
+            ...item,
+            qty: 0,
+          });
+>>>>>>> 16cbc3090a5db05e2fda9f598ea5dc55fa12a78d
         }
         const entry = grouped.get(fullKey);
         entry.qty += Number(item.count || item.qty || 1);
@@ -1201,6 +1264,7 @@ export const printReceiptSilently = async (
         ...receiptData,
         items: kitchenItems,
         orderCount: kitchen.order_count ?? kitchenItems.reduce((sum, item) => sum + item.qty, 0),
+        orderNote: apiResponse?.order_note || receiptData.orderNote || "",
       };
 
       const kitchenHtml = getReceiptHTML(kitchenReceiptData, {
@@ -1221,7 +1285,102 @@ export const printReceiptSilently = async (
       toast.success("✅ تم إرسال الأوامر للطابعة");
     }
 
+<<<<<<< HEAD
+=======
+    if (printJobs.length > 0) {
+      await Promise.all(printJobs);
+      toast.success("✅ تم طباعة إيصالات المطبخ");
+    }
+
+    if (callback) callback();
+  } catch (err) {
+    console.error("❌ Kitchen Print Error:", err);
+    toast.error("❌ فشل طباعة المطبخ");
+    if (callback) callback();
+  }
+};
+
+// ===================================================================
+// 10. دالة الطباعة الرئيسية
+// ===================================================================
+export const printReceiptSilently = async (receiptData, apiResponse, callback, options = {}) => {
+  const { shouldSkipKitchenPrint = false } = options;
+  try {
+    if (!qz.websocket.isActive()) {
+      toast.error("❌ QZ Tray is not connected.");
+      return;
+    }
+
+    const printJobs = [];
+    const orderType = (receiptData.orderType || "").toLowerCase();
+
+    // ============================================================
+    // 1. منطق طباعة الكاشير (الريسيت الكبير) - ده اللي فيه الـ Switch
+    // ============================================================
+    try {
+      const cashierPrinterName = await qz.printers.getDefault();
+      const cashierConfig = qz.configs.create(cashierPrinterName);
+      const cashierHtml = getReceiptHTML(receiptData, { design: "full", type: "cashier" });
+
+      // أ - طباعة النسخة الأولى (أساسية دائماً)
+      printJobs.push(qz.print(cashierConfig, [{ type: "html", format: "plain", data: cashierHtml }]));
+
+      // ب - التحقق هل يطبع نسخة "كاشير" تانية كبيرة؟
+      let shouldPrintDouble = false;
+      if (orderType === "dine_in") {
+        shouldPrintDouble = localStorage.getItem("printDoubleDineIn") === "true";
+      } else if (orderType.includes("take")) {
+        shouldPrintDouble = localStorage.getItem("printDoubleTakeAway") === "true";
+      } else if (orderType === "delivery") {
+        shouldPrintDouble = localStorage.getItem("printDoubleDelivery") === "true";
+      }
+
+      if (shouldPrintDouble) {
+        // بنضيف نسخة كاشير تانية فقط
+        printJobs.push(qz.print(cashierConfig, [{ type: "html", format: "plain", data: cashierHtml }]));
+      }
+
+      // ج - ريسيت الرقم الصغير (للتيك أواي فقط)
+      if (orderType.includes("take") && localStorage.getItem("printSmallTakeAway") !== "false") {
+        const smallHtml = formatCustomerNumberReceipt(receiptData); // الدالة اللي عملناها للرقم الصغير
+        printJobs.push(qz.print(cashierConfig, [{ type: "html", format: "plain", data: smallHtml }]));
+      }
+
+    } catch (err) {
+      console.error("Cashier Print Error:", err);
+    }
+
+    // ============================================================
+    // 2. منطق طباعة المطبخ - (يطبع مرة واحدة فقط دائماً)
+    // ============================================================
+    if (!shouldSkipKitchenPrint) {
+      const kitchens = apiResponse?.kitchen_items || [];
+
+      // بنمشي على كل طابعة مطبخ ونطبع الأوردر بتاعها "مرة واحدة" بس
+      for (const kitchen of kitchens) {
+        if (!kitchen.print_name || kitchen.print_status !== 1 || !kitchen.order?.length) continue;
+
+        // تجهيز بيانات المطبخ (نفس الكود بتاع التجميع اللي عندك)
+        const kitchenReceiptData = {
+          ...receiptData,
+          items: formatKitchenItems(kitchen.order, receiptData), // دالة مساعدة لتجهيز الأصناف
+          orderNote: apiResponse?.order_note || receiptData.orderNote || "",
+        };
+
+        const kitchenHtml = getReceiptHTML(kitchenReceiptData, { design: "kitchen", type: "kitchen" });
+        const kitchenConfig = qz.configs.create(kitchen.print_name);
+
+        // إضافة أمر طباعة واحد فقط للمطبخ
+        printJobs.push(qz.print(kitchenConfig, [{ type: "html", format: "plain", data: kitchenHtml }]));
+      }
+    }
+
+    // تنفيذ كل أوامر الطباعة مع بعض
+    await Promise.all(printJobs);
+    toast.success("✅ تم إرسال الأوامر للطابعة");
+>>>>>>> 16cbc3090a5db05e2fda9f598ea5dc55fa12a78d
     callback();
+
   } catch (err) {
     console.error("Print Error:", err);
     toast.error("❌ فشل الطباعة");
@@ -1239,3 +1398,12 @@ export const updatePrinterConfig = (key, updates) => {
   if (PRINTER_CONFIG[key])
     PRINTER_CONFIG[key] = { ...PRINTER_CONFIG[key], ...updates };
 };
+const formatKitchenItems = (kitchenOrder, fullReceiptData) => {
+  // هنا بنحول الداتا لشكل بسيط يفهمه ريسيت المطبخ
+  return kitchenOrder.map(item => ({
+    name: item.name || item.product_name || "صنف غير معروف",
+    quantity: item.count || 1,
+    note: item.note || "",
+    options: item.options || [] // لو فيه إضافات زي "بدون بصل" مثلاً
+  }));
+};  

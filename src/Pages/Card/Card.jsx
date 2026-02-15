@@ -72,6 +72,8 @@ export default function Card({
     useState(false);
   const [clearAllManagerId, setClearAllManagerId] = useState("");
   const [clearAllManagerPassword, setClearAllManagerPassword] = useState("");
+  const [showSavePendingModal, setShowSavePendingModal] = useState(false); // New state for Pending Modal
+
   const { data: serviceFeeData } =
     useServiceFee();
   // Custom Hooks
@@ -91,6 +93,8 @@ export default function Card({
   const dealManagement = useDealManagement(orderItems, updateOrderItems, t);
   const orderActions = useOrderActions({
     orderItems,
+    notes,
+    setNotes,
     updateOrderItems,
     tableId,
     orderType,
@@ -278,18 +282,58 @@ export default function Card({
     printWindow.close();
   };
 
+  const handleTransferToDineIn = () => {
+    if (orderItems.length === 0) {
+      toast.warning(t("Noitemstotransfer"));
+      return;
+    }
+
+    // Calculate total discount from items
+    const totalItemDiscount = orderItems.reduce((sum, item) => {
+      const qty = (item.weight_status === 1 || item.weight_status === "1")
+        ? (item.quantity || item.count || 1)
+        : (item.count || 1);
+      return sum + (Number(item.discount_val || 0) * qty);
+    }, 0);
+
+    // Save current takeaway items to sessionStorage for the transfer
+    sessionStorage.setItem("transfer_takeaway_order", JSON.stringify({
+      orderItems,
+      amount: calculations.amountToPay,
+      totalTax: calculations.totalTax,
+      totalDiscount: totalItemDiscount.toFixed(2),
+      notes: notes,
+    }));
+    sessionStorage.setItem("transfer_takeaway_to_dine_in", "true");
+
+    navigate("/tables");
+  };
+
 
   return (
     <div
       ref={printRef}
-      className={`flex flex-col h-full ${isArabic ? "text-right direction-rtl" : "text-left direction-ltr"
-        }`}
+      className={`flex flex-col h-full 
+    /* خلفية بيضاء نقية مع ملمس ناعم */
+    bg-white 
+    /* ظل "عائم" احترافي يعطي عمقاً حقيقياً للكارت */
+    shadow-xl
+    /* حواف دائرية انسيابية جداً (Super Ellipse) */
+    rounded-[1rem] 
+    /* حدود خفيفة جداً تكاد لا تُرى لتحديد الأبعاد */
+    border border-red-200 border-[2px]
+    /* لضمان عدم خروج المحتوى عن انسيابية الزوايا */
+    overflow-hidden 
+    p-4
+    /* موازنة المسافات */
+    relative
+    ${isArabic ? "text-right" : "text-left"}`}
       dir={isArabic ? "rtl" : "ltr"}
     >
       <DineInformation onClose={onClose} />
       {/* Header Section */}
       <CardHeader
-        onSaveAsPending={() => orderActions.handleSaveAsPending(calculations.amountToPay, calculations.totalTax)}
+        onSaveAsPending={() => setShowSavePendingModal(true)}
         orderType={orderType}
         orderItems={orderItems}
         handleClearAllItems={handleClearAllItems}
@@ -304,6 +348,7 @@ export default function Card({
         handleViewPendingOrders={() => navigate("/pending-orders")}
         onShowOfferModal={() => offerManagement.setShowOfferModal(true)}
         onShowDealModal={() => dealManagement.setShowDealModal(true)}
+        onTransferToDineIn={handleTransferToDineIn}
         isLoading={apiLoading}
         t={t}
       />
@@ -346,6 +391,7 @@ export default function Card({
 
         <OrderTable
           orderItems={orderItems}
+          handleClearAllItems={handleClearAllItems}
           orderType={orderType}
           selectedItems={selectedItems}
           selectedPaymentItems={selectedPaymentItems}
@@ -448,6 +494,41 @@ export default function Card({
       />
 
       {/* Modals */}
+      <Dialog open={showSavePendingModal} onOpenChange={setShowSavePendingModal}>
+        <DialogContent className="max-w-md bg-white p-6 rounded-lg">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold text-gray-800 mb-2">{t("SaveasPending")}</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-6 mt-2">
+            <p className="text-gray-600 text-lg">{t("IsThisOrderPrepared")}</p>
+            <div className="flex flex-col gap-3">
+              <button
+                onClick={() => {
+                  setShowSavePendingModal(false);
+                  // Case 2: Prepare & Pending - Kitchen prints now, Cashier+Order at checkout
+                  sessionStorage.setItem("pending_order_info", JSON.stringify({ prepare: "1", pending: "1" }));
+                  orderActions.handleSaveAsPending(calculations.amountToPay, calculations.totalTax, "1", "1");
+                }}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white py-4 text-lg font-semibold shadow-md flex items-center justify-center gap-2 rounded-lg"
+              >
+                <span>✅</span> {t("Prepare & Pending")}
+              </button>
+              <button
+                onClick={() => {
+                  setShowSavePendingModal(false);
+                  // Case 1: Pending Only - All 3 receipts print at checkout
+                  sessionStorage.setItem("pending_order_info", JSON.stringify({ prepare: "0", pending: "1" }));
+                  orderActions.handleSaveAsPending(calculations.amountToPay, calculations.totalTax, "0", "1");
+                }}
+                className="w-full bg-gray-100 hover:bg-gray-200 text-gray-800 py-4 text-lg font-semibold border border-gray-300 shadow-sm rounded-lg"
+              >
+                {t("Pending Only")}
+              </button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <VoidItemModal
         open={showVoidModal}
         onOpenChange={setShowVoidModal}

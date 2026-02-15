@@ -10,6 +10,8 @@ export function useOrderActions({
   postData,
   navigate,
   t,
+  notes,
+  setNotes,
   setItemLoadingStates,
 }) {
   const handleIncrease = (itemTempId) => {
@@ -97,60 +99,60 @@ export function useOrderActions({
     }
   };
 
-// داخل useOrderActions.js
+  // داخل useOrderActions.js
 
-const confirmVoidItem = async (
-  voidItemId,
-  managerId, // يمكن أن يكون null
-  managerPassword, // يمكن أن يكون null
-  onSuccess
-) => {
-  const itemToVoid = orderItems.find((item) => item.temp_id === voidItemId);
-  
-  // التحقق: إذا لم يكن هناك cart_id لا يمكن الحذف من السيرفر
-  if (!itemToVoid?.cart_id || !tableId) {
-    toast.error(t("ItemNotFoundOrNotSynced"));
-    return;
-  }
+  const confirmVoidItem = async (
+    voidItemId,
+    managerId, // يمكن أن يكون null
+    managerPassword, // يمكن أن يكون null
+    onSuccess
+  ) => {
+    const itemToVoid = orderItems.find((item) => item.temp_id === voidItemId);
 
-  setItemLoadingStates((prev) => ({ ...prev, [voidItemId]: true }));
-
-  const formData = new FormData();
-  
-  // تحويل cart_id إلى مصفوفة وإضافتها
-  const cartIds = Array.isArray(itemToVoid.cart_id)
-    ? itemToVoid.cart_id
-    : typeof itemToVoid.cart_id === "string"
-    ? itemToVoid.cart_id.split(",").map((id) => id.trim())
-    : [itemToVoid.cart_id];
-
-  cartIds.forEach((id) => formData.append("cart_ids[]", id.toString()));
-  formData.append("table_id", tableId.toString());
-
-  // 🟢 إضافة بيانات المدير فقط إذا وجدت (في حال كان المنتج قيد التحضير)
-  if (managerId) formData.append("manager_id", managerId);
-  if (managerPassword) formData.append("manager_password", managerPassword);
-
-  try {
-    await postData("cashier/order_void", formData);
-
-    const updatedItems = orderItems.filter((item) => item.temp_id !== voidItemId);
-    updateOrderItems(updatedItems);
-
-    toast.success(t("Itemvoidedsuccessfully"));
-    if (onSuccess) onSuccess();
-  } catch (err) {
-    let errorMessage = t("FailedToVoidItem");
-    if (err.response?.status === 401 || err.response?.status === 403) {
-      errorMessage = t("InvalidManagerIDorPasswordAccessdenied");
+    // التحقق: إذا لم يكن هناك cart_id لا يمكن الحذف من السيرفر
+    if (!itemToVoid?.cart_id || !tableId) {
+      toast.error(t("ItemNotFoundOrNotSynced"));
+      return;
     }
-    toast.error(errorMessage);
-  } finally {
-    setItemLoadingStates((prev) => ({ ...prev, [voidItemId]: false }));
-  }
-};
 
-const applyBulkStatus = async (
+    setItemLoadingStates((prev) => ({ ...prev, [voidItemId]: true }));
+
+    const formData = new FormData();
+
+    // تحويل cart_id إلى مصفوفة وإضافتها
+    const cartIds = Array.isArray(itemToVoid.cart_id)
+      ? itemToVoid.cart_id
+      : typeof itemToVoid.cart_id === "string"
+        ? itemToVoid.cart_id.split(",").map((id) => id.trim())
+        : [itemToVoid.cart_id];
+
+    cartIds.forEach((id) => formData.append("cart_ids[]", id.toString()));
+    formData.append("table_id", tableId.toString());
+
+    // 🟢 إضافة بيانات المدير فقط إذا وجدت (في حال كان المنتج قيد التحضير)
+    if (managerId) formData.append("manager_id", managerId);
+    if (managerPassword) formData.append("manager_password", managerPassword);
+
+    try {
+      await postData("cashier/order_void", formData);
+
+      const updatedItems = orderItems.filter((item) => item.temp_id !== voidItemId);
+      updateOrderItems(updatedItems);
+
+      toast.success(t("Itemvoidedsuccessfully"));
+      if (onSuccess) onSuccess();
+    } catch (err) {
+      let errorMessage = t("FailedToVoidItem");
+      if (err.response?.status === 401 || err.response?.status === 403) {
+        errorMessage = t("InvalidManagerIDorPasswordAccessdenied");
+      }
+      toast.error(errorMessage);
+    } finally {
+      setItemLoadingStates((prev) => ({ ...prev, [voidItemId]: false }));
+    }
+  };
+
+  const applyBulkStatus = async (
     selectedItems,
     bulkStatus,
     setBulkStatus,
@@ -188,7 +190,7 @@ const applyBulkStatus = async (
       try {
         // ✅ تعديل: استلام الرد من السيرفر
         apiResponse = await postData("cashier/preparing", formData);
-        
+
         toast.success(
           `Successfully updated ${itemsForApi.length} items to ${PREPARATION_STATUSES[bulkStatus].label}`
         );
@@ -204,7 +206,7 @@ const applyBulkStatus = async (
         ? { ...item, preparation_status: bulkStatus }
         : item
     );
-    
+
     updateOrderItems(updatedItems);
     setSelectedItems([]);
     setBulkStatus("");
@@ -213,94 +215,132 @@ const applyBulkStatus = async (
     return apiResponse;
   };
 
-const handleTransferOrder = (selectedTempIds = []) => {
-  // 1. التحقق من وجود عناصر مختارة
-  if (selectedTempIds.length === 0) {
-    toast.warning(t("Pleaseselectitemstotransfer"));
-    return;
-  }
+  const handleTransferOrder = (selectedTempIds = []) => {
+    // 1. التحقق من وجود عناصر مختارة
+    if (selectedTempIds.length === 0) {
+      toast.warning(t("Pleaseselectitemstotransfer"));
+      return;
+    }
 
-  // 2. تجميع الـ cart_ids
-  const selectedCartIds = orderItems
-    .filter((item) => selectedTempIds.includes(item.temp_id))
-    .flatMap((item) => {
-      if (Array.isArray(item.cart_id)) return item.cart_id;
-      if (typeof item.cart_id === "string")
-        return item.cart_id.split(",").map((id) => id.trim());
-      if (item.cart_id) return [item.cart_id.toString()];
-      return [];
-    })
-    .filter(Boolean);
+    // 2. تجميع الـ cart_ids
+    const selectedCartIds = orderItems
+      .filter((item) => selectedTempIds.includes(item.temp_id))
+      .flatMap((item) => {
+        if (Array.isArray(item.cart_id)) return item.cart_id;
+        if (typeof item.cart_id === "string")
+          return item.cart_id.split(",").map((id) => id.trim());
+        if (item.cart_id) return [item.cart_id.toString()];
+        return [];
+      })
+      .filter(Boolean);
 
-  if (selectedCartIds.length === 0) {
-    toast.error(t("NovalidcartIDsfoundforselecteditems"));
-    return;
-  }
+    if (selectedCartIds.length === 0) {
+      toast.error(t("NovalidcartIDsfoundforselecteditems"));
+      return;
+    }
 
-  if (!tableId) {
-    toast.error(t("CannottransferorderTableIDismissing"));
-    return;
-  }
+    if (!tableId) {
+      toast.error(t("CannottransferorderTableIDismissing"));
+      return;
+    }
 
-  // المنطق الفعلي للنقل يتم هنا بعد التأكيد
-  sessionStorage.setItem("transfer_cart_ids", JSON.stringify(selectedCartIds));
-  sessionStorage.setItem("transfer_source_table_id", tableId.toString());
-  sessionStorage.setItem("transfer_pending", "true");
+    // المنطق الفعلي للنقل يتم هنا بعد التأكيد
+    sessionStorage.setItem("transfer_cart_ids", JSON.stringify(selectedCartIds));
+    sessionStorage.setItem("transfer_source_table_id", tableId.toString());
+    sessionStorage.setItem("transfer_pending", "true");
 
-  toast.info(t("Pleaseselectanewtabletotransfertheselecteditems"));
+    toast.info(t("Pleaseselectanewtabletotransfertheselecteditems"));
 
-  navigate("/", {
-    state: {
-      initiateTransfer: true,
-      sourceTableId: tableId,
-      cartIds: selectedCartIds,
-      timestamp: Date.now(),
-    },
-    replace: false,
-  });
-};
-const handleSaveAsPending = async (amountToPay, totalTax) => {
-  if (orderItems.length === 0) {
-    toast.warning(t("Noitemstosaveaspending"));
-    return;
-  }
-
-  // ✅ استخدام المعالج (Processor) الخاص بك لتحويل المنتجات
-  // هذا المعالج يضمن تحويل المصفوفات (extra_id, variation) إلى نصوص/أرقام فقط
-  const productsToSend = orderItems.map(processProductItem);
-
-  const payload = {
-    amount: amountToPay.toString(),
-    total_tax: totalTax.toString(),
-    total_discount: "0",
-    notes: "Customer requested no plastic bag.",
-    source: "web",
-    financials: [],
-    order_pending: 1, // لإخباره أنه طلب معلق
-    cashier_id: sessionStorage.getItem("cashier_id") || "4",
-    products: productsToSend,
-  };
-
-  // كونسول للتأكد قبل الإرسال أن المصفوفات ليست Objects
-  console.log("📦 Sending Pending Payload:", payload);
-
-  try {
-    await postData("cashier/take_away_order", payload, {
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${sessionStorage.getItem("access_token")}`,
+    navigate("/", {
+      state: {
+        initiateTransfer: true,
+        sourceTableId: tableId,
+        cartIds: selectedCartIds,
+        timestamp: Date.now(),
       },
+      replace: false,
     });
+  };
+  const handleSaveAsPending = async (amountToPay, totalTax, prepareOrderValue = "0", orderPendingValue = "1") => {
+    if (orderItems.length === 0) {
+      toast.warning(t("Noitemstosaveaspending"));
+      return;
+    }
 
-    toast.success(t("Ordersavedaspending"));
-    updateOrderItems([]); // تفريغ السلة
-    sessionStorage.removeItem("cart");
-    sessionStorage.removeItem("pending_order_info");
-  } catch (e) {
-    console.error("❌ Error Detail:", e.response?.data);
-    toast.error(e.response?.data?.message || t("Failedtosaveaspending"));
-  }
-};
+    // ✅ استخدام المعالج (Processor) الخاص بك لتحويل المنتجات
+    // هذا المعالج يضمن تحويل المصفوفات (extra_id, variation) إلى نصوص/أرقام فقط
+    const productsToSend = orderItems.map(processProductItem);
+
+    const payload = {
+      amount: amountToPay.toString(),
+      total_tax: totalTax.toString(),
+      total_discount: "0",
+      notes: notes || "",
+      source: "web",
+      financials: [],
+      due: "0", // ✅ Required field for order_pending=0
+      order_pending: orderPendingValue.toString(), // لإخباره أنه طلب معلق (أو لا)
+      prepare_order: prepareOrderValue.toString(),
+      cashier_id: sessionStorage.getItem("cashier_id") || "4",
+      products: productsToSend,
+    };
+
+    // كونسول للتأكد قبل الإرسال أن المصفوفات ليست Objects
+    console.log("📦 Sending Pending Payload:", payload);
+
+    try {
+      const response = await postData("cashier/take_away_order", payload, {
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${sessionStorage.getItem("access_token")}`,
+        },
+      });
+
+      console.log("✅ Save Pending Response:", response);
+
+      toast.success(t("Ordersavedaspending"));
+
+      // ✅ Case 2: Prepare & Pending → Print kitchen receipts immediately
+      if (prepareOrderValue === "1" && orderPendingValue === "1" && response) {
+        try {
+          // Import the required functions at the component level
+          const { printKitchenOnly, prepareReceiptData } = await import("@/Pages/utils/printReceipt");
+
+          // Get orderType from sessionStorage
+          const savedOrderType = sessionStorage.getItem("order_type") || "take_away";
+
+          const receiptData = prepareReceiptData(
+            orderItems,
+            amountToPay,
+            totalTax,
+            0, // totalDiscount
+            0, // appliedDiscount
+            {}, // discountData
+            savedOrderType,
+            amountToPay,
+            response.success,
+            response
+          );
+
+          printKitchenOnly(receiptData, response, () => {
+            console.log("✅ Kitchen receipts printed successfully");
+          });
+        } catch (printError) {
+          console.error("❌ Kitchen Print Error:", printError);
+          toast.warning("تم حفظ الطلب لكن فشلت طباعة المطبخ");
+        }
+      }
+
+      updateOrderItems([]); // تفريغ السلة
+      sessionStorage.removeItem("cart");
+      sessionStorage.removeItem("pending_order_info");
+    } catch (e) {
+      console.error("❌ Save Pending Error:", e);
+      console.error("❌ Error Response:", e.response);
+      console.error("❌ Error Data:", e.response?.data);
+      toast.error(e.response?.data?.errors || e.message || t("Failedtosaveaspending"));
+    }
+  };
 
   return {
     handleIncrease,

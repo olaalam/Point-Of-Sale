@@ -467,10 +467,34 @@ const CheckOut = ({
     const moduleId = sessionStorage.getItem("last_selected_group");
 
     let payload;
+    let shouldSkipKitchenPrint = false; // ✅ Declare outside to be accessible later
+
     if (hasDealItems) {
       payload = buildDealPayload(safeOrderItems, financialsPayload);
     } else {
       const finalDiscountIdToSend = selectedDiscountAmount > 0 ? finalSelectedDiscountId : selectedDiscountId;
+
+      // 🟢 Calculate Prepare/Pending Flags
+      const pendingOrderInfo = JSON.parse(sessionStorage.getItem("pending_order_info") || "{}");
+      console.log("🐛 CheckOut: pending_order_info:", pendingOrderInfo);
+
+      let finalOrderPending = "0"; // Payment always completes order
+      let finalPrepareOrder = "1"; // Default
+
+      // ✅ Case 2: Prepare & Pending → Kitchen already printed
+      if (pendingOrderInfo.prepare === "1" && pendingOrderInfo.pending === "1") {
+        finalPrepareOrder = "0";
+        shouldSkipKitchenPrint = true; // Kitchen was printed when saving
+      }
+      // ✅ Case 1: Pending Only → Normal flow
+      else {
+        finalPrepareOrder = "1";
+        shouldSkipKitchenPrint = false; // Print all receipts
+      }
+
+      console.log("🐛 CheckOut: finalPrepareOrder =", finalPrepareOrder);
+      console.log("🐛 CheckOut: shouldSkipKitchenPrint =", shouldSkipKitchenPrint);
+
       payload = buildOrderPayload({
         orderType,
         orderItems: itemsForPayload,
@@ -493,6 +517,8 @@ const CheckOut = ({
         service_fees,
         password: finalPassword || undefined,
         repeated,
+        order_pending: finalOrderPending,
+        prepare_order: finalPrepareOrder,
 
       });
     }
@@ -519,9 +545,10 @@ const CheckOut = ({
             response.success,
             response
           );
+          // ✅ Pass shouldSkipKitchenPrint to printing function
           printReceiptSilently(receiptData, response, () => {
             handleNavigation(response);
-          });
+          }, { shouldSkipKitchenPrint });
         } else {
           handleNavigation(response);
         }
@@ -576,7 +603,7 @@ const CheckOut = ({
             due,
             customer_id,
             dueModuleValue,
-            forcedPassword: forcedPassword || pendingFreeDiscountPassword,
+            forcedPassword: forcedPassword,
           });
 
           setShowRepeatModal(true);
@@ -596,6 +623,10 @@ const CheckOut = ({
     }
   };
 
+  // Ref to store submission flags (prepare/pending) when interrupted by modals (like Customer Selection)
+  // Reverted to simple ref or removed if not needed, but keeping for safety if reused differently.
+  const submissionFlagsRef = useRef({});
+
   const handleSelectCustomer = async (customer) => {
     if (requiredTotal > customer.can_debit) {
       toast.error(
@@ -607,7 +638,9 @@ const CheckOut = ({
     setSelectedCustomer(customer);
     setCustomerSelectionOpen(false);
 
-    await proceedWithOrderSubmission(1, customer.id);
+    // Use stored flags or defaults
+    const { orderPending, prepareOrder } = submissionFlagsRef.current;
+    await proceedWithOrderSubmission(1, customer.id, undefined, undefined, 0);
   };
 
   const handleSubmitOrder = async () => {
@@ -912,12 +945,11 @@ const CheckOut = ({
         </div>
       )}
 
-      {/* الزر النهائي - Pay Button */}
       <Button
         className={`w-full py-8 rounded-xl text-xl font-black uppercase tracking-widest transition-all ${loading ? 'bg-gray-300' : 'bg-[#800000] hover:bg-[#a00000] text-white shadow-xl active:scale-95'
           }`}
         disabled={loading}
-        onClick={() => { handleSubmitOrder(); }}
+        onClick={() => { handleSubmitOrder(); }} // Default behavior
       >
         {loading ? (
           <Loading />
