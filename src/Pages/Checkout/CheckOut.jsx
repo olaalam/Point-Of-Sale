@@ -13,7 +13,7 @@ import { usePost } from "@/Hooks/usePost";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import Loading from "@/components/Loading";
-
+import qz from "qz-tray";
 import CustomerSelectionModal from "./CustomerSelectionModal";
 import DeliveryAssignmentModal from "./DeliveryAssignmentModal";
 import {
@@ -79,7 +79,42 @@ const CheckOut = ({
   const { data: discountListData, loading: discountsLoading } = useGet(
     "captain/discount_list"
   );
+  // === QZ Tray Connection ===
+  useEffect(() => {
+    // 1. لو إحنا في الإلكترون، اخرج فوراً مش محتاجين QZ
+    if (window.electronAPI) return;
 
+    // 2. تأكدي إن مكتبة QZ موجودة (سواء عملتي لها import أو موجودة في الـ window)
+    const qzInstance = typeof qz !== "undefined" ? qz : null;
+
+    if (qzInstance && !qzInstance.websocket.isActive()) {
+      // إعدادات الشهادة
+      qzInstance.security.setCertificatePromise((resolve, reject) => {
+        fetch("/point-of-sale/digital-certificate.txt")
+          .then((response) => response.text())
+          .then(resolve)
+          .catch(reject);
+      });
+
+      qzInstance.security.setSignatureAlgorithm("SHA512");
+
+      // إعدادات التوقيع
+      qzInstance.security.setSignaturePromise((toSign) => {
+        return (resolve, reject) => {
+          // تأكدي إن الـ baseUrl متهيأة صح (تنتهي بـ /)
+          fetch(`${baseUrl}api/sign-qz-request?request=${toSign}`)
+            .then((res) => res.text())
+            .then(resolve)
+            .catch(reject);
+        };
+      });
+
+      // الاتصال
+      qzInstance.websocket.connect()
+        .then(() => console.log("✅ Connected to QZ Tray from Browser"))
+        .catch((err) => console.error("❌ QZ Connection error:", err));
+    }
+  }, [baseUrl, window.electronAPI]); // ضيفنا electronAPI في الـ dependencies للأمان
 
   const { data: deliveryData } = useGet("cashier/delivery_lists");
   const { postData } = usePost();
@@ -467,34 +502,10 @@ const CheckOut = ({
     const moduleId = sessionStorage.getItem("last_selected_group");
 
     let payload;
-    let shouldSkipKitchenPrint = false; // ✅ Declare outside to be accessible later
-
     if (hasDealItems) {
       payload = buildDealPayload(safeOrderItems, financialsPayload);
     } else {
       const finalDiscountIdToSend = selectedDiscountAmount > 0 ? finalSelectedDiscountId : selectedDiscountId;
-
-      // 🟢 Calculate Prepare/Pending Flags
-      const pendingOrderInfo = JSON.parse(sessionStorage.getItem("pending_order_info") || "{}");
-      console.log("🐛 CheckOut: pending_order_info:", pendingOrderInfo);
-
-      let finalOrderPending = "0"; // Payment always completes order
-      let finalPrepareOrder = "1"; // Default
-
-      // ✅ Case 2: Prepare & Pending → Kitchen already printed
-      if (pendingOrderInfo.prepare === "1" && pendingOrderInfo.pending === "1") {
-        finalPrepareOrder = "0";
-        shouldSkipKitchenPrint = true; // Kitchen was printed when saving
-      }
-      // ✅ Case 1: Pending Only → Normal flow
-      else {
-        finalPrepareOrder = "1";
-        shouldSkipKitchenPrint = false; // Print all receipts
-      }
-
-      console.log("🐛 CheckOut: finalPrepareOrder =", finalPrepareOrder);
-      console.log("🐛 CheckOut: shouldSkipKitchenPrint =", shouldSkipKitchenPrint);
-
       payload = buildOrderPayload({
         orderType,
         orderItems: itemsForPayload,
@@ -517,8 +528,6 @@ const CheckOut = ({
         service_fees,
         password: finalPassword || undefined,
         repeated,
-        order_pending: finalOrderPending,
-        prepare_order: finalPrepareOrder,
 
       });
     }
@@ -545,10 +554,9 @@ const CheckOut = ({
             response.success,
             response
           );
-          // ✅ Pass shouldSkipKitchenPrint to printing function
           printReceiptSilently(receiptData, response, () => {
             handleNavigation(response);
-          }, { shouldSkipKitchenPrint });
+          });
         } else {
           handleNavigation(response);
         }
@@ -603,7 +611,7 @@ const CheckOut = ({
             due,
             customer_id,
             dueModuleValue,
-            forcedPassword: forcedPassword,
+            forcedPassword: forcedPassword || pendingFreeDiscountPassword,
           });
 
           setShowRepeatModal(true);
@@ -623,10 +631,6 @@ const CheckOut = ({
     }
   };
 
-  // Ref to store submission flags (prepare/pending) when interrupted by modals (like Customer Selection)
-  // Reverted to simple ref or removed if not needed, but keeping for safety if reused differently.
-  const submissionFlagsRef = useRef({});
-
   const handleSelectCustomer = async (customer) => {
     if (requiredTotal > customer.can_debit) {
       toast.error(
@@ -638,9 +642,7 @@ const CheckOut = ({
     setSelectedCustomer(customer);
     setCustomerSelectionOpen(false);
 
-    // Use stored flags or defaults
-    const { orderPending, prepareOrder } = submissionFlagsRef.current;
-    await proceedWithOrderSubmission(1, customer.id, undefined, undefined, 0);
+    await proceedWithOrderSubmission(1, customer.id);
   };
 
   const handleSubmitOrder = async () => {
@@ -945,11 +947,12 @@ const CheckOut = ({
         </div>
       )}
 
+      {/* الزر النهائي - Pay Button */}
       <Button
         className={`w-full py-8 rounded-xl text-xl font-black uppercase tracking-widest transition-all ${loading ? 'bg-gray-300' : 'bg-[#800000] hover:bg-[#a00000] text-white shadow-xl active:scale-95'
           }`}
         disabled={loading}
-        onClick={() => { handleSubmitOrder(); }} // Default behavior
+        onClick={() => { handleSubmitOrder(); }}
       >
         {loading ? (
           <Loading />

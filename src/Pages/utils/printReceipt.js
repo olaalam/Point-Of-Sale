@@ -1,5 +1,5 @@
 import { toast } from "react-toastify";
-
+import qz from "qz-tray";
 // ===================================================================
 // 1. HashMap للطابعات
 // ===================================================================
@@ -18,6 +18,7 @@ const PRINTER_CONFIG = {
     categories: [126],
     kitchenId: 5,
     design: "kitchen",
+
   },
 };
 
