@@ -1,4 +1,3 @@
-import qz from "qz-tray";
 import { toast } from "react-toastify";
 
 // ===================================================================
@@ -1106,62 +1105,43 @@ export const printReceiptSilently = async (
   callback
 ) => {
   try {
-    if (!qz.websocket.isActive()) {
-      toast.error("❌ QZ Tray is not connected.");
+    // 1. التأكد أن البرنامج يعمل داخل Electron
+    if (!window.electronAPI) {
+      console.warn("Electron API not found. Printing via browser...");
+      // اختياري: يمكنك إضافة window.print() هنا كبديل للمتصفح العادي
       callback();
       return;
     }
 
-    const printJobs = [];
+    const allHtmlToPrint = [];
 
-    // 1. الكاشير
-    // 1. الكاشير - الإيصال الكامل
+    // --- 1. جزء الكاشير ---
     try {
-      const cashierPrinterName = await qz.printers.getDefault();
-      if (!cashierPrinterName) throw new Error("No default printer found.");
-
       const cashierHtml = getReceiptHTML(receiptData, {
         design: "full",
         type: "cashier",
       });
-      const cashierConfig = qz.configs.create(cashierPrinterName);
 
-      // طباعة إيصال الكاشير الأساسي (دائمًا مرة واحدة على الأقل)
-      printJobs.push(
-        qz.print(cashierConfig, [
-          { type: "html", format: "plain", data: cashierHtml },
-        ])
-      );
+      // طباعة إيصال الكاشير الأساسي
+      allHtmlToPrint.push(cashierHtml);
 
-      // ==== الجديد: طباعة إضافية حسب نوع الطلب ====
+      // طباعة إضافية حسب نوع الطلب
       const orderType = receiptData.orderType?.toLowerCase();
-
       if (orderType === "delivery") {
-        // Delivery → طباعة إيصال الكاشير مرة ثانية
-        printJobs.push(
-          qz.print(cashierConfig, [
-            { type: "html", format: "plain", data: cashierHtml },
-          ])
-        );
+        allHtmlToPrint.push(cashierHtml); // نسخة ثانية للدليفري
       } else if (orderType === "take_away" || orderType === "takeaway") {
         const shouldPrintDouble = localStorage.getItem("print_double_takeaway") === "true";
-        // Take Away → طباعة إيصال بسيط (نسخة العميل)
         if (shouldPrintDouble) {
           const simpleHtml = formatSimpleCustomerCopy(receiptData);
-          printJobs.push(
-            qz.print(cashierConfig, [
-              { type: "html", format: "plain", data: simpleHtml },
-            ])
-          );
+          allHtmlToPrint.push(simpleHtml);
         }
       }
-      // Dine In أو غيره → لا طباعة إضافية
     } catch (err) {
-      console.error(err);
-      toast.error("خطأ في طابعة الكاشير");
+      console.error("Error preparing cashier receipt:", err);
+      toast.error("خطأ في تجهيز فاتورة الكاشير");
     }
-    // 2. المطبخ
-    // 2. المطبخ - مع الحفاظ على كل التفاصيل (addons, extras, variations, excludes)
+
+    // --- 2. جزء المطبخ ---
     const kitchens = apiResponse?.kitchen_items || [];
     for (const kitchen of kitchens) {
       if (
@@ -1171,36 +1151,23 @@ export const printReceiptSilently = async (
       )
         continue;
 
-      console.log("Kitchen:", kitchen.name);
-      console.log("Raw kitchen.order:", kitchen.order);
-
-      // === التجميع حسب id + notes + selected variation options + addons + extras + excludes ===
+      // (نفس منطق التجميع Grouping اللي عندك سيبيه زي ما هو لأنه بيجهز البيانات بس)
       const grouped = new Map();
-
       const getModifierKey = (item) => {
-        // دالة بسيطة لـ addons/extras/excludes (arrays بسيطة أو objects)
         const stringifySimple = (arr) => {
           if (!Array.isArray(arr)) return "";
           return arr
             .map((o) => o.id || o.name || o.option || o.variation || String(o))
-            .filter(Boolean)
-            .sort()
-            .join(",");
+            .filter(Boolean).sort().join(",");
         };
-
         const addons = stringifySimple(item.addons_selected || item.addons || []);
         const extras = stringifySimple(item.extras || []);
         const excludes = stringifySimple(item.excludes || []);
-
-        // المهم هنا: نستخرج الـ selected options الداخلية فقط (اللي بتميز الvariation)
         const variationOptions = (item.variation_selected || item.variations || [])
           .flatMap((group) => {
             if (!group || !Array.isArray(group.options)) return [];
             return group.options.map((opt) => opt.id || opt.name || "");
-          })
-          .filter(Boolean)
-          .sort()
-          .join(",");
+          }).filter(Boolean).sort().join(",");
 
         return `${variationOptions}|${addons}|${extras}|${excludes}`;
       };
@@ -1209,23 +1176,15 @@ export const printReceiptSilently = async (
         const modifierKey = getModifierKey(item);
         const baseKey = `${item.id || item.product_id || "unknown"}|${item.notes || "no-notes"}`;
         const fullKey = `${baseKey}|${modifierKey}`;
-
         if (!grouped.has(fullKey)) {
-          grouped.set(fullKey, {
-            ...item,       // نحتفظ بكل الdata الأصلية (بما فيها variation_selected كامل)
-            qty: 0,
-          });
+          grouped.set(fullKey, { ...item, qty: 0 });
         }
-
         const entry = grouped.get(fullKey);
-        entry.qty += Number(item.count || item.qty || 1);  // أضفنا item.qty كـ fallback
+        entry.qty += Number(item.count || item.qty || 1);
       });
 
       const kitchenItems = Array.from(grouped.values()).map((group) => {
-        const original = receiptData.items.find(
-          (o) => o.id == group.id || o.id == group.product_id
-        );
-
+        const original = receiptData.items.find((o) => o.id == group.id || o.id == group.product_id);
         return {
           qty: group.qty,
           name: group.name || original?.name || "غير معروف",
@@ -1249,17 +1208,22 @@ export const printReceiptSilently = async (
         type: "kitchen",
       });
 
-      const config = qz.configs.create(kitchen.print_name);
-      printJobs.push(
-        qz.print(config, [{ type: "html", format: "plain", data: kitchenHtml }])
-      );
+      allHtmlToPrint.push(kitchenHtml);
     }
 
-    await Promise.all(printJobs);
-    toast.success("✅ تم الطباعة");
+    // --- 3. التنفيذ النهائي عبر Electron ---
+    if (allHtmlToPrint.length > 0) {
+      // بنبعت كل الـ HTMLs اللي اتجمعت في مصفوفة واحدة للـ Electron
+      // ملحوظة: يمكنك تعديل main.js لاستقبال مصفوفة أو إرسالهم واحدة تلو الأخرى
+      for (const html of allHtmlToPrint) {
+        window.electronAPI.sendPrintOrder(html);
+      }
+      toast.success("✅ تم إرسال الأوامر للطابعة");
+    }
+
     callback();
   } catch (err) {
-    console.error(err);
+    console.error("Print Error:", err);
     toast.error("❌ فشل الطباعة");
     callback();
   }

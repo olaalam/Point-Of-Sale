@@ -13,7 +13,7 @@ import { usePost } from "@/Hooks/usePost";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import Loading from "@/components/Loading";
-import qz from "qz-tray";
+
 import CustomerSelectionModal from "./CustomerSelectionModal";
 import DeliveryAssignmentModal from "./DeliveryAssignmentModal";
 import {
@@ -79,35 +79,7 @@ const CheckOut = ({
   const { data: discountListData, loading: discountsLoading } = useGet(
     "captain/discount_list"
   );
-  // === QZ Tray Connection ===
-  useEffect(() => {
-    // 1. Certificate
-    qz.security.setCertificatePromise((resolve, reject) => {
-      fetch("/point-of-sale/digital-certificate.txt")
-        .then((response) => response.text())
-        .then(resolve)
-        .catch(reject);
-    });
 
-    qz.security.setSignatureAlgorithm("SHA512");
-
-    // 2. Signature (The Fix)
-    qz.security.setSignaturePromise((toSign) => {
-      return (resolve, reject) => {
-        fetch(`${baseUrl}api/sign-qz-request?request=${toSign}`)
-          .then((res) => res.text())
-          .then(resolve)
-          .catch(reject);
-      };
-    });
-
-    // 3. Connect
-    if (!qz.websocket.isActive()) {
-      qz.websocket.connect()
-        .then(() => console.log("✅ Connected to QZ Tray"))
-        .catch((err) => console.error("❌ Connection error:", err));
-    }
-  }, [baseUrl]);
 
   const { data: deliveryData } = useGet("cashier/delivery_lists");
   const { postData } = usePost();
