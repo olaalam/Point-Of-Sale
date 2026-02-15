@@ -270,7 +270,10 @@ const CheckOut = ({
   const financialAccounts = useMemo(() => {
     try {
       const stored = sessionStorage.getItem("financial_account");
-      return stored ? JSON.parse(stored) : [];
+      if (!stored) return [];
+      const parsed = JSON.parse(stored);
+      // لو البيانات مصفوفة جوا مصفوفة [[...]] زي ما في الصورة، هنفكها
+      return Array.isArray(parsed) && Array.isArray(parsed[0]) ? parsed[0] : parsed;
     } catch (e) {
       console.error("Error parsing financial_account:", e);
       return [];
@@ -757,23 +760,11 @@ const CheckOut = ({
       {/* 🟢 Checkout Methods (يظهر عند الضغط على زر Checkout أو Pay) */}
       {requiredTotal > 0 && (
         <div className="border border-gray-300 rounded-lg overflow-hidden animate-in slide-in-from-top-2 duration-300">
-          <div className="bg-gray-100 p-3 font-bold text-sm text-center border-b">
-            {t("Checkout Methods")}
-          </div>
 
-          <div className="grid grid-cols-2 gap-0">
+          <div className="grid grid-cols-3 gap-2 p-2">
             {financialAccounts.map((acc, index) => {
-              const colorClasses = [
-                { bg: 'bg-green-600', text: 'text-green-600', hover: 'hover:bg-green-50' },   // أول واحد أخضر
-                { bg: 'bg-blue-600', text: 'text-blue-600', hover: 'hover:bg-blue-50' },      // ثاني أزرق
-                { bg: 'bg-orange-600', text: 'text-orange-600', hover: 'hover:bg-orange-50' }, // ثالث أورانج
-
-              ];
-
-              const color = colorClasses[index % colorClasses.length]; // لو أكتر من 5 هيعيد الدورة
-
               const isSelected = paymentSplits.length === 1 &&
-                String(paymentSplits[0]?.accountId) === String(acc.id) && // تحويل الطرفين لنص
+                String(paymentSplits[0]?.accountId) === String(acc.id) &&
                 !isDueOrder;
 
               return (
@@ -785,41 +776,64 @@ const CheckOut = ({
                     setSelectedCustomer(null);
                   }}
                   className={cn(
-                    "p-4 text-sm font-bold border-gray-200 transition-all",
-                    index % 2 === 0 ? 'border-r' : '',
-                    index < financialAccounts.length - 2 ? 'border-b' : '',
+                    "flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all gap-2 h-24",
                     isSelected
-                      ? "border-l-4 border-l-bg-primary bg-red-50 shadow-sm  text-red-700"               // لون الخلفية الكامل للـ selected
-                      : `bg-white ${color.text} ${color.hover}`        // لون النص + hover للـ non-selected
+                      ? "border-red-600 bg-red-50 text-red-700 shadow-md scale-105"
+                      : "border-gray-100 bg-white text-gray-700 hover:border-gray-200 hover:bg-gray-50"
                   )}
                 >
-                  {acc.name}
+                  <div className="w-10 h-10 flex items-center justify-center overflow-hidden">
+                    {acc.logo_link ? (
+                      <img src={acc.logo_link} alt={acc.name} className="w-full h-full object-contain" />
+                    ) : (
+                      <div className="w-full h-full bg-gray-100 rounded-full flex items-center justify-center text-[10px] text-gray-400">
+                        {acc.name?.charAt(0)}
+                      </div>
+                    )}
+                  </div>
+                  <span className="text-[10px] font-bold text-center leading-tight">
+                    {acc.name}
+                  </span>
                 </button>
               );
             })}
 
-            {/* Due - لون أورانج ثابت (كما في الصورة) */}
+            {/* Due - لون أورانج ثابت */}
             <button
               onClick={() => {
                 setIsDueOrder(true);
                 setCustomerSelectionOpen(true);
               }}
               className={cn(
-                "p-4 col-span-1 border-t text-sm font-black transition-all",
+                "flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all gap-2 h-24",
                 isDueOrder
-                  ? 'bg-orange-500 text-white'                       // selected: أورانج غامق
-                  : 'bg-white text-orange-600 hover:bg-orange-50'    // non-selected: نص أورانج + hover
+                  ? "border-orange-500 bg-orange-500 text-white shadow-md scale-105"
+                  : "border-gray-100 bg-white text-orange-600 hover:border-orange-200 hover:bg-orange-50"
               )}
             >
-              {t("Due")}
+              <div className="w-10 h-10 flex items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <span className="text-[10px] font-bold text-center">
+                {t("Due")}
+              </span>
             </button>
 
-            {/* Split - لون أزرق ثابت (كما في الصورة) */}
+            {/* Split - لون أزرق ثابت */}
             <button
               onClick={handleAddSplit}
-              className="p-4 col-span-2 border-t border-l text-sm font-black bg-white  hover:bg-blue-50 transition-all"
+              className="flex flex-col items-center justify-center p-3 rounded-xl border-2 border-gray-100 bg-white text-blue-600 hover:border-blue-200 hover:bg-blue-50 transition-all gap-2 h-24"
             >
-              {t("Split")}
+              <div className="w-10 h-10 flex items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+                </svg>
+              </div>
+              <span className="text-[10px] font-bold text-center">
+                {t("Split")}
+              </span>
             </button>
           </div>
         </div>
