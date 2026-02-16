@@ -1,9 +1,9 @@
 // hooks/useServiceFee.js
 import { useEffect } from "react";
-import { useGet } from "@/Hooks/useGet";   
+import { useGet } from "@/Hooks/useGet";
 
-export const useServiceFee = () => {
-  const { data, error, isLoading, ...rest } = useGet("cashier/service_fees");
+export const useServiceFee = (orderType) => {
+  const { data, error, isLoading, ...rest } = useGet(`cashier/service_fees?module=${orderType}`);
 
   useEffect(() => {
     // التأكد من أن البيانات وصلت بنجاح وتحتوي على الـ id

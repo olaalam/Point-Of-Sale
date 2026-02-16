@@ -75,7 +75,7 @@ export default function Card({
   const [showSavePendingModal, setShowSavePendingModal] = useState(false); // New state for Pending Modal
 
   const { data: serviceFeeData } =
-    useServiceFee();
+    useServiceFee(orderType);
   // Custom Hooks
   const calculations = useOrderCalculations(
     orderItems,
