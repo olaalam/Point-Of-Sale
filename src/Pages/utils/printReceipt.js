@@ -432,7 +432,10 @@ ${moduleLine}
           return getVariationsArray(item.variations)
             .flatMap((group) => {
               if (!group || !group.options) return [];
-              const optionText = group.options.join(", ");
+              // ✅ Fix: options can be an array of strings OR an array of objects
+              const optionText = group.options
+                .map((opt) => (typeof opt === "object" ? opt.name : opt))
+                .join(", ");
               return [`• ${optionText}`];
             })
             .map((text) => `<div class="addon-row">${text}</div>`)
@@ -1096,24 +1099,48 @@ export const prepareReceiptData = (
     orderType: finalOrderType,
     financials: response?.financials || [],
     orderNote: response?.order_note || "", // ✅ إضافة ملاحظة الأوردر على مستوى الـ receiptData
-    items: itemsSource.map((item) => ({
-      qty: item.count,
-      name: item.name,
-      nameAr: item.name_ar || item.nameAr,
-      nameEn: item.name_en || item.nameEn,
-      price: Number(item.price || item.final_price || 0),
-      total: Number(item.total || (Number(item.price || item.final_price || 0) * Number(item.count || item.qty || 1))),
-      notes: item.notes || "",
+    items: itemsSource.map((item) => {
+      // ✅ Robust extraction logic
+      const productObj = item.product || {};
+      const qty = Number(item.count || item.qty || productObj.count || 1);
+      const name = item.name || productObj.name || "صنف غير معروف";
+      const nameAr = item.name_ar || item.nameAr || productObj.name_ar || name;
+      const nameEn = item.name_en || item.nameEn || productObj.name_en || name;
 
-      category_id: item.category_id || item.product?.category_id,
-      id: item.id || item.product_id, // Important for kitchen mapping
-      // === الجديد هنا ===
-      addons: item.addons || [],
-      extras: item.extras || [], // زي Medium Crab
-      excludes: item.excludes || [],
-      variations: item.variations || [], // زي الحجم: كبير
-      // ====================
-    })),
+      // Try different price fields
+      const price = Number(
+        item.price ||
+        item.final_price ||
+        productObj.price ||
+        productObj.final_price ||
+        productObj.total_price ||
+        0
+      );
+
+      // Try different total fields or calculate it
+      const total = Number(
+        item.total ||
+        productObj.total ||
+        productObj.total_price ||
+        (price * qty)
+      );
+
+      return {
+        qty,
+        name,
+        nameAr,
+        nameEn,
+        price,
+        total,
+        notes: item.notes || productObj.notes || "",
+        category_id: item.category_id || productObj.category_id,
+        id: item.id || item.product_id || productObj.id,
+        addons: item.addons || productObj.addons || [],
+        extras: item.extras || productObj.extras || [],
+        excludes: item.excludes || productObj.excludes || [],
+        variations: item.variations || productObj.variations || [],
+      };
+    }),
     customer: response?.customer || null,
     address: response?.address ? {
       ...response.address,

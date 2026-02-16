@@ -340,24 +340,26 @@ export default function AllOrders() {
               </thead>
               <tbody>
                 ${data.order_details?.map(item => {
-      const productTotal = Number(item.product?.total_price) || 0;
-      const addonsTotal = item.addons?.reduce((sum, addon) => sum + (Number(addon.total) || 0), 0) || 0;
-      const rowTotal = productTotal + addonsTotal;
+      const productObj = item.product || {};
+      const price = Number(item.price || item.final_price || productObj.price || productObj.final_price || productObj.total_price || 0);
+      const qty = Number(item.count || item.qty || productObj.count || 1);
+      const addonsTotal = item.addons?.reduce((sum, addon) => sum + (Number(addon.total || addon.price || 0) * qty), 0) || 0;
+      const rowTotal = Number(item.total || productObj.total || productObj.total_price || (price * qty)) + addonsTotal;
 
       let addonsHTML = "";
       if (item.addons && item.addons.length > 0) {
         addonsHTML = item.addons.map(add =>
-          `<div class="addon-row">+ ${add.name} (${Number(add.price).toFixed(2)})</div>`
+          `<div class="addon-row">+ ${add.name} (${Number(add.price || add.total || 0).toFixed(2)})</div>`
         ).join("");
       }
 
       return `
                     <tr>
-                      <td class="item-qty">${item.product?.count || 1}</td>
+                      <td class="item-qty">${qty}</td>
                       <td class="item-name" style="text-align: ${isArabic ? "right" : "left"};">
-                        ${item.product?.name || "—"}
+                        ${item.name || productObj.name || "—"}
                         ${addonsHTML}
-                        ${item.notes ? `<div class="notes-row">(${item.notes})</div>` : ""}
+                        ${item.notes || productObj.notes ? `<div class="notes-row">(${item.notes || productObj.notes})</div>` : ""}
                       </td>
                       <td class="item-total">${rowTotal.toFixed(2)}</td>
                     </tr>
@@ -669,10 +671,10 @@ export default function AllOrders() {
                     <td className={`border p-3 ${isArabic ? "text-right" : "text-left"}`}>
                       <span
                         className={`px-3 py-1 text-xs rounded-full ${order.order_status === "completed"
-                            ? "bg-green-100 text-green-700"
-                            : order.order_status === "pending"
-                              ? "bg-yellow-100 text-yellow-700"
-                              : "bg-gray-100 text-gray-700"
+                          ? "bg-green-100 text-green-700"
+                          : order.order_status === "pending"
+                            ? "bg-yellow-100 text-yellow-700"
+                            : "bg-gray-100 text-gray-700"
                           }`}
                       >
                         {order.order_status || "unknown"}
