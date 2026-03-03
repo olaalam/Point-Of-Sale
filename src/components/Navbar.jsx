@@ -366,7 +366,7 @@ export default function Navbar() {
 
   return (
     <>
-      <div className="text-gray-800 px-4 w-full z-50 bg-white shadow-md relative min-h-[96px] flex items-center">
+      <div className="text-gray-800 px-4 w-full z-[9999] bg-white shadow-md relative min-h-[96px] flex items-center">
         <div className="flex items-center justify-between w-full h-full py-1.5">
           {/* Left Section: Navigation */}
           <div className="flex items-center gap-2 flex-1 pb-1">
@@ -546,7 +546,7 @@ export default function Navbar() {
                 </button>
 
                 {isDropdownOpen && (
-                  <div className={`absolute ${isArabic ? "left-0" : "right-0"} mt-3 w-80 bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 max-h-96 overflow-y-auto`}>
+                  <div className={`absolute ${isArabic ? "left-0" : "right-0"} mt-3 w-80 bg-white rounded-2xl shadow-2xl border border-gray-100 z-[9999] max-h-96 overflow-y-auto`}>
                     <div className="p-4 border-b border-gray-100 bg-gray-50 rounded-t-2xl">
                       <h3 className="font-extrabold text-gray-800 text-lg">{t("New Orders")} ({notificationCount})</h3>
                     </div>

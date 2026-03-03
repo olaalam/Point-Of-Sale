@@ -214,8 +214,10 @@ export default function Item({ onAddToOrder, onClose, onClearCart, cartHasItems 
     }
 
     // 2. تحديد المصدر (المهم هنا)
-    if (selectedGroup === "all") {
-      // دي الحالة اللي الزرار الجانبي بيعملها دلوقتي (بترجع favouriteProducts)
+    if (selectedMainCategory === "favorite") {
+      // لو في وضع المفضلة، نجيب دايماً من favourite_products بغض النظر عن أي category اتختار
+      products = favouriteProducts;
+    } else if (selectedGroup === "all") {
       products = favouriteProducts;
     } else if (isNormalPrice || selectedGroup === "none") {
       products = allProducts;
@@ -700,7 +702,11 @@ export default function Item({ onAddToOrder, onClose, onClearCart, cartHasItems 
         <div
           onClick={() => {
             setIsNormalPrice(false);
-            setSelectedGroup("all");
+            // لا نغيرش الـ selectedGroup عشان نفضل شايفين نفس الـ module في الـ UI
+            // بس لو مكناش في أي module يبقى "all"
+            if (selectedGroup === "none") {
+              setSelectedGroup("all");
+            }
             setSelectedMainCategory("favorite");
             setSelectedSubCategory(null);
             setSelectedOffer(null);
