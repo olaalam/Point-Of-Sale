@@ -779,7 +779,7 @@ const CheckOut = ({
                     "flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all gap-2 h-24",
                     isSelected
                       ? "border-red-600 bg-red-50 text-red-700 shadow-md scale-105"
-                      : "border-gray-100 bg-white text-gray-700 hover:border-gray-200 hover:bg-gray-50"
+                      : "border-red-200 bg-white text-gray-700 hover:border-gray-200 hover:bg-gray-50"
                   )}
                 >
                   <div className="w-10 h-10 flex items-center justify-center overflow-hidden">
@@ -808,7 +808,7 @@ const CheckOut = ({
                 "flex flex-col items-center justify-center p-3 rounded-xl border-2 transition-all gap-2 h-24",
                 isDueOrder
                   ? "border-orange-500 bg-orange-500 text-white shadow-md scale-105"
-                  : "border-gray-100 bg-white text-orange-600 hover:border-orange-200 hover:bg-orange-50"
+                  : "border-red-200 bg-white text-orange-600 hover:border-orange-200 hover:bg-orange-50"
               )}
             >
               <div className="w-10 h-10 flex items-center justify-center">
@@ -824,7 +824,7 @@ const CheckOut = ({
             {/* Split - لون أزرق ثابت */}
             <button
               onClick={handleAddSplit}
-              className="flex flex-col items-center justify-center p-3 rounded-xl border-2 border-gray-100 bg-white text-blue-600 hover:border-blue-200 hover:bg-blue-50 transition-all gap-2 h-24"
+              className="flex flex-col items-center justify-center p-3 rounded-xl border-2 border-red-200 bg-white text-blue-600 hover:border-blue-200 hover:bg-blue-50 transition-all gap-2 h-24"
             >
               <div className="w-10 h-10 flex items-center justify-center">
                 <svg xmlns="http://www.w3.org/2000/svg" className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">

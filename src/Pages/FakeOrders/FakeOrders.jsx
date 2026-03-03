@@ -21,7 +21,7 @@ export default function FakeOrders() {
   const [password, setPassword] = useState("");
   const [orders, setOrders] = useState([]);
   const [search, setSearch] = useState("");
-  
+
   const [dateFrom, setDateFrom] = useState(() => new Date().toISOString().split("T")[0]);
   const [dateTo, setDateTo] = useState(() => new Date().toISOString().split("T")[0]);
 
@@ -35,9 +35,9 @@ export default function FakeOrders() {
   const baseUrl = import.meta.env.VITE_API_BASE_URL;
 
   const { postData, loading: postLoading } = usePost();
-  
+
   // استخدام useGet (نفترض أنه يعيد fetchData أو data لجلب البيانات يدوياً)
-const { data: getResponse, isLoading: getLoading, refetch } = useGet();
+  const { data: getResponse, isLoading: getLoading, refetch } = useGet();
   // جلب طلبات اليوم عند إدخال الرقم السري
   const handlePasswordSubmit = async () => {
     if (!password.trim()) return toast.error(t("Pleaseenteryourpassword"));
@@ -58,22 +58,22 @@ const { data: getResponse, isLoading: getLoading, refetch } = useGet();
   };
 
   // تعديل الدالة لاستخدام data من useGet
-const handleFetchFilteredOrders = async () => {
-  try {
-    const url = `cashier/reports/filter_fake_order?date=${dateFrom}&date_to=${dateTo}`;
-    
-    // استخدم refetch بدلاً من data
-    const res = await refetch(url); 
-    
-    if (res?.orders) {
-      setOrders(res.orders);
-      toast.success(t("Ordersrefreshedsuccessfully"));
+  const handleFetchFilteredOrders = async () => {
+    try {
+      const url = `cashier/reports/filter_fake_order?date=${dateFrom}&date_to=${dateTo}`;
+
+      // استخدم refetch بدلاً من data
+      const res = await refetch(url);
+
+      if (res?.orders) {
+        setOrders(res.orders);
+        toast.success(t("Ordersrefreshedsuccessfully"));
+      }
+    } catch (err) {
+      toast.error(t("FailedToFetchOrders"));
+      console.error(err);
     }
-  } catch (err) {
-    toast.error(t("FailedToFetchOrders"));
-    console.error(err);
-  }
-};
+  };
 
   const handleVoidClick = (order) => {
     setSelectedOrder(order);
@@ -103,7 +103,7 @@ const handleFetchFilteredOrders = async () => {
     const showCustomerInfo = orderType === "delivery" && data.user;
     const restaurantName = sessionStorage.getItem("resturant_name") || (isArabic ? "اسم المطعم" : "Restaurant Name");
     const subtotal = (data.amount - data.total_tax - data.delivery_fees).toFixed(2);
-    
+
     return `
       <!DOCTYPE html>
       <html>
@@ -189,27 +189,30 @@ const handleFetchFilteredOrders = async () => {
               </thead>
               <tbody>
                 ${data.order_details.map(item => {
-                  const productTotal = Number(item.product.total_price) || 0;
-                  const addonsTotal = item.addons?.reduce((sum, addon) => sum + (Number(addon.total) || 0), 0) || 0;
-                  const rowTotal = productTotal + addonsTotal;
-                  let addonsHTML = "";
-                  if (item.addons && item.addons.length > 0) {
-                    addonsHTML = item.addons.map(add => 
-                      `<div class="addon-row">+ ${add.name} (${Number(add.price).toFixed(2)})</div>`
-                    ).join("");
-                  }
-                  return `
+      const productObj = item.product || {};
+      const price = Number(item.price || item.final_price || productObj.price || productObj.final_price || productObj.total_price || 0);
+      const qty = Number(item.count || item.qty || productObj.count || 1);
+      const addonsTotal = item.addons?.reduce((sum, addon) => sum + (Number(addon.total || addon.price || 0) * qty), 0) || 0;
+      const rowTotal = Number(item.total || productObj.total || productObj.total_price || (price * qty)) + addonsTotal;
+
+      let addonsHTML = "";
+      if (item.addons && item.addons.length > 0) {
+        addonsHTML = item.addons.map(add =>
+          `<div class="addon-row">+ ${add.name} (${Number(add.price || add.total || 0).toFixed(2)})</div>`
+        ).join("");
+      }
+      return `
                     <tr>
-                      <td class="item-qty">${item.product.count}</td>
+                      <td class="item-qty">${qty}</td>
                       <td class="item-name" style="text-align: ${isArabic ? "right" : "left"};">
-                        ${item.product.name}
+                        ${item.name || productObj.name || "—"}
                         ${addonsHTML}
-                        ${item.notes ? `<div class="notes-row">(${item.notes})</div>` : ""}
+                        ${item.notes || productObj.notes ? `<div class="notes-row">(${item.notes || productObj.notes})</div>` : ""}
                       </td>
                       <td class="item-total">${rowTotal.toFixed(2)}</td>
                     </tr>
                   `;
-                }).join("")}
+    }).join("")}
               </tbody>
             </table>
             <div style="border-top: 2px solid #000; margin-top: 5px; padding-top: 5px;">
@@ -273,7 +276,7 @@ const handleFetchFilteredOrders = async () => {
         toast.success(t("Preparingprint") || "جاري الطباعة...");
       }
     } catch (err) {
-      toast.error(t("Failedtoloadorderdetails",err));
+      toast.error(t("Failedtoloadorderdetails", err));
       setIsPrinting(false);
     }
   };
@@ -356,11 +359,10 @@ const handleFetchFilteredOrders = async () => {
                     <td className="border p-3 text-center capitalize">{order.order_type}</td>
                     <td className="border p-3 text-center font-bold text-green-700">{order.amount}</td>
                     <td className="border p-3 text-center">
-                      <span className={`px-3 py-1 text-xs rounded-full ${
-                        order.order_status === "done" || order.order_status === "completed"
+                      <span className={`px-3 py-1 text-xs rounded-full ${order.order_status === "done" || order.order_status === "completed"
                           ? "bg-green-100 text-green-700"
                           : "bg-yellow-100 text-yellow-700"
-                      }`}>
+                        }`}>
                         {order.order_status}
                       </span>
                     </td>
