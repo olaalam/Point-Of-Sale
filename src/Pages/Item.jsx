@@ -255,21 +255,35 @@ export default function Item({ onAddToOrder, onClose, onClearCart, cartHasItems 
   // New: Handle KeyDown for barcode scanner (Enter key)
   const handleKeyDown = (e) => {
     if (e.key === "Enter") {
-      if (filteredProducts.length === 1) {
-        // أضف المنتج الوحيد تلقائي
-        handleAddToOrder(filteredProducts[0]);
-        setSearchQuery(""); // مسح searchQuery عشان السكان الجديد
+      e.preventDefault(); // عشان نمنع أي سلوك افتراضي زي الـ Form Submit
+
+      // بنقرا القيمة مباشرة من الـ input عشان نتجنب تأخير الـ React State
+      const query = e.target.value.trim().toLowerCase();
+
+      if (!query) return;
+
+      // بنفلتر مباشرة من كل المنتجات باستخدام القيمة الحالية
+      const matchedProducts = allProducts.filter(
+        (p) =>
+          // في الباركود يفضل التطابق التام
+          (p.product_code?.toString().toLowerCase() === query) ||
+          (p.name?.toLowerCase() || "").includes(query)
+      );
+
+      if (matchedProducts.length === 1) {
+        handleAddToOrder(matchedProducts[0]);
+        setSearchQuery(""); // بنفضي الحقل عشان السكان اللي بعده
         toast.success(t("ProductAddedFromBarcode") || "تم إضافة المنتج من الباركود");
-      } else if (filteredProducts.length === 0) {
+      } else if (matchedProducts.length === 0) {
         toast.error(t("NoProductFound") || "لم يتم العثور على المنتج");
-        setSearchQuery(""); // مسح حتى لو مفيش
+        setSearchQuery("");
       } else {
         toast.warn(t("MultipleProductsFound") || "تم العثور على أكثر من منتج، يرجى التحقق يدوياً");
-        // اختياري: setSearchQuery(""); // لو عاوزة تمسحي أو تسيبيها للمراجعة
       }
-      e.preventDefault(); // عشان Enter ميعملش submit أو حاجه تانية
     }
   };
+
+
 
   const handleCategorySelect = (categoryId, isSub = false) => {
     const idStr = categoryId.toString();
@@ -425,6 +439,7 @@ export default function Item({ onAddToOrder, onClose, onClearCart, cartHasItems 
             className="w-full pl-9 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:ring-1 focus:ring-bg-primary transition-all"
           />
         </div>
+
 
         {/* 3. By Piece / By Weight */}
         <div className="flex bg-gray-100 p-1 rounded-xl border border-gray-200 flex-shrink-0">
