@@ -1,4 +1,4 @@
-{/* ProductModal.jsx - With Weight Support, Duplicate Check, and Notes */}
+{/* ProductModal.jsx - With Weight Support, Duplicate Check, and Notes */ }
 
 import React, { useState } from "react";
 import {
@@ -18,7 +18,7 @@ const isSizeVariation = (variation) => {
   if (!variation || !variation.name) return false;
   const name = variation.name.toLowerCase();
   // نفحص الكلمات الدلالية للحجم بالعربي والإنجليزي
-  return name.includes('size') || name.includes('حجم') || name.includes('maqas') || name.includes('مقاس'); 
+  return name.includes('size') || name.includes('حجم') || name.includes('maqas') || name.includes('مقاس');
 };
 
 
@@ -39,34 +39,34 @@ export const calculateProductTotalPrice = (
     baseProduct.variations.forEach(variation => {
       const selected = selectedVariation[variation.id];
       if (selected !== undefined) {
-        
+
         if (variation.type === 'single') {
           const opt = variation.options?.find(o => o.id === selected);
           if (opt) {
             // --- المنطق الجديد هنا ---
             // إذا كان الخيار يحتوي على سعر كلي (total_option_price) نعتبره هو السعر الأساسي الجديد
             const totalOptPrice = parseFloat(opt.total_option_price || 0);
-            
+
             if (totalOptPrice > 0) {
               // استبدال السعر الأساسي بسعر الخيار (مثل: 300 أو 350 في السوشي)
               mainPrice = totalOptPrice;
             } else if (isSizeVariation(variation)) {
-               // Fallback للأحجام لو السعر موجود في final_price
-               const sizePrice = parseFloat(opt.final_price || opt.price_after_tax || 0);
-               if (sizePrice > 0) mainPrice = sizePrice;
+              // Fallback للأحجام لو السعر موجود في final_price
+              const sizePrice = parseFloat(opt.final_price || opt.price_after_tax || 0);
+              if (sizePrice > 0) mainPrice = sizePrice;
             } else {
               // لو مجرد خيار عادي (إضافة إجبارية مثلاً) بنزود الـ price
               mainPrice += parseFloat(opt.price || 0);
             }
           }
-        } 
-        
+        }
+
         else if (variation.type === 'multiple') {
           const arr = Array.isArray(selected) ? selected : [selected];
           arr.forEach(id => {
             const opt = variation.options?.find(o => o.id === id);
             if (opt) {
-               mainPrice += parseFloat(opt.price || opt.final_price || 0);
+              mainPrice += parseFloat(opt.price || opt.final_price || 0);
             }
           });
         }
@@ -79,15 +79,15 @@ export const calculateProductTotalPrice = (
   if (selectedExtras?.length > 0) {
     selectedExtras.forEach(id => {
       let item = baseProduct.allExtras?.find(e => e.id === id) ||
-                 baseProduct.addons?.find(a => a.id === id);
+        baseProduct.addons?.find(a => a.id === id);
       if (item) {
         extrasPrice += parseFloat(item.final_price || item.price || 0);
       }
     });
   }
 
-  return isWeightProduct 
-    ? (mainPrice * quantity) + extrasPrice 
+  return isWeightProduct
+    ? (mainPrice * quantity) + extrasPrice
     : (mainPrice + extrasPrice) * quantity;
 };
 
@@ -118,7 +118,7 @@ export const areProductsEqual = (product1, product2) => {
   // نحول الـ addons لشكل نصي مرتب للمقارنة (لأنها مصفوفة أوبجكتات)
   const add1 = JSON.stringify((product1.addons || []).sort((a, b) => a.addon_id - b.addon_id));
   const add2 = JSON.stringify((product2.addons || []).sort((a, b) => a.addon_id - b.addon_id));
-  
+
   if (add1 !== add2) return false;
 
   return true;
@@ -145,7 +145,7 @@ const ProductModal = ({
 }) => {
   // ✅ State for notes
   const [notes, setNotes] = useState("");
-const { t , i18n } = useTranslation();
+  const { t, i18n } = useTranslation();
   const isArabic = i18n.language === "ar";
   if (!selectedProduct) return null;
 
@@ -180,31 +180,27 @@ const { t , i18n } = useTranslation();
       onExtraDecrement(extraId);
     }
   };
-  
 
-const getVariationOptionDisplay = (option, variation) => {
-  let priceToDisplay = 0;
 
-  // إذا كان هناك سعر كلي للخيار، نعرضه كقيمة مطلقة
-  if (option.total_option_price > 0 || isSizeVariation(variation)) {
-    priceToDisplay = parseFloat(option.total_option_price || option.final_price || 0);
-    return `${option.name} (${priceToDisplay.toFixed(2)} ${t("EGP")})`;
-  } else {
-    // لو مجرد زيادة (Add-on variation)
-    priceToDisplay = parseFloat(option.price ?? 0);
-    if (priceToDisplay === 0) return option.name;
-    return `${option.name} (+${priceToDisplay.toFixed(2)} ${t("EGP")})`;
-  }
-};
+  const getVariationOptionDisplay = (option, variation) => {
+    let priceToDisplay = 0;
+
+    // إذا كان هناك سعر كلي للخيار، نعرضه كقيمة مطلقة
+    if (option.total_option_price > 0 || isSizeVariation(variation)) {
+      priceToDisplay = parseFloat(option.total_option_price || option.final_price || 0);
+      return `${option.name} (${priceToDisplay.toFixed(2)} ${t("EGP")})`;
+    } else {
+      // لو مجرد زيادة (Add-on variation)
+      priceToDisplay = parseFloat(option.price ?? 0);
+      if (priceToDisplay === 0) return option.name;
+      return `${option.name} (+${priceToDisplay.toFixed(2)} ${t("EGP")})`;
+    }
+  };
   const handleWeightChange = (e) => {
     const value = e.target.value;
+    // بنمرر القيمة زي ما هي (كـ String مؤقتاً) عشان نسمح لليوزر يكتب "0." براحته من غير ما العلامة تتمسح
     if (value === '' || /^\d*\.?\d*$/.test(value)) {
-      const numValue = parseFloat(value);
-      if (!isNaN(numValue) && numValue > 0) {
-        onQuantityChange(numValue);
-      } else if (value === '') {
-        onQuantityChange(0);
-      }
+      onQuantityChange(value);
     }
   };
 
@@ -257,7 +253,7 @@ const getVariationOptionDisplay = (option, variation) => {
             </div>
             <DialogDescription className="text-gray-500 text-sm mb-4">
               {selectedProduct.description &&
-              selectedProduct.description !== "null"
+                selectedProduct.description !== "null"
                 ? selectedProduct.description
                 : t("Nodescriptionavailable")}
             </DialogDescription>
@@ -285,36 +281,35 @@ const getVariationOptionDisplay = (option, variation) => {
                     )}
 
                     {/* Single-select variations */}
-{/* Single-select variations - using button style like excludes */}
-{variation.type === "single" && variation.options && (
-  <div className="flex flex-wrap gap-2">
-    {variation.options.map((option) => {
-      const isSelected = selectedVariation[variation.id] === option.id;
+                    {/* Single-select variations - using button style like excludes */}
+                    {variation.type === "single" && variation.options && (
+                      <div className="flex flex-wrap gap-2">
+                        {variation.options.map((option) => {
+                          const isSelected = selectedVariation[variation.id] === option.id;
 
-      return (
-        <button
-          key={option.id}
-          onClick={() => onVariationChange(variation.id, option.id)}
-          className={`flex flex-col items-center justify-center px-2 rounded-lg border-2 text-sm font-medium transition-all duration-200
-            ${
-              isSelected
-                ? "bg-red-600 text-white border-red-600 scale-105"
-                : "bg-gray-100 text-gray-700 border-gray-300 hover:border-red-400"
-            }`}
-        >
-          <span className="capitalize">
-    {getVariationOptionDisplay(option, variation)}
-  </span>
-          {parseFloat(option.final_price ||option.price_after_tax ||  0) > 0 && (
-            <span className="text-xs">
-              +{( option.final_price || option.price_after_tax ).toFixed(2)} EGP
-            </span>
-          )}
-        </button>
-      );
-    })}
-  </div>
-)}
+                          return (
+                            <button
+                              key={option.id}
+                              onClick={() => onVariationChange(variation.id, option.id)}
+                              className={`flex flex-col items-center justify-center px-2 rounded-lg border-2 text-sm font-medium transition-all duration-200
+            ${isSelected
+                                  ? "bg-red-600 text-white border-red-600 scale-105"
+                                  : "bg-gray-100 text-gray-700 border-gray-300 hover:border-red-400"
+                                }`}
+                            >
+                              <span className="capitalize">
+                                {getVariationOptionDisplay(option, variation)}
+                              </span>
+                              {parseFloat(option.final_price || option.price_after_tax || 0) > 0 && (
+                                <span className="text-xs">
+                                  +{(option.final_price || option.price_after_tax).toFixed(2)} EGP
+                                </span>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
 
 
                     {/* Multi-select variations - with counters */}
@@ -343,7 +338,7 @@ const getVariationOptionDisplay = (option, variation) => {
                                   {option.name}
                                 </span>
                                 <div className="text-xs text-gray-500">
-                                  {parseFloat(option.final_price || option.price_after_tax || option.price || 0) === 0 
+                                  {parseFloat(option.final_price || option.price_after_tax || option.price || 0) === 0
                                     ? "Free"
                                     : `+${(option.final_price || option.price_after_tax || option.price).toFixed(2)} EGP`
                                   }
@@ -394,8 +389,8 @@ const getVariationOptionDisplay = (option, variation) => {
             {hasExtras && (
               <div className="mb-4">
                 <h4 className="text-sm font-semibold text-gray-700 mb-3">
-{t("ExtrasOptional")}      
-          </h4>
+                  {t("ExtrasOptional")}
+                </h4>
                 <div className="space-y-3">
                   {selectedProduct.allExtras.map((extra, index) => {
                     const count = getExtraCount(extra.id);
@@ -412,10 +407,10 @@ const getVariationOptionDisplay = (option, variation) => {
                           <div className="text-xs text-gray-500">
                             {extra.price > 0
                               ? `+${(
-                                  extra.final_price ??
-                                  extra.price ??
-                                  0
-                                ).toFixed(2)} ${t("EGP")}`
+                                extra.final_price ??
+                                extra.price ??
+                                0
+                              ).toFixed(2)} ${t("EGP")}`
                               : t("Free")}
                           </div>
                         </div>
@@ -445,70 +440,70 @@ const getVariationOptionDisplay = (option, variation) => {
             )}
 
             {/* Addons section - with counters */}
-{hasAddons && (
-  <div className="mb-4">
-    <h4 className="text-sm font-semibold text-gray-700 mb-3">
-      {t("AddonsOptional")} 
-    </h4>
-    <div className="space-y-3">
-      {selectedProduct.addons.map((addon, index) => {
-        const count = getExtraCount(addon.id);
+            {hasAddons && (
+              <div className="mb-4">
+                <h4 className="text-sm font-semibold text-gray-700 mb-3">
+                  {t("AddonsOptional")}
+                </h4>
+                <div className="space-y-3">
+                  {selectedProduct.addons.map((addon, index) => {
+                    const count = getExtraCount(addon.id);
 
-        return (
-          <div
-            key={`addon-${index}`}
-            className="flex items-center justify-between p-3 border rounded-lg bg-gray-50"
-          >
-            <div className="flex-1">
-              <span className="text-sm font-medium text-gray-700 capitalize">
-                {addon.name}
-              </span>
-              <div className="text-xs text-gray-500">
-                +{(
-                  addon.final_price ??
-                  addon.price_after_tax ??     
-                  addon.price_after_discount ??
-                  
-                  0
-                ).toFixed(2)}{" "}
-                {t('EGP')}
-                {addon.tax && (              
-                  <span className="ml-1 text-xs text-gray-400">
-                    ({t("inclTax")})       
-                  </span>
-                )}
+                    return (
+                      <div
+                        key={`addon-${index}`}
+                        className="flex items-center justify-between p-3 border rounded-lg bg-gray-50"
+                      >
+                        <div className="flex-1">
+                          <span className="text-sm font-medium text-gray-700 capitalize">
+                            {addon.name}
+                          </span>
+                          <div className="text-xs text-gray-500">
+                            +{(
+                              addon.final_price ??
+                              addon.price_after_tax ??
+                              addon.price_after_discount ??
+
+                              0
+                            ).toFixed(2)}{" "}
+                            {t('EGP')}
+                            {addon.tax && (
+                              <span className="ml-1 text-xs text-gray-400">
+                                ({t("inclTax")})
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <button
+                            className="bg-gray-200 text-red-600 p-1 rounded-full hover:bg-gray-300 transition-colors disabled:opacity-50"
+                            onClick={() => handleExtraDecrement(addon.id)}
+                            disabled={count === 0}
+                          >
+                            <Minus size={16} />
+                          </button>
+                          <span className="text-sm font-semibold w-8 text-center">
+                            {count}
+                          </span>
+                          <button
+                            className="bg-red-600 text-white p-1 rounded-full hover:bg-red-700 transition-colors"
+                            onClick={() => handleExtraIncrement(addon.id)}
+                          >
+                            <Plus size={16} />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-            <div className="flex items-center space-x-2">
-              <button
-                className="bg-gray-200 text-red-600 p-1 rounded-full hover:bg-gray-300 transition-colors disabled:opacity-50"
-                onClick={() => handleExtraDecrement(addon.id)}
-                disabled={count === 0}
-              >
-                <Minus size={16} />
-              </button>
-              <span className="text-sm font-semibold w-8 text-center">
-                {count}
-              </span>
-              <button
-                className="bg-red-600 text-white p-1 rounded-full hover:bg-red-700 transition-colors"
-                onClick={() => handleExtraIncrement(addon.id)}
-              >
-                <Plus size={16} />
-              </button>
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  </div>
-)}
+            )}
 
             {/* Excludes section */}
             {hasExcludes && (
               <div className="mb-4">
                 <h4 className="text-sm font-semibold text-gray-700 mb-2">
-                 {t("ExcludeOptional")}
+                  {t("ExcludeOptional")}
                 </h4>
                 <div className="flex flex-wrap gap-2">
                   {selectedProduct.excludes.map((item, index) => (
@@ -516,10 +511,9 @@ const getVariationOptionDisplay = (option, variation) => {
                       key={`exclude-${index}`}
                       onClick={() => onExclusionChange(item.id)}
                       className={`flex flex-col items-center justify-center p-2 rounded-lg border-2 text-sm font-medium transition-all duration-200
-                        ${
-                          selectedExcludes.includes(item.id)
-                            ? "bg-red-600 text-white border-red-600 scale-105"
-                            : "bg-gray-100 text-gray-700 border-gray-300 hover:border-red-400"
+                        ${selectedExcludes.includes(item.id)
+                          ? "bg-red-600 text-white border-red-600 scale-105"
+                          : "bg-gray-100 text-gray-700 border-gray-300 hover:border-red-400"
                         }`}
                     >
                       <span className="capitalize line-through">
@@ -534,10 +528,10 @@ const getVariationOptionDisplay = (option, variation) => {
             {/* ✅ Notes Section */}
             <div className="mb-4">
               <h4 className="text-sm font-semibold text-gray-700 mb-2">
-{t("SpecialInstructionsOptional")}
+                {t("SpecialInstructionsOptional")}
               </h4>
               <Textarea
-  placeholder={t("AddSpecialInstructions")}
+                placeholder={t("AddSpecialInstructions")}
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 className="w-full min-h-[80px] resize-none"
@@ -556,7 +550,7 @@ const getVariationOptionDisplay = (option, variation) => {
                   {totalPrice.toFixed(2)} {t("EGP")}
                 </span>
               </div>
-              
+
               {/* Quantity selector - different for weight vs piece */}
               {isWeightProduct ? (
                 <div className="flex items-center space-x-2">
@@ -591,84 +585,84 @@ const getVariationOptionDisplay = (option, variation) => {
                 </div>
               )}
             </div>
-<Button
-  data-enter
-  onClick={() => {
-    const totalUnitPrice = calculateProductTotalPrice(
-      selectedProduct,
-      selectedVariation,
-      selectedExtras,
-      1
-    );
+            <Button
+              data-enter
+              onClick={() => {
+                const totalUnitPrice = calculateProductTotalPrice(
+                  selectedProduct,
+                  selectedVariation,
+                  selectedExtras,
+                  1
+                );
 
-    // 🟦 فلترة الـ extras: IDs موجودة فقط في allExtras
-    const filteredExtras = selectedExtras.filter(id => 
-      (selectedProduct.allExtras || []).some(e => e.id === id)
-    );
+                // 🟦 فلترة الـ extras: IDs موجودة فقط في allExtras
+                const filteredExtras = selectedExtras.filter(id =>
+                  (selectedProduct.allExtras || []).some(e => e.id === id)
+                );
 
-    // 🟧 فلترة الـ addons: IDs موجودة فقط في addons_list
-    const filteredAddons = selectedExtras.filter(id => 
-      (selectedProduct.addons || []).some(a => a.id === id)
-    );
+                // 🟧 فلترة الـ addons: IDs موجودة فقط في addons_list
+                const filteredAddons = selectedExtras.filter(id =>
+                  (selectedProduct.addons || []).some(a => a.id === id)
+                );
 
-    // 🟨 بناء addons للباك إند
-    const addonsForBackend = filteredAddons.map(addonId => {
-      const src = (selectedProduct.addons || []).find(a => a.id === addonId);
-      return {
-        addon_id: addonId,
-        quantity: 1,
-        price: src ? parseFloat(
-          src.final_price ||
-          src.price_after_discount ||
-          src.price_after_tax ||
-          
-          0
-        ) : 0,
-      };
-    });
+                // 🟨 بناء addons للباك إند
+                const addonsForBackend = filteredAddons.map(addonId => {
+                  const src = (selectedProduct.addons || []).find(a => a.id === addonId);
+                  return {
+                    addon_id: addonId,
+                    quantity: 1,
+                    price: src ? parseFloat(
+                      src.final_price ||
+                      src.price_after_discount ||
+                      src.price_after_tax ||
 
-    // 👇 بناء المنتج النهائي
-const enhancedProduct = {
-      ...selectedProduct,
-      temp_id: `item-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      selectedVariation,
-      selectedExtras: filteredExtras,
-      selectedExcludes,
-      quantity,
-      notes: notes.trim(),
-      
-      // ❌ الخطأ كان هنا: كنت ترسل السعر المحسوب (totalUnitPrice) كأنه السعر الأساسي
-      // price: totalUnitPrice, 
+                      0
+                    ) : 0,
+                  };
+                });
 
-      // ✅ الصح: أرسل السعر الأصلي للمنتج فقط، ودع Item.jsx يحسب الإضافات
-      price: selectedProduct.final_price ||selectedProduct.price_after_discount ||  0,
+                // 👇 بناء المنتج النهائي
+                const enhancedProduct = {
+                  ...selectedProduct,
+                  temp_id: `item-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                  selectedVariation,
+                  selectedExtras: filteredExtras,
+                  selectedExcludes,
+                  quantity: finalQuantity,
+                  notes: notes.trim(),
 
-      // يمكنك الاحتفاظ بالسعر المحسوب في متغير آخر لو احتجته للعرض فقط
-      modalCalculatedPrice: totalUnitPrice, 
-      
-      originalPrice: selectedProduct.final_price,
-      totalPrice: totalUnitPrice * quantity, // هذا للعرض فقط
-      addons: addonsForBackend,
-      allExtras: selectedProduct.allExtras,
-      addons_list: selectedProduct.addons,
-      variations: (selectedProduct.variations || []).map(group => ({
-        ...group,
-        selected_option_id: Array.isArray(selectedVariation[group.id])
-          ? selectedVariation[group.id]
-          : selectedVariation[group.id] || null
-      })),
-    };
+                  // ❌ الخطأ كان هنا: كنت ترسل السعر المحسوب (totalUnitPrice) كأنه السعر الأساسي
+                  // price: totalUnitPrice, 
 
-    // إرسال للكارت
-    onAddFromModal(enhancedProduct, { checkDuplicate: true });
-    setNotes("");
-    onClose();
-  }}
-  disabled={orderLoading || hasErrors || (isWeightProduct && (!quantity || quantity <= 0))}
-  className="w-full"
->
-  {orderLoading ? t("Adding") : t("AddtoCart")}
-</Button>
+                  // ✅ الصح: أرسل السعر الأصلي للمنتج فقط، ودع Item.jsx يحسب الإضافات
+                  price: selectedProduct.final_price || selectedProduct.price_after_discount || 0,
+
+                  // يمكنك الاحتفاظ بالسعر المحسوب في متغير آخر لو احتجته للعرض فقط
+                  modalCalculatedPrice: totalUnitPrice,
+
+                  originalPrice: selectedProduct.final_price,
+                  totalPrice: totalUnitPrice * finalQuantity, // هذا للعرض فقط
+                  addons: addonsForBackend,
+                  allExtras: selectedProduct.allExtras,
+                  addons_list: selectedProduct.addons,
+                  variations: (selectedProduct.variations || []).map(group => ({
+                    ...group,
+                    selected_option_id: Array.isArray(selectedVariation[group.id])
+                      ? selectedVariation[group.id]
+                      : selectedVariation[group.id] || null
+                  })),
+                };
+
+                // إرسال للكارت
+                onAddFromModal(enhancedProduct, { checkDuplicate: true });
+                setNotes("");
+                onClose();
+              }}
+              disabled={orderLoading || hasErrors || (isWeightProduct && (!quantity || parseFloat(quantity) <= 0))}
+              className="w-full"
+            >
+              {orderLoading ? t("Adding") : t("AddtoCart")}
+            </Button>
 
           </div>
         </div>

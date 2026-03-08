@@ -4,7 +4,7 @@ export const useProductModal = () => {
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
   const [selectedVariation, setSelectedVariation] = useState({});
-  const [selectedExtras, setSelectedExtras] = useState([]); 
+  const [selectedExtras, setSelectedExtras] = useState([]);
   const [selectedExcludes, setSelectedExcludes] = useState([]);
   const [quantity, setQuantity] = useState(1);
   const [totalPrice, setTotalPrice] = useState(0);
@@ -88,7 +88,7 @@ export const useProductModal = () => {
   useEffect(() => {
     if (!selectedProduct) return;
 
-    let basePrice = parseFloat( selectedProduct.final_price ??selectedProduct.price_after_discount ?? 0);
+    let basePrice = parseFloat(selectedProduct.final_price ?? selectedProduct.price_after_discount ?? 0);
     let extraCharges = 0;
 
     // 1. حساب الـ Variations
@@ -116,11 +116,11 @@ export const useProductModal = () => {
     // 2. حساب الـ Extras (بناءً على التكرار)
     selectedExtras.forEach((id) => {
       const extra = [...(selectedProduct.allExtras || []), ...(selectedProduct.addons || [])]
-                    .find((e) => e.id === parseInt(id));
+        .find((e) => e.id === parseInt(id));
       if (extra) extraCharges += parseFloat(extra.final_price || extra.price_after_discount || extra.price || 0);
     });
 
-    setTotalPrice((basePrice + extraCharges) * quantity);
+    setTotalPrice((basePrice + extraCharges) * (parseFloat(quantity) || 0));
   }, [quantity, selectedExtras, selectedProduct, selectedVariation]);
 
   return {

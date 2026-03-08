@@ -284,7 +284,18 @@ export default function Item({ onAddToOrder, onClose, onClearCart, cartHasItems 
   };
 
 
+  // دالة مؤقتة لمحاكاة مسدس الباركود
+  const simulateBarcodeScanner = () => {
+    // هنعمل Mock للـ Event كأن الكاشير ضرب الباركود ده بالمسدس
+    const mockEvent = {
+      key: "Enter",
+      preventDefault: () => { },
+      target: { value: "002644" } // ده كود منتج "margherita pizza neww" من الداتا بتاعتك
+    };
 
+    // ننده على الدالة بتاعتنا مباشرة
+    handleKeyDown(mockEvent);
+  };
   const handleCategorySelect = (categoryId, isSub = false) => {
     const idStr = categoryId.toString();
     if (isSub) {
@@ -328,50 +339,70 @@ export default function Item({ onAddToOrder, onClose, onClearCart, cartHasItems 
     setModuleOrderNumber(sessionStorage.getItem("module_order_number") || "");
     setIsModuleOrderModalOpen(true);
   };
-
   const handleAddToOrder = useCallback(
     async (product, options = {}) => {
       const { customQuantity = 1 } = options;
-      const finalQuantity = product.quantity || product.count || customQuantity;
+
+      // 1. تأمين قراءة الكمية كـ Float (عشان 0.75 ما تتحولش لـ 0)
+      // نستخدم parseFloat ونضع قيمة افتراضية 1
+      const rawQuantity = product.quantity || product.count || customQuantity;
+      const finalQuantity = parseFloat(rawQuantity) || 1;
+
+      // 2. تأمين قراءة السعر
+      // في الـ favorites أحياناً السعر بيكون في price_after_discount أو final_price
+      const basePrice = parseFloat(product.final_price || product.price_after_discount || product.price || 0);
+
       const pricePerUnit = product.totalPrice
-        ? product.totalPrice / finalQuantity
-        : parseFloat(product.final_price || product.price_after_discount || 0);
+        ? parseFloat(product.totalPrice) / finalQuantity
+        : basePrice;
+
       const totalAmount = pricePerUnit * finalQuantity;
-      if (isNaN(totalAmount)) {
+
+      if (isNaN(totalAmount) || totalAmount <= 0) {
         console.error("❌ Error calculating price", { product, pricePerUnit, finalQuantity });
         return toast.error(t("ErrorCalculatingPrice"));
       }
+
+      // 3. بناء الـ Payload مع التأكد من إرسال أرقام صحيحة
       const processedItem = buildProductPayload({
         ...product,
         price: pricePerUnit,
-        count: finalQuantity,
+        count: finalQuantity, // نرسلها كما هي كـ Float
       });
+
       const createTempId = (pId) => `${pId}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
       if (orderType === "dine_in") {
         const tableId = sessionStorage.getItem("table_id");
         if (!tableId) return toast.error(t("PleaseSelectTableFirst"));
+
         const payload = {
           table_id: tableId,
           cashier_id: sessionStorage.getItem("cashier_id"),
           amount: totalAmount.toFixed(2),
-          total_tax: ((product.tax_val || 0) * finalQuantity).toFixed(2),
+          // تأمين حساب الضريبة
+          total_tax: (parseFloat(product.tax_val || 0) * finalQuantity).toFixed(2),
           total_discount: "0.00",
           source: "web",
           products: [processedItem],
           module_id: selectedGroup || null,
         };
+
         try {
           const response = await postOrder("cashier/dine_in_order", payload, {
             headers: {
               Authorization: `Bearer ${sessionStorage.getItem("access_token")}`,
             },
           });
+
           const serverCartId = response?.data?.cart_id || response?.cart_id;
+
           onAddToOrder({
             ...product,
             temp_id: createTempId(product.id),
             cart_id: serverCartId,
             count: finalQuantity,
+            quantity: finalQuantity, // نأكد وجود الاثنين لضمان التوافق
             price: pricePerUnit,
             totalPrice: totalAmount,
           });
@@ -385,13 +416,14 @@ export default function Item({ onAddToOrder, onClose, onClearCart, cartHasItems 
           ...product,
           temp_id: createTempId(product.id),
           count: finalQuantity,
+          quantity: finalQuantity,
           price: pricePerUnit,
           totalPrice: totalAmount,
         });
         toast.success(t("ProductAddedToCart"));
       }
     },
-    [orderType, onAddToOrder, postOrder, t]
+    [orderType, onAddToOrder, postOrder, t, selectedGroup] // أضيفي selectedGroup هنا للمراقبة
   );
 
   if (
@@ -439,7 +471,12 @@ export default function Item({ onAddToOrder, onClose, onClearCart, cartHasItems 
             className="w-full pl-9 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:ring-1 focus:ring-bg-primary transition-all"
           />
         </div>
-
+        <button
+          onClick={simulateBarcodeScanner}
+          className="bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-bold ml-2"
+        >
+          🔫 محاكاة مسدس الباركود
+        </button>
 
         {/* 3. By Piece / By Weight */}
         <div className="flex bg-gray-100 p-1 rounded-xl border border-gray-200 flex-shrink-0">
