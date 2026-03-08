@@ -252,50 +252,7 @@ export default function Item({ onAddToOrder, onClose, onClearCart, cartHasItems 
 
   const productsToDisplay = filteredProducts.slice(0, visibleProductCount);
 
-  // New: Handle KeyDown for barcode scanner (Enter key)
-  const handleKeyDown = (e) => {
-    if (e.key === "Enter") {
-      e.preventDefault(); // عشان نمنع أي سلوك افتراضي زي الـ Form Submit
 
-      // بنقرا القيمة مباشرة من الـ input عشان نتجنب تأخير الـ React State
-      const query = e.target.value.trim().toLowerCase();
-
-      if (!query) return;
-
-      // بنفلتر مباشرة من كل المنتجات باستخدام القيمة الحالية
-      const matchedProducts = allProducts.filter(
-        (p) =>
-          // في الباركود يفضل التطابق التام
-          (p.product_code?.toString().toLowerCase() === query) ||
-          (p.name?.toLowerCase() || "").includes(query)
-      );
-
-      if (matchedProducts.length === 1) {
-        handleAddToOrder(matchedProducts[0]);
-        setSearchQuery(""); // بنفضي الحقل عشان السكان اللي بعده
-        toast.success(t("ProductAddedFromBarcode") || "تم إضافة المنتج من الباركود");
-      } else if (matchedProducts.length === 0) {
-        toast.error(t("NoProductFound") || "لم يتم العثور على المنتج");
-        setSearchQuery("");
-      } else {
-        toast.warn(t("MultipleProductsFound") || "تم العثور على أكثر من منتج، يرجى التحقق يدوياً");
-      }
-    }
-  };
-
-
-  // دالة مؤقتة لمحاكاة مسدس الباركود
-  const simulateBarcodeScanner = () => {
-    // هنعمل Mock للـ Event كأن الكاشير ضرب الباركود ده بالمسدس
-    const mockEvent = {
-      key: "Enter",
-      preventDefault: () => { },
-      target: { value: "002644" } // ده كود منتج "margherita pizza neww" من الداتا بتاعتك
-    };
-
-    // ننده على الدالة بتاعتنا مباشرة
-    handleKeyDown(mockEvent);
-  };
   const handleCategorySelect = (categoryId, isSub = false) => {
     const idStr = categoryId.toString();
     if (isSub) {
@@ -345,8 +302,7 @@ export default function Item({ onAddToOrder, onClose, onClearCart, cartHasItems 
 
       // 1. تأمين قراءة الكمية كـ Float (عشان 0.75 ما تتحولش لـ 0)
       // نستخدم parseFloat ونضع قيمة افتراضية 1
-      const rawQuantity = product.quantity || product.count || customQuantity;
-      const finalQuantity = parseFloat(rawQuantity) || 1;
+const finalQuantity = parseFloat(product.quantity || product.count || customQuantity || 1);;
 
       // 2. تأمين قراءة السعر
       // في الـ favorites أحياناً السعر بيكون في price_after_discount أو final_price
@@ -436,7 +392,79 @@ export default function Item({ onAddToOrder, onClose, onClearCart, cartHasItems 
         <Loading />
       </div>
     );
+
   }
+const parseWeightBarcode = (barcode) => {
+    // التأكد إن الباركود 13 رقم ويبدأ بـ رقم 2
+    if (barcode.length === 13 && barcode.startsWith("2")) {
+      const productCode = barcode.substring(1, 7); // استخراج "000601"
+      const weightPart = barcode.substring(7, 12); // استخراج "00250"
+      const weight = parseFloat(weightPart) / 1000; // تحويله لـ 0.250 كجم
+
+      return { productCode, weight, isWeightBarcode: true };
+    }
+    return { productCode: barcode, weight: 1, isWeightBarcode: false };
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      const query = e.target.value.trim().toLowerCase();
+      if (!query) return;
+
+      // تحليل الباركود
+      const { productCode, weight, isWeightBarcode } = parseWeightBarcode(query);
+      
+      // تحويل الكود لرقم عشان لو الباك إند مسجله "601" بدل "000601"
+      const numericProductCode = parseInt(productCode, 10).toString();
+
+      // البحث عن المنتج
+      const matchedProducts = allProducts.filter((p) => {
+        const code = p.product_code?.toString().toLowerCase();
+        const barcode = p.barcode?.toString().toLowerCase();
+
+        return (
+          code === query ||
+          barcode === query ||
+          (isWeightBarcode && (code === productCode || code === numericProductCode || barcode === productCode || barcode === numericProductCode)) ||
+          (p.name?.toLowerCase() || "").includes(query)
+        );
+      });
+
+      if (matchedProducts.length >= 1) {
+        // لو لقى أكتر من نتيجة بالاسم، بناخد أول نتيجة طابقت الكود بالظبط
+        const exactMatch = matchedProducts.find((p) => {
+          const code = p.product_code?.toString().toLowerCase();
+          const barcode = p.barcode?.toString().toLowerCase();
+          return (
+            code === query || 
+            barcode === query ||
+            (isWeightBarcode && (code === productCode || code === numericProductCode || barcode === productCode || barcode === numericProductCode))
+          );
+        }) || matchedProducts[0];
+
+        if (isWeightBarcode) {
+          // لو باركود ميزان، نضيفه فوراً بالوزن المحسوب
+          handleAddToOrder(exactMatch, { customQuantity: weight });
+          toast.success(t("ProductAddedFromBarcode") || `تم إضافة ${weight} كجم بنجاح`);
+        } else {
+          // لو باركود عادي، نเชيك لو محتاج يفتح المودال الأول
+          if (exactMatch.weight_status === 1 || exactMatch.variations?.length > 0) {
+            openProductModal(exactMatch);
+          } else {
+            handleAddToOrder(exactMatch);
+            toast.success(t("ProductAddedFromBarcode") || "تم إضافة المنتج بنجاح");
+          }
+        }
+        setSearchQuery(""); // تفريغ الخانة للسكان اللي بعده
+      } else {
+        toast.error(t("NoProductFound") || "لم يتم العثور على المنتج");
+        setSearchQuery("");
+      }
+    }
+  };
+
+
 
   const isArabic = i18n.language === "ar";
 
@@ -471,12 +499,7 @@ export default function Item({ onAddToOrder, onClose, onClearCart, cartHasItems 
             className="w-full pl-9 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:ring-1 focus:ring-bg-primary transition-all"
           />
         </div>
-        <button
-          onClick={simulateBarcodeScanner}
-          className="bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-bold ml-2"
-        >
-          🔫 محاكاة مسدس الباركود
-        </button>
+
 
         {/* 3. By Piece / By Weight */}
         <div className="flex bg-gray-100 p-1 rounded-xl border border-gray-200 flex-shrink-0">
