@@ -33,43 +33,43 @@ export default function BulkActionsBar({
   loadingCaptains,
 }) {
   const [isOpen, setIsOpen] = useState(false);
-const [isCaptainModalOpen, setIsCaptainModalOpen] = useState(false);
+  const [isCaptainModalOpen, setIsCaptainModalOpen] = useState(false);
   // دالة لتنفيذ حالة "Preparing" مباشرة
-const handleQuickPrepare = async () => {
-  setBulkStatus("preparing");
+  const handleQuickPrepare = async () => {
+    setBulkStatus("preparing");
 
-  try {
-    const response = await onApplyStatus("preparing");
+    try {
+      const response = await onApplyStatus("preparing");
 
-    // نتحقق إن السيرفر رد ببيانات المطبخ فعلاً
-    if (response && response.kitchen_items) {
-      
-      // 1. تجهيز بيانات الإيصال الأساسية
-      const receiptData = {
-        table_number: response.table_number || "N/A",
-        orderType: "dine_in",
-        success: response.success,
-        // هنا بنبعت الـ kitchen_items زي ما هي جاية من السيرفر
-        kitchen_items: response.kitchen_items 
-      };
+      // نتحقق إن السيرفر رد ببيانات المطبخ فعلاً
+      if (response && response.kitchen_items) {
 
-      // 2. استدعاء الطباعة مباشرة
-      // دالة printReceiptSilently هي اللي هتلف جواه وتطبع لكل طابعة الـ IP بتاعها
-      printReceiptSilently(receiptData, response, () => {
-        console.log("✅ تمت عملية إرسال أوامر الطباعة للمطابخ");
-      });
+        // 1. تجهيز بيانات الإيصال الأساسية
+        const receiptData = {
+          table_number: response.table_number || "N/A",
+          orderType: "dine_in",
+          success: response.success,
+          // هنا بنبعت الـ kitchen_items زي ما هي جاية من السيرفر
+          kitchen_items: response.kitchen_items
+        };
 
+        // 2. استدعاء الطباعة مباشرة
+        // دالة printReceiptSilently هي اللي هتلف جواه وتطبع لكل طابعة الـ IP بتاعها
+        printReceiptSilently(receiptData, response, () => {
+          console.log("✅ تمت عملية إرسال أوامر الطباعة للمطابخ");
+        });
+
+      }
+    } catch (error) {
+      console.error("Print Process Error:", error);
     }
-  } catch (error) {
-    console.error("Print Process Error:", error);
-  }
-};
+  };
 
 
-const handleQuickDone = () => {
-  setBulkStatus("done");
-  onApplyStatus("done"); // نرسل الحالة مباشرة
-};
+  const handleQuickDone = () => {
+    setBulkStatus("done");
+    onApplyStatus("done"); // نرسل الحالة مباشرة
+  };
 
 
   const handleConfirmTransfer = () => {
@@ -79,12 +79,12 @@ const handleQuickDone = () => {
 
   // الوصول لبيانات أيقونة ولون حالة التجهيز من الثوابت
   const preparingInfo = PREPARATION_STATUSES["preparing"];
-    const DoneInfo = PREPARATION_STATUSES["done"];
+  const DoneInfo = PREPARATION_STATUSES["done"];
 
 
   return (
     <div className="flex items-center justify-start mb-4 gap-4 flex-wrap p-4 bg-white rounded-lg shadow-md border border-gray-100">
-      
+
       {/* 🟠 زر "تحت التجهيز" السريع */}
       {preparingInfo && (
         <Button
@@ -101,7 +101,7 @@ const handleQuickDone = () => {
           )}
         </Button>
       )}
-            {DoneInfo && (
+      {DoneInfo && (
         <Button
           onClick={handleQuickDone}
           disabled={selectedItems.length === 0 || isLoading}
@@ -128,9 +128,9 @@ const handleQuickDone = () => {
           </SelectTrigger>
           <SelectContent className="bg-white border border-gray-200">
             {Object.entries(PREPARATION_STATUSES)
-              .filter(([key]) => 
+              .filter(([key]) =>
                 // إظهار الحالات الأعلى من الحالية فقط + إخفاء "preparing" لأن لها زر خاص
-                statusOrder.indexOf(key) >= statusOrder.indexOf(currentLowestStatus) && 
+                statusOrder.indexOf(key) >= statusOrder.indexOf(currentLowestStatus) &&
                 key !== "preparing" && key !== "done"
               )
               .map(([key, value]) => (
@@ -149,7 +149,7 @@ const handleQuickDone = () => {
           className="bg-bg-primary text-white hover:bg-red-700 text-sm"
           disabled={selectedItems.length === 0 || !bulkStatus || isLoading}
         >
-          {t("ApplyStatus", { count: selectedItems.length })}
+          {t("ApplyStatus")}
         </Button>
       </div>
 
@@ -163,7 +163,7 @@ const handleQuickDone = () => {
             {t("ChangeTable") || "نقل إلى طاولة"}
           </Button>
         </DialogTrigger>
-        
+
         <DialogContent className="bg-white sm:max-w-[425px]">
           <DialogHeader>
             <DialogTitle className="text-right">
@@ -173,7 +173,7 @@ const handleQuickDone = () => {
               {t("AreYouSureTransferItems") || "هل تريد نقل العناصر المختارة إلى طاولة أخرى؟"}
             </DialogDescription>
           </DialogHeader>
-          
+
           <DialogFooter className="flex flex-row-reverse gap-2 sm:justify-start mt-4">
             <Button
               type="button"
@@ -192,7 +192,7 @@ const handleQuickDone = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      <CaptainSelectionModal 
+      <CaptainSelectionModal
         isOpen={isCaptainModalOpen}
         onOpenChange={setIsCaptainModalOpen}
         captainsData={captainsData}

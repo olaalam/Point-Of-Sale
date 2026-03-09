@@ -302,7 +302,7 @@ export default function Item({ onAddToOrder, onClose, onClearCart, cartHasItems 
 
       // 1. تأمين قراءة الكمية كـ Float (عشان 0.75 ما تتحولش لـ 0)
       // نستخدم parseFloat ونضع قيمة افتراضية 1
-const finalQuantity = parseFloat(product.quantity || product.count || customQuantity || 1);;
+      const finalQuantity = parseFloat(product.quantity || product.count || customQuantity || 1);;
 
       // 2. تأمين قراءة السعر
       // في الـ favorites أحياناً السعر بيكون في price_after_discount أو final_price
@@ -394,7 +394,7 @@ const finalQuantity = parseFloat(product.quantity || product.count || customQuan
     );
 
   }
-const parseWeightBarcode = (barcode) => {
+  const parseWeightBarcode = (barcode) => {
     // التأكد إن الباركود 13 رقم ويبدأ بـ رقم 2
     if (barcode.length === 13 && barcode.startsWith("2")) {
       const productCode = barcode.substring(1, 7); // استخراج "000601"
@@ -414,7 +414,7 @@ const parseWeightBarcode = (barcode) => {
 
       // تحليل الباركود
       const { productCode, weight, isWeightBarcode } = parseWeightBarcode(query);
-      
+
       // تحويل الكود لرقم عشان لو الباك إند مسجله "601" بدل "000601"
       const numericProductCode = parseInt(productCode, 10).toString();
 
@@ -437,7 +437,7 @@ const parseWeightBarcode = (barcode) => {
           const code = p.product_code?.toString().toLowerCase();
           const barcode = p.barcode?.toString().toLowerCase();
           return (
-            code === query || 
+            code === query ||
             barcode === query ||
             (isWeightBarcode && (code === productCode || code === numericProductCode || barcode === productCode || barcode === numericProductCode))
           );
@@ -576,7 +576,7 @@ const parseWeightBarcode = (barcode) => {
 
   const productsGridSection = (
     <div
-      className="flex-1 h-[calc(100vh-120px)] overflow-y-auto pr-2 scrollbar-width-none [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+      className="flex-1 h-[calc(100vh-250px)] md:h-[calc(100vh-120px)] overflow-y-auto pr-2 scrollbar-width-none [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
       dir={isArabic ? "rtl" : "ltr"}
     >
       {searchAndToggleSection}
@@ -615,7 +615,7 @@ const parseWeightBarcode = (barcode) => {
 
   const offersGridSection = (
     <div
-      className="flex-1 h-[calc(100vh-120px)] overflow-y-auto pr-2 scrollbar-width-none [&::-webkit-scrollbar]:hidden"
+      className="flex-1 h-[calc(100vh-250px)] md:h-[calc(100vh-120px)] overflow-y-auto pr-2 scrollbar-width-none [&::-webkit-scrollbar]:hidden"
       dir={isArabic ? "rtl" : "ltr"}
     >
       {searchAndToggleSection}
@@ -692,7 +692,7 @@ const parseWeightBarcode = (barcode) => {
   const categoriesSection = (
     <div
       dir={isArabic ? "rtl" : "ltr"}
-      className="lg:w-45 w-full lg:sticky lg:top-4 lg:h-[calc(100vh-120px)] flex flex-col gap-2"
+      className="lg:w-45 w-full lg:sticky lg:top-4 bg-white z-10 lg:h-[calc(100vh-120px)] flex flex-col gap-2"
     >
       <div className="flex items-center justify-between px-2 mb-1">
         <h4 className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">

@@ -1,7 +1,7 @@
 // src/components/PasswordConfirmModal.jsx
 import React, { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { X } from "lucide-react"; 
+import { X } from "lucide-react";
 
 export default function PasswordConfirmModal({ onConfirm, onCancel, loading }) {
   const [password, setPassword] = useState("");
@@ -17,12 +17,12 @@ export default function PasswordConfirmModal({ onConfirm, onCancel, loading }) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white p-8 rounded-lg shadow-xl max-w-sm w-full relative">
-        
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[99999] p-4">
+      <div className="bg-white p-6 md:p-8 rounded-2xl shadow-2xl max-w-sm w-[95vw] sm:w-full relative">
+
         {/* زرار الـ X - وظيفته بس يخلي isVisible بـ false */}
         <button
-          onClick={() => setIsVisible(false)} 
+          onClick={() => setIsVisible(false)}
           type="button"
           className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors"
         >
@@ -32,7 +32,7 @@ export default function PasswordConfirmModal({ onConfirm, onCancel, loading }) {
         <h3 className="text-xl font-bold mb-4 text-center">
           {t("ConfirmShiftClosure")}
         </h3>
-        
+
         <p className="text-gray-600 text-center mb-6">
           {t("EnterPasswordToCloseShift")}
         </p>

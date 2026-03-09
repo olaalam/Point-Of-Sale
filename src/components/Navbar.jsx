@@ -17,6 +17,8 @@ import {
   FaEllipsisH,
   FaHistory,
   FaExclamationCircle,
+  FaBars,
+  FaTimes,
 } from "react-icons/fa";
 import { useTranslation } from "react-i18next";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -69,6 +71,7 @@ export default function Navbar() {
   const previousCountRef = useRef(0);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const isMobile = useIsMobile();
   const userData = JSON.parse(sessionStorage.getItem("user") || "{}");
@@ -368,33 +371,42 @@ export default function Navbar() {
 
   return (
     <>
-      <div className="text-gray-800 px-4 w-full z-[9999] bg-white shadow-md relative min-h-[96px] flex items-center">
-        <div className="flex items-center justify-between w-full h-full py-1.5">
+      <div className="text-gray-800 px-4 w-full z-[9999] bg-white shadow-md relative min-h-[70px] md:min-h-[96px] flex items-center">
+        <div className="flex items-center justify-between w-full h-full py-1.5 gap-2 md:gap-4">
           {/* Left Section: Navigation */}
           <div className="flex items-center gap-2 flex-1 pb-1">
             {location.pathname !== "/shift" &&
               location.pathname !== "/cashier" && (
                 <button
                   onClick={() => navigate(-1)}
-                  className="w-12 h-12 flex items-center justify-center font-bold text-center hover:bg-bg-primary hover:text-white cursor-pointer rounded-xl bg-gray-50 text-gray-400 border border-gray-100 transition-all duration-300 shadow-sm"
+                  className="w-10 h-10 md:w-12 md:h-12 flex items-center justify-center font-bold text-center hover:bg-bg-primary hover:text-white cursor-pointer rounded-lg md:rounded-xl bg-gray-50 text-gray-400 border border-gray-100 transition-all duration-300 shadow-sm shrink-0"
                   title="Go back"
                 >
-                  <span className="text-3xl">←</span>
+                  <span className="text-2xl md:text-3xl">←</span>
                 </button>
               )}
 
-            <div className="flex items-center gap-3 overflow-x-auto no-scrollbar py-3 px-1">
+            {/* Hamburger for mobile */}
+            <button
+              onClick={() => setIsMobileMenuOpen(true)}
+              className="md:hidden w-10 h-10 flex flex-col items-center justify-center text-gray-500 hover:text-bg-primary rounded-lg ml-1"
+            >
+              <FaBars className="text-2xl" />
+            </button>
+
+            {/* Desktop Navbar Buttons */}
+            <div className="hidden md:flex items-center gap-3 overflow-x-auto no-scrollbar py-3 px-1">
               {/* Core Square Buttons */}
               {permissions.take_away && (
                 <button
                   onClick={() => handleTabChange("take_away")}
-                  className={`relative flex flex-col items-center justify-center min-w-[76px] h-[76px] rounded-2xl transition-all duration-300 border-2 overflow-hidden ${currentTab === "take_away"
+                  className={`relative flex flex-col items-center justify-center min-w-[60px] h-[60px] md:min-w-[76px] md:h-[76px] rounded-xl md:rounded-2xl transition-all duration-300 border-2 overflow-hidden ${currentTab === "take_away"
                     ? "bg-gradient-to-br from-bg-primary to-[#800000] text-white border-bg-primary shadow-xl scale-105"
                     : "bg-white text-gray-500 border-gray-100 hover:border-bg-primary/20 hover:bg-gray-50 shadow-sm"
                     }`}
                 >
-                  <FaShoppingBag className={`${currentTab === "take_away" ? "text-3xl" : "text-2xl"} mb-1 transition-all duration-300`} />
-                  <span className={`text-[11px] font-extrabold tracking-tight ${currentTab === "take_away" ? "text-white" : "text-gray-600"}`}>{t("take_away")}</span>
+                  <FaShoppingBag className={`${currentTab === "take_away" ? "text-2xl md:text-3xl" : "text-xl md:text-2xl"} mb-1 transition-all duration-300`} />
+                  <span className={`text-[9px] md:text-[11px] font-extrabold tracking-tight ${currentTab === "take_away" ? "text-white" : "text-gray-600"}`}>{t("take_away")}</span>
                   {currentTab === "take_away" && <div className="absolute inset-0 bg-white/10 pointer-events-none" />}
                 </button>
               )}
@@ -402,13 +414,13 @@ export default function Navbar() {
               {permissions.delivery && (
                 <button
                   onClick={() => handleTabChange("delivery")}
-                  className={`relative flex flex-col items-center justify-center min-w-[76px] h-[76px] rounded-2xl transition-all duration-300 border-2 overflow-hidden ${currentTab === "delivery"
+                  className={`relative flex flex-col items-center justify-center min-w-[60px] h-[60px] md:min-w-[76px] md:h-[76px] rounded-xl md:rounded-2xl transition-all duration-300 border-2 overflow-hidden ${currentTab === "delivery"
                     ? "bg-gradient-to-br from-bg-primary to-[#800000] text-white border-bg-primary shadow-xl scale-105"
                     : "bg-white text-gray-500 border-gray-100 hover:border-bg-primary/20 hover:bg-gray-50 shadow-sm"
                     }`}
                 >
-                  <FaMotorcycle className={`${currentTab === "delivery" ? "text-4xl" : "text-3xl"} mb-1 transition-all duration-300`} />
-                  <span className={`text-[11px] font-extrabold tracking-tight ${currentTab === "delivery" ? "text-white" : "text-gray-600"}`}>{t("Delivery")}</span>
+                  <FaMotorcycle className={`${currentTab === "delivery" ? "text-2xl md:text-3xl" : "text-xl md:text-2xl"} mb-1 transition-all duration-300`} />
+                  <span className={`text-[9px] md:text-[11px] font-extrabold tracking-tight ${currentTab === "delivery" ? "text-white" : "text-gray-600"}`}>{t("Delivery")}</span>
                   {currentTab === "delivery" && <div className="absolute inset-0 bg-white/10 pointer-events-none" />}
                 </button>
               )}
@@ -416,13 +428,13 @@ export default function Navbar() {
               {permissions.dine_in && (
                 <button
                   onClick={() => handleTabChange("dine_in")}
-                  className={`relative flex flex-col items-center justify-center min-w-[76px] h-[76px] rounded-2xl transition-all duration-300 border-2 overflow-hidden ${currentTab === "dine_in"
+                  className={`relative flex flex-col items-center justify-center min-w-[60px] h-[60px] md:min-w-[76px] md:h-[76px] rounded-xl md:rounded-2xl transition-all duration-300 border-2 overflow-hidden ${currentTab === "dine_in"
                     ? "bg-gradient-to-br from-bg-primary to-[#800000] text-white border-bg-primary shadow-xl scale-105"
                     : "bg-white text-gray-500 border-gray-100 hover:border-bg-primary/20 hover:bg-gray-50 shadow-sm"
                     }`}
                 >
-                  <FaUtensils className={`${currentTab === "dine_in" ? "text-3xl" : "text-2xl"} mb-1 transition-all duration-300`} />
-                  <span className={`text-[11px] font-extrabold tracking-tight ${currentTab === "dine_in" ? "text-white" : "text-gray-600"}`}>{t("Dinein")}</span>
+                  <FaUtensils className={`${currentTab === "dine_in" ? "text-2xl md:text-3xl" : "text-xl md:text-2xl"} mb-1 transition-all duration-300`} />
+                  <span className={`text-[9px] md:text-[11px] font-extrabold tracking-tight ${currentTab === "dine_in" ? "text-white" : "text-gray-600"}`}>{t("Dinein")}</span>
                   {currentTab === "dine_in" && <div className="absolute inset-0 bg-white/10 pointer-events-none" />}
                 </button>
               )}
@@ -430,31 +442,31 @@ export default function Navbar() {
               {permissions.online_order && (
                 <button
                   onClick={() => handleTabChange("online-order")}
-                  className={`relative flex flex-col items-center justify-center min-w-[76px] h-[76px] rounded-2xl transition-all duration-300 border-2 overflow-hidden ${currentTab === "online-order"
+                  className={`relative flex flex-col items-center justify-center min-w-[60px] h-[60px] md:min-w-[76px] md:h-[76px] rounded-xl md:rounded-2xl transition-all duration-300 border-2 overflow-hidden ${currentTab === "online-order"
                     ? "bg-gradient-to-br from-bg-primary to-[#800000] text-white border-bg-primary shadow-xl scale-105"
                     : "bg-white text-gray-500 border-gray-100 hover:border-bg-primary/20 hover:bg-gray-50 shadow-sm"
                     }`}
                 >
-                  <FaGlobe className={`${currentTab === "online-order" ? "text-3xl" : "text-2xl"} mb-1 transition-all duration-300`} />
-                  <span className={`text-[11px] font-extrabold tracking-tight ${currentTab === "online-order" ? "text-white" : "text-gray-600"}`}>{t("OnlineOrders")}</span>
+                  <FaGlobe className={`${currentTab === "online-order" ? "text-2xl md:text-3xl" : "text-xl md:text-2xl"} mb-1 transition-all duration-300`} />
+                  <span className={`text-[9px] md:text-[11px] font-extrabold tracking-tight ${currentTab === "online-order" ? "text-white" : "text-gray-600"}`}>{t("OnlineOrders")}</span>
                   {currentTab === "online-order" && <div className="absolute inset-0 bg-white/10 pointer-events-none" />}
                 </button>
               )}
 
               <button
                 onClick={handleExpenses}
-                className="group flex flex-col items-center justify-center min-w-[76px] h-[76px] rounded-2xl transition-all duration-300 border-2 bg-white text-green-600 border-green-50 hover:border-green-600 hover:bg-green-50 shadow-sm"
+                className="group flex flex-col items-center justify-center min-w-[60px] h-[60px] md:min-w-[76px] md:h-[76px] rounded-xl md:rounded-2xl transition-all duration-300 border-2 bg-white text-green-600 border-green-50 hover:border-green-600 hover:bg-green-50 shadow-sm"
               >
-                <FaMoneyBillWave className="text-3xl mb-1 group-hover:scale-110 transition-transform" />
-                <span className="text-[11px] font-extrabold tracking-tight text-green-700">{t("Expenses")}</span>
+                <FaMoneyBillWave className="text-2xl md:text-3xl mb-1 group-hover:scale-110 transition-transform" />
+                <span className="text-[9px] md:text-[11px] font-extrabold tracking-tight text-green-700">{t("Expenses")}</span>
               </button>
 
               {/* More Dropdown */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <button className="flex flex-col items-center justify-center min-w-[76px] h-[76px] rounded-2xl transition-all duration-300 border-2 bg-white text-gray-400 border-gray-100 hover:border-gray-300 hover:bg-gray-50 shadow-sm outline-none">
-                    <FaEllipsisH className="text-3xl mb-1" />
-                    <span className="text-[11px] font-extrabold tracking-tight text-gray-500">{t("More")}</span>
+                  <button className="flex flex-col items-center justify-center min-w-[60px] h-[60px] md:min-w-[76px] md:h-[76px] rounded-xl md:rounded-2xl transition-all duration-300 border-2 bg-white text-gray-400 border-gray-100 hover:border-300 hover:bg-gray-50 shadow-sm outline-none">
+                    <FaEllipsisH className="text-2xl md:text-3xl mb-1" />
+                    <span className="text-[9px] md:text-[11px] font-extrabold tracking-tight text-gray-500">{t("More")}</span>
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start" className="w-56 bg-white shadow-xl border-gray-100 rounded-xl p-1">
@@ -502,8 +514,8 @@ export default function Navbar() {
             </div>
           </div>
 
-          {/* Center Section: Logo (Perfectly Centered) */}
-          <div className="absolute left-[55%] top-1/2 -translate-x-1/2 -translate-y-1/2 z-10">
+
+          <div className="static md:absolute md:left-1/2 md:top-1/2 md:-translate-x-1/2 md:-translate-y-1/2 z-10 mx-auto md:mx-0 order-first md:order-none shrink-0">
             <a
               href="https://Food2go.online"
               target="_blank"
@@ -513,7 +525,7 @@ export default function Navbar() {
               <img
                 src={logo}
                 alt="Food2go Logo"
-                className="h-12 md:h-14 w-auto object-contain hover:scale-110 transition-transform duration-300 "
+                className="h-8 md:h-14 w-auto object-contain hover:scale-110 transition-transform duration-300"
               />
             </a>
           </div>
@@ -522,9 +534,9 @@ export default function Navbar() {
           <div className="flex items-center justify-end gap-3 flex-1 py-1">
             {location.pathname !== "/shift" &&
               location.pathname !== "/cashier" && (
-                <div className="flex flex-col items-center justify-center min-w-[76px] h-[76px] rounded-2xl bg-gray-50 border-2 border-gray-100 text-gray-700 shadow-sm">
-                  <Clock className="w-6 h-6 mb-1 text-gray-400" />
-                  <span className="text-[11px] font-extrabold text-bg-primary">
+                <div className="flex flex-col items-center justify-center min-w-[60px] h-[60px] md:min-w-[76px] md:h-[76px] rounded-xl md:rounded-2xl bg-gray-50 border-2 border-gray-100 text-gray-700 shadow-sm">
+                  <Clock className="w-5 h-5 md:w-6 md:h-6 mb-1 text-gray-400" />
+                  <span className="text-[9px] md:text-[11px] font-extrabold text-bg-primary">
                     {formatElapsedTime()}
                   </span>
                 </div>
@@ -535,16 +547,16 @@ export default function Navbar() {
               <div className="relative" ref={dropdownRef}>
                 <button
                   onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                  className="relative flex flex-col items-center justify-center min-w-[76px] h-[76px] rounded-2xl bg-white border-2 border-gray-100 text-gray-500 hover:border-bg-primary/20 hover:bg-gray-50 shadow-sm transition-all duration-300 outline-none"
+                  className="relative flex flex-col items-center justify-center min-w-[60px] h-[60px] md:min-w-[76px] md:h-[76px] rounded-xl md:rounded-2xl bg-white border-2 border-gray-100 text-gray-500 hover:border-bg-primary/20 hover:bg-gray-50 shadow-sm transition-all duration-300 outline-none"
                 >
-                  <FaBell className="text-3xl mb-1 transition-all duration-300" />
-                  <span className="text-[11px] font-extrabold text-gray-400 uppercase tracking-tighter">{t("New")}</span>
+                  <FaBell className="text-2xl md:text-3xl mb-1 transition-all duration-300" />
+                  <span className="text-[9px] md:text-[11px] font-extrabold text-gray-400 uppercase tracking-tighter">{t("New")}</span>
                   {notificationCount > 0 && (
-                    <span className="absolute top-2 right-2 bg-red-500 text-white text-[10px] font-bold rounded-full px-1.5 min-w-[20px] h-[20px] flex items-center justify-center shadow-md animate-pulse">
+                    <span className="absolute top-1 right-1 md:top-2 md:right-2 bg-red-500 text-white text-[8px] md:text-[10px] font-bold rounded-full px-1 md:px-1.5 min-w-[16px] h-[16px] md:min-w-[20px] md:h-[20px] flex items-center justify-center shadow-md animate-pulse">
                       {notificationCount > 99 ? "99+" : notificationCount}
                     </span>
                   )}
-                  {isDropdownOpen && <div className="absolute inset-0 bg-bg-primary/5 pointer-events-none rounded-2xl" />}
+                  {isDropdownOpen && <div className="absolute inset-0 bg-bg-primary/5 pointer-events-none rounded-xl md:rounded-2xl" />}
                 </button>
 
                 {isDropdownOpen && (
@@ -585,9 +597,9 @@ export default function Navbar() {
             {/* Account Dropdown */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className="flex flex-col items-center justify-center min-w-[76px] h-[76px] rounded-2xl bg-white border-2 border-gray-100 text-gray-500 hover:border-bg-primary/20 hover:bg-gray-50 shadow-sm transition-all duration-300 outline-none">
-                  <User className="w-6 h-6 mb-1 text-gray-400" />
-                  <span className="text-[11px] font-extrabold text-gray-400 uppercase tracking-tighter truncate max-w-[65px]">{userData.name || t("User")}</span>
+                <button className="flex flex-col items-center justify-center min-w-[60px] h-[60px] md:min-w-[76px] md:h-[76px] rounded-xl md:rounded-2xl bg-white border-2 border-gray-100 text-gray-500 hover:border-bg-primary/20 hover:bg-gray-50 shadow-sm transition-all duration-300 outline-none">
+                  <User className="w-5 h-5 md:w-6 md:h-6 mb-1 text-gray-400" />
+                  <span className="text-[9px] md:text-[11px] font-extrabold text-gray-400 uppercase tracking-tighter truncate max-w-[50px] md:max-w-[65px]">{userData.name || t("User")}</span>
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align={isArabic ? "start" : "end"} className="w-64 mt-3 bg-white shadow-2xl border-gray-100 rounded-2xl p-1">
@@ -618,10 +630,99 @@ export default function Navbar() {
         </div >
       </div >
 
+      {/* Mobile Sidebar */}
+      {isMobileMenuOpen && (
+        <div className="fixed inset-0 z-[10000] flex">
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setIsMobileMenuOpen(false)}></div>
+          <div className={`relative bg-white w-[75vw] max-w-[300px] h-[100dvh] shadow-2xl flex flex-col animate-in ${isArabic ? "slide-in-from-right" : "slide-in-from-left"} duration-300 z-10`}>
+            <div className="p-4 border-b flex justify-between items-center bg-gray-50">
+              <span className="font-bold text-lg text-gray-800">{t("Menu")}</span>
+              <button onClick={() => setIsMobileMenuOpen(false)} className="text-gray-500 hover:text-red-500 bg-gray-200 p-2 rounded-full">
+                <FaTimes size={16} />
+              </button>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4">
+              {permissions.take_away && (
+                <button
+                  onClick={() => { handleTabChange("take_away"); setIsMobileMenuOpen(false); }}
+                  className={`flex items-center gap-4 p-4 rounded-xl border-2 transition-all ${currentTab === "take_away" ? "bg-red-50 border-bg-primary text-bg-primary font-bold shadow-md" : "border-gray-100 text-gray-600 hover:bg-gray-50"}`}
+                >
+                  <FaShoppingBag className="text-2xl" />
+                  <span className="text-sm font-bold">{t("take_away")}</span>
+                </button>
+              )}
+              {permissions.delivery && (
+                <button
+                  onClick={() => { handleTabChange("delivery"); setIsMobileMenuOpen(false); }}
+                  className={`flex items-center gap-4 p-4 rounded-xl border-2 transition-all ${currentTab === "delivery" ? "bg-red-50 border-bg-primary text-bg-primary font-bold shadow-md" : "border-gray-100 text-gray-600 hover:bg-gray-50"}`}
+                >
+                  <FaMotorcycle className="text-2xl" />
+                  <span className="text-sm font-bold">{t("Delivery")}</span>
+                </button>
+              )}
+              {permissions.dine_in && (
+                <button
+                  onClick={() => { handleTabChange("dine_in"); setIsMobileMenuOpen(false); }}
+                  className={`flex items-center gap-4 p-4 rounded-xl border-2 transition-all ${currentTab === "dine_in" ? "bg-red-50 border-bg-primary text-bg-primary font-bold shadow-md" : "border-gray-100 text-gray-600 hover:bg-gray-50"}`}
+                >
+                  <FaUtensils className="text-2xl" />
+                  <span className="text-sm font-bold">{t("Dinein")}</span>
+                </button>
+              )}
+              {permissions.online_order && (
+                <button
+                  onClick={() => { handleTabChange("online-order"); setIsMobileMenuOpen(false); }}
+                  className={`flex items-center gap-4 p-4 rounded-xl border-2 transition-all ${currentTab === "online-order" ? "bg-red-50 border-bg-primary text-bg-primary font-bold shadow-md" : "border-gray-100 text-gray-600 hover:bg-gray-50"}`}
+                >
+                  <FaGlobe className="text-2xl" />
+                  <span className="text-sm font-bold">{t("OnlineOrders")}</span>
+                </button>
+              )}
+
+              <div className="h-px bg-gray-200 my-2"></div>
+
+              <button
+                onClick={() => { handleExpenses(); setIsMobileMenuOpen(false); }}
+                className="flex items-center gap-4 p-4 rounded-xl border-2 border-gray-100 text-green-700 hover:bg-green-50 transition-all font-bold"
+              >
+                <FaMoneyBillWave className="text-2xl" />
+                <span className="text-sm">{t("Expenses")}</span>
+              </button>
+
+              <button
+                onClick={() => { handleAllOrders(); setIsMobileMenuOpen(false); }}
+                className="flex items-center gap-4 p-4 rounded-xl border-2 border-gray-100 text-gray-700 hover:bg-gray-50 transition-all font-bold"
+              >
+                <FaHistory className="text-2xl text-blue-600" />
+                <span className="text-sm">{t("AllOrders")}</span>
+              </button>
+
+              <button
+                onClick={() => { handleDueUsers(); setIsMobileMenuOpen(false); }}
+                className="flex items-center gap-4 p-4 rounded-xl border-2 border-gray-100 text-gray-700 hover:bg-gray-50 transition-all font-bold"
+              >
+                <FaExclamationCircle className="text-2xl text-red-600" />
+                <span className="text-sm">{t("Due")}</span>
+              </button>
+
+              {permissions.dine_in && (
+                <button
+                  onClick={() => { handleTables(); setIsMobileMenuOpen(false); }}
+                  className="flex items-center gap-4 p-4 rounded-xl border-2 border-gray-100 text-gray-700 hover:bg-gray-50 transition-all font-bold"
+                >
+                  <FaUtensils className="text-2xl text-orange-600" />
+                  <span className="text-sm">{t("Tables")}</span>
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {showExpensesModal && (
         <ExpensesModal onClose={() => setShowExpensesModal(false)} />
-      )
-      }
+      )}
       {
         showPasswordModal && (
           <PasswordConfirmModal
@@ -633,8 +734,8 @@ export default function Navbar() {
       }
       {
         showCashInputModal && (
-          <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 backdrop-blur-sm">
-            <div className="bg-white p-8 rounded-2xl shadow-2xl w-full max-w-md border border-gray-100">
+          <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+            <div className="bg-white p-6 md:p-8 rounded-2xl shadow-2xl w-[95vw] sm:w-full max-w-md border border-gray-100">
               <div className="text-center mb-6">
                 <h3 className="text-2xl font-bold text-gray-800">إغلاق الوردية</h3>
                 <p className="text-gray-500 mt-2">كم المبلغ الموجود في العهدة الآن؟</p>

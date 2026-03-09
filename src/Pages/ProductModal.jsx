@@ -209,7 +209,7 @@ const ProductModal = ({
       setNotes(""); // Clear notes on close
       onClose();
     }}>
-      <DialogContent className="w-[90vw] !max-w-[500px] p-0 rounded-2xl shadow-2xl overflow-y-auto max-h-[90vh] scrollbar-width-none [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+      <DialogContent className="w-[95vw] sm:w-[90vw] md:max-w-[500px] p-0 rounded-2xl shadow-2xl overflow-y-auto max-h-[90dvh] md:max-h-[90vh] scrollbar-width-none [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
         <div className="flex flex-col">
           <div className="relative">
             <img

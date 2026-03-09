@@ -23,8 +23,8 @@ export default function OrderTable({
   t,
 }) {
   return (
-    <div className="bg-white shadow-md rounded-lg">
-      <table className="w-full">
+    <div className="bg-white shadow-md rounded-lg overflow-x-auto">
+      <table className="w-full min-w-[300px]">
         <thead className="bg-gray-100 text-xs sm:text-sm sticky top-0 z-10">
           <tr>
             {orderType === "dine_in" && (

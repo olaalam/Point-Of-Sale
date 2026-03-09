@@ -613,7 +613,7 @@ export default function Card({
 
 
       <Dialog open={isCheckoutVisible} onOpenChange={setIsCheckoutVisible}>
-        <DialogContent className="max-w-5xl h-[90vh] overflow-y-auto bg-white p-0">
+        <DialogContent className="w-[95vw] md:w-full max-w-5xl max-h-[90vh] sm:max-h-[85vh] overflow-y-auto bg-white p-0 rounded-2xl sm:rounded-lg">
           <DialogHeader className="pt-2 border-b">
             <DialogTitle className=" m-auto text-xl font-bold text-bg-primary">{t("Checkout")}</DialogTitle>
           </DialogHeader>

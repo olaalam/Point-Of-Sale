@@ -640,7 +640,7 @@ export default function OrderSummary({
 
 
   return (
-    <div className="flex-shrink-0 bg-white border-t-2 border-gray-200 pt-6 mt-4">
+    <div className="flex-shrink-0 bg-white border-t-2 border-gray-200 pt-4 md:pt-6 mt-4">
       {/* Hidden Print Component */}
       <div style={{ display: "none" }}>
         <PrintableOrder
@@ -655,7 +655,7 @@ export default function OrderSummary({
       </div>
 
       {/* Summary Display */}
-      <div className="bg-gray-50 p-6 rounded-lg shadow-inner mb-6">
+      <div className="bg-gray-50 p-4 md:p-6 rounded-lg shadow-inner mb-4 md:mb-6">
         <SummaryRow label={t("SubTotal")} value={subTotal} />
 
         {taxDetails && taxDetails.length > 0 ? (
@@ -717,8 +717,8 @@ export default function OrderSummary({
       )}
 
       <div className="grid grid-cols-2 gap-4 items-center mb-6">
-        <p className="text-bg-primary text-xl font-bold">{t("AmountToPay")}</p>
-        <p className="text-right text-2xl font-bold text-green-700">
+        <p className="text-bg-primary text-lg md:text-xl font-bold">{t("AmountToPay")}</p>
+        <p className="text-right text-xl md:text-2xl font-bold text-green-700">
           {amountToPay.toFixed(2)} {t("EGP")}
         </p>
       </div>
@@ -846,15 +846,15 @@ export default function OrderSummary({
                 <button
                   onClick={() => setIsDiscountExpanded(!isDiscountExpanded)}
                   className={cn(
-                    "col-span-4 h-14 rounded-md font-bold text-xs uppercase transition-all border-2 flex flex-col items-center justify-center gap-1 shadow-sm",
+                    "col-span-4 h-14 rounded-md font-bold text-[9px] md:text-xs uppercase transition-all border-2 flex flex-col items-center justify-center gap-1 shadow-sm px-1",
                     isDiscountExpanded
                       ? "bg-blue-600 text-white border-blue-600 shadow-inner"
                       : `bg-white ${buttonColor} hover:bg-gray-50`
                   )}
                 >
-                  <span className="leading-none">{discountLabel}</span>
+                  <span className="leading-tight text-center">{discountLabel}</span>
                   {(parseFloat(freeDiscount || 0) > 0 || appliedDiscount > 0 || selectedDiscountId) && (
-                    <span className="text-xs opacity-80">●</span> // مؤشر إن فيه خصم مطبق
+                    <span className="text-[10px] md:text-xs opacity-80 leading-none">●</span> // مؤشر إن فيه خصم مطبق
                   )}
                 </button>
               );
