@@ -1282,11 +1282,72 @@ export const printKitchenOnly = async (receiptData, apiResponse, callback) => {
   }
 };
 
+
+
+// دالة للطباعة عبر Web Bluetooth API مخصصة لطابعات Xprinter
+const printViaWebBluetooth = async (receiptData) => {
+  try {
+    // 1. UUIDs الخاصة بطابعة Xprinter
+    const XPRINTER_SERVICE_UUID = '49535343-fe7d-4ae5-8fa9-9fafd205e455';
+    const XPRINTER_CHARACTERISTIC_UUID = '49535343-8841-43f4-a8d4-ecbe34729bb3';
+
+    // 2. طلب الاتصال بالطابعة
+    const device = await navigator.bluetooth.requestDevice({
+      acceptAllDevices: true,
+      optionalServices: [XPRINTER_SERVICE_UUID]
+    });
+
+    const server = await device.gatt.connect();
+    const service = await server.getPrimaryService(XPRINTER_SERVICE_UUID);
+    const characteristic = await service.getCharacteristic(XPRINTER_CHARACTERISTIC_UUID);
+
+    // 3. تجهيز الفاتورة كنص عادي (Plain Text) لأن البلوتوث مش بيفهم HTML
+    // تقدري تعدلي شكل النص هنا زي ما تحبي
+    let textReceipt = "================================\n";
+    textReceipt += `       ${receiptData.restaurantName}       \n`;
+    textReceipt += "================================\n";
+    textReceipt += `Order No: #${receiptData.invoiceNumber}\n`;
+    textReceipt += `Date: ${receiptData.dateFormatted} ${receiptData.timeFormatted}\n`;
+    textReceipt += "--------------------------------\n";
+
+    // إضافة الأصناف
+    receiptData.items.forEach(item => {
+      textReceipt += `${item.qty}x ${item.nameEn || item.name}  -  ${item.total} EGP\n`;
+    });
+
+    textReceipt += "--------------------------------\n";
+    textReceipt += `Total: ${receiptData.total} EGP\n`;
+    textReceipt += "================================\n";
+    textReceipt += "       Powered by Food2Go       \n";
+    textReceipt += "\n\n\n"; // مسافات عشان الورقة تطلع لبرة
+
+    // 4. تحويل النص لـ Bytes
+    const encoder = new TextEncoder();
+    const data = encoder.encode(textReceipt);
+
+    // 5. إرسال البيانات للطابعة
+    // في طابعات الـ BLE بنحتاج نبعت الداتا على أجزاء (Chunks) لو كانت كبيرة
+    const chunkSize = 20; // أغلب شاشات البلوتوث بتقبل 20 بايت في المرة
+    for (let i = 0; i < data.length; i += chunkSize) {
+      const chunk = data.slice(i, i + chunkSize);
+      await characteristic.writeValue(chunk);
+    }
+
+    // 6. فصل الاتصال
+    device.gatt.disconnect();
+    toast.success("✅ تمت الطباعة عبر البلوتوث بنجاح");
+
+  } catch (error) {
+    console.error("Web Bluetooth Error:", error);
+    toast.error("❌ فشل الطباعة بالبلوتوث: " + error.message);
+  }
+};
 // ===================================================================
 // 10. دالة الطباعة الرئيسية (Cashier + Kitchen)
 // ===================================================================
 export const printReceiptSilently = async (receiptData, apiResponse, callback, options = {}) => {
   const { shouldSkipKitchenPrint = false } = options;
+  const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
   try {
     const orderType = (receiptData.orderType || "").toLowerCase();
     const cashierHtml = getReceiptHTML(receiptData, { design: "full", type: "cashier" });
@@ -1334,7 +1395,14 @@ export const printReceiptSilently = async (receiptData, apiResponse, callback, o
         electronJobs.push({ html: kitchenHtml, printerName: kitchen.print_name, type: "kitchen" });
       }
     }
+    if (isMobile) {
+      // استخدام Web Bluetooth API بدلاً من RawBT
+      // مش هنحتاج الـ HTML هنا، هنبعت الـ receiptData الداتا الخام
+      await printViaWebBluetooth(receiptData);
 
+      if (callback) callback();
+      return; // توقف هنا عشان ما يكملش لكود الديسكتوب
+    }
     // --- 3. التنفيذ النهائي ---
     if (window.electronAPI) {
       for (const job of electronJobs) {
