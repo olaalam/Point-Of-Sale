@@ -620,7 +620,7 @@ const ProductModal = ({
                     ) : 0,
                   };
                 });
-
+const finalQuantity = parseFloat(quantity) || 0;
                 // 👇 بناء المنتج النهائي
                 const enhancedProduct = {
                   ...selectedProduct,
