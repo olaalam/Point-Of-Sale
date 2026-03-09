@@ -1285,6 +1285,7 @@ export const printKitchenOnly = async (receiptData, apiResponse, callback) => {
 
 
 // دالة للطباعة عبر Web Bluetooth API مخصصة لطابعات Xprinter
+
 const printViaWebBluetooth = async (receiptData) => {
   try {
     // 1. UUIDs الخاصة بطابعة Xprinter
@@ -1301,8 +1302,7 @@ const printViaWebBluetooth = async (receiptData) => {
     const service = await server.getPrimaryService(XPRINTER_SERVICE_UUID);
     const characteristic = await service.getCharacteristic(XPRINTER_CHARACTERISTIC_UUID);
 
-    // 3. تجهيز الفاتورة كنص عادي (Plain Text) لأن البلوتوث مش بيفهم HTML
-    // تقدري تعدلي شكل النص هنا زي ما تحبي
+    // 3. تجهيز الفاتورة كنص عادي
     let textReceipt = "================================\n";
     textReceipt += `       ${receiptData.restaurantName}       \n`;
     textReceipt += "================================\n";
@@ -1310,7 +1310,6 @@ const printViaWebBluetooth = async (receiptData) => {
     textReceipt += `Date: ${receiptData.dateFormatted} ${receiptData.timeFormatted}\n`;
     textReceipt += "--------------------------------\n";
 
-    // إضافة الأصناف
     receiptData.items.forEach(item => {
       textReceipt += `${item.qty}x ${item.nameEn || item.name}  -  ${item.total} EGP\n`;
     });
@@ -1319,18 +1318,31 @@ const printViaWebBluetooth = async (receiptData) => {
     textReceipt += `Total: ${receiptData.total} EGP\n`;
     textReceipt += "================================\n";
     textReceipt += "       Powered by Food2Go       \n";
-    textReceipt += "\n\n\n"; // مسافات عشان الورقة تطلع لبرة
+    textReceipt += "\n\n\n\n"; // مسافات إضافية عشان الورقة تطلع لبرة
 
-    // 4. تحويل النص لـ Bytes
+    // 4. تحويل النص لـ Bytes وإضافة أمر التهيئة (ESC/POS Init Command)
     const encoder = new TextEncoder();
-    const data = encoder.encode(textReceipt);
+    const textBytes = encoder.encode(textReceipt);
 
-    // 5. إرسال البيانات للطابعة
-    // في طابعات الـ BLE بنحتاج نبعت الداتا على أجزاء (Chunks) لو كانت كبيرة
-    const chunkSize = 20; // أغلب شاشات البلوتوث بتقبل 20 بايت في المرة
+    // أمر التهيئة [27, 64] أو [0x1B, 0x40] (ESC @)
+    const initCommand = new Uint8Array([27, 64]);
+
+    // دمج أمر التهيئة مع النص
+    const data = new Uint8Array(initCommand.length + textBytes.length);
+    data.set(initCommand);
+    data.set(textBytes, initCommand.length);
+
+    // 5. إرسال البيانات للطابعة على أجزاء
+    const chunkSize = 20;
     for (let i = 0; i < data.length; i += chunkSize) {
       const chunk = data.slice(i, i + chunkSize);
-      await characteristic.writeValue(chunk);
+
+      // التأكد من طريقة الكتابة المدعومة للطابعة
+      if (characteristic.properties.writeWithoutResponse) {
+        await characteristic.writeValueWithoutResponse(chunk);
+      } else {
+        await characteristic.writeValue(chunk);
+      }
     }
 
     // 6. فصل الاتصال
