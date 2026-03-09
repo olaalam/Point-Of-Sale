@@ -20,7 +20,7 @@ const DineInformation = () => {
   return (
     <div
       className={`bg-gradient-to-r from-gray-50 to-gray-100
-      rounded-xl shadow-md p-5 mb-5 flex items-center justify-center gap-10
+      rounded-xl shadow-md p-5 mb-5 flex flex-col md:flex-row items-center justify-center gap-6 md:gap-10
       border border-gray-200 transition-all`}
       dir={isArabic ? "rtl" : "ltr"}
     >
@@ -38,7 +38,7 @@ const DineInformation = () => {
       )}
 
       {/* Divider */}
-      {tableNumber && <div className="w-px h-10 bg-red-300" />}
+      {tableNumber && <div className="hidden md:block w-px h-10 bg-red-300" />}
 
       {/* Table */}
       {tableNumber && (
@@ -54,7 +54,7 @@ const DineInformation = () => {
       )}
 
       {/* Divider */}
-      {preparationNumber && <div className="w-px h-10 bg-red-300" />}
+      {preparationNumber && <div className="hidden md:block w-px h-10 bg-red-300" />}
 
       {/* Preparation Number */}
       {preparationNumber && (

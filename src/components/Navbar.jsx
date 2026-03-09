@@ -5,6 +5,7 @@ import { usePost } from "@/Hooks/usePost";
 import { useGet } from "@/Hooks/useGet";
 import { useShift } from "@/context/ShiftContext";
 import { toast } from "react-toastify";
+import { useIsMobile } from "@/Hooks/use-mobile";
 import {
   FaBell,
   FaChevronDown,
@@ -69,6 +70,7 @@ export default function Navbar() {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
 
+  const isMobile = useIsMobile();
   const userData = JSON.parse(sessionStorage.getItem("user") || "{}");
   const permissions = {
     online_order: userData.online_order === 1,
