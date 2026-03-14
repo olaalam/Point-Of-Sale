@@ -462,14 +462,26 @@ export default function Navbar() {
               </button>
 
               {/* More Dropdown */}
+              {/* More Dropdown */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <button className="flex flex-col items-center justify-center min-w-[60px] h-[60px] md:min-w-[76px] md:h-[76px] rounded-xl md:rounded-2xl transition-all duration-300 border-2 bg-white text-gray-400 border-gray-100 hover:border-300 hover:bg-gray-50 shadow-sm outline-none">
-                    <FaEllipsisH className="text-2xl md:text-3xl mb-1" />
-                    <span className="text-[9px] md:text-[11px] font-extrabold tracking-tight text-gray-500">{t("More")}</span>
+                  <button className="flex flex-col items-center justify-center min-w-[60px] h-[60px] md:min-w-[76px] md:h-[76px] rounded-xl md:rounded-2xl transition-all duration-300 border-2 bg-white text-gray-400 border-gray-100 outline-none shadow-sm 
+    /* تعديل الـ Hover ليكون مثل Dine In */
+    hover:bg-bg-primary hover:text-white hover:border-bg-primary group">
+
+                    <FaEllipsisH className="text-2xl md:text-3xl mb-1 group-hover:text-white transition-colors" />
+
+                    <span className="text-[9px] md:text-[11px] font-extrabold tracking-tight text-gray-500 group-hover:text-white transition-colors">
+                      {t("More")}
+                    </span>
                   </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="w-56 bg-white shadow-xl border-gray-100 rounded-xl p-1">
+
+                {/* إضافة z-[9999] و bg-white صريح لمنع التداخل اللي في الصورة */}
+                <DropdownMenuContent
+                  align="start"
+                  className="z-[9999] w-56 bg-white shadow-[0_10px_40px_rgba(0,0,0,0.2)] border-gray-100 rounded-xl p-1"
+                >
                   <DropdownMenuItem onClick={handleAllOrders} className="flex items-center gap-3 p-3 cursor-pointer hover:bg-gray-50 rounded-lg group">
                     <div className="w-8 h-8 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center group-hover:bg-blue-600 group-hover:text-white transition-colors">
                       <FaHistory size={14} />
@@ -498,12 +510,12 @@ export default function Navbar() {
                       <DropdownMenuSeparator className="my-1 bg-gray-100" />
                       <DropdownMenuLabel className="px-3 py-2 text-[10px] uppercase tracking-wider text-gray-400 font-bold">{t("Reports")}</DropdownMenuLabel>
                       {permissions.delivery && (
-                        <DropdownMenuItem onClick={handleDeliveryOrder} className="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-red-50 text-gray-600 hover:text-bg-primary rounded-lg font-semibold">
+                        <DropdownMenuItem onClick={handleDeliveryOrder} className="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-red-50 text-gray-600 hover:text-bg-primary rounded-lg font-semibold transition-colors">
                           {t("DeliveryOrder")}
                         </DropdownMenuItem>
                       )}
                       {permissions.dine_in && (
-                        <DropdownMenuItem onClick={handleDineInOrder} className="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-red-50 text-gray-600 hover:text-bg-primary rounded-lg font-semibold">
+                        <DropdownMenuItem onClick={handleDineInOrder} className="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-red-50 text-gray-600 hover:text-bg-primary rounded-lg font-semibold transition-colors">
                           {t("DineInOrder")}
                         </DropdownMenuItem>
                       )}
