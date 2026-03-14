@@ -462,12 +462,9 @@ export default function Navbar() {
               </button>
 
               {/* More Dropdown */}
-              {/* More Dropdown */}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <button className="flex flex-col items-center justify-center min-w-[60px] h-[60px] md:min-w-[76px] md:h-[76px] rounded-xl md:rounded-2xl transition-all duration-300 border-2 bg-white text-gray-400 border-gray-100 outline-none shadow-sm 
-    /* تعديل الـ Hover ليكون مثل Dine In */
-    hover:bg-bg-primary hover:text-white hover:border-bg-primary group">
+                  <button className="flex flex-col items-center justify-center min-w-[60px] h-[60px] md:min-w-[76px] md:h-[76px] rounded-xl md:rounded-2xl transition-all duration-300 border-2 bg-white text-gray-400 border-gray-100 outline-none shadow-sm hover:bg-bg-primary hover:text-white hover:border-bg-primary group">
 
                     <FaEllipsisH className="text-2xl md:text-3xl mb-1 group-hover:text-white transition-colors" />
 
@@ -477,7 +474,6 @@ export default function Navbar() {
                   </button>
                 </DropdownMenuTrigger>
 
-                {/* إضافة z-[9999] و bg-white صريح لمنع التداخل اللي في الصورة */}
                 <DropdownMenuContent
                   align="start"
                   className="z-[9999] w-56 bg-white shadow-[0_10px_40px_rgba(0,0,0,0.2)] border-gray-100 rounded-xl p-1"
