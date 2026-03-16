@@ -371,7 +371,7 @@ export default function Navbar() {
 
   return (
     <>
-      <div className="text-gray-800 px-4 w-full z-[9999] bg-white shadow-md relative min-h-[70px] md:min-h-[96px] flex items-center">
+      <div className="text-gray-800 px-4 w-full z-9 bg-white shadow-md relative min-h-[70px] md:min-h-[96px] flex items-center">
         <div className="flex items-center justify-between w-full h-full py-1.5 gap-2 md:gap-4">
           {/* Left Section: Navigation */}
           <div className="flex items-center gap-2 flex-1 pb-1">
