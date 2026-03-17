@@ -263,6 +263,11 @@ export default function Item({ onAddToOrder, onClose, onClearCart, cartHasItems 
       setSelectedOffer(null);
       setShowCategories(false);
       setVisibleProductCount(PRODUCTS_TO_SHOW_INITIALLY);
+
+      if (selectedGroup === "all") {
+        setIsNormalPrice(true);
+        setSelectedGroup("none");
+      }
     }
   };
 
@@ -731,6 +736,10 @@ export default function Item({ onAddToOrder, onClose, onClearCart, cartHasItems 
               setSelectedSubCategory(null);
               setSelectedOffer(null);
               setShowCategories(false);
+              if (selectedGroup === "all") {
+                setIsNormalPrice(true);
+                setSelectedGroup("none");
+              }
             }}
             className={`flex items-center gap-2 lg:gap-3 p-2 lg:p-3 rounded-xl cursor-pointer transition-all border shrink-0 min-w-[120px] lg:min-w-0 ${selectedMainCategory === "offers"
               ? "bg-bg-primary text-white border-bg-primary shadow-md"
