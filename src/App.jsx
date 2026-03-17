@@ -20,7 +20,7 @@ function App() {
     window.addEventListener("keydown", handleEnter);
 
     // check لو في token يبقى مسجل دخول
-    const token = sessionStorage.getItem("token");
+    const token = localStorage.getItem("token");
     setIsLoggedIn(!!token);
 
     return () => window.removeEventListener("keydown", handleEnter);

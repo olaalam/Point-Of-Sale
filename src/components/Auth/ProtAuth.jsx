@@ -2,7 +2,7 @@ import { Navigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 
 const ProtAuth = ({ children }) => {
-  const userLocal = sessionStorage.getItem('user');
+  const userLocal = localStorage.getItem('user');
 
   if (userLocal) {
     toast.warn('You are already logged in');

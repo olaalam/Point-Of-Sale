@@ -146,12 +146,12 @@ if (response && response.success) {
   // 🔥🔥🔥 الإضافة الجديدة هنا 🔥🔥🔥
   // 1. بنحفظ رقم التليفون عشان يتحط في خانة البحث أوتوماتيك
   if (values.phone) {
-    sessionStorage.setItem("delivery_search_query", values.phone);
+    localStorage.setItem("delivery_search_query", values.phone);
   }
   
   // 2. بنحفظ الـ ID عشان يعمل Scroll عليه (ده موجود أصلاً في كودك بس للتأكيد)
   if (redirectUserId) {
-    sessionStorage.setItem("last_selected_user_id", redirectUserId);
+    localStorage.setItem("last_selected_user_id", redirectUserId);
   }
   // 🔥🔥🔥 نهاية الإضافة 🔥🔥🔥
 

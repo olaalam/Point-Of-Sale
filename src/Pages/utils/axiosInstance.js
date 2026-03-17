@@ -17,8 +17,8 @@ axiosInstance.interceptors.response.use(
       toast.error("Session expired, please login again.");
 
       // حذف بيانات الدخول
-      sessionStorage.removeItem("token");
-      sessionStorage.removeItem("user");
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
       localStorage.setItem("shiftStatus", "close");
 
       // إعادة التوجيه إلى صفحة اللوجين

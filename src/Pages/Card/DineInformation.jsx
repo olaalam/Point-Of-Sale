@@ -6,10 +6,10 @@ const DineInformation = () => {
   const { t, i18n } = useTranslation();
   const isArabic = i18n.language === "ar";
 
-  const hallName = sessionStorage.getItem("hall_name");
-  const tableNumber = sessionStorage.getItem("table_number");
-  const orderType = sessionStorage.getItem("order_type");
-  const preparationNumber = sessionStorage.getItem("preparation_number"); // 🟢 رقم التحضير
+  const hallName = localStorage.getItem("hall_name");
+  const tableNumber = localStorage.getItem("table_number");
+  const orderType = localStorage.getItem("order_type");
+  const preparationNumber = localStorage.getItem("preparation_number"); // 🟢 رقم التحضير
 
   // 🛑 إخفاء المكوّن خارج dine in
   if (orderType !== "dine_in") return null;

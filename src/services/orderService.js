@@ -6,8 +6,8 @@ import { buildProductPayload } from "./productProcessor";
 export const submitItemToBackend = async (postData, product, quantity = 1, orderType) => {
   if (orderType !== "dine_in") return;
 
-  const cashierId = sessionStorage.getItem("cashier_id");
-  const tableId = sessionStorage.getItem("table_id");
+  const cashierId = localStorage.getItem("cashier_id");
+  const tableId = localStorage.getItem("table_id");
 
   if (!cashierId || !tableId) {
     toast.error("Missing cashier or table information");

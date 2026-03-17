@@ -7,7 +7,7 @@ export const useIsDueModuleAllowed = (orderType, groupProducts) => {
       return false;
     }
 
-    const lastSelectedGroupId = sessionStorage.getItem("last_selected_group");
+    const lastSelectedGroupId = localStorage.getItem("last_selected_group");
 
     // لو مفيش group مختار أو "all" → false
     if (!lastSelectedGroupId || lastSelectedGroupId === "all" || lastSelectedGroupId === "null") {

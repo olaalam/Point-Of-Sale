@@ -74,7 +74,7 @@ export default function Navbar() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const isMobile = useIsMobile();
-  const userData = JSON.parse(sessionStorage.getItem("user") || "{}");
+  const userData = JSON.parse(localStorage.getItem("user") || "{}");
   const permissions = {
     online_order: userData.online_order === 1,
     take_away: userData.take_away === 1,
@@ -82,10 +82,10 @@ export default function Navbar() {
     dine_in: userData.dine_in === 1,
   };
 
-  const currentTab = sessionStorage.getItem("tab") || "take_away";
+  const currentTab = localStorage.getItem("tab") || "take_away";
   const isArabic = i18n.language === "ar";
   useEffect(() => {
-    const storedSound = sessionStorage.getItem("notification_sound") || FALLBACK_SOUND;
+    const storedSound = localStorage.getItem("notification_sound") || FALLBACK_SOUND;
     audioRef.current = new Audio(storedSound);
     audioRef.current.load();
 
@@ -112,7 +112,7 @@ export default function Navbar() {
 
       if (newCount > previousCountRef.current) {
         if (audioRef.current) {
-          const currentStoredSound = sessionStorage.getItem("notification_sound") || FALLBACK_SOUND;
+          const currentStoredSound = localStorage.getItem("notification_sound") || FALLBACK_SOUND;
           if (audioRef.current.src !== currentStoredSound) {
             audioRef.current.src = currentStoredSound;
           }
@@ -161,7 +161,7 @@ export default function Navbar() {
   };
 
   const formatElapsedTime = () => {
-    const start = shiftStartTime || sessionStorage.getItem("shift_start_time");
+    const start = shiftStartTime || localStorage.getItem("shift_start_time");
     if (!start) return "00:00:00";
     const elapsed = Math.floor((currentTime - new Date(start)) / 1000);
     const hours = Math.floor(elapsed / 3600);
@@ -178,26 +178,26 @@ export default function Navbar() {
       return;
     }
 
-    const isRepeated = sessionStorage.getItem("is_repeating_order") === "true";
+    const isRepeated = localStorage.getItem("is_repeating_order") === "true";
 
-    sessionStorage.setItem("tab", value);
-    sessionStorage.setItem("order_type", value);
+    localStorage.setItem("tab", value);
+    localStorage.setItem("order_type", value);
 
     if (!isRepeated) {
-      sessionStorage.removeItem("cart");
+      localStorage.removeItem("cart");
     } else {
-      sessionStorage.removeItem("is_repeating_order");
+      localStorage.removeItem("is_repeating_order");
     }
 
     if (value === "take_away") {
-      sessionStorage.removeItem("table_id");
-      sessionStorage.removeItem("delivery_user_id");
+      localStorage.removeItem("table_id");
+      localStorage.removeItem("delivery_user_id");
       navigate("/", { replace: true });
     } else if (value === "dine_in") {
-      sessionStorage.removeItem("delivery_user_id");
+      localStorage.removeItem("delivery_user_id");
       navigate("/", { replace: true });
     } else if (value === "delivery") {
-      sessionStorage.removeItem("table_id");
+      localStorage.removeItem("table_id");
       navigate("/", { replace: true });
     } else if (value === "online-order") {
       navigate("/online-orders", { replace: true });
@@ -229,7 +229,7 @@ export default function Navbar() {
   const handleAutoCashConfirmed = async (password) => {
     setReportLoading(true);
     try {
-      const token = sessionStorage.getItem("token");
+      const token = localStorage.getItem("token");
       const baseUrl = import.meta.env.VITE_API_BASE_URL;
 
       const response = await axios.post(
@@ -256,7 +256,7 @@ export default function Navbar() {
   const handlePasswordConfirmed = (password) => {
     setPendingPassword(password);
     setShowPasswordModal(false);
-    const enterAmountStatus = sessionStorage.getItem("enter_amount");
+    const enterAmountStatus = localStorage.getItem("enter_amount");
 
     if (enterAmountStatus === "1") {
       setShowCashInputModal(true);
@@ -274,7 +274,7 @@ export default function Navbar() {
 
     setReportLoading(true);
     try {
-      const token = sessionStorage.getItem("token");
+      const token = localStorage.getItem("token");
       const baseUrl = import.meta.env.VITE_API_BASE_URL;
 
       const response = await axios.post(
@@ -302,7 +302,7 @@ export default function Navbar() {
   const handleFinalClose = async () => {
     try {
       setLoading(true);
-      const token = sessionStorage.getItem("token");
+      const token = localStorage.getItem("token");
       const endpoint = `${import.meta.env.VITE_API_BASE_URL}cashier/shift/close`;
 
       // 1. قفل الشيفت أولاً
@@ -321,10 +321,10 @@ export default function Navbar() {
       closeShift(); // لو دي Function بتغير State في الـ Context
 
       // 4. تنظيف الـ Storage (خلينا في الـ removeItem لو محتاجة تحفظي اللغة)
-      sessionStorage.removeItem("shift_start_time");
-      sessionStorage.removeItem("shift_data");
-      sessionStorage.removeItem("token");
-      // sessionStorage.clear(); // استخدميها لو عايزة تمسحي "كله" فعلاً
+      localStorage.removeItem("shift_start_time");
+      localStorage.removeItem("shift_data");
+      localStorage.removeItem("token");
+      // localStorage.clear(); // استخدميها لو عايزة تمسحي "كله" فعلاً
 
       toast.success(t("ShiftClosedSuccessfully"));
 
@@ -341,7 +341,12 @@ export default function Navbar() {
   const handleLogout = async () => {
     try {
       await postData("api/logout", {});
-      sessionStorage.clear();
+      const keepKeys = ['language', 'notification_sound', 'shiftStatus', 'shiftStartTime', 'receipt_design', 'cashier_id'];
+      Object.keys(localStorage).forEach(key => {
+        if (!keepKeys.includes(key)) {
+          localStorage.removeItem(key);
+        }
+      });
       toast.success(t("Logged out successfully"));
       navigate("/login");
     } catch (err) {
@@ -351,7 +356,7 @@ export default function Navbar() {
 
   const handleOrderClick = async (orderId) => {
     try {
-      const token = sessionStorage.getItem("token");
+      const token = localStorage.getItem("token");
       const baseUrl = import.meta.env.VITE_API_BASE_URL;
 
       await axios.get(`${baseUrl}cashier/orders/order_read/${orderId}`, {

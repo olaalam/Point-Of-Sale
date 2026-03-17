@@ -15,8 +15,8 @@ import ModuleOrderModal from "./ModuleOrderModal";
 import GroupSelector from "./GroupSelector";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
-const getAuthToken = () => sessionStorage.getItem("token");
-let resturant_logo = sessionStorage.getItem("resturant_logo");
+const getAuthToken = () => localStorage.getItem("token");
+let resturant_logo = localStorage.getItem("resturant_logo");
 
 const apiFetcher = async (path) => {
   const url = `${API_BASE_URL}${path}`;
@@ -56,7 +56,7 @@ export default function Item({ onAddToOrder, onClose, onClearCart, cartHasItems 
   const [searchQuery, setSearchQuery] = useState("");
   const [visibleProductCount, setVisibleProductCount] = useState(PRODUCTS_TO_SHOW_INITIALLY);
   const [selectedOffer, setSelectedOffer] = useState(null);
-  const [branchIdState, setBranchIdState] = useState(sessionStorage.getItem("branch_id"));
+  const [branchIdState, setBranchIdState] = useState(localStorage.getItem("branch_id"));
   const [productType, setProductType] = useState("piece");
   const [selectedGroup, setSelectedGroup] = useState("none");
   const [showCategories, setShowCategories] = useState(true);
@@ -124,12 +124,12 @@ export default function Item({ onAddToOrder, onClose, onClearCart, cartHasItems 
     return () => input.removeEventListener("blur", handleBlur);
   }, [isProductModalOpen, isModuleOrderModalOpen]);
 
-  const orderType = sessionStorage.getItem("order_type") || "dine_in";
+  const orderType = localStorage.getItem("order_type") || "dine_in";
   const { deliveryUserData, userLoading, userError } = useDeliveryUser(orderType);
   const { postData: postOrder, loading: orderLoading } = usePost();
 
   useEffect(() => {
-    const stored_branch_id = sessionStorage.getItem("branch_id");
+    const stored_branch_id = localStorage.getItem("branch_id");
     if (stored_branch_id !== branchIdState) setBranchIdState(stored_branch_id);
   }, [branchIdState]);
 
@@ -281,7 +281,7 @@ export default function Item({ onAddToOrder, onClose, onClearCart, cartHasItems 
       setShowCategories(true);
       setSelectedMainCategory("all");
       setSelectedSubCategory(null);
-      sessionStorage.removeItem("module_order_number");
+      localStorage.removeItem("module_order_number");
       setShowClearModal(false);
     };
 
@@ -298,7 +298,7 @@ export default function Item({ onAddToOrder, onClose, onClearCart, cartHasItems 
     const id = groupId.toString();
     setSelectedGroup(id);
     setTempGroupId(id);
-    setModuleOrderNumber(sessionStorage.getItem("module_order_number") || "");
+    setModuleOrderNumber(localStorage.getItem("module_order_number") || "");
     setIsModuleOrderModalOpen(true);
   };
   const handleAddToOrder = useCallback(
@@ -334,12 +334,12 @@ export default function Item({ onAddToOrder, onClose, onClearCart, cartHasItems 
       const createTempId = (pId) => `${pId}_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
       if (orderType === "dine_in") {
-        const tableId = sessionStorage.getItem("table_id");
+        const tableId = localStorage.getItem("table_id");
         if (!tableId) return toast.error(t("PleaseSelectTableFirst"));
 
         const payload = {
           table_id: tableId,
-          cashier_id: sessionStorage.getItem("cashier_id"),
+          cashier_id: localStorage.getItem("cashier_id"),
           amount: totalAmount.toFixed(2),
           // تأمين حساب الضريبة
           total_tax: (parseFloat(product.tax_val || 0) * finalQuantity).toFixed(2),
@@ -352,7 +352,7 @@ export default function Item({ onAddToOrder, onClose, onClearCart, cartHasItems 
         try {
           const response = await postOrder("cashier/dine_in_order", payload, {
             headers: {
-              Authorization: `Bearer ${sessionStorage.getItem("access_token")}`,
+              Authorization: `Bearer ${localStorage.getItem("access_token")}`,
             },
           });
 
@@ -484,7 +484,7 @@ export default function Item({ onAddToOrder, onClose, onClearCart, cartHasItems 
           resturantLogo={resturant_logo}
           onSelectGroup={(groupId, groupInfo) => {
             setTempGroupId(groupId);
-            setModuleOrderNumber(sessionStorage.getItem("module_order_number") || "");
+            setModuleOrderNumber(localStorage.getItem("module_order_number") || "");
             setSelectedGroupInfo(groupInfo);
             setIsModuleOrderModalOpen(true);
           }}
@@ -553,7 +553,7 @@ export default function Item({ onAddToOrder, onClose, onClearCart, cartHasItems 
             key={group.id}
             onClick={() => {
               setTempGroupId(group.id);
-              setModuleOrderNumber(sessionStorage.getItem("module_order_number") || "");
+              setModuleOrderNumber(localStorage.getItem("module_order_number") || "");
               setSelectedGroupInfo({
                 name: group.name,
                 image: group.icon_link || "/default-group.png",
@@ -826,10 +826,10 @@ export default function Item({ onAddToOrder, onClose, onClearCart, cartHasItems 
       if (onClearCart && isNormalPrice) {
         onClearCart();
       }
-      sessionStorage.setItem("module_order_number", moduleOrderNumber.trim());
+      localStorage.setItem("module_order_number", moduleOrderNumber.trim());
       setIsNormalPrice(false);
       const id = tempGroupId.toString();
-      sessionStorage.setItem("last_selected_group", id);
+      localStorage.setItem("last_selected_group", id);
       setSelectedGroup(id);
       setShowCategories(true);
       setSelectedMainCategory("all");

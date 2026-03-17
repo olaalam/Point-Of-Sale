@@ -21,7 +21,7 @@ const SectionHeader = ({ icon: Icon, title }) => (
     {title}
   </h3>
 );
-const userData = JSON.parse(sessionStorage.getItem("user") || "{}");
+const userData = JSON.parse(localStorage.getItem("user") || "{}");
 
 const canShowTax = Number(userData.total_tax) === 1;
 const canShowService = Number(userData.service_fees) === 1;

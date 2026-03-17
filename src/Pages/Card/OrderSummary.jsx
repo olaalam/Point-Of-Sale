@@ -476,7 +476,7 @@ export default function OrderSummary({
       ? (realSubTotal + totalTax) * (serviceFeeData.amount / 100)
       : serviceFeeData.amount)
     : 0;
-  const selectedUserData = JSON.parse(sessionStorage.getItem("selected_user_data") || "{}");
+  const selectedUserData = JSON.parse(localStorage.getItem("selected_user_data") || "{}");
   const deliveryFee = orderType === "delivery"
     ? Number(selectedUserData?.selectedAddress?.zone?.price || 0)
     : 0;
@@ -523,7 +523,7 @@ export default function OrderSummary({
   const [discountError, setDiscountError] = useState(null);
   const { postData } = usePost();
   //discount permission 
-  const userDataStr = sessionStorage.getItem("user");
+  const userDataStr = localStorage.getItem("user");
   const userData = userDataStr ? JSON.parse(userDataStr) : {};
   const hasDiscountPermission = userData.discount_perimission === 1 || userData.discount_permission === 1; // دعم الإملاءين
   const hasFreeDiscountPermission = userData.free_discount === 1;
@@ -632,10 +632,10 @@ export default function OrderSummary({
   };
 
   const restaurantInfo = {
-    name: sessionStorage.getItem("resturant_name") || "Restaurant Name",
-    address: sessionStorage.getItem("restaurant_address") || "Restaurant Address",
-    prep: sessionStorage.getItem("preparation_number"),
-    Phone: sessionStorage.getItem("restaurant_phone") || "",
+    name: localStorage.getItem("resturant_name") || "Restaurant Name",
+    address: localStorage.getItem("restaurant_address") || "Restaurant Address",
+    prep: localStorage.getItem("preparation_number"),
+    Phone: localStorage.getItem("restaurant_phone") || "",
   };
 
 

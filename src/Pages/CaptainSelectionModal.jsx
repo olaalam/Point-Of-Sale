@@ -18,14 +18,14 @@ export default function CaptainSelectionModal({
   t,
   disabled
 }) {
-  const [selectedName, setSelectedName] = useState(sessionStorage.getItem("selected_captain_name"));
+  const [selectedName, setSelectedName] = useState(localStorage.getItem("selected_captain_name"));
   useEffect(() => {
-    const nameInSession = sessionStorage.getItem("selected_captain_name");
+    const nameInSession = localStorage.getItem("selected_captain_name");
     setSelectedName(nameInSession);
   }, [isOpen]);
   const handleCaptainSelect = (captain) => {
-    sessionStorage.setItem("selected_captain_id", captain.id);
-    sessionStorage.setItem("selected_captain_name", captain.name);
+    localStorage.setItem("selected_captain_id", captain.id);
+    localStorage.setItem("selected_captain_name", captain.name);
     setSelectedName(captain.name);
     onOpenChange(false); // إغلاق المودال
   };

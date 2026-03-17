@@ -22,7 +22,7 @@ export default function ExpensesModal({ onClose, expense = null, refetchParent }
     const [note, setNote] = useState("");
 
     // Load financial account
-    const storedAcc = sessionStorage.getItem("financial_account");
+    const storedAcc = localStorage.getItem("financial_account");
     let initialFinancialId = "";
 
     try {

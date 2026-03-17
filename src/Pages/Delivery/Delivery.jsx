@@ -45,7 +45,7 @@ export default function Delivery({ orderType: propOrderType }) {
     if (data?.users) {
 
       // 1. شوف لو في بحث متسجل في الـ Session
-      const savedQuery = sessionStorage.getItem("delivery_search_query");
+      const savedQuery = localStorage.getItem("delivery_search_query");
 
       // 2. لو في بحث، طبق الفلتر على الداتا "الجديدة" فوراً
       if (savedQuery) {
@@ -75,7 +75,7 @@ export default function Delivery({ orderType: propOrderType }) {
       }
 
       // كود السكرول (Scroll)
-      const savedUserId = userIdFromUrl || sessionStorage.getItem("last_selected_user_id");
+      const savedUserId = userIdFromUrl || localStorage.getItem("last_selected_user_id");
       if (savedUserId) {
         setTimeout(() => {
           const element = document.getElementById(`user-card-${savedUserId}`);
@@ -94,8 +94,8 @@ export default function Delivery({ orderType: propOrderType }) {
   const handleInstantSearch = (query) => {
     setSearchQuery(query);
 
-    // كل ما يتغير البحث → نحفظه في الـ sessionStorage
-    sessionStorage.setItem("delivery_search_query", query);
+    // كل ما يتغير البحث → نحفظه في الـ localStorage
+    localStorage.setItem("delivery_search_query", query);
 
     if (!data?.users) {
       setFilteredusers([]);
@@ -122,7 +122,7 @@ export default function Delivery({ orderType: propOrderType }) {
   };
 
   const handleEditClick = (user) => {
-    sessionStorage.setItem("last_selected_user_id", user.id); // 🟢 نحفظه
+    localStorage.setItem("last_selected_user_id", user.id); // 🟢 نحفظه
     setSelecteduser(user);
     setEditData({
       f_name: user.f_name,
@@ -170,9 +170,9 @@ export default function Delivery({ orderType: propOrderType }) {
     }
     const selectedAddress = user.address.find((addr) => addr.id === addressId);
 
-    sessionStorage.setItem("selected_user_id", user.id);
-    sessionStorage.setItem("selected_address_id", addressId);
-    sessionStorage.setItem("order_type", "delivery");
+    localStorage.setItem("selected_user_id", user.id);
+    localStorage.setItem("selected_address_id", addressId);
+    localStorage.setItem("order_type", "delivery");
 
     const userData = {
       id: user.id,
@@ -182,7 +182,7 @@ export default function Delivery({ orderType: propOrderType }) {
       phone_2: user.phone_2,
       selectedAddress: selectedAddress,
     };
-    sessionStorage.setItem("selected_user_data", JSON.stringify(userData));
+    localStorage.setItem("selected_user_data", JSON.stringify(userData));
 
     navigate("/", {
       state: { orderType: "delivery", userId: user.id, addressId: addressId },
@@ -264,22 +264,22 @@ export default function Delivery({ orderType: propOrderType }) {
     console.log("📦 Mapped Items for Cart:", mappedItems);
 
     // Clear any existing order data first
-    sessionStorage.removeItem("selected_user_id");
-    sessionStorage.removeItem("selected_address_id");
-    sessionStorage.removeItem("order_type");
-    sessionStorage.removeItem("table_id");
-    sessionStorage.removeItem("delivery_user_id");
-    sessionStorage.setItem("is_repeating_order", "true");
+    localStorage.removeItem("selected_user_id");
+    localStorage.removeItem("selected_address_id");
+    localStorage.removeItem("order_type");
+    localStorage.removeItem("table_id");
+    localStorage.removeItem("delivery_user_id");
+    localStorage.setItem("is_repeating_order", "true");
     // Set new order data
-    sessionStorage.setItem("cart", JSON.stringify(mappedItems));
-    sessionStorage.setItem("order_type", "delivery");
-    sessionStorage.setItem("tab", "delivery");
+    localStorage.setItem("cart", JSON.stringify(mappedItems));
+    localStorage.setItem("order_type", "delivery");
+    localStorage.setItem("tab", "delivery");
     const userId = order.user_id || selectedOrderUserId;
-    sessionStorage.setItem("selected_user_id", userId || "");
+    localStorage.setItem("selected_user_id", userId || "");
 
     // If order has address, save it too
     if (order.address_id) {
-      sessionStorage.setItem("selected_address_id", order.address_id);
+      localStorage.setItem("selected_address_id", order.address_id);
     }
 
     console.log("✅ SessionStorage updated:", {

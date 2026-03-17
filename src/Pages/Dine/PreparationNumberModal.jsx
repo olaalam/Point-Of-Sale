@@ -24,7 +24,7 @@ const handleSubmit = async () => {
   const res = await onSubmit(preparationNum); // استني نتيجة API
 
   if (res?.preparation_num) {
-    sessionStorage.setItem("preparation_num", res.preparation_num);
+    localStorage.setItem("preparation_num", res.preparation_num);
   }
 };
 

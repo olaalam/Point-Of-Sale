@@ -7,7 +7,7 @@ export function useOrderCalculations(
   selectedPaymentItems,
   orderType,
   serviceFeeData,
-  deliveryFee = 0   // ← comes from Card.jsx / sessionStorage
+  deliveryFee = 0   // ← comes from Card.jsx / localStorage
 ) {
   return useMemo(() => {
     // ── Subtotal (items only) ──────────────────────────────────────────

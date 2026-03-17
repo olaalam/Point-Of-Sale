@@ -157,18 +157,18 @@ export const buildOrderPayload = ({
     basePayload.service_fees = parseFloat(service_fees).toFixed(2);
   }
 
-  // 🟢 2. إضافة الـ ID الخاص بمصاريف الخدمة من الـ sessionStorage
-  const storedServiceFeeId = sessionStorage.getItem("service_fee_id");
+  // 🟢 2. إضافة الـ ID الخاص بمصاريف الخدمة من الـ localStorage
+  const storedServiceFeeId = localStorage.getItem("service_fee_id");
   if (storedServiceFeeId) {
     basePayload.service_fees_id = storedServiceFeeId.toString();
   }
-  // 🆕 3. إضافة module_order_number إذا كان موجود في sessionStorage
-  const storedModuleOrderNumber = sessionStorage.getItem("module_order_number");
+  // 🆕 3. إضافة module_order_number إذا كان موجود في localStorage
+  const storedModuleOrderNumber = localStorage.getItem("module_order_number");
   if (storedModuleOrderNumber) {
     basePayload.module_order_number = storedModuleOrderNumber.trim();
   }
   if (orderType === "dine_in") {
-    const storedCaptainId = sessionStorage.getItem("selected_captain_id");
+    const storedCaptainId = localStorage.getItem("selected_captain_id");
     if (storedCaptainId) {
       basePayload.captain_id = storedCaptainId.toString();
     }
@@ -210,8 +210,8 @@ export const buildOrderPayload = ({
     return {
       ...basePayload,
       products,
-      address_id: sessionStorage.getItem("selected_address_id") || "",
-      user_id: sessionStorage.getItem("selected_user_id") || "",
+      address_id: localStorage.getItem("selected_address_id") || "",
+      user_id: localStorage.getItem("selected_user_id") || "",
       cash_with_delivery: customerPaid ? parseFloat(customerPaid).toFixed(2) : "0",
     };
   }

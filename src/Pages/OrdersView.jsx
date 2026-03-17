@@ -79,14 +79,14 @@ export default function OrdersView() {
   const { putData } = usePut();
   const [search, setSearch] = useState("");
 
-  // جلب نوع الطلب من الـ state أو من sessionStorage
+  // جلب نوع الطلب من الـ state أو من localStorage
   const passedOrderType = location.state?.orderType;
-  const savedOrderType = sessionStorage.getItem("order_type") || "take_away";
+  const savedOrderType = localStorage.getItem("order_type") || "take_away";
   const orderType = passedOrderType ?? savedOrderType;
 
-  // حفظ النوع في sessionStorage عشان يفضل بعد الـ refresh
+  // حفظ النوع في localStorage عشان يفضل بعد الـ refresh
   useEffect(() => {
-    sessionStorage.setItem("order_type", orderType);
+    localStorage.setItem("order_type", orderType);
   }, [orderType]);
 
   // تحديد الأوردرات حسب النوع

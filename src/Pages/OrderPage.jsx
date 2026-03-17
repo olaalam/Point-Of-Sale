@@ -29,9 +29,9 @@ export default function OrderPage({
   const navigate = useNavigate();
   const pendingOrder = location.state?.pendingOrder;
 
-  const currentOrderType = propOrderType || location.state?.orderType || sessionStorage.getItem("order_type") || "take_away";
-  const currentTableId = propTableId || location.state?.tableId || sessionStorage.getItem("table_id") || null;
-  const currentUserId = propUserId || location.state?.delivery_user_id || sessionStorage.getItem("delivery_user_id") || null;
+  const currentOrderType = propOrderType || location.state?.orderType || localStorage.getItem("order_type") || "take_away";
+  const currentTableId = propTableId || location.state?.tableId || localStorage.getItem("table_id") || null;
+  const currentUserId = propUserId || location.state?.delivery_user_id || localStorage.getItem("delivery_user_id") || null;
 
   const isDineIn = currentOrderType === "dine_in" && !!currentTableId;
   const isDelivery = currentOrderType === "delivery" && !!currentUserId;
@@ -40,7 +40,7 @@ export default function OrderPage({
     isDineIn && currentTableId ? `cashier/dine_in_table_order/${currentTableId}?locale=${locale}` : null
   );
 
-  // ✅ FIXED: تحميل الطلب المتكرر من sessionStorage للـ take_away
+  // ✅ FIXED: تحميل الطلب المتكرر من localStorage للـ take_away
   useEffect(() => {
     if (pendingOrder && pendingOrder.orderDetails && !pendingOrderLoaded) {
       const mappedItems = pendingOrder.orderDetails.map((detail, index) => ({
@@ -70,9 +70,9 @@ export default function OrderPage({
       }));
       setTakeAwayItems(mappedItems);
       setPendingOrderLoaded(true);
-      sessionStorage.setItem("cart", JSON.stringify(mappedItems));
-      sessionStorage.setItem("order_type", "take_away");
-      sessionStorage.setItem("pending_order_info", JSON.stringify({
+      localStorage.setItem("cart", JSON.stringify(mappedItems));
+      localStorage.setItem("order_type", "take_away");
+      localStorage.setItem("pending_order_info", JSON.stringify({
         orderId: pendingOrder.orderId,
         orderNumber: pendingOrder.orderNumber,
         amount: pendingOrder.amount,
@@ -80,14 +80,14 @@ export default function OrderPage({
         prepare_order: pendingOrder.prepare_order, // ✅ Save preparation status for toggle logic
       }));
     } else if (!pendingOrderLoaded && currentOrderType === "take_away") {
-      const storedCartString = sessionStorage.getItem("cart");
+      const storedCartString = localStorage.getItem("cart");
       if (storedCartString && storedCartString !== "undefined") {
         try {
           const storedCart = JSON.parse(storedCartString);
-          console.log("📦 Loading cart from sessionStorage in OrderPage:", storedCart);
+          console.log("📦 Loading cart from localStorage in OrderPage:", storedCart);
           setTakeAwayItems(Array.isArray(storedCart) ? storedCart : []);
         } catch (error) {
-          console.error("Error parsing cart JSON from sessionStorage:", error);
+          console.error("Error parsing cart JSON from localStorage:", error);
           setTakeAwayItems([]);
         }
       }
@@ -115,7 +115,7 @@ export default function OrderPage({
   }, [isDineIn, currentTableId, dineInData]);
 
   // delivery: أضف originalPrice و temp_id
-  // delivery: أضف originalPrice و temp_id + القراءة من sessionStorage عند الريفريش
+  // delivery: أضف originalPrice و temp_id + القراءة من localStorage عند الريفريش
   useEffect(() => {
     if (isDelivery && currentUserId) {
       // 1. لو فيه داتا جاية من السيرفر (الطلب محفوظ مسبقاً)
@@ -136,11 +136,11 @@ export default function OrderPage({
         }));
 
         // تحديث السيشين بالداتا اللي جت من السيرفر عشان تفضل معانا
-        sessionStorage.setItem("cart", JSON.stringify(mappedItems));
+        localStorage.setItem("cart", JSON.stringify(mappedItems));
       }
       // 2. 🟢 الجزء الجديد: لو مفيش داتا من السيرفر (زي حالة الريفريش لطلب جديد)
       else {
-        const storedCart = sessionStorage.getItem("cart");
+        const storedCart = localStorage.getItem("cart");
         if (storedCart && storedCart !== "undefined") {
           try {
             const parsedCart = JSON.parse(storedCart);
@@ -165,14 +165,14 @@ export default function OrderPage({
   const clearOrderData = () => {
     if (currentOrderType === "take_away") {
       setTakeAwayItems([]);
-      sessionStorage.removeItem("cart");
-      sessionStorage.removeItem("pending_order_info");
+      localStorage.removeItem("cart");
+      localStorage.removeItem("pending_order_info");
     } else if (currentOrderType === "dine_in" && currentTableId) {
       setOrdersByTable((prev) => ({ ...prev, [currentTableId]: [] }));
     } else if (currentOrderType === "delivery" && currentUserId) {
       setOrdersByUser((prev) => ({ ...prev, [currentUserId]: [] }));
-      sessionStorage.removeItem("selected_user_id");
-      sessionStorage.removeItem("selected_address_id");
+      localStorage.removeItem("selected_user_id");
+      localStorage.removeItem("selected_address_id");
     }
   };
 
@@ -182,11 +182,11 @@ export default function OrderPage({
       if (isDineIn && currentTableId && refetchDineIn) {
         await refetchDineIn();
       } else if (currentOrderType === "take_away") {
-        const storedCartString = sessionStorage.getItem("cart");
+        const storedCartString = localStorage.getItem("cart");
         if (storedCartString && storedCartString !== "undefined") {
           try {
             const storedCart = JSON.parse(storedCartString);
-            console.log("🔄 Refreshing cart from sessionStorage:", storedCart);
+            console.log("🔄 Refreshing cart from localStorage:", storedCart);
             setTakeAwayItems(Array.isArray(storedCart) ? storedCart : []);
           } catch (error) {
             console.error("Error parsing cart JSON:", error);
@@ -220,11 +220,11 @@ export default function OrderPage({
       setTakeAwayItems(safeNewItems);
     }
 
-    // 2. 🟢 المزامنة مع sessionStorage لكل الحالات لضمان وجود cart_id دائماً
+    // 2. 🟢 المزامنة مع localStorage لكل الحالات لضمان وجود cart_id دائماً
     // هذا السطر يضمن أن أي موديول آخر (مثل تغيير الحالة) يجد البيانات
-    sessionStorage.setItem("cart", JSON.stringify(safeNewItems));
+    localStorage.setItem("cart", JSON.stringify(safeNewItems));
 
-    console.log("💾 Updated cart in sessionStorage (All Modes):", safeNewItems);
+    console.log("💾 Updated cart in localStorage (All Modes):", safeNewItems);
   };
   const handleAddItem = (item) => {
     // 1. تحقق إذا كان المنتج قادم من الميزان
@@ -318,13 +318,13 @@ export default function OrderPage({
     }
 
     // هذا الكود الاحتياطي يعمل فقط إذا لم يتم تمرير onClose
-    sessionStorage.removeItem("selected_user_id");
-    sessionStorage.removeItem("selected_address_id");
-    sessionStorage.removeItem("order_type");
-    sessionStorage.removeItem("table_id");
-    sessionStorage.removeItem("delivery_user_id");
-    sessionStorage.removeItem("cart");
-    sessionStorage.removeItem("pending_order_info");
+    localStorage.removeItem("selected_user_id");
+    localStorage.removeItem("selected_address_id");
+    localStorage.removeItem("order_type");
+    localStorage.removeItem("table_id");
+    localStorage.removeItem("delivery_user_id");
+    localStorage.removeItem("cart");
+    localStorage.removeItem("pending_order_info");
     setPendingOrderLoaded(false);
     navigate("/");
   };
@@ -341,8 +341,8 @@ export default function OrderPage({
       setTakeAwayItems([]);
     }
 
-    // مسح الـ sessionStorage
-    sessionStorage.setItem("cart", JSON.stringify([]));
+    // مسح الـ localStorage
+    localStorage.setItem("cart", JSON.stringify([]));
 
     console.log("✅ Cart cleared successfully");
   };

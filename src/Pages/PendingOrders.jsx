@@ -103,17 +103,17 @@ export default function PendingOrders() {
       console.log("🐛 PendingOrders: finalOrderData.prepare_order =", finalOrderData.prepare_order);
       console.log("🐛 PendingOrders: selectedOrderPrepareStatus =", selectedOrderPrepareStatus);
 
-      // حفظ البيانات الجديدة في sessionStorage للسلة
-      sessionStorage.setItem("cart", JSON.stringify(mappedOrderDetails));
+      // حفظ البيانات الجديدة في localStorage للسلة
+      localStorage.setItem("cart", JSON.stringify(mappedOrderDetails));
 
-      // ✅ حفظ prepare_order مباشرة في sessionStorage
-      sessionStorage.setItem("pending_order_info", JSON.stringify({
+      // ✅ حفظ prepare_order مباشرة في localStorage
+      localStorage.setItem("pending_order_info", JSON.stringify({
         orderId: finalOrderData.orderId,
         prepare_order: finalOrderData.prepare_order,
         notes: finalOrderData.notes
       }));
 
-      console.log("🐛 PendingOrders: Saved to sessionStorage:", {
+      console.log("🐛 PendingOrders: Saved to localStorage:", {
         orderId: finalOrderData.orderId,
         prepare_order: finalOrderData.prepare_order
       });

@@ -39,8 +39,8 @@ export default function VoidOrderModal({
     refetch: fetchVoidLists
   } = useGet(null, { useCache: true });
 
-  // 🟢 جلب الـ financial accounts من sessionStorage
-  const financialAccounts = JSON.parse(sessionStorage.getItem("financial_account") || "[]");
+  // 🟢 جلب الـ financial accounts من localStorage
+  const financialAccounts = JSON.parse(localStorage.getItem("financial_account") || "[]");
 
   // 🟢 جلب الـ void lists عند فتح الـ Modal
   useEffect(() => {

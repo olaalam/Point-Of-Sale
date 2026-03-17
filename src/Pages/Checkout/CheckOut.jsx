@@ -53,21 +53,21 @@ const CheckOut = ({
 }) => {
   const [showRepeatModal, setShowRepeatModal] = useState(false);
   const [pendingRepeatedPayload, setPendingRepeatedPayload] = useState(null);
-  const cashierId = sessionStorage.getItem("cashier_id");
-  const tableId = sessionStorage.getItem("table_id") || null;
+  const cashierId = localStorage.getItem("cashier_id");
+  const tableId = localStorage.getItem("table_id") || null;
   const [appliedDiscount, setAppliedDiscount] = useState(0);
   const isSubmitting = useRef(false);
   const baseUrl = import.meta.env.VITE_API_BASE_URL;
   const { t } = useTranslation();
   const [loading, setLoading] = useState(false);
-  const lastSelectedGroup = sessionStorage.getItem("last_selected_group");
+  const lastSelectedGroup = localStorage.getItem("last_selected_group");
   const { data: groupData } = useGet("cashier/group_product");
   const groupProducts = groupData?.group_product || [];
   const isDueModuleAllowed = (() => {
     if (!orderType || !groupProducts || groupProducts.length === 0)
       return false;
 
-    const lastSelectedGroupId = sessionStorage.getItem("last_selected_group");
+    const lastSelectedGroupId = localStorage.getItem("last_selected_group");
     if (!lastSelectedGroupId || lastSelectedGroupId === "all") return false;
 
     const groupId = parseInt(lastSelectedGroupId);
@@ -119,13 +119,13 @@ const CheckOut = ({
   const { data: deliveryData } = useGet("cashier/delivery_lists");
   const { postData } = usePost();
   const discountData = useMemo(() => {
-    const storedDiscount = sessionStorage.getItem("discount_data");
+    const storedDiscount = localStorage.getItem("discount_data");
     try {
       return storedDiscount
         ? JSON.parse(storedDiscount)
         : { discount: 0, module: [] };
     } catch (error) {
-      console.error("Error parsing discount data from sessionStorage:", error);
+      console.error("Error parsing discount data from localStorage:", error);
       return { discount: 0, module: [] };
     }
   }, []);
@@ -269,7 +269,7 @@ const CheckOut = ({
 
   const financialAccounts = useMemo(() => {
     try {
-      const stored = sessionStorage.getItem("financial_account");
+      const stored = localStorage.getItem("financial_account");
       if (!stored) return [];
       const parsed = JSON.parse(stored);
       // لو البيانات مصفوفة جوا مصفوفة [[...]] زي ما في الصورة، هنفكها
@@ -457,10 +457,10 @@ const CheckOut = ({
       setPaymentSplits([]); // لتصفير المبالغ المدفوعة في الـ Split
 
       if (orderType === "delivery") {
-        sessionStorage.removeItem("selected_user_id");
-        sessionStorage.removeItem("selected_user_data");
-        sessionStorage.removeItem("selected_address_id");
-        sessionStorage.removeItem("selected_address_data");
+        localStorage.removeItem("selected_user_id");
+        localStorage.removeItem("selected_user_data");
+        localStorage.removeItem("selected_address_id");
+        localStorage.removeItem("selected_address_data");
         setDeliveryModelOpen(false);
       }
 
@@ -471,14 +471,14 @@ const CheckOut = ({
         if (typeof onClearCart === 'function') onClearCart();
       }
 
-      sessionStorage.setItem("last_order_type", orderType);
+      localStorage.setItem("last_order_type", orderType);
 
       if (orderType === "delivery" && response?.success?.id) {
         setOrderId(response.success.id);
         setDeliveryModelOpen(true);
       }
-      sessionStorage.removeItem("selected_captain_id");
-      sessionStorage.removeItem("selected_captain_name");
+      localStorage.removeItem("selected_captain_id");
+      localStorage.removeItem("selected_captain_name");
     };
 
     const freeDiscountValue = parseFloat(freeDiscount) || 0;
@@ -502,7 +502,7 @@ const CheckOut = ({
     const hasDealItems = safeOrderItems.some((item) => item.is_deal);
     const endpoint = getOrderEndpoint(orderType, safeOrderItems, totalDineInItems, hasDealItems);
     const financialsPayload = buildFinancialsPayload(paymentSplits, financialAccounts);
-    const moduleId = sessionStorage.getItem("last_selected_group");
+    const moduleId = localStorage.getItem("last_selected_group");
 
     let payload;
     if (hasDealItems) {
@@ -695,10 +695,10 @@ const CheckOut = ({
   };
 
   const handleSkip = () => {
-    sessionStorage.removeItem("selected_user_id");
-    sessionStorage.removeItem("selected_user_data");
-    sessionStorage.removeItem("selected_address_id");
-    sessionStorage.removeItem("selected_address_data");
+    localStorage.removeItem("selected_user_id");
+    localStorage.removeItem("selected_user_data");
+    localStorage.removeItem("selected_address_id");
+    localStorage.removeItem("selected_address_data");
     setDeliveryModelOpen(false);
     resetCheckoutState(); // أضف التصفير هنا
 

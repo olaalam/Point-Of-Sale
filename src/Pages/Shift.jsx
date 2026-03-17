@@ -22,16 +22,16 @@ export default function Shift() {
   const [selectedFinancialId, setSelectedFinancialId] = useState("");
   const [financialAccounts, setFinancialAccounts] = useState([]);
   // 🧠 استرجاع بيانات المستخدم
-  const userData = sessionStorage.getItem("user");
+  const userData = localStorage.getItem("user");
   const user = userData && userData !== "undefined" ? JSON.parse(userData) : null;
   const userName = user?.user_name || "Cashier";
-  const cashierId = sessionStorage.getItem("cashier_id");
+  const cashierId = localStorage.getItem("cashier_id");
 
 // أضف هذا الـ useEffect أو عدل الموجود
 useEffect(() => {
   if (!isShiftOpen) {
     setShowAmountInput(true);
-    const data = JSON.parse(sessionStorage.getItem("financial_account") || "[]");
+    const data = JSON.parse(localStorage.getItem("financial_account") || "[]");
     setFinancialAccounts(data);
     if (data.length > 0 && !selectedFinancialId) {
       setSelectedFinancialId(data[0].id);
@@ -63,21 +63,21 @@ useEffect(() => {
       defaultTab = "online-order";
     }
 
-    sessionStorage.setItem("tab", defaultTab);
+    localStorage.setItem("tab", defaultTab);
 
     // التعديل: إزالة الـ replace لتبقى الشرطة السفلية كما هي
     const orderTypeValue = defaultTab === "online-order" ? "online-order" : defaultTab;
 
-    sessionStorage.setItem("order_type", orderTypeValue);
+    localStorage.setItem("order_type", orderTypeValue);
 
     if (!permissions.dine_in) {
-      sessionStorage.removeItem("last_selected_group");
+      localStorage.removeItem("last_selected_group");
     }
   };
 
   // ✅ فتح الشيفت (POST)
   const handleOpenShift = async () => {
-    const financialData = JSON.parse(sessionStorage.getItem("financial_account") || "[]");
+    const financialData = JSON.parse(localStorage.getItem("financial_account") || "[]");
     if (!amount) {
       setShowAmountInput(true);
       return;
@@ -95,7 +95,7 @@ useEffect(() => {
       if (cashierId) payload.cashier_id = cashierId;
 
 
-      const token = sessionStorage.getItem("token");
+      const token = localStorage.getItem("token");
       const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
       await axios.post(endpoint, payload, { headers });
@@ -138,15 +138,15 @@ useEffect(() => {
 
     try {
       setLoading(true);
-      const token = sessionStorage.getItem("token");
+      const token = localStorage.getItem("token");
       const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
       await axios.get(endpoint, { headers });
 
       closeShift();
 
-      sessionStorage.removeItem("shift_start_time");
-      sessionStorage.removeItem("shift_data");
+      localStorage.removeItem("shift_start_time");
+      localStorage.removeItem("shift_data");
 
       setShiftStatus("Shift is closed.");
       toast.success(t("ShiftClosedSuccessfully"));

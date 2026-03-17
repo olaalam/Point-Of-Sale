@@ -208,7 +208,7 @@ export default function AllOrders() {
 
     const showCustomerInfo = orderType === "delivery" && data.user;
     const restaurantName =
-      sessionStorage.getItem("resturant_name") ||
+      localStorage.getItem("resturant_name") ||
       (isArabic ? "اسم المطعم" : "Restaurant Name");
 
     const subtotal = (data.amount - (data.total_tax || 0) - (data.delivery_fees || 0)).toFixed(2);
@@ -424,7 +424,7 @@ export default function AllOrders() {
     setIsPrinting(true);
 
     try {
-      const token = sessionStorage.getItem("token");
+      const token = localStorage.getItem("token");
       const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
       const response = await axiosInstance.get(
@@ -470,7 +470,7 @@ export default function AllOrders() {
     if (setShowModal) setShowModal(false);
 
     // العودة للمسار الرئيسي (صفحة الكاشير)
-    // بما أن الـ Navbar يعتمد على sessionStorage.getItem("tab")
+    // بما أن الـ Navbar يعتمد على localStorage.getItem("tab")
     // فإنه سيفتح تلقائياً التبويب الذي كان المستخدم واقفاً عليه
     navigate("/", { replace: true });
   };

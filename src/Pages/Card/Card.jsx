@@ -46,7 +46,7 @@ export default function Card({
   const { t, i18n } = useTranslation();
   const isArabic = i18n.language === "ar";
   const { loading: apiLoading, postData } = usePost();
-  const selectedUserData = JSON.parse(sessionStorage.getItem("selected_user_data") || "{}");
+  const selectedUserData = JSON.parse(localStorage.getItem("selected_user_data") || "{}");
   const [isCheckoutVisible, setIsCheckoutVisible] = useState(false);
   const [selectedDiscountId, setSelectedDiscountId] = useState(null);
   const [freeDiscount, setFreeDiscount] = useState("");
@@ -137,7 +137,7 @@ export default function Card({
 
   const clearCart = () => {
     updateOrderItems([]); // تصفير مصفوفة المنتجات
-    sessionStorage.removeItem("cart");
+    localStorage.removeItem("cart");
     setSelectedItems([]);
     setSelectedPaymentItems([]);
 
@@ -158,11 +158,11 @@ export default function Card({
     // نعمل تحديث للسلة بالعناصر الباقية فقط
     updateOrderItems(remainingItems);
 
-    // نحدث sessionStorage بالباقي
+    // نحدث localStorage بالباقي
     if (remainingItems.length > 0) {
-      sessionStorage.setItem("cart", JSON.stringify(remainingItems));
+      localStorage.setItem("cart", JSON.stringify(remainingItems));
     } else {
-      sessionStorage.removeItem("cart");
+      localStorage.removeItem("cart");
     }
 
     // نرست التحديدات
@@ -236,7 +236,7 @@ export default function Card({
       await postData("cashier/order_void", formData);
 
       updateOrderItems([]); // مسح البيانات محلياً
-      sessionStorage.removeItem("cart");
+      localStorage.removeItem("cart");
       toast.success(t("Allitemsvoidedsuccessfully"));
 
       setShowClearAllManagerModal(false);
@@ -296,15 +296,15 @@ export default function Card({
       return sum + (Number(item.discount_val || 0) * qty);
     }, 0);
 
-    // Save current takeaway items to sessionStorage for the transfer
-    sessionStorage.setItem("transfer_takeaway_order", JSON.stringify({
+    // Save current takeaway items to localStorage for the transfer
+    localStorage.setItem("transfer_takeaway_order", JSON.stringify({
       orderItems,
       amount: calculations.amountToPay,
       totalTax: calculations.totalTax,
       totalDiscount: totalItemDiscount.toFixed(2),
       notes: notes,
     }));
-    sessionStorage.setItem("transfer_takeaway_to_dine_in", "true");
+    localStorage.setItem("transfer_takeaway_to_dine_in", "true");
 
     navigate("/tables");
   };
@@ -506,7 +506,7 @@ export default function Card({
                 onClick={() => {
                   setShowSavePendingModal(false);
                   // Case 2: Prepare & Pending - Kitchen prints now, Cashier+Order at checkout
-                  sessionStorage.setItem("pending_order_info", JSON.stringify({ prepare: "1", pending: "1" }));
+                  localStorage.setItem("pending_order_info", JSON.stringify({ prepare: "1", pending: "1" }));
                   orderActions.handleSaveAsPending(calculations.amountToPay, calculations.totalTax, "1", "1");
                 }}
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white py-4 text-lg font-semibold shadow-md flex items-center justify-center gap-2 rounded-lg"
@@ -517,7 +517,7 @@ export default function Card({
                 onClick={() => {
                   setShowSavePendingModal(false);
                   // Case 1: Pending Only - All 3 receipts print at checkout
-                  sessionStorage.setItem("pending_order_info", JSON.stringify({ prepare: "0", pending: "1" }));
+                  localStorage.setItem("pending_order_info", JSON.stringify({ prepare: "0", pending: "1" }));
                   orderActions.handleSaveAsPending(calculations.amountToPay, calculations.totalTax, "0", "1");
                 }}
                 className="w-full bg-gray-100 hover:bg-gray-200 text-gray-800 py-4 text-lg font-semibold border border-gray-300 shadow-sm rounded-lg"
@@ -557,7 +557,7 @@ export default function Card({
         onOpenChange={setShowClearAllConfirm}
         onConfirm={() => {
           updateOrderItems([]);                    // نمسح الكل من السلة
-          sessionStorage.removeItem("cart");       // نمسح من الـ session
+          localStorage.removeItem("cart");       // نمسح من الـ session
           setSelectedItems([]);                    // نرست التحديد
           setSelectedPaymentItems([]);             // نرست تحديد الدفع
           toast.success(t("Allitemsclearedfromtheorder"));

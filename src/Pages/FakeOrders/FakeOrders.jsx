@@ -101,7 +101,7 @@ export default function FakeOrders() {
     }
 
     const showCustomerInfo = orderType === "delivery" && data.user;
-    const restaurantName = sessionStorage.getItem("resturant_name") || (isArabic ? "اسم المطعم" : "Restaurant Name");
+    const restaurantName = localStorage.getItem("resturant_name") || (isArabic ? "اسم المطعم" : "Restaurant Name");
     const subtotal = (data.amount - data.total_tax - data.delivery_fees).toFixed(2);
 
     return `

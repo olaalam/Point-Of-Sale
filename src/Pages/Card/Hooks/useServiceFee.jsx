@@ -11,7 +11,7 @@ export const useServiceFee = (orderType) => {
     const serviceFeeId = data?.data?.id || data?.id;
 
     if (serviceFeeId) {
-      sessionStorage.setItem("service_fee_id", serviceFeeId);
+      localStorage.setItem("service_fee_id", serviceFeeId);
       console.log("✅ Service Fee ID saved:", serviceFeeId);
     }
   }, [data]); // سيتم التنفيذ فقط عند تغير قيمة data (أي بعد انتهاء التحميل بنجاح)

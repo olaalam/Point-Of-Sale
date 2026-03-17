@@ -245,9 +245,9 @@ export function useOrderActions({
     }
 
     // المنطق الفعلي للنقل يتم هنا بعد التأكيد
-    sessionStorage.setItem("transfer_cart_ids", JSON.stringify(selectedCartIds));
-    sessionStorage.setItem("transfer_source_table_id", tableId.toString());
-    sessionStorage.setItem("transfer_pending", "true");
+    localStorage.setItem("transfer_cart_ids", JSON.stringify(selectedCartIds));
+    localStorage.setItem("transfer_source_table_id", tableId.toString());
+    localStorage.setItem("transfer_pending", "true");
 
     toast.info(t("Pleaseselectanewtabletotransfertheselecteditems"));
 
@@ -281,7 +281,7 @@ export function useOrderActions({
       due: "0", // ✅ Required field for order_pending=0
       order_pending: orderPendingValue.toString(), // لإخباره أنه طلب معلق (أو لا)
       prepare_order: prepareOrderValue.toString(),
-      cashier_id: sessionStorage.getItem("cashier_id") || "4",
+      cashier_id: localStorage.getItem("cashier_id") || "4",
       products: productsToSend,
     };
 
@@ -292,7 +292,7 @@ export function useOrderActions({
       const response = await postData("cashier/take_away_order", payload, {
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${sessionStorage.getItem("access_token")}`,
+          Authorization: `Bearer ${localStorage.getItem("access_token")}`,
         },
       });
 
@@ -306,8 +306,8 @@ export function useOrderActions({
           // Import the required functions at the component level
           const { printKitchenOnly, prepareReceiptData } = await import("@/Pages/utils/printReceipt");
 
-          // Get orderType from sessionStorage
-          const savedOrderType = sessionStorage.getItem("order_type") || "take_away";
+          // Get orderType from localStorage
+          const savedOrderType = localStorage.getItem("order_type") || "take_away";
 
           const receiptData = prepareReceiptData(
             orderItems,
@@ -332,8 +332,8 @@ export function useOrderActions({
       }
 
       updateOrderItems([]); // تفريغ السلة
-      sessionStorage.removeItem("cart");
-      sessionStorage.removeItem("pending_order_info");
+      localStorage.removeItem("cart");
+      localStorage.removeItem("pending_order_info");
     } catch (e) {
       console.error("❌ Save Pending Error:", e);
       console.error("❌ Error Response:", e.response);

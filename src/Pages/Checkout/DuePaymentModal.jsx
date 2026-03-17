@@ -18,7 +18,7 @@ const DuePaymentModal = ({
   onConfirm,
  refetch,
 }) => {
-  const branch_id = sessionStorage.getItem("branch_id");
+  const branch_id = localStorage.getItem("branch_id");
   const { data } = useGet(`captain/selection_lists?branch_id=${branch_id}`);
   const [splits, setSplits] = useState([]);
 

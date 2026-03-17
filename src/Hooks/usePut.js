@@ -18,7 +18,7 @@ export function usePut() {
         : baseUrl + endpoint;
 
     try {
-      const token = sessionStorage.getItem("token");
+      const token = localStorage.getItem("token");
       const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
       const response = await axiosInstance.put(url, body, { headers });

@@ -14,15 +14,15 @@ export default function GroupSelector({
     const [isOpen, setIsOpen] = useState(false);
     const dropdownRef = useRef(null);
 
-    // Get module order number from sessionStorage and track changes
+    // Get module order number from localStorage and track changes
     const [moduleOrderNumber, setModuleOrderNumber] = useState(
-        sessionStorage.getItem("module_order_number") || ""
+        localStorage.getItem("module_order_number") || ""
     );
 
-    // Update module order number when it changes in sessionStorage
+    // Update module order number when it changes in localStorage
     useEffect(() => {
         const checkModuleOrderNumber = () => {
-            const currentNumber = sessionStorage.getItem("module_order_number") || "";
+            const currentNumber = localStorage.getItem("module_order_number") || "";
             if (currentNumber !== moduleOrderNumber) {
                 setModuleOrderNumber(currentNumber);
             }

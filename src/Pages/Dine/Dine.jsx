@@ -170,13 +170,13 @@ const CustomStatusSelect = ({ table, statusOptions, onStatusChange }) => {
 };
 const Dine = () => {
   const navigate = useNavigate();
-  const branch_id = sessionStorage.getItem("branch_id");
+  const branch_id = localStorage.getItem("branch_id");
   const { t, i18n } = useTranslation();
   const isArabic = i18n.language === "ar";
   const [selectedTable, setSelectedTable] = useState(null);
   const [selectedLocationId, setSelectedLocationId] = useState(null);
   const locale = isArabic ? "ar" : "en";
-  const orderType = sessionStorage.getItem("order_type") || "dine_in";
+  const orderType = localStorage.getItem("order_type") || "dine_in";
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedTablesList, setSelectedTablesList] = useState([]);
   // 🟢 State للـ Preparation Number Modal
@@ -238,14 +238,14 @@ const Dine = () => {
     });
   };
   useEffect(() => {
-    const storedTableId = sessionStorage.getItem("table_id");
+    const storedTableId = localStorage.getItem("table_id");
     if (storedTableId) setSelectedTable(parseInt(storedTableId));
     if (locations.length > 0 && !selectedLocationId) {
       setSelectedLocationId(locations[0].id);
     }
   }, [locations, selectedLocationId]);
   useEffect(() => {
-    if (sessionStorage.getItem("transfer_pending") === "true") {
+    if (localStorage.getItem("transfer_pending") === "true") {
       toast.info(t("SelectNewTableToTransferOrder"));
     }
   }, []);
@@ -270,13 +270,13 @@ const Dine = () => {
   };
   // 🟢 دالة للتنقل بعد إدخال رقم التحضير أو الإلغاء
   const proceedToOrderPage = (table, preparationNumber = null) => {
-    sessionStorage.setItem("table_id", table.id);
-    sessionStorage.setItem("order_type", "dine_in");
-    sessionStorage.setItem("hall_name", selectedLocation?.name || "");
-    sessionStorage.setItem("table_number", table.table_number || "");
+    localStorage.setItem("table_id", table.id);
+    localStorage.setItem("order_type", "dine_in");
+    localStorage.setItem("hall_name", selectedLocation?.name || "");
+    localStorage.setItem("table_number", table.table_number || "");
 
     if (preparationNumber) {
-      sessionStorage.setItem("preparation_number", preparationNumber);
+      localStorage.setItem("preparation_number", preparationNumber);
     }
     navigate("/order-page", {
       state: {
@@ -334,9 +334,9 @@ const Dine = () => {
       return;
     }
 
-    const takeawayTransferPending = sessionStorage.getItem("transfer_takeaway_to_dine_in") === "true";
+    const takeawayTransferPending = localStorage.getItem("transfer_takeaway_to_dine_in") === "true";
     if (takeawayTransferPending) {
-      const transferDataString = sessionStorage.getItem("transfer_takeaway_order");
+      const transferDataString = localStorage.getItem("transfer_takeaway_order");
       if (!transferDataString) {
         toast.error(t("NoOrderDataFoundForTransfer"));
         return;
@@ -397,8 +397,8 @@ const Dine = () => {
 
         if (response?.success || response) {
           toast.success(t("OrderTransferredSuccessfully"));
-          sessionStorage.removeItem("transfer_takeaway_to_dine_in");
-          sessionStorage.removeItem("transfer_takeaway_order");
+          localStorage.removeItem("transfer_takeaway_to_dine_in");
+          localStorage.removeItem("transfer_takeaway_order");
 
           // Redirect to order page for the new table in Dine In mode
           proceedToOrderPage(table, null);
@@ -410,12 +410,12 @@ const Dine = () => {
       return;
     }
 
-    const transferPending = sessionStorage.getItem("transfer_pending") === "true";
-    const sourceTableId = sessionStorage.getItem("transfer_source_table_id");
+    const transferPending = localStorage.getItem("transfer_pending") === "true";
+    const sourceTableId = localStorage.getItem("transfer_source_table_id");
 
     // 🟢 حالة عملية Transfer (نقل الطلب)
     if (transferPending) {
-      const cartIds = JSON.parse(sessionStorage.getItem("transfer_cart_ids") || "[]");
+      const cartIds = JSON.parse(localStorage.getItem("transfer_cart_ids") || "[]");
 
       if (cartIds.length > 0 && sourceTableId === table.id.toString()) {
         toast.error(t("CannotTransferToSameTable"));
@@ -431,13 +431,13 @@ const Dine = () => {
         toast.success(t("OrderTransferredSuccessfully"));
 
         // ✅ التعديل الأساسي: تحديث بيانات الطاولة الجديدة فوراً لضمان ظهورها في الواجهة
-        sessionStorage.setItem("table_id", table.id);
-        sessionStorage.setItem("table_number", table.table_number); // تحديث رقم الطاولة (مثل M-4)
+        localStorage.setItem("table_id", table.id);
+        localStorage.setItem("table_number", table.table_number); // تحديث رقم الطاولة (مثل M-4)
 
         // تحديث اسم الصالة إذا كان متاحاً
         const hallName = table.location_name || selectedLocation?.name || "";
         if (hallName) {
-          sessionStorage.setItem("hall_name", hallName);
+          localStorage.setItem("hall_name", hallName);
         }
 
         // ✅ مسح بيانات التحويل المؤقتة
@@ -446,7 +446,7 @@ const Dine = () => {
           "transfer_first_cart_id",
           "transfer_source_table_id",
           "transfer_pending",
-        ].forEach((k) => sessionStorage.removeItem(k));
+        ].forEach((k) => localStorage.removeItem(k));
 
         // ✅ الانتقال مع تمرير البيانات في الـ state كدعم إضافي
         navigate("/order-page", {
@@ -466,7 +466,7 @@ const Dine = () => {
       }
     } else {
       // 🟢 الحالة العادية (فتح طاولة جديدة)
-      const prepStatus = sessionStorage.getItem("preparation_num_status");
+      const prepStatus = localStorage.getItem("preparation_num_status");
 
       if (prepStatus === "1") {
         setPendingTableSelection(table);
@@ -478,10 +478,10 @@ const Dine = () => {
   };
   const MergedTableCard = ({ table, onStatusChange, handleSplit }) => {
     const transferPending =
-      sessionStorage.getItem("transfer_pending") === "true";
+      localStorage.getItem("transfer_pending") === "true";
     const isSource =
       transferPending &&
-      sessionStorage.getItem("transfer_source_table_id") ===
+      localStorage.getItem("transfer_source_table_id") ===
       table.id.toString();
     return (
       <div
@@ -557,10 +557,10 @@ const Dine = () => {
   };
   const TableCard = ({ table, handleSplit }) => {
     const transferPending =
-      sessionStorage.getItem("transfer_pending") === "true";
+      localStorage.getItem("transfer_pending") === "true";
     const isSource =
       transferPending &&
-      sessionStorage.getItem("transfer_source_table_id") ===
+      localStorage.getItem("transfer_source_table_id") ===
       table.id.toString();
     const { putData: putStatusChange } = usePut();
     const dynamicStatusOptions = statusOptions.filter((opt) =>
@@ -730,16 +730,16 @@ const Dine = () => {
       <div className="mx-auto bg-white rounded-xl shadow-lg">
         <div className="p-6 border-b">
           <h1 className="text-2xl font-bold text-gray-800">
-            {sessionStorage.getItem("transfer_pending") === "true" || sessionStorage.getItem("transfer_takeaway_to_dine_in") === "true"
+            {localStorage.getItem("transfer_pending") === "true" || localStorage.getItem("transfer_takeaway_to_dine_in") === "true"
               ? t("SelectTableForTransfer")
               : t("DineInTables")}
           </h1>
           <p className="text-gray-500 text-sm mt-1">
-            {sessionStorage.getItem("transfer_takeaway_to_dine_in") === "true"
+            {localStorage.getItem("transfer_takeaway_to_dine_in") === "true"
               ? t("SelectTableToTransferTakeawayOrder")
-              : sessionStorage.getItem("transfer_pending") === "true"
+              : localStorage.getItem("transfer_pending") === "true"
                 ? t("SelectTableToTransferFrom", {
-                  sourceTableId: sessionStorage.getItem(
+                  sourceTableId: localStorage.getItem(
                     "transfer_source_table_id"
                   ),
                 })

@@ -25,7 +25,7 @@ const VoidItemModal = ({
     if (!managerId || managerId.trim() === "") return;
 
     // منع التحقق المتكرر إذا كان نفس القيمة
-    if (managerId === sessionStorage.getItem("lastValidatedManagerId")) {
+    if (managerId === localStorage.getItem("lastValidatedManagerId")) {
       return;
     }
 

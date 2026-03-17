@@ -9,12 +9,12 @@ import { toast } from "react-toastify";
 import { useTranslation } from "react-i18next";
 
 const getInitialState = () => {
-  const storedOrderType = sessionStorage.getItem("order_type") || "take_away";
-  const storedTab = sessionStorage.getItem("tab") || storedOrderType;
-  const storedTableId = sessionStorage.getItem("table_id") || null;
-  const storedDeliveryUserId = sessionStorage.getItem("selected_user_id") || null;
-  const transferSourceTableId = sessionStorage.getItem("transfer_source_table_id") || null;
-  const transferCartIds = JSON.parse(sessionStorage.getItem("transfer_cart_ids")) || null;
+  const storedOrderType = localStorage.getItem("order_type") || "take_away";
+  const storedTab = localStorage.getItem("tab") || storedOrderType;
+  const storedTableId = localStorage.getItem("table_id") || null;
+  const storedDeliveryUserId = localStorage.getItem("selected_user_id") || null;
+  const transferSourceTableId = localStorage.getItem("transfer_source_table_id") || null;
+  const transferCartIds = JSON.parse(localStorage.getItem("transfer_cart_ids")) || null;
   const isTransferring = !!(transferSourceTableId && transferCartIds && transferCartIds.length > 0);
 
   return {
@@ -29,9 +29,9 @@ const getInitialState = () => {
 };
 
 const clearTransferData = () => {
-  sessionStorage.removeItem("transfer_source_table_id");
-  sessionStorage.removeItem("transfer_first_cart_id");
-  sessionStorage.removeItem("transfer_cart_ids");
+  localStorage.removeItem("transfer_source_table_id");
+  localStorage.removeItem("transfer_first_cart_id");
+  localStorage.removeItem("transfer_cart_ids");
 };
 
 export default function Home() {
@@ -80,7 +80,7 @@ export default function Home() {
         deliveryUserId: locationState.userId || prevState.deliveryUserId,
       }));
       if (locationState.userId) {
-        sessionStorage.setItem("selected_user_id", locationState.userId);
+        localStorage.setItem("selected_user_id", locationState.userId);
       }
       return;
     }
@@ -93,26 +93,26 @@ export default function Home() {
         orderType: locationState.orderType || "delivery",
         tabValue: locationState.orderType || "delivery",
       }));
-      sessionStorage.setItem("selected_user_id", locationState.userId);
-      sessionStorage.setItem("order_type", locationState.orderType || "delivery");
-      sessionStorage.setItem("tab", locationState.orderType || "delivery");
+      localStorage.setItem("selected_user_id", locationState.userId);
+      localStorage.setItem("order_type", locationState.orderType || "delivery");
+      localStorage.setItem("tab", locationState.orderType || "delivery");
       return;
     }
 
     // Default: clear cart if not a repeat order and not selecting a user
     if (!isRepeat && !locationState?.userId) {
-      sessionStorage.removeItem("cart");
+      localStorage.removeItem("cart");
     }
   }, [location]);
 
   const { postData, loading: transferLoading } = usePost();
 
   const fetchDiscount = useCallback(async () => {
-    const cachedDiscount = sessionStorage.getItem("discount_data");
+    const cachedDiscount = localStorage.getItem("discount_data");
     if (cachedDiscount) return;
 
     try {
-      const branch_id = sessionStorage.getItem("branch_id") || "4";
+      const branch_id = localStorage.getItem("branch_id") || "4";
       const response = await postData("cashier/discount_module", {
         branch_id: branch_id,
         type: "web", // هنا بنبعت type: web زي ما عاوزة
@@ -121,11 +121,11 @@ export default function Home() {
         discount: response?.discount || 0,
         module: response?.module || [],
       };
-      sessionStorage.setItem("discount_data", JSON.stringify(discountData));
+      localStorage.setItem("discount_data", JSON.stringify(discountData));
     } catch (error) {
       console.error("Error fetching discount:", error);
       toast.error(t("Failedtofetchdiscountdata"));
-      sessionStorage.setItem("discount_data", JSON.stringify({ discount: 0, module: [] }));
+      localStorage.setItem("discount_data", JSON.stringify({ discount: 0, module: [] }));
     }
   }, [postData, t]);
 
@@ -154,12 +154,12 @@ export default function Home() {
         const response = await postData("cashier/complete_transfer_order", formData);
 
         // ✅ تحديث المعرف الرقمي
-        sessionStorage.setItem("table_id", newTableId);
+        localStorage.setItem("table_id", newTableId);
 
         // ✅ التعديل الأساسي: تحديث رقم الطاولة من الرد القادم من السيرفر
         // إذا كان السيرفر يرسل رقم الطاولة في الاستجابة (مثلاً table_number)
         if (response?.table_number) {
-          sessionStorage.setItem("table_number", response.table_number);
+          localStorage.setItem("table_number", response.table_number);
         }
         // ملحوظة: إذا كان السيرفر لا يرسل الرقم، يفضل جلب الرقم من كائن الطاولة المختار قبل مناداة الـ API
 
@@ -202,8 +202,8 @@ export default function Home() {
     const newTableId = typeof tableObj === 'object' ? tableObj.id : tableObj;
     const newTableNumber = tableObj?.table_number || tableObj?.name; // حسب المسمى عندك في مصفوفة الطاولات
 
-    const sourceTableId = sessionStorage.getItem("transfer_source_table_id");
-    const cartIds = JSON.parse(sessionStorage.getItem("transfer_cart_ids"));
+    const sourceTableId = localStorage.getItem("transfer_source_table_id");
+    const cartIds = JSON.parse(localStorage.getItem("transfer_cart_ids"));
 
     if (state.isTransferring) {
       if (!sourceTableId || !cartIds || cartIds.length === 0) {
@@ -215,7 +215,7 @@ export default function Home() {
 
       // ✅ تخزين رقم الطاولة الجديد فوراً قبل مناداة الـ API لضمان التحديث
       if (newTableNumber) {
-        sessionStorage.setItem("table_number", newTableNumber);
+        localStorage.setItem("table_number", newTableNumber);
       }
 
       runTransferAPI(newTableId, sourceTableId, cartIds);
@@ -227,12 +227,12 @@ export default function Home() {
         orderType: "dine_in",
         tabValue: "dine_in",
       }));
-      sessionStorage.setItem("table_id", newTableId);
+      localStorage.setItem("table_id", newTableId);
       if (newTableNumber) {
-        sessionStorage.setItem("table_number", newTableNumber);
+        localStorage.setItem("table_number", newTableNumber);
       }
-      sessionStorage.setItem("order_type", "dine_in");
-      sessionStorage.setItem("tab", "dine_in");
+      localStorage.setItem("order_type", "dine_in");
+      localStorage.setItem("tab", "dine_in");
     }
   }, [state.isTransferring, runTransferAPI, t]);
 
@@ -243,15 +243,15 @@ export default function Home() {
       orderType: "delivery",
       tabValue: "delivery",
     }));
-    sessionStorage.setItem("delivery_user_id", id);
-    sessionStorage.setItem("order_type", "delivery");
-    sessionStorage.setItem("tab", "delivery");
+    localStorage.setItem("delivery_user_id", id);
+    localStorage.setItem("order_type", "delivery");
+    localStorage.setItem("tab", "delivery");
   }, []);
 
   const handleClose = useCallback(() => {
-    sessionStorage.removeItem("selected_user_id");
-    sessionStorage.removeItem("selected_address_id");
-    sessionStorage.removeItem("order_type");
+    localStorage.removeItem("selected_user_id");
+    localStorage.removeItem("selected_address_id");
+    localStorage.removeItem("order_type");
     setState((prevState) => ({
       ...prevState,
       deliveryUserId: null,

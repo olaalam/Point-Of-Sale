@@ -47,7 +47,7 @@ const formatCashierReceipt = (receiptData) => {
     orderTypeLabel = isArabic ? "تيك أواي" : "TAKEAWAY";
   }
 
-  const receiptDesignStr = sessionStorage.getItem("receipt_design") || "{}";
+  const receiptDesignStr = localStorage.getItem("receipt_design") || "{}";
   const receiptDesign = JSON.parse(receiptDesignStr);
 
   const design = {
@@ -63,10 +63,10 @@ const formatCashierReceipt = (receiptData) => {
     preparation_num: receiptDesign.preparation_num ?? 1,
     table_num: receiptDesign.table_num ?? 1,
   };
-  const restaurantLogo = sessionStorage.getItem("resturant_logo") || "";
+  const restaurantLogo = localStorage.getItem("resturant_logo") || "";
 
-  // ✅ جلب اسم الكاشير الصحيح (من sessionStorage أو من الـ response لو موجود)
-  const loggedCashier = JSON.parse(sessionStorage.getItem("user") || "{}");
+  // ✅ جلب اسم الكاشير الصحيح (من localStorage أو من الـ response لو موجود)
+  const loggedCashier = JSON.parse(localStorage.getItem("user") || "{}");
   const cashierName =
     receiptData.cashierName ||
     loggedCashier.name ||
@@ -558,9 +558,9 @@ ${poweredByLine}
 // ===================================================================
 const formatCustomerNumberReceipt = (receiptData) => {
   const isArabic = localStorage.getItem("language") === "ar";
-  const restaurantLogo = sessionStorage.getItem("resturant_logo") || "";
+  const restaurantLogo = localStorage.getItem("resturant_logo") || "";
 
-  const receiptDesignStr = sessionStorage.getItem("receipt_design") || "{}";
+  const receiptDesignStr = localStorage.getItem("receipt_design") || "{}";
   const receiptDesign = JSON.parse(receiptDesignStr);
 
   // نستخدم نفس المنطق لتحديد النص الكبير زي الكيتشن (لكن هنا Take Away دائمًا)
@@ -1016,7 +1016,7 @@ export const prepareReceiptData = (
     response?.type ||
     orderType ||
     response?.kitchen_items?.[0]?.order_type ||
-    sessionStorage.getItem("order_type");
+    localStorage.getItem("order_type");
 
   let detectedType = "take_away"; // Default
 
@@ -1061,8 +1061,8 @@ export const prepareReceiptData = (
   const finalRestaurantName =
     response?.reaturant_name || // الأولوية الأولى: من الـ API
     response?.restaurant_name || // لو كان الاسم مكتوب صح
-    sessionStorage.getItem("resturant_name") ||
-    sessionStorage.getItem("restaurant_name") ||
+    localStorage.getItem("resturant_name") ||
+    localStorage.getItem("restaurant_name") ||
     cashierData.branch?.name ||
     "اسم المطعم";
 
@@ -1092,10 +1092,10 @@ export const prepareReceiptData = (
     serviceFees: Number(response?.service_fees || response?.service_fee || 0),
     serviceTitle: response?.service_fees_title,
     table_number:
-      response?.table_number || sessionStorage.getItem("table_number") || "N/A",
+      response?.table_number || localStorage.getItem("table_number") || "N/A",
     dateFormatted: dateFormatted,
     timeFormatted: timeFormatted,
-    table: sessionStorage.getItem("table_number") || "N/A",
+    table: localStorage.getItem("table_number") || "N/A",
     orderType: finalOrderType,
     financials: response?.financials || [],
     orderNote: response?.order_note || "", // ✅ إضافة ملاحظة الأوردر على مستوى الـ receiptData
@@ -1157,9 +1157,9 @@ export const prepareReceiptData = (
       response?.preparation_num || response?.preparation_number || null,
     restaurantName: finalRestaurantName,
     restaurantAddress:
-      sessionStorage.getItem("restaurant_address") || "العنوان",
-    moduleOrderNumber: sessionStorage.getItem("module_order_number") || null,
-    restaurantPhone: sessionStorage.getItem("restaurant_phone") || "",
+      localStorage.getItem("restaurant_address") || "العنوان",
+    moduleOrderNumber: localStorage.getItem("module_order_number") || null,
+    restaurantPhone: localStorage.getItem("restaurant_phone") || "",
     receiptFooter: "شكراً لزيارتكم",
     isCancelled: !!response?.isCancelled,
   };

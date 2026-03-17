@@ -65,9 +65,9 @@ export default function LoginPage() {
 
       // 🧠 تجهيز بيانات الطلب
       const storedCashierId =
-        sessionStorage.getItem("cashier_id") ||
-        sessionStorage.getItem("cashier_id");
-      const fcm = fcmToken || sessionStorage.getItem("fcm_token") || "";
+        localStorage.getItem("cashier_id") ||
+        localStorage.getItem("cashier_id");
+      const fcm = fcmToken || localStorage.getItem("fcm_token") || "";
 
       const params = {
         user_name,
@@ -81,43 +81,43 @@ export default function LoginPage() {
       console.log("Login Response:", res.data);
       toast.success(t("LoggedInSuccessfully"));
       console.log(res.data.preparation_num_status);
-      // ✅ تخزين البيانات في sessionStorage (الكود القديم)
-      sessionStorage.setItem("token", res.data.token);
-      sessionStorage.setItem("user", JSON.stringify(res.data.cashier));
-      sessionStorage.setItem("branch_id", res.data.cashier.branch_id);
-      sessionStorage.setItem("resturant_name", res.data.resturant_name);
-      sessionStorage.setItem(
+      // ✅ تخزين البيانات في localStorage (الكود القديم)
+      localStorage.setItem("token", res.data.token);
+      localStorage.setItem("user", JSON.stringify(res.data.cashier));
+      localStorage.setItem("branch_id", res.data.cashier.branch_id);
+      localStorage.setItem("resturant_name", res.data.resturant_name);
+      localStorage.setItem(
         "preparation_num_status",
         res.data.preparation_num_status
       );
-      sessionStorage.setItem("scale", String(res.data.scale || ""));
-      sessionStorage.setItem("enter_amount", String(res.data.cashier.enter_amount ?? 0));
+      localStorage.setItem("scale", String(res.data.scale || ""));
+      localStorage.setItem("enter_amount", String(res.data.cashier.enter_amount ?? 0));
 
 
       // تخزين صوت الإشعارات
       if (res.data.notification_sound) {
-        sessionStorage.setItem(
+        localStorage.setItem(
           "notification_sound",
           res.data.notification_sound
         );
       }
 
       if (res.data.financial_account) {
-        sessionStorage.setItem(
+        localStorage.setItem(
           "financial_account",
           JSON.stringify(res.data.financial_account)
         );
       }
       if (res.data.receipt_design) {
-        sessionStorage.setItem(
+        localStorage.setItem(
           "receipt_design",
           JSON.stringify(res.data.receipt_design)
         );
       } else {
-        sessionStorage.setItem("receipt_design", JSON.stringify({}));
+        localStorage.setItem("receipt_design", JSON.stringify({}));
       }
       if (res.data.cashier?.id) {
-        sessionStorage.setItem("cashier_id", res.data.cashier.id);
+        localStorage.setItem("cashier_id", res.data.cashier.id);
       }
 
       const cashierData = res.data.cashier;
@@ -142,12 +142,12 @@ export default function LoginPage() {
       }
 
       // (تخزين البيانات)
-      sessionStorage.setItem("restaurant_name", branchName);
-      sessionStorage.setItem("resturant_logo", resturant_logo);
+      localStorage.setItem("restaurant_name", branchName);
+      localStorage.setItem("resturant_logo", resturant_logo);
 
-      sessionStorage.setItem("restaurant_address", branchAddress);
-      sessionStorage.setItem("restaurant_phone", branchPhone);
-      // sessionStorage.setItem("receipt_footer", receiptFooter);
+      localStorage.setItem("restaurant_address", branchAddress);
+      localStorage.setItem("restaurant_phone", branchPhone);
+      // localStorage.setItem("receipt_footer", receiptFooter);
 
       setTimeout(() => {
         navigate("/cashier", { replace: true });

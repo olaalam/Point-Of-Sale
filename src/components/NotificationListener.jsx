@@ -12,7 +12,7 @@ const NotificationListener = () => {
   useEffect(() => {
     // دالة لتجهيز الصوت مسبقاً (Preload)
     const prepareAudio = () => {
-      const storedSound = sessionStorage.getItem("notification_sound") || FALLBACK_URL;
+      const storedSound = localStorage.getItem("notification_sound") || FALLBACK_URL;
 
       if (!audioRef.current) {
         audioRef.current = new Audio(storedSound);
@@ -42,7 +42,7 @@ const NotificationListener = () => {
       // تشغيل الصوت الجاهز مسبقاً
       if (audioRef.current) {
         // تحديث المصدر إذا تغير في الـ Storage
-        const currentStored = sessionStorage.getItem("notification_sound") || FALLBACK_URL;
+        const currentStored = localStorage.getItem("notification_sound") || FALLBACK_URL;
         console.log(currentStored);
 
         if (audioRef.current.src !== currentStored) {
