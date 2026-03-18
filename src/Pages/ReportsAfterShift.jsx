@@ -303,22 +303,32 @@ const PrintableReport = React.forwardRef(
           </div>
 
           {/* Shift Info */}
-          {showFullReport && shift && (
+          {showFullReport && (
             <div className="print-section">
               <div className="print-section-title">📊 {t("ShiftInfo")}</div>
-              <div className="print-row">
+              {/* <div className="print-row">
                 <span>{t("Employee")}:</span>
                 <strong>{shift.employee_name}</strong>
-              </div>
-              <div className="print-row">
+              </div> */}
+              {/* <div className="print-row">
                 <span>{t("ShiftDuration")}:</span>
                 <strong>{shift.duration}</strong>
-              </div>
+              </div> */}
               <div style={{ border: "1px solid #333", padding: "8px", margin: "8px 0" }}>
-                <div className="print-row">
+                {/* <div className="print-row">
                   <span>{t("TotalOrdersCount")}:</span>
                   <strong>{reportData?.order_count || 0}</strong>
+                </div> */}
+                {/* إضافاتك الجديدة هنا 👇 */}
+                <div className="print-row">
+                  <span>{t("PrinciplePrice")} (قبل الخصم):</span>
+                  <strong>{formatAmount(reportData?.principle_price)}</strong>
                 </div>
+                <div className="print-row">
+                  <span>{t("PriceAfterDiscount")} (بعد الخصم):</span>
+                  <strong>{formatAmount(reportData?.price_after_discount)}</strong>
+                </div>
+                {/* ------------------- */}
                 <div className="print-row">
                   <span>{t("TotalOrdersAmount")}:</span>
                   <strong>{formatAmount(reportData?.total_orders)}</strong>
@@ -812,23 +822,35 @@ export default function EndShiftReportModal({
           </div>
 
           {/* ─── معلومات الشيفت العامة ─── */}
-          {showFullReport && shift && (
+          {showFullReport && (
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
-              <CompactStatCard
+              {/* <CompactStatCard
                 icon={FaUser}
                 title={t("Employee")}
                 value={shift.employee_name}
+              /> */}
+              {/* إضافاتك الجديدة هنا 👇 */}
+              <CompactStatCard
+                icon={FaFileInvoiceDollar}
+                title={t("PrinciplePrice") || "الإجمالي قبل الخصم"}
+                value={formatAmount(reportData?.principle_price)}
               />
               <CompactStatCard
+                icon={FaCheckCircle}
+                title={t("PriceAfterDiscount") || "الإجمالي بعد الخصم"}
+                value={formatAmount(reportData?.price_after_discount)}
+              />
+              {/* ------------------- */}
+              {/* <CompactStatCard
                 icon={FaClock}
                 title={t("ShiftDuration")}
                 value={shift.duration}
-              />
-              <CompactStatCard
+              /> */}
+              {/* <CompactStatCard
                 icon={FaShoppingCart}
                 title={t("TotalOrders")}
                 value={stats?.total_orders ?? 0}
-              />
+              /> */}
             </div>
           )}
 
