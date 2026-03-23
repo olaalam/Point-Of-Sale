@@ -5,6 +5,7 @@ import { Trash2 } from "lucide-react";
 export default function OrderTable({
   orderItems,
   orderType,
+  tableId,
   selectedItems,
   selectedPaymentItems,
   onToggleSelectItem,
@@ -120,6 +121,7 @@ export default function OrderTable({
                   key={item.temp_id || `${item.id}-${index}`}
                   item={item}
                   orderType={orderType}
+                  tableId={tableId}
                   selectedItems={selectedItems}
                   toggleSelectItem={onToggleSelectItem}
                   selectedPaymentItems={selectedPaymentItems}

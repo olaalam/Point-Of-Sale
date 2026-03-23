@@ -60,6 +60,7 @@ const calculateAddonsTotal = (item) => {
 const ItemRow = ({
   item,
   orderType,
+  tableId,
   selectedItems,
   toggleSelectItem,
   selectedPaymentItems,
@@ -153,7 +154,7 @@ const ItemRow = ({
 
       {/* اسم المنتج وتفاصيله */}
       <td className="p-2 text-left align-top">
-        <ProductDetailModalWrapper product={item} updateOrderItems={updateOrderItems} orderItems={orderItems}>
+        <ProductDetailModalWrapper product={item} updateOrderItems={updateOrderItems} orderItems={orderItems} orderType={orderType} tableId={tableId}>
           <div className="flex flex-col gap-1">
             <div className="text-gray-800 font-medium hover:text-red-600 cursor-pointer transition-colors leading-tight">
               <span className="text-bg-primary font-bold mr-1.5 bg-red-50 px-1 rounded">

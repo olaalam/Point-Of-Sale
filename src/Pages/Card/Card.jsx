@@ -393,6 +393,7 @@ export default function Card({
           orderItems={orderItems}
           handleClearAllItems={handleClearAllItems}
           orderType={orderType}
+          tableId={tableId}
           selectedItems={selectedItems}
           selectedPaymentItems={selectedPaymentItems}
           onToggleSelectItem={(id) =>
