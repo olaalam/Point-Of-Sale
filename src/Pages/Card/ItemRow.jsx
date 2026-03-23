@@ -13,21 +13,22 @@ const calculateAddonsTotal = (item) => {
   let total = 0;
 
   // 1. حساب الـ Variations التي تعتبر "إضافات" وليست "أحجام"
+  // 1. حساب الـ Variations التي تعتبر "إضافات" وليست "أحجام"
   if (item.variations && Array.isArray(item.variations)) {
     item.variations.forEach((v) => {
       // إذا لم يكن حجم (Size)، نأخذ قيمة الـ price كزيادة
       const name = (v.name || "").toLowerCase();
       const isSize = name.includes('size') || name.includes('حجم') || name.includes('maqas');
-      
+
       if (!isSize) {
         const selectedId = v.selected_option_id;
         const options = Array.isArray(selectedId) ? selectedId : [selectedId];
-        
+
         options.forEach(optId => {
           const opt = v.options?.find(o => o.id === optId);
           if (opt) {
-            // نعتمد على حقل price لأنه يمثل "الزيادة" في الـ Backend
-            total += Number(opt.price || 0);
+            // التعديل هنا: التأكد إننا بناخد السعر المتاح لجمعه كإضافة
+            total += Number(opt.price_after_discount ?? opt.price ?? opt.total_option_price ?? 0);
           }
         });
       }
@@ -86,11 +87,13 @@ const ItemRow = ({
   const isWeightProduct = item.weight_status === 1 || item.weight_status === "1";
   const isScaleWeightItem = isWeightProduct && item._source === "scale_barcode";
 
+
+
+
   // 2. تحديد الخصم وسعر الوحدة الأساسي
-  // نعتمد على discount_val للتأكد أن الخصم حقيقي وليس فرق ضريبة
   let hasDiscount = Number(item.discount_val || 0) > 0;
-  
-  // سعر الوحدة هو السعر النهائي شامل الضريبة (بعد الخصم إن وجد)
+
+  // الاحتفاظ بالسعر الأساسي للمنتج (السوشي مثلاً)
   let unitBasePrice = Number(item.final_price || item.price_after_discount || item.price || 0);
 
   const selectedOptionId = item.variations?.[0]?.selected_option_id;
@@ -98,18 +101,31 @@ const ItemRow = ({
 
   if (selectedOption) {
     const optDiscount = Number(selectedOption.discount_val || 0);
-    hasDiscount = optDiscount > 0;
-    unitBasePrice = Number(
+    hasDiscount = hasDiscount || optDiscount > 0;
+
+    // التحقق هل هذا الاختيار هو "حجم" (يستبدل السعر) أم "إضافة" (يُجمع على السعر)
+    const variationName = (item.variations?.[0]?.name || "").toLowerCase();
+    const isSize = variationName.includes('size') || variationName.includes('حجم') || variationName.includes('maqas');
+
+    const optionPrice = Number(
       selectedOption.final_price ||
       selectedOption.total_option_price ||
       selectedOption.price_after_tax ||
-      0
+      selectedOption.price || 0
     );
+
+    if (isSize) {
+      // إذا كان حجماً: السعر الأساسي يصبح هو سعر هذا الحجم
+      unitBasePrice = optionPrice;
+    } else {
+      // إذا كانت إضافة (مثل الـ 20 قطعة): نترك السعر الأساسي (100) كما هو
+      // وسيتم جمع الـ (20) تلقائياً عبر دالة calculateAddonsTotal التي استدعيناها سابقاً
+    }
   }
 
   // 3. السعر الأصلي قبل الخصم (لعرضه مشطوباً)
   // نجمع قيمة الخصم للسعر النهائي لنصل للسعر القديم
-  let originalUnitBasePrice = hasDiscount 
+  let originalUnitBasePrice = hasDiscount
     ? unitBasePrice + (selectedOption ? Number(selectedOption.discount_val || 0) : Number(item.discount_val || 0))
     : unitBasePrice;
 
@@ -119,8 +135,8 @@ const ItemRow = ({
   // 5. الكمية / الوزن
   const quantity = isWeightProduct
     ? (isScaleWeightItem
-        ? Number(item._weight_kg || item._weight_grams / 1000 || 0)
-        : Number(item.quantity || 0))
+      ? Number(item._weight_kg || item._weight_grams / 1000 || 0)
+      : Number(item.quantity || 0))
     : Number(item.count || 1);
 
   // 6. الأسعار التي سيتم عرضها في الأعمدة
@@ -139,7 +155,7 @@ const ItemRow = ({
 
   return (
     <tr className={`border-b last:border-b-0 hover:bg-gray-50 ${item.type === "addon" ? "bg-blue-50" : ""} ${selectedPaymentItems?.includes(item.temp_id) ? "bg-green-50" : ""}`}>
-      
+
       {/* اختيار العنصر (Dine-in) */}
       {orderType === "dine_in" && (
         <td className="p-2 text-center align-middle">
@@ -160,10 +176,10 @@ const ItemRow = ({
               <span className="text-bg-primary font-bold mr-1.5 bg-red-50 px-1 rounded">
                 {isWeightProduct
                   ? (() => {
-                      let formatted = quantity.toFixed(3).replace(/0+$/, ''); 
-                      if (formatted.endsWith('.')) formatted = formatted.slice(0, -1);
-                      return formatted + 'kg';
-                    })()
+                    let formatted = quantity.toFixed(3).replace(/0+$/, '');
+                    if (formatted.endsWith('.')) formatted = formatted.slice(0, -1);
+                    return formatted + 'kg';
+                  })()
                   : `${quantity}x`}
               </span>
               <span className="text-[14px]">{item.name || item.product_name || "Unknown Product"}</span>
