@@ -1241,7 +1241,7 @@ export const printKitchenOnly = async (receiptData, apiResponse, callback) => {
       const kitchenReceiptData = {
         ...receiptData,
         items: kitchenItems,
-        orderCount: kitchen.order_count ?? kitchenItems.reduce((sum, item) => sum + item.qty, 0),
+        orderCount: kitchen.order_count || kitchen.order.reduce((sum, item) => sum + Number(item.count || 1), 0),
         orderNote: apiResponse?.order_note || receiptData.orderNote || "",
       };
 
@@ -1400,6 +1400,7 @@ export const printReceiptSilently = async (receiptData, apiResponse, callback, o
         const kitchenReceiptData = {
           ...receiptData,
           items: formatKitchenItems(kitchen.order, receiptData),
+          orderCount: kitchen.order_count || kitchen.order.reduce((sum, item) => sum + Number(item.count || 1), 0),
           orderNote: apiResponse?.order_note || receiptData.orderNote || "",
         };
 
@@ -1461,9 +1462,13 @@ export const updatePrinterConfig = (key, updates) => {
 
 const formatKitchenItems = (kitchenOrder, fullReceiptData) => {
   return kitchenOrder.map((item) => ({
+    id: item.id || item.product_id,
     name: item.name || item.product_name || "صنف غير معروف",
-    quantity: item.count || 1,
-    note: item.note || "",
-    options: item.options || [],
+    qty: item.count || item.qty || 1,           // ✅ تم تغييرها من quantity إلى qty
+    notes: item.notes || item.note || "",       // ✅ تم التعديل لتطابق item.notes
+    addons: item.addons_selected || item.addons || [], // ✅ تمرير الإضافات
+    extras: item.extras || [],                  // ✅ تمرير الزيادات
+    excludes: item.excludes || [],              // ✅ تمرير المحذوفات
+    variations: item.variation_selected || item.variations || [], // ✅ تمرير الخيارات
   }));
 };
