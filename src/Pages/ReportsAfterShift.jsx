@@ -1,17 +1,10 @@
 // src/Pages/EndShiftReportModal.jsx
-import React, { useRef, useEffect } from "react";
+import React, { useRef, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import {
   FaMoneyBillWave,
-  FaClock,
-  FaUser,
   FaShoppingCart,
-  FaFileInvoiceDollar,
-  FaReceipt,
-  FaDollarSign,
-  FaCheckCircle,
   FaPrint,
-  FaBan,
 } from "react-icons/fa";
 
 // ─── ترويسة موحدة لأقسام التقرير ───
@@ -21,716 +14,203 @@ const SectionHeader = ({ icon: Icon, title }) => (
     {title}
   </h3>
 );
-const userData = JSON.parse(localStorage.getItem("user") || "{}");
+
+const getSafeJSON = (key) => {
+  try {
+    const item = localStorage.getItem(key);
+    // إذا كان المفتاح غير موجود، أو يحتوي على [object Object] (تخزين خاطئ)
+    // أو إذا كان النص لا يبدأ بـ { أو [ (ليس JSON valid في الغالب)
+    if (!item || item.includes("[object Object]") || (!item.startsWith('{') && !item.startsWith('['))) {
+      return {};
+    }
+    return JSON.parse(item);
+  } catch (e) {
+    console.error(`Error parsing ${key} from localStorage:`, e);
+    return {};
+  }
+};
+
+// 2. قراءة البيانات بأمان
+const userData = getSafeJSON("user");
+const shiftStartTimeRaw = localStorage.getItem("shiftStartTime");
+const shiftStartTime = getSafeJSON("shiftStartTime");
 
 const canShowTax = Number(userData.total_tax) === 1;
 const canShowService = Number(userData.service_fees) === 1;
-// ─── بطاقة إحصائية مبسطة ───
-const CompactStatCard = ({ icon: Icon, title, value }) => (
-  <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
-    <div className="p-2 rounded-full bg-gray-100">
-      <Icon className="text-xl text-gray-600" />
-    </div>
-    <div>
-      <p className="text-xs text-gray-500">{title}</p>
-      <p className="font-semibold text-gray-800">{value}</p>
-    </div>
-  </div>
-);
 
 // ─── مكون تقرير الطباعة المنفصل ───
 const PrintableReport = React.forwardRef(
-  ({ reportData, t, formatAmount, isArabic }, ref) => {
-    const { shift, financial_accounts, totals, stats } = reportData;
+  ({ reportData, shiftInfo, t, formatAmount, isArabic }, ref) => {
 
-    const showFullReport = reportData.report_role === "all";
+    const {
+      financial_accounts,
+      start_amount,
+      expenses_total,
+      void_order_sum,
+      net_cash_drawer,
+      actual_total,
+      total_amount,
+      order_count
+    } = reportData;
 
-    const netCashInDrawer = reportData.total_amount || 0;
-
-    // ✅ نفس المنطق من الـ UI الأصلي
-    const orderTypes = [
-      {
-        key: "dine_in",
-        label: t("DineIn"),
-        icon: "🍽️",
-        data: reportData.dine_in,
-      },
-      {
-        key: "take_away",
-        label: t("TakeAway"),
-        icon: "🥡",
-        data: reportData.take_away,
-      },
-      {
-        key: "delivery",
-        label: t("Delivery"),
-        icon: "🚗",
-        data: reportData.delivery,
-      },
-      {
-        key: "online",
-        label: t("OnlineOrders"),
-        icon: "💻",
-        data: reportData.online_order,
-      },
-    ];
+    const cashShortage = (actual_total || 0) - (net_cash_drawer || 0);
 
     return (
-      <div
-        ref={ref}
-        className="print-report-container"
-        style={{ display: "none" }}
-      >
+      <div ref={ref} className="print-report-container" style={{ display: "none" }}>
         <style>
           {`
-  @media print {
-    @page {
-      size: A4;
-      margin: 10mm;
-    }
-
-    * { 
-      box-sizing: border-box; 
-      -webkit-print-color-adjust: exact;
-      color-adjust: exact;
-    }
-
-    html, body {
-      width: 100% !important;
-      margin: 0 !important;
-      padding: 0 !important;
-      font-family: 'Tahoma', 'Arial', sans-serif;
-      font-size: 11px;
-      line-height: 1.5;
-      direction: ${isArabic ? "rtl" : "ltr"};
-      background: white !important;
-      color: black !important;
-    }
-
-    .print-wrapper {
-      width: 100% !important;
-      padding: 5mm !important;
-    }
-
-    /* ─── الجدول ─── */
-    .print-table {
-      width: 100% !important;
-      border-collapse: collapse;
-      margin: 8px 0 !important;
-      font-size: 10px;
-    }
-
-    .print-table th,
-    .print-table td {
-      border: 1px solid #333 !important;
-      padding: 6px 8px !important;
-      text-align: ${isArabic ? "right" : "left"} !important;
-    }
-
-    .print-table th {
-      background: white !important;
-      color: black !important;
-      font-weight: bold;
-      text-align: center !important;
-      border: 2px solid #333 !important;
-    }
-
-    /* ✅ إزالة الخلفية السوداء من آخر صف */
-    .print-table tbody tr:last-child {
-      background: white !important;
-      color: black !important;
-      font-weight: bold;
-      border: 2px solid #333 !important;
-    }
-
-    .print-table tbody tr:last-child td {
-      border: 2px solid #333 !important;
-    }
-
-    /* ─── بطاقة نوع الطلب ─── */
-    .print-order-card {
-      border: 2px solid #333;
-      margin: 8px 0;
-      page-break-inside: avoid;
-    }
-
-    .print-order-header {
-      background: white !important;
-      color: black !important;
-      padding: 8px;
-      border-bottom: 2px solid #333;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      font-weight: bold;
-    }
-
-    .print-payment-breakdown {
-      padding: 6px 8px;
-      background: white;
-    }
-
-    .print-payment-row {
-      display: flex;
-      justify-content: space-between;
-      padding: 3px 0;
-      font-size: 9px;
-      border-bottom: 1px dashed #ccc;
-    }
-
-    /* ─── باقي العناصر ─── */
-    .print-section {
-      margin: 10px 0 !important;
-      page-break-inside: avoid;
-    }
-
-    /* ✅ إزالة الخلفية السوداء من العناوين */
-    .print-section-title {
-      background: white !important;
-      color: black !important;
-      padding: 6px 8px !important;
-      text-align: center;
-      font-weight: bold;
-      font-size: 12px;
-      margin-bottom: 8px !important;
-      border: 2px solid #333 !important;
-      text-transform: uppercase;
-    }
-
-    .print-row {
-      display: flex;
-      justify-content: space-between;
-      padding: 4px 0;
-      font-size: 10px;
-      border-bottom: 1px dashed #999;
-    }
-
-    .print-divider {
-      border-top: 2px solid #333 !important;
-      margin: 8px 0 !important;
-    }
-
-    /* ✅ إزالة الخلفية السوداء من صندوق الإجمالي */
-    .print-total-box {
-      background: white !important;
-      color: black !important;
-      padding: 12px !important;
-      text-align: center;
-      margin: 12px 0 !important;
-      page-break-inside: avoid;
-      border: 3px solid #333 !important;
-    }
-
-    .print-total-value {
-      font-size: 20px !important;
-      font-weight: bold;
-      color: black !important;
-    }
-
-    .print-header {
-      text-align: center;
-      padding: 8px 0;
-      border-bottom: 2px solid #333;
-      margin-bottom: 10px;
-    }
-
-    .print-title {
-      font-size: 18px;
-      font-weight: bold;
-      color: black !important;
-    }
-
-    .print-footer {
-      border-top: 2px solid #333;
-      padding-top: 10px;
-      margin-top: 15px;
-      text-align: center;
-      font-size: 9px;
-      color: black !important;
-    }
-
-    /* ✅ جدول المصروفات بدون خلفية سوداء */
-    .print-expense-table {
-      width: 100%;
-      border-collapse: collapse;
-      margin: 8px 0;
-    }
-
-    .print-expense-table th,
-    .print-expense-table td {
-      border: 1px solid #333;
-      padding: 6px;
-      text-align: center;
-      background: white !important;
-      color: black !important;
-    }
-
-    .print-expense-table th {
-      font-weight: bold;
-      border: 2px solid #333 !important;
-    }
-
-    .print-expense-total {
-      background: white !important;
-      color: black !important;
-      font-weight: bold;
-      border: 2px solid #333 !important;
-    }
-
-    .print-expense-total td {
-      border: 2px solid #333 !important;
-    }
-
-    /* ✅ إزالة أي opacity */
-    * {
-      opacity: 1 !important;
-    }
-  }
-`}
+            @media print {
+              @page { size: A4; margin: 15mm; }
+              * { box-sizing: border-box; -webkit-print-color-adjust: exact; color-adjust: exact; }
+              html, body { width: 100% !important; margin: 0 !important; padding: 0 !important; font-family: 'Tahoma', sans-serif; font-size: 13px; line-height: 1.6; direction: ${isArabic ? "rtl" : "ltr"}; background: white !important; color: black !important; }
+              .print-wrapper { width: 100% !important; max-width: 800px; margin: 0 auto; }
+              
+              /* Header */
+              .print-header { text-align: center; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 20px; }
+              .print-title { font-size: 24px; font-weight: bold; text-transform: uppercase; margin-bottom: 10px; }
+              .header-info { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; text-align: ${isArabic ? "right" : "left"}; font-size: 12px; }
+              
+              /* Sections */
+              .print-section { margin-bottom: 20px; }
+              .section-title { font-size: 16px; font-weight: bold; background: #f0f0f0 !important; padding: 5px 10px; border: 1px solid #000; margin-bottom: 10px; text-transform: uppercase; }
+              
+              /* Rows */
+              .data-row { display: flex; justify-content: space-between; padding: 5px 0; border-bottom: 1px dashed #ccc; }
+              .data-row.bold { font-weight: bold; font-size: 14px; border-bottom: 1px solid #000; margin-top: 5px; }
+              
+              /* Tables */
+              .print-table { width: 100%; border-collapse: collapse; margin-bottom: 15px; }
+              .print-table th, .print-table td { border: 1px solid #000; padding: 8px; text-align: center; }
+              .print-table th { background: #f0f0f0 !important; font-weight: bold; }
+              
+              /* Final Totals Box */
+              .totals-box { border: 2px solid #000; padding: 15px; margin-top: 20px; }
+              .totals-row { display: flex; justify-content: space-between; font-size: 15px; font-weight: bold; padding: 5px 0; }
+              .totals-note { font-size: 11px; font-weight: normal; color: #555 !important; }
+            }
+          `}
         </style>
 
         <div className="print-wrapper">
-          {/* Header */}
+          {/* Header Section */}
           <div className="print-header">
-            <div className="print-title">📋 {t("EndShiftReport")}</div>
-            <div style={{ fontSize: "10px", marginTop: "4px" }}>
-              {new Date().toLocaleDateString(isArabic ? "ar-EG" : "en-US")} -{" "}
-              {new Date().toLocaleTimeString(isArabic ? "ar-EG" : "en-US", {
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
+            <div className="print-title">{t("EndShiftReport") || "End shift report"}</div>
+            <div className="header-info">
+              <div><strong>{t("PrintedAt") || "Printed at"}:</strong> {shiftInfo.printedAt}</div>
+              <div><strong>{t("CashierName") || "Cashier name"}:</strong> {shiftInfo.cashierName}</div>
+              <div><strong>{t("Branch") || "Branch"}:</strong> {shiftInfo.branchName}</div>
+              <div><strong>{t("POSMachine") || "POS machine"}:</strong> {shiftInfo.posMachine}</div>
+              <div><strong>{t("ShiftOpenedAt") || "Shift opened at"}:</strong> {shiftInfo.openedAt}</div>
+              <div><strong>{t("ShiftClosedAt") || "Shift closed at"}:</strong> {shiftInfo.closedAt}</div>
             </div>
           </div>
 
-          {/* Shift Info */}
-          {showFullReport && (
-            <div className="print-section">
-              <div className="print-section-title">📊 {t("ShiftInfo")}</div>
-              {/* <div className="print-row">
-                <span>{t("Employee")}:</span>
-                <strong>{shift.employee_name}</strong>
-              </div> */}
-              {/* <div className="print-row">
-                <span>{t("ShiftDuration")}:</span>
-                <strong>{shift.duration}</strong>
-              </div> */}
-              <div style={{ border: "1px solid #333", padding: "8px", margin: "8px 0" }}>
-                {/* <div className="print-row">
-                  <span>{t("TotalOrdersCount")}:</span>
-                  <strong>{reportData?.order_count || 0}</strong>
-                </div> */}
-                {/* إضافاتك الجديدة هنا 👇 */}
-                <div className="print-row">
-                  <span>{t("PrinciplePrice")} (قبل الخصم):</span>
-                  <strong>{formatAmount(reportData?.principle_price)}</strong>
-                </div>
-                <div className="print-row">
-                  <span>{t("PriceAfterDiscount")} (بعد الخصم):</span>
-                  <strong>{formatAmount(reportData?.price_after_discount)}</strong>
-                </div>
-                {/* ------------------- */}
-                <div className="print-row">
-                  <span>{t("TotalOrdersAmount")}:</span>
-                  <strong>{formatAmount(reportData?.total_orders)}</strong>
-                </div>
-              </div>
-              <div className="print-row" style={{ marginTop: "4px", paddingTop: "4px", borderTop: "1px solid #333" }}>
-                <span>{t("ActualTotalInDrawer")} (الفلوس الفعلية):</span>
-                <strong style={{ fontSize: "12px" }}>{formatAmount(reportData?.actual_total)}</strong>
-              </div>
-            </div>
-          )}
-
-          {/* Financial Accounts */}
+          {/* Financial Summary */}
           <div className="print-section">
-            <div className="print-section-title">
-              💰 {t("FinancialSummary")}
+            <div className="section-title">{t("FinancialSummary") || "Financial summary"}</div>
+            <div className="data-row">
+              <span>{t("StartBalance") || "Start Balance"}</span>
+              <span>{formatAmount(start_amount || 0)}</span>
             </div>
-            {financial_accounts?.map((acc) => {
-              const total =
-                (acc.total_amount_dine_in || 0) +
-                (acc.total_amount_take_away || 0) +
-                (acc.total_amount_delivery || 0);
 
-              return (
-                <div
-                  key={acc.financial_id}
-                  style={{
-                    marginBottom: "8px",
-                    border: "1px solid #333",
-                    padding: "6px",
-                  }}
-                >
-                  {/* الفجوة المالية في الطباعة */}
-                  <div
-                    className="print-row"
-                    style={{
-                      marginTop: "20px",
-                      padding: "10px",
-                      border: "1px solid #000",
-                    }}
-                  >
-                    <span>الفجوة المالية (Gap): </span>
-                    <span>{formatAmount(reportData?.gap || 0)}</span>
-                  </div>
-
-                  <div
-                    className="print-row"
-                    style={{ fontWeight: "bold", borderBottom: "none" }}
-                  >
-                    <span>{acc.financial_name}</span>
-                    <span>{formatAmount(total)}</span>
-                  </div>
-                  {(acc.total_amount_dine_in > 0 ||
-                    acc.total_amount_take_away > 0 ||
-                    acc.total_amount_delivery > 0) && (
-                      <div
-                        style={{
-                          fontSize: "9px",
-                          marginTop: "4px",
-                          paddingTop: "4px",
-                          borderTop: "1px dashed #ccc",
-                        }}
-                      >
-                        {acc.total_amount_dine_in > 0 && (
-                          <div className="print-row" style={{ padding: "2px 0" }}>
-                            <span>Dine In</span>
-                            <span>{formatAmount(acc.total_amount_dine_in)}</span>
-                          </div>
-                        )}
-                        {acc.total_amount_take_away > 0 && (
-                          <div className="print-row" style={{ padding: "2px 0" }}>
-                            <span>Take Away</span>
-                            <span>
-                              {formatAmount(acc.total_amount_take_away)}
-                            </span>
-                          </div>
-                        )}
-                        {acc.total_amount_delivery > 0 && (
-                          <div className="print-row" style={{ padding: "2px 0" }}>
-                            <span>Delivery</span>
-                            <span>{formatAmount(acc.total_amount_delivery)}</span>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                </div>
-              );
-            })}
-            {/* إضافة الضرائب والخدمة في الطباعة */}
-            {canShowTax && (
-              <div className="print-row">
-                <span>{t("TotalTax")}:</span>
-                <strong>{formatAmount(reportData.total_tax)}</strong>
+            {/* Payment Methods */}
+            {financial_accounts?.map((acc, idx) => (
+              <div className="data-row" key={idx}>
+                <span>{acc.financial_name}</span>
+                <span>{formatAmount((acc.total_amount_dine_in || 0) + (acc.total_amount_take_away || 0) + (acc.total_amount_delivery || 0))}</span>
               </div>
-            )}
+            ))}
 
-            {canShowService && (
-              <div className="print-row">
-                <span>{t("ServiceFees")}:</span>
-                <strong>{formatAmount(reportData.service_fees)}</strong>
-              </div>
-            )}
-            <div className="print-divider" />
-            <div
-              className="print-row"
-              style={{ fontSize: "12px", fontWeight: "bold" }}
-            >
-              <span>{t("TotalCashInShift")}</span>
-              <span> {formatAmount(netCashInDrawer)}</span>
+            <div className="data-row bold">
+              <span>{t("TotalAmount") || "Total amount"}</span>
+              <span>{formatAmount(total_amount || 0)}</span>
+            </div>
+            <div className="data-row text-red-600">
+              <span>{t("Returns") || "Returns (Void)"}</span>
+              <span>-{formatAmount(void_order_sum || 0)}</span>
+            </div>
+            <div className="data-row text-red-600">
+              <span>{t("Expenses") || "Expenses"}</span>
+              <span>-{formatAmount(expenses_total || 0)}</span>
+            </div>
+            <div className="data-row bold">
+              <span>{t("NetAmount") || "Net amount"}</span>
+              <span>{formatAmount((total_amount || 0) - (void_order_sum || 0) - (expenses_total || 0))}</span>
             </div>
           </div>
 
-          {/* ─── إحصائيات الموديولات (group_modules) ─── */}
-          {/* قسم مبيعات المنصات (طلبات، مرسول، إلخ) */}
-          {reportData?.group_modules && (
-            <div className="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-100">
-              <h3 className="font-bold text-gray-800 mb-2 flex items-center gap-2">
-                <FaShoppingCart className="text-blue-600" />
-                مبيعات المنصات
-              </h3>
-              <div className="space-y-2">
-                {reportData.group_modules.map((mod, index) => (
-                  <div
-                    key={index}
-                    className="flex justify-between text-sm border-b border-blue-200 pb-1"
-                  >
-                    <span className="font-medium text-gray-700">
-                      {mod.module}
-                    </span>
-                    <span className="font-bold text-blue-700">
-                      {formatAmount(mod.amount)}
-                    </span>
-                    <span className="font-bold text-blue-700">
-                      {formatAmount(mod.due)}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* إحصائيات القاعات في الطباعة */}
-          {reportData?.hall_orders && (
-            <div style={{ marginTop: "20px" }}>
-              <h3 style={{ borderBottom: "1px solid #000" }}>
-                إحصائيات القاعات
-              </h3>
-              <table
-                style={{
-                  width: "100%",
-                  borderCollapse: "collapse",
-                  marginTop: "10px",
-                }}
-              >
-                <thead>
-                  <tr>
-                    <th style={{ border: "1px solid #000", padding: "5px" }}>
-                      القاعة
-                    </th>
-                    <th style={{ border: "1px solid #000", padding: "5px" }}>
-                      عدد الطلبات
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {reportData.hall_orders.map((hall) => (
-                    <tr key={hall.hall_id}>
-                      <td style={{ border: "1px solid #000", padding: "5px" }}>
-                        {hall.hall_name}
-                      </td>
-                      <td
-                        style={{
-                          border: "1px solid #000",
-                          padding: "5px",
-                          textAlign: "center",
-                        }}
-                      >
-                        {hall.order_count}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-          {/* الجزء الخاص بالطباعة */}
-          {reportData?.captain_order && reportData.captain_order.length > 0 && (
-            <div
-              style={{
-                marginTop: "15px",
-                borderTop: "1px dashed #000",
-                paddingTop: "10px",
-              }}
-            >
-              <h3
-                style={{
-                  fontSize: "14px",
-                  textAlign: "center",
-                  marginBottom: "10px",
-                }}
-              >
-                {t("Captain Orders Summary")}
-              </h3>
-              <table
-                style={{
-                  width: "100%",
-                  fontSize: "12px",
-                  borderCollapse: "collapse",
-                }}
-              >
-                <thead>
-                  <tr style={{ borderBottom: "1px solid #eee" }}>
-                    <th style={{ textAlign: "right" }}>{t("Captain")}</th>
-                    <th style={{ textAlign: "center" }}>{t("Method")}</th>
-                    <th style={{ textAlign: "left" }}>{t("Total")}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {reportData.captain_order.map((item, index) => (
-                    <tr
-                      key={index}
-                      style={{ borderBottom: "1px solid #f9f9f9" }}
-                    >
-                      <td style={{ padding: "4px 0" }}>{item.captain?.name}</td>
-                      <td style={{ textAlign: "center" }}>
-                        {item.financial_name}
-                      </td>
-                      <td style={{ textAlign: "left", fontWeight: "bold" }}>
-                        {formatAmount(item.total_financial)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-          {/* Void Orders Section in Print */}
-          {reportData.void_order_count > 0 && (
-            <div className="print-section">
-              <div className="print-section-title">🚫 {t("VoidOrders")}</div>
-              <table className="print-void-table">
-                <thead>
-                  <tr>
-                    <th>{t("VoidOrdersCount")}</th>
-                    <th>{t("VoidOrdersTotal")}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr className="print-void-total">
-                    <td>{reportData.void_order_count}</td>
-                    <td>-{formatAmount(reportData.void_order_sum)}</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          )}
-
-          {/* Orders by Type with Payment Methods */}
-          {showFullReport && (
-            <>
-              <div className="print-section">
-                <div className="print-section-title">
-                  🛒 {t("OrdersSummaryByType")}
-                </div>
-
-                {orderTypes.map((type) => {
-                  let typeTotal = 0;
-                  let typeCount = 0;
-                  let paymentMethods = [];
-
-                  // ✅ نفس المنطق من الـ UI
-                  if (type.key === "online") {
-                    const paid = type.data?.paid || [];
-                    const unpaid = type.data?.un_paid || [];
-                    typeCount = paid.length + unpaid.length;
-                    const allPayments = [...paid, ...unpaid];
-                    const methodsMap = {};
-
-                    allPayments.forEach((p) => {
-                      const methodName = p.payment_method || t("Unknown");
-                      if (!methodsMap[methodName]) {
-                        methodsMap[methodName] = { amount: 0, count: 0 };
-                      }
-                      methodsMap[methodName].amount += p.amount || 0;
-                      methodsMap[methodName].count += 1;
-                      typeTotal += p.amount || 0;
-                    });
-
-                    paymentMethods = Object.entries(methodsMap).map(
-                      ([name, data]) => ({ name, ...data }),
-                    );
-                  } else {
-                    typeCount = type.data?.count || 0;
-                    typeTotal = type.data?.amount || 0;
-
-                    if (type.data?.financial_accounts) {
-                      paymentMethods = type.data.financial_accounts.map(
-                        (acc) => ({
-                          name: acc.financial_name || acc.payment_method,
-                          amount: acc.total_amount || acc.amount,
-                          count: acc.count || 1,
-                        }),
-                      );
-                    }
-                  }
-
-                  if (typeCount === 0) return null;
-
-                  return (
-                    <div key={type.key} className="print-order-card">
-                      <div className="print-order-header">
-                        <div>
-                          <span style={{ marginRight: "4px" }}>
-                            {type.icon}
-                          </span>
-                          <strong>{type.label}</strong>
-                          <span style={{ fontSize: "9px", marginLeft: "6px" }}>
-                            ({typeCount} {t("Orders")})
-                          </span>
-                        </div>
-                        <strong>{formatAmount(typeTotal)}</strong>
-                      </div>
-
-                      {paymentMethods.length > 0 && (
-                        <div className="print-payment-breakdown">
-                          {paymentMethods.map((method, idx) => (
-                            <div key={idx} className="print-payment-row">
-                              <span>{method.name}</span>
-                              <span>{formatAmount(method.amount)}</span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Expenses */}
-              {reportData.expenses?.length > 0 && (
-                <div className="print-section">
-                  <div className="print-section-title">📝 {t("Expenses")}</div>
-                  <table className="print-expense-table">
-                    <thead>
-                      <tr>
-                        <th>#</th>
-                        <th>{t("Description")}</th>
-                        <th>{t("Category")}</th>
-                        <th>{t("Amount")}</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {reportData.expenses.map((exp, idx) => (
-                        <tr key={idx}>
-                          <td>{idx + 1}</td>
-                          <td>{exp.financial_account}</td>
-                          <td>{exp.category || t("N/A")}</td>
-                          <td>-{formatAmount(exp.total, "")}</td>
-                        </tr>
-                      ))}
-                      <tr className="print-expense-total">
-                        <td colSpan="3">{t("TotalExpenses")}</td>
-                        <td>-{formatAmount(reportData.expenses_total)}</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </>
-          )}
-
-          {/* --- إضافة صافي النقد في الدرج --- */}
-          {/* --- صافي النقد والمبلغ الفعلي --- */}
-          <div style={{ marginTop: "15px", border: "1px double #000", padding: "10px" }}>
-            <div style={{ textAlign: "center", marginBottom: "8px" }}>
-              <div style={{ fontSize: "12px", fontWeight: "bold" }}>{t("NetCashInDrawer")} (صافي النقد)</div>
-              <div style={{ fontSize: "18px", fontWeight: "black" }}>{formatAmount(reportData?.net_cash_drawer)}</div>
-              <div style={{ fontSize: "9px" }}>({t("TotalCashInShift")} - {t("TotalExpenses")} - {t("VoidOrdersTotal")})</div>
-            </div>
-
-            <div style={{ textAlign: "center", borderTop: "1px dashed #000", paddingTop: "8px" }}>
-              <div style={{ fontSize: "12px", fontWeight: "bold" }}>{t("ActualTotalInDrawer")} (الفلوس الفعلية)</div>
-              <div style={{ fontSize: "18px", fontWeight: "black" }}>{formatAmount(reportData?.actual_total)}</div>
-            </div>
+          {/* Order Types Summary */}
+          <div className="print-section">
+            <div className="section-title">{t("OrderTypesSummary") || "Order types summary"}</div>
+            <table className="print-table">
+              <thead>
+                <tr>
+                  <th>{t("OrderType") || "Type"}</th>
+                  <th>{t("NumberOfOrders") || "Number of orders"}</th>
+                  <th>{t("Amount") || "Amount"}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>{t("DineIn") || "Dine in"}</td>
+                  <td>{reportData?.dine_in?.count || 0}</td>
+                  <td>{formatAmount(reportData?.dine_in?.amount || 0)}</td>
+                </tr>
+                <tr>
+                  <td>{t("TakeAway") || "Takeaway"}</td>
+                  <td>{reportData?.take_away?.count || 0}</td>
+                  <td>{formatAmount(reportData?.take_away?.amount || 0)}</td>
+                </tr>
+                <tr>
+                  <td>{t("Delivery") || "Delivery"}</td>
+                  <td>{reportData?.delivery?.count || 0}</td>
+                  <td>{formatAmount(reportData?.delivery?.amount || 0)}</td>
+                </tr>
+                <tr style={{ backgroundColor: "#e0e0e0", fontWeight: "bold" }}>
+                  <td>{t("TotalOrders") || "Total orders"}</td>
+                  <td>{order_count || 0}</td>
+                  <td>{formatAmount(reportData?.total_orders || 0)}</td>
+                </tr>
+              </tbody>
+            </table>
           </div>
 
-          {/* Footer */}
-          <div className="print-footer">
-            <div>━━━━━━━━━━━━━━━━━━━━</div>
-            <div style={{ margin: "4px 0" }}>
-              🙏 {t("ThankYou") || "شكراً لكم"}
+          {/* Final Calculations Box */}
+          <div className="totals-box">
+            <div className="totals-row">
+              <div>
+                {t("NetCashInDrawer") || "Net cash in drawer"}
+                <div className="totals-note">(total cash in shift - expenses - returns)</div>
+              </div>
+              <div>{formatAmount(net_cash_drawer || 0)}</div>
             </div>
-            <div>{t("Powered by Food2Go - food2go.online")}</div>
+            <hr style={{ borderTop: "1px dashed #ccc", margin: "10px 0" }} />
+            <div className="totals-row">
+              <div>
+                {t("CashShortage") || "Cash shortage (Gap)"}
+                <div className="totals-note">(actual total in drawer - net cash in drawer)</div>
+              </div>
+              <div style={{ color: cashShortage < 0 ? "red" : "black" }}>
+                {formatAmount(cashShortage)}
+              </div>
+            </div>
+            <hr style={{ borderTop: "2px solid #000", margin: "10px 0" }} />
+            <div className="totals-row">
+              <div>
+                {t("TotalSales") || "Total sales"}
+                <div className="totals-note">(all payment methods - expenses - returns)</div>
+              </div>
+              <div>{formatAmount((total_amount || 0) - (expenses_total || 0) - (void_order_sum || 0))}</div>
+            </div>
           </div>
         </div>
       </div>
     );
-  },
+  }
 );
 PrintableReport.displayName = "PrintableReport";
 
-// ─── المكون الرئيسي ───
+// ─── المكون الرئيسي (UI Modal) ───
 export default function EndShiftReportModal({
   reportData,
   onClose,
@@ -746,32 +226,51 @@ export default function EndShiftReportModal({
     }
   }, [reportData, reportData?.report_role, onConfirmClose]);
 
+  // تجهيز بيانات الـ Header من الـ LocalStorage
+  const shiftInfo = useMemo(() => {
+    const localeDateConfig = isArabic ? "ar-EG" : "en-US";
+
+    let formattedOpenedAt = "N/A";
+
+    // 1. إذا كان التاريخ مخزناً داخل Object (الحالة المثالية)
+    if (shiftStartTime?.created_at) {
+      formattedOpenedAt = new Date(shiftStartTime.created_at).toLocaleString(localeDateConfig);
+    }
+    // 2. إذا كان التاريخ مخزناً كنص مباشر في localStorage (مثل الحالة التي أرسلتها)
+    else if (typeof shiftStartTimeRaw === "string" && shiftStartTimeRaw !== "" && !shiftStartTimeRaw.includes("[object")) {
+      const date = new Date(shiftStartTimeRaw);
+      if (!isNaN(date.getTime())) {
+        formattedOpenedAt = date.toLocaleString(localeDateConfig);
+      }
+    }
+
+    return {
+      printedAt: new Date().toLocaleString(localeDateConfig),
+      // تأكد من استخدام Optional Chaining (?) دائماً لتجنب أخطاء الـ Object
+      cashierName: reportData?.shift?.employee_name || shiftStartTime?.user_name || userData?.user_name || "N/A",
+      branchName: reportData?.shift?.branch_name || shiftStartTime?.branch?.name || userData?.branch?.name || "Main Branch",
+      posMachine: reportData?.shift?.pos_name || "POS-1",
+      openedAt: reportData?.shift?.opened_at || formattedOpenedAt,
+      closedAt: reportData?.shift?.closed_at || new Date().toLocaleString(localeDateConfig),
+    };
+    // أضف المتغيرات الجديدة لمصفوفة الاعتمادات لضمان التحديث
+  }, [reportData, isArabic, shiftStartTime, shiftStartTimeRaw, userData]);
+
   if (!reportData || reportData.report_role === "unactive") return null;
 
-  const { report_role, shift, financial_accounts, totals, stats } = reportData;
-  const showFullReport = report_role === "all";
+  const { financial_accounts, start_amount, expenses_total, void_order_sum, net_cash_drawer, actual_total, total_amount, order_count } = reportData;
+  const cashShortage = (actual_total || 0) - (net_cash_drawer || 0);
+  const netAmountCalculated = (total_amount || 0) - (void_order_sum || 0) - (expenses_total || 0);
 
-  // دالة لتنسيق الأرقام
   const formatAmount = (amount, currency = t("EGP")) => {
-    return `${(amount || 0).toLocaleString(undefined, {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })} ${currency}`;
+    return `${(amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`;
   };
 
-  // إصلاح الحساب بإضافة || 0
-  const netCashInDrawer = reportData.total_amount || 0;
-
-  // دالة الطباعة (المعدلة والمبسطة)
   const handlePrint = () => {
     const printContent = printRef.current;
     if (!printContent) return;
 
-    // إنشاء نافذة طباعة جديدة
-    const printWindow = window.open("", "_blank", "width=350,height=600");
-
-    // كتابة محتوى الـ HTML مباشرة من المكون المخفي
-    // هذا يضمن أن التصميم الموجود في PrintableReport هو ما سيتم طباعته
+    const printWindow = window.open("", "_blank", "width=800,height=800");
     printWindow.document.write(`
       <!DOCTYPE html>
       <html dir="${isArabic ? "rtl" : "ltr"}">
@@ -786,8 +285,6 @@ export default function EndShiftReportModal({
     `);
 
     printWindow.document.close();
-
-    // انتظار تحميل المحتوى ثم الطباعة
     printWindow.onload = () => {
       printWindow.focus();
       setTimeout(() => {
@@ -798,640 +295,170 @@ export default function EndShiftReportModal({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-2">
-      <div
-        className="bg-white rounded-lg shadow-xl max-w-xl w-full max-h-[95vh] overflow-y-auto transform transition-all duration-300"
-        dir={isArabic ? "rtl" : "ltr"}
-      >
-        <div className="p-6">
-          {/* ─── العنوان وزر الطباعة ─── */}
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-bold text-gray-800">
-              {t("EndShiftReport")}
-            </h2>
-            <button
-              onClick={handlePrint}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-md"
-              title={t("Print")}
-            >
-              <FaPrint className="text-lg" />
-              <span className="text-sm font-medium">
-                {t("Print") || "طباعة"}
-              </span>
-            </button>
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-2 md:p-4">
+      <div className="bg-gray-50 rounded-xl shadow-2xl max-w-3xl w-full max-h-[95vh] overflow-y-auto flex flex-col" dir={isArabic ? "rtl" : "ltr"}>
+
+        {/* Header Fixed */}
+        <div className="bg-white p-5 border-b border-gray-200 sticky top-0 z-10 flex items-center justify-between rounded-t-xl">
+          <h2 className="text-2xl font-bold text-gray-800">{t("EndShiftReport") || "End shift report"}</h2>
+          <button
+            onClick={handlePrint}
+            className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm font-medium"
+          >
+            <FaPrint /> {t("Print") || "طباعة"}
+          </button>
+        </div>
+
+        <div className="p-6 space-y-6 flex-1">
+
+          {/* Header Info Grid */}
+          <div className="bg-white p-4 rounded-lg shadow-sm border border-gray-100 grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
+            <div><span className="text-gray-500 block">{t("PrintedAt")}:</span> <span className="font-semibold">{shiftInfo.printedAt}</span></div>
+            <div><span className="text-gray-500 block">{t("CashierName")}:</span> <span className="font-semibold">{shiftInfo.cashierName}</span></div>
+            <div><span className="text-gray-500 block">{t("Branch")}:</span> <span className="font-semibold">{shiftInfo.branchName}</span></div>
+            <div><span className="text-gray-500 block">{t("POSMachine")}:</span> <span className="font-semibold">{shiftInfo.posMachine}</span></div>
+            <div><span className="text-gray-500 block">{t("ShiftOpenedAt")}:</span> <span className="font-semibold" dir="ltr">{shiftInfo.openedAt}</span></div>
+            <div><span className="text-gray-500 block">{t("ShiftClosedAt")}:</span> <span className="font-semibold" dir="ltr">{shiftInfo.closedAt}</span></div>
           </div>
 
-          {/* ─── معلومات الشيفت العامة ─── */}
-          {showFullReport && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
-              {/* <CompactStatCard
-                icon={FaUser}
-                title={t("Employee")}
-                value={shift.employee_name}
-              /> */}
-              {/* إضافاتك الجديدة هنا 👇 */}
-              <CompactStatCard
-                icon={FaFileInvoiceDollar}
-                title={t("PrinciplePrice") || "الإجمالي قبل الخصم"}
-                value={formatAmount(reportData?.principle_price)}
-              />
-              <CompactStatCard
-                icon={FaCheckCircle}
-                title={t("PriceAfterDiscount") || "الإجمالي بعد الخصم"}
-                value={formatAmount(reportData?.price_after_discount)}
-              />
-              {/* ------------------- */}
-              {/* <CompactStatCard
-                icon={FaClock}
-                title={t("ShiftDuration")}
-                value={shift.duration}
-              /> */}
-              {/* <CompactStatCard
-                icon={FaShoppingCart}
-                title={t("TotalOrders")}
-                value={stats?.total_orders ?? 0}
-              /> */}
-            </div>
-          )}
+          {/* Financial Summary */}
+          <div className="bg-white p-5 rounded-lg shadow-sm border border-gray-100">
+            <SectionHeader icon={FaMoneyBillWave} title={t("FinancialSummary") || "Financial summary"} />
+            <div className="space-y-3">
+              <div className="flex justify-between items-center bg-gray-50 p-3 rounded">
+                <span className="font-medium text-gray-700">{t("StartBalance") || "Start Balance"}</span>
+                <span className="font-bold">{formatAmount(start_amount || 0)}</span>
+              </div>
 
-          {/* ─── الحسابات المالية ─── */}
-          <div className="space-y-4 mb-6 pt-4 border-t border-gray-100">
-            <SectionHeader
-              icon={FaMoneyBillWave}
-              title={t("FinancialSummary")}
-            />
-
-            <div className="space-y-4">
-              {financial_accounts?.map((acc) => {
-                const total =
-                  (acc.total_amount_dine_in || 0) +
-                  (acc.total_amount_take_away || 0) +
-                  (acc.total_amount_delivery || 0);
-
-                const hasDetails =
-                  total > 0 &&
-                  (acc.total_amount_dine_in > 0 ||
-                    acc.total_amount_take_away > 0 ||
-                    acc.total_amount_delivery > 0);
-
-                return (
-                  <div
-                    key={acc.financial_id}
-                    className="border border-gray-200 rounded-lg overflow-hidden bg-white shadow-sm"
-                  >
-                    <div
-                      className={`flex justify-between space-4 p-3 rounded-lg border ${reportData?.gap >= 0 ? "bg-gray-50 border-gray-200" : "bg-red-50 border-red-200"}`}
-                    >
-                      <span className="text-sm text-gray-600 font-medium">
-                        {t("ShiftGap")}
-                      </span>
-                      <span
-                        className={`text-xl font-bold ${reportData?.gap >= 0 ? "text-gray-700" : "text-red-700"}`}
-                      >
-                        {formatAmount(reportData?.gap || 0)}
-                      </span>
+              <div className="border-s-4 border-blue-500 ps-3 ms-1 my-2 space-y-2">
+                {financial_accounts?.map((acc, idx) => {
+                  const accTotal = (acc.total_amount_dine_in || 0) + (acc.total_amount_take_away || 0) + (acc.total_amount_delivery || 0);
+                  return (
+                    <div key={idx} className="flex justify-between text-sm">
+                      <span className="text-gray-600">{acc.financial_name}</span>
+                      <span className="font-semibold">{formatAmount(accTotal)}</span>
                     </div>
-                    {/* الصف الرئيسي للحساب */}
-                    <div className="p-4 bg-gradient-to-r from-gray-50 to-gray-100 flex justify-between items-center">
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 bg-white rounded-full shadow">
-                          <FaMoneyBillWave className="text-lg text-gray-600" />
-                        </div>
-                        <div>
-                          <h4 className="font-bold text-gray-800">
-                            {acc.financial_name}
-                          </h4>
-                          {acc.count !== undefined && (
-                            <p className="text-xs text-gray-600">
-                              {acc.count} {t("Orders")}
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-xl font-bold text-gray-800">
-                          {formatAmount(total)}
-                        </p>
-                      </div>
-                    </div>
+                  );
+                })}
+              </div>
 
-                    {/* التفاصيل الفرعية (Dine In, Take Away, Delivery) */}
-                    {hasDetails && (
-                      <div className="p-3 bg-gray-50 border-t border-gray-200">
-                        <div className="grid grid-cols-3 gap-3 text-sm">
-                          {acc.total_amount_dine_in > 0 && (
-                            <div className="text-center">
-                              <p className="text-xs text-gray-600">Dine In</p>
-                              <p className="font-semibold text-gray-800">
-                                {formatAmount(acc.total_amount_dine_in)}
-                              </p>
-                            </div>
-                          )}
-                          {acc.total_amount_take_away > 0 && (
-                            <div className="text-center">
-                              <p className="text-xs text-gray-600">Take Away</p>
-                              <p className="font-semibold text-gray-800">
-                                {formatAmount(acc.total_amount_take_away)}
-                              </p>
-                            </div>
-                          )}
-                          {acc.total_amount_delivery > 0 && (
-                            <div className="text-center">
-                              <p className="text-xs text-gray-600">Delivery</p>
-                              <p className="font-semibold text-gray-800">
-                                {formatAmount(acc.total_amount_delivery)}
-                              </p>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* إجمالي النقدية في الشيفت والحسابات الإضافية */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-4 border-t border-gray-100">
-              {/* عرض الضريبة فقط إذا كانت الصلاحية 1 */}
-              {canShowTax && (
-                <div className="flex justify-between p-3 bg-gray-50 rounded-md border border-gray-200">
-                  <span className="text-xs text-gray-600">{t("TotalTax")}</span>
-                  <span className="text-sm font-bold text-gray-800">
-                    {formatAmount(reportData.total_tax)}
-                  </span>
-                </div>
-              )}
-
-              {/* عرض الخدمة فقط إذا كانت الصلاحية 1 */}
-              {canShowService && (
-                <div className="flex justify-between p-3 bg-gray-50 rounded-md border border-gray-200">
-                  <span className="text-xs text-gray-600">
-                    {t("ServiceFees")}
-                  </span>
-                  <span className="text-sm font-bold text-gray-800">
-                    {formatAmount(reportData.service_fees)}
-                  </span>
-                </div>
-              )}
-            </div>
-
-            {/* الصف القديم الخاص بالإجمالي (إذا أردت تفعيله) */}
-
-            <div className="pt-2">
-              <div className="flex justify-between items-center p-4 bg-gray-900 text-white rounded-lg text-lg font-bold">
-                <span>{t("TotalCashInShift")}</span>
-                <span className="text-2xl">
-                  {formatAmount(reportData?.total_amount)}
-                </span>
+              <div className="flex justify-between items-center border-t border-gray-200 pt-3 mt-2">
+                <span className="font-bold text-gray-800">{t("TotalAmount") || "Total amount"}</span>
+                <span className="font-bold text-lg">{formatAmount(total_amount || 0)}</span>
+              </div>
+              <div className="flex justify-between items-center text-red-600">
+                <span>{t("Returns") || "Returns"}</span>
+                <span>-{formatAmount(void_order_sum || 0)}</span>
+              </div>
+              <div className="flex justify-between items-center text-red-600">
+                <span>{t("Expenses") || "Expenses"}</span>
+                <span>-{formatAmount(expenses_total || 0)}</span>
+              </div>
+              <div className="flex justify-between items-center bg-green-50 p-3 rounded border border-green-100 mt-2">
+                <span className="font-bold text-green-800">{t("NetAmount") || "Net amount"}</span>
+                <span className="font-black text-green-700 text-lg">{formatAmount(netAmountCalculated)}</span>
               </div>
             </div>
           </div>
-          {/* ─── مبيعات الموديولات في الطباعة ─── */}
-          {reportData?.group_modules && (
-            <div
-              style={{
-                marginTop: "15px",
-                borderTop: "1px dashed #000",
-                paddingTop: "10px",
-              }}
-            >
-              <h4
-                style={{
-                  fontSize: "14px",
-                  fontWeight: "bold",
-                  marginBottom: "8px",
-                  textAlign: "center",
-                }}
-              >
-                {t("ModulesStatistics")}
-              </h4>
-              <table
-                style={{
-                  width: "100%",
-                  fontSize: "12px",
-                  borderCollapse: "collapse",
-                }}
-              >
+
+          {/* Order Types Summary */}
+          <div className="bg-white p-5 rounded-lg shadow-sm border border-gray-100">
+            <SectionHeader icon={FaShoppingCart} title={t("OrderTypesSummary") || "Order types summary"} />
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse" dir={isArabic ? "rtl" : "ltr"}>
                 <thead>
-                  <tr style={{ borderBottom: "1px solid #000" }}>
-                    <th style={{ textAlign: "right", padding: "4px" }}>
-                      {t("Module")}
-                    </th>
-                    <th style={{ textAlign: "center", padding: "4px" }}>
-                      {t("Amount")}
-                    </th>
-                    <th style={{ textAlign: "left", padding: "4px" }}>
-                      {t("Due")}
-                    </th>
+                  <tr className="bg-gray-100 text-gray-700 uppercase text-xs">
+                    <th className={`p-3 border-b ${isArabic ? "text-right" : "text-left"}`}>{t("OrderType")}</th>
+                    <th className="p-3 border-b text-center">{t("NumberOfOrders")}</th>
+                    <th className={`p-3 border-b ${isArabic ? "text-left" : "text-right"}`}>{t("Amount")}</th>
                   </tr>
                 </thead>
-                <tbody>
-                  {reportData?.group_modules.map((mod, index) => (
-                    <tr key={index}>
-                      <td style={{ padding: "4px", textAlign: "right" }}>
-                        {mod.module ? t(mod.module) : t("GeneralSales")}
-                      </td>
-                      <td style={{ padding: "4px", textAlign: "center" }}>
-                        {formatAmount(mod.amount)}
-                      </td>
-                      <td style={{ padding: "4px", textAlign: "left" }}>
-                        {formatAmount(mod.due)}
-                      </td>
-                    </tr>
-                  ))}
+                <tbody className="text-sm">
+                  <tr className="border-b">
+                    <td className={`p-3 ${isArabic ? "text-right" : "text-left"}`}>{t("DineIn") || "Dine in"}</td>
+                    <td className="p-3 text-center font-medium">{reportData?.dine_in?.count || 0}</td>
+                    <td className={`p-3 font-medium ${isArabic ? "text-left" : "text-right"}`}>{formatAmount(reportData?.dine_in?.amount || 0)}</td>
+                  </tr>
+                  <tr className="border-b">
+                    <td className={`p-3 ${isArabic ? "text-right" : "text-left"}`}>{t("TakeAway") || "Takeaway"}</td>
+                    <td className="p-3 text-center font-medium">{reportData?.take_away?.count || 0}</td>
+                    <td className={`p-3 font-medium ${isArabic ? "text-left" : "text-right"}`}>{formatAmount(reportData?.take_away?.amount || 0)}</td>
+                  </tr>
+                  <tr className="border-b">
+                    <td className={`p-3 ${isArabic ? "text-right" : "text-left"}`}>{t("Delivery") || "Delivery"}</td>
+                    <td className="p-3 text-center font-medium">{reportData?.delivery?.count || 0}</td>
+                    <td className={`p-3 font-medium ${isArabic ? "text-left" : "text-right"}`}>{formatAmount(reportData?.delivery?.amount || 0)}</td>
+                  </tr>
+                  <tr className="bg-gray-800 text-white font-bold">
+                    <td className={`p-3 ${isArabic ? "rounded-r-md text-right" : "rounded-l-md text-left"}`}>{t("TotalOrders") || "Total orders"}</td>
+                    <td className="p-3 text-center">{order_count || 0}</td>
+                    <td className={`p-3 ${isArabic ? "rounded-l-md text-left" : "rounded-r-md text-right"}`}>{formatAmount(reportData?.total_orders || 0)}</td>
+                  </tr>
                 </tbody>
               </table>
             </div>
-          )}
-          {/* ─── إضافة قسم إحصائيات القاعات (Hall Orders) ─── */}
-          {reportData?.hall_orders && (
-            <div className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm mt-4">
-              <SectionHeader
-                icon={FaShoppingCart}
-                title={t("HallOrdersStats") || "إحصائيات القاعات"}
-              />
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                {reportData.hall_orders.map((hall) => (
-                  <div
-                    key={hall.hall_id}
-                    className="p-3 bg-gray-50 rounded-lg border border-gray-100 flex justify-between items-center"
-                  >
-                    <span className="text-sm font-medium text-gray-700">
-                      {hall.hall_name}
-                    </span>
-                    <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full text-xs font-bold">
-                      {hall.order_count}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* ─── قسم طلبات الكابتن Captain Orders ─── */}
-          {reportData?.captain_order && reportData.captain_order.length > 0 && (
-            <div className="mt-6 border-t pt-4">
-              <SectionHeader
-                icon={FaUser}
-                title={t("Captain Orders Financials")}
-              />
-              <div className="space-y-3">
-                {reportData.captain_order.map((item, index) => (
-                  <div
-                    key={index}
-                    className="flex justify-between items-center p-3 bg-blue-50 rounded-lg border border-blue-100"
-                  >
-                    <div>
-                      <p className="font-bold text-gray-800">
-                        {item.captain?.name || t("Unknown Captain")}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        {t("Payment Method")}: {item.financial_name} |{" "}
-                        {t("Status")}: {t(item.status_payment)}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-bold text-blue-700">
-                        {formatAmount(item.total_financial)}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* ─── الأقسام الكاملة (تظهر فقط في all) ─── */}
-          {showFullReport && (
-            <div className="mt-8 space-y-8">
-              {/* ─── جدول أنواع الطلبات مع التفاصيل المالية ─── */}
-              <div>
-                <SectionHeader
-                  icon={FaShoppingCart}
-                  title={t("OrdersSummaryByType")}
-                />
-
-                <div className="space-y-4">
-                  {(() => {
-                    const orderTypesList = [
-                      {
-                        key: "dine_in",
-                        label: t("DineIn"),
-                        icon: "🍽️",
-                        data: reportData.dine_in,
-                      },
-                      {
-                        key: "take_away",
-                        label: t("TakeAway"),
-                        icon: "🥡",
-                        data: reportData.take_away,
-                      },
-                      {
-                        key: "delivery",
-                        label: t("Delivery"),
-                        icon: "🚗",
-                        data: reportData.delivery,
-                      },
-                      {
-                        key: "online",
-                        label: t("OnlineOrders"),
-                        icon: "💻",
-                        data: reportData.online_order,
-                      },
-                    ];
-
-                    return (
-                      <>
-                        <div className="space-y-4">
-                          {orderTypesList.map((type) => {
-                            let typeTotal = 0;
-                            let typeCount = 0;
-                            let paymentMethods = [];
-
-                            if (type.key === "online") {
-                              const paid = type.data?.paid || [];
-                              const unpaid = type.data?.un_paid || [];
-                              typeCount = paid.length + unpaid.length;
-                              const allPayments = [...paid, ...unpaid];
-                              const methodsMap = {};
-
-                              allPayments.forEach((p) => {
-                                const methodName =
-                                  p.payment_method || t("Unknown");
-                                if (!methodsMap[methodName]) {
-                                  methodsMap[methodName] = {
-                                    amount: 0,
-                                    count: 0,
-                                  };
-                                }
-                                methodsMap[methodName].amount += p.amount || 0;
-                                methodsMap[methodName].count += 1;
-                                typeTotal += p.amount || 0;
-                              });
-
-                              paymentMethods = Object.entries(methodsMap).map(
-                                ([name, data]) => ({ name, ...data }),
-                              );
-                            } else {
-                              typeCount = type.data?.count || 0;
-                              typeTotal = type.data?.amount || 0;
-
-                              if (type.data?.financial_accounts) {
-                                paymentMethods =
-                                  type.data.financial_accounts.map((acc) => ({
-                                    name:
-                                      acc.financial_name || acc.payment_method,
-                                    amount: acc.total_amount || acc.amount,
-                                    count: acc.count || 1,
-                                  }));
-                              }
-                            }
-                            if (typeCount === 0) return null;
-
-                            return (
-                              <div
-                                key={type.key}
-                                className="border border-gray-200 rounded-lg overflow-hidden bg-white shadow-sm"
-                              >
-                                {/* Header */}
-                                <div className="p-4 bg-gray-100 flex items-center justify-between border-b border-gray-200">
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-xl">{type.icon}</span>
-                                    <div>
-                                      <h4 className="font-semibold text-base text-gray-800">
-                                        {type.label}
-                                      </h4>
-                                      <p className="text-xs text-gray-600">
-                                        {typeCount} {t("Orders")}
-                                      </p>
-                                    </div>
-                                  </div>
-                                  <div className="text-right">
-                                    <p className="text-lg font-bold text-gray-800">
-                                      {formatAmount(typeTotal)}
-                                    </p>
-                                  </div>
-                                </div>
-
-                                {/* Payment Methods Breakdown */}
-                                {paymentMethods.length > 0 && (
-                                  <div className="p-3 bg-white">
-                                    <p className="text-xs font-semibold mb-2 text-gray-500 border-b pb-1">
-                                      {t("PaymentMethodsBreakdown")}:
-                                    </p>
-                                    <div className="space-y-1">
-                                      {paymentMethods.map((method, idx) => (
-                                        <div
-                                          key={idx}
-                                          className="flex justify-between items-center px-2 py-1 bg-gray-50 rounded-sm text-xs"
-                                        >
-                                          <p className="text-gray-700">
-                                            {method.name}
-                                          </p>
-                                          <p className="font-medium text-gray-800">
-                                            {formatAmount(method.amount)}
-                                          </p>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-
-                        {/* Grand Total Card */}
-                        <div className="mt-4 bg-gray-800 text-white rounded-lg p-5 shadow-md">
-                          <div className="flex items-center justify-between gap-6">
-                            <div className="text-center flex-1">
-                              <p className="text-sm opacity-80 mb-1">
-                                {t("TotalOrdersCount")}
-                              </p>
-                              <p className="text-2xl font-black">
-                                {reportData?.order_count || 0}
-                              </p>
-                            </div>
-                            <div className="w-px h-10 bg-white/20"></div>
-                            <div className="text-center flex-1">
-                              <p className="text-sm opacity-80 mb-1">
-                                {t("TotalOrdersAmount")}
-                              </p>
-                              <p className="text-2xl font-black">
-                                {formatAmount(reportData?.total_orders)}
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-                      </>
-                    );
-                  })()}
-                </div>
-              </div>
-              {/* ─── الطلبات الملغاة (Void Orders) ─── */}
-              {reportData.void_order_count > 0 && (
-                <div className="mt-6">
-                  <SectionHeader
-                    icon={FaBan}
-                    title={`${t("VoidOrders")} (${reportData.void_order_count})`}
-                  />
-
-                  <div className="overflow-x-auto rounded-xl border border-gray-300 shadow-sm">
-                    <table className="min-w-full bg-white text-sm">
-                      <thead className="bg-red-50 border-b border-gray-300">
-                        <tr className="[&>th]:px-4 [&>th]:py-3 [&>th]:font-semibold [&>th]:uppercase text-xs text-gray-700">
-                          <th className="text-center">
-                            {t("VoidOrdersCount")}
-                          </th>
-                          <th className="text-center">
-                            {t("VoidOrdersTotal")} ({t("EGP")})
-                          </th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-100">
-                        <tr className="bg-red-800 text-white font-bold">
-                          <td className="px-4 py-3 text-center text-base">
-                            {reportData.void_order_count}
-                          </td>
-                          <td className="px-4 py-3 text-center text-lg">
-                            -{formatAmount(reportData.void_order_sum)}
-                          </td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
-
-              {/* ─── المصروفات ─── */}
-              {reportData.expenses?.length > 0 && (
-                <div className="mt-6">
-                  <SectionHeader
-                    icon={FaReceipt}
-                    title={`${t("Expenses")} (${reportData.expenses.length})`}
-                  />
-
-                  <div className="overflow-x-auto rounded-xl border border-gray-300 shadow-sm">
-                    <table className="min-w-full bg-white text-sm">
-                      {/* Header */}
-                      <thead className="bg-gray-100 border-b border-gray-300">
-                        <tr className="[&>th]:px-4 [&>th]:py-3 [&>th]:font-semibold [&>th]:uppercase text-xs text-gray-700">
-                          <th className="text-center w-16">#</th>
-                          <th className="text-center">{t("Description")}</th>
-                          <th className="text-center">{t("Category")}</th>
-                          <th className="text-center">
-                            {t("Amount")} ({t("EGP")})
-                          </th>
-                        </tr>
-                      </thead>
-
-                      {/* Body */}
-                      <tbody className="divide-y divide-gray-100">
-                        {reportData.expenses.map((exp, idx) => (
-                          <tr
-                            key={idx}
-                            className="hover:bg-gray-50 transition-colors duration-150 [&>td]:px-4 [&>td]:py-3"
-                          >
-                            <td className="text-center text-gray-700">
-                              {idx + 1}
-                            </td>
-
-                            <td className="text-center font-medium text-gray-800">
-                              {exp.financial_account}
-                            </td>
-
-                            <td className="text-center font-medium text-gray-800">
-                              {exp.category || t("N/A")}
-                            </td>
-                            <td className="text-center font-bold text-red-600">
-                              -{formatAmount(exp.total, "")}
-                            </td>
-                          </tr>
-                        ))}
-
-                        {/* Total Row 👉 الآن مضبوط 100% */}
-                        <tr className="bg-gray-800 text-white font-semibold">
-                          <td
-                            colSpan={3}
-                            className="px-4 py-3 text-center text-base"
-                          >
-                            {t("TotalExpenses")}
-                          </td>
-                          <td className="px-4 py-3 text-center text-lg font-bold">
-                            {formatAmount(reportData.expenses_total)}
-                          </td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
-
-              {/* ─── الإجمالي النهائي الصافي */}
-              <div className="flex flex-col gap-3">
-                <div className="p-5 bg-gray-800 text-white rounded-lg text-center shadow-lg border border-gray-700">
-                  <FaCheckCircle className="text-3xl mx-auto mb-2 text-white opacity-90" />
-                  <p className="text-lg font-semibold mb-2">
-                    {t("NetCashInDrawer")}
-                  </p>
-                  <p className="text-4xl font-black">
-                    {formatAmount(reportData?.net_cash_drawer)}
-                  </p>
-                  <p className="text-xs opacity-80 mt-1">
-                    ({t("TotalCashInShift")} - {t("TotalExpenses")} -{" "}
-                    {t("VoidOrdersTotal")})
-                  </p>
-                </div>
-
-                <div className="p-5 bg-gray-800 text-white rounded-lg text-center shadow-lg border border-gray-700">
-                  <FaMoneyBillWave className="text-3xl mx-auto mb-2 text-white opacity-90" />
-                  <p className="text-lg font-semibold mb-1">
-                    {t("ActualTotalInDrawer")} (الفلوس الفعليه)
-                  </p>
-                  <p className="text-4xl font-black">
-                    {formatAmount(reportData?.actual_total)}
-                  </p>
-                </div>
-              </div>
-
-              {/* ─── إحصائيات إضافية ─── */}
-              {stats && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-4 border-t border-gray-100">
-                  <CompactStatCard
-                    icon={FaFileInvoiceDollar}
-                    title={t("TotalSales")}
-                    value={formatAmount(stats.total_amount, "")}
-                  />
-                  <CompactStatCard
-                    icon={FaDollarSign}
-                    title={t("NetCash")}
-                    value={formatAmount(
-                      stats.net_cash ?? totals?.grand_total,
-                      "",
-                    )}
-                  />
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* ─── الأزرار ─── */}
-          <div className="flex gap-3 mt-8 pt-4 border-t border-gray-200">
-            <button
-              onClick={onConfirmClose}
-              className="flex-1 py-2.5 bg-gray-800 text-white rounded-lg font-semibold hover:bg-gray-700 transition text-sm"
-            >
-              {t("ConfirmCloseShift")}
-            </button>
           </div>
+
+          {/* Final Totals Box */}
+          <div className="bg-gray-900 text-white p-6 rounded-xl shadow-lg border-2 border-gray-800 space-y-4">
+
+            <div className="flex justify-between items-center">
+              <div>
+                <p className="font-bold text-lg">{t("NetCashInDrawer") || "Net cash in drawer"}</p>
+                <p className="text-xs text-gray-400">(total cash in shift - expenses - returns)</p>
+              </div>
+              <div className="text-2xl font-black text-green-400">{formatAmount(net_cash_drawer || 0)}</div>
+            </div>
+
+            <div className="h-px bg-gray-700 my-2"></div>
+
+            <div className="flex justify-between items-center">
+              <div>
+                <p className="font-bold text-lg">{t("CashShortage") || "Cash shortage / Gap"}</p>
+                <p className="text-xs text-gray-400">(actual total in drawer - net cash in drawer)</p>
+              </div>
+              <div className={`text-2xl font-black ${cashShortage < 0 ? "text-red-400" : "text-white"}`}>
+                {formatAmount(cashShortage)}
+              </div>
+            </div>
+
+            <div className="h-px bg-gray-700 my-2"></div>
+
+            <div className="flex justify-between items-center">
+              <div>
+                <p className="font-bold text-lg">{t("TotalSales") || "Total sales"}</p>
+                <p className="text-xs text-gray-400">(all payment methods - expenses - returns)</p>
+              </div>
+              <div className="text-2xl font-black text-blue-400">
+                {formatAmount((total_amount || 0) - (expenses_total || 0) - (void_order_sum || 0))}
+              </div>
+            </div>
+
+          </div>
+
+        </div>
+
+        {/* Footer Actions */}
+        <div className="p-5 border-t border-gray-200 bg-white rounded-b-xl flex gap-3 sticky bottom-0 z-10">
+          <button
+            onClick={onConfirmClose}
+            className="flex-1 py-3 bg-red-600 text-white rounded-lg font-bold hover:bg-red-700 transition shadow-md"
+          >
+            {t("ConfirmCloseShift") || "Confirm Close Shift"}
+          </button>
+          <button
+            onClick={onClose}
+            className="px-6 py-3 bg-gray-200 text-gray-800 rounded-lg font-semibold hover:bg-gray-300 transition"
+          >
+            {t("Cancel") || "Cancel"}
+          </button>
         </div>
       </div>
 
-      {/* مكون الطباعة المخفي الذي يتم استدعاؤه بواسطة handlePrint */}
       <PrintableReport
         ref={printRef}
         reportData={reportData}
+        shiftInfo={shiftInfo}
         t={t}
         formatAmount={formatAmount}
         isArabic={isArabic}
