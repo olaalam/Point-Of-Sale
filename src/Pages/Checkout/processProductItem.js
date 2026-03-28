@@ -148,8 +148,12 @@ export const buildOrderPayload = ({
     cashier_id: cashierId.toString(),
     due: due.toString(),
     order_pending: "0",
+    // --- التعديل هنا ---
+    // إذا لم يتم تمرير قيمة لـ prepare_order، ستكون القيمة الافتراضية "1"
+    prepare_order: prepare_order !== undefined ? prepare_order.toString() : "1",
+    // ------------------
     ...(repeated === 1 && { repeated: "1" }),
-    ...(prepare_order !== undefined && { prepare_order: prepare_order.toString() }),
+    // تم حذف السطر القديم الخاص بـ prepare_order من هنا
   };
 
   // 1. إرسال قيمة مصاريف الخدمة (Amount)
