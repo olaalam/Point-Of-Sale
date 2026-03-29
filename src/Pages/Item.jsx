@@ -474,7 +474,7 @@ export default function Item({ onAddToOrder, onClose, onClearCart, cartHasItems 
   const isArabic = i18n.language === "ar";
 
   const searchAndToggleSection = (
-    <div className="sticky top-0 bg-white z-9 border-b border-gray-100 shadow-sm p-3">
+    <div className="sticky top-0 bg-white z-8 border-b border-gray-100 shadow-sm p-3">
       <div className="flex flex-col md:flex-row items-center gap-3">
         {/* 1. اللوجو والـ Select (اختيار المجموعة) */}
         <GroupSelector
