@@ -147,24 +147,24 @@ const PrintableReport = React.forwardRef(
                 <tr>
                   <th>{t("OrderType") || "Type"}</th>
                   <th>{t("NumberOfOrders") || "Number of orders"}</th>
-                  <th>{t("Amount") || "Amount"}</th>
+
                 </tr>
               </thead>
               <tbody>
                 <tr>
                   <td>{t("DineIn") || "Dine in"}</td>
-                  <td>{reportData?.dine_in?.count || 0}</td>
-                  <td>{formatAmount(reportData?.dine_in?.amount || 0)}</td>
+                  <td>{reportData?.orders_count?.dine_in_orders_count || 0}</td>
+
                 </tr>
                 <tr>
                   <td>{t("TakeAway") || "Takeaway"}</td>
-                  <td>{reportData?.take_away?.count || 0}</td>
-                  <td>{formatAmount(reportData?.take_away?.amount || 0)}</td>
+                  <td>{reportData?.orders_count?.take_away_orders_count || 0}</td>
+
                 </tr>
                 <tr>
                   <td>{t("Delivery") || "Delivery"}</td>
-                  <td>{reportData?.delivery?.count || 0}</td>
-                  <td>{formatAmount(reportData?.delivery?.amount || 0)}</td>
+                  <td>{reportData?.orders_count?.delivery_orders_count || 0}</td>
+
                 </tr>
                 <tr style={{ backgroundColor: "#e0e0e0", fontWeight: "bold" }}>
                   <td>{t("TotalOrders") || "Total orders"}</td>
@@ -370,29 +370,25 @@ export default function EndShiftReportModal({
                   <tr className="bg-gray-100 text-gray-700 uppercase text-xs">
                     <th className={`p-3 border-b ${isArabic ? "text-right" : "text-left"}`}>{t("OrderType")}</th>
                     <th className="p-3 border-b text-center">{t("NumberOfOrders")}</th>
-                    <th className={`p-3 border-b ${isArabic ? "text-left" : "text-right"}`}>{t("Amount")}</th>
+
                   </tr>
                 </thead>
                 <tbody className="text-sm">
                   <tr className="border-b">
                     <td className={`p-3 ${isArabic ? "text-right" : "text-left"}`}>{t("DineIn") || "Dine in"}</td>
-                    <td className="p-3 text-center font-medium">{reportData?.dine_in?.count || 0}</td>
-                    <td className={`p-3 font-medium ${isArabic ? "text-left" : "text-right"}`}>{formatAmount(reportData?.dine_in?.amount || 0)}</td>
+                    <td className="p-3 text-center font-medium">{reportData?.orders_count?.dine_in_orders_count || 0}</td>
                   </tr>
                   <tr className="border-b">
                     <td className={`p-3 ${isArabic ? "text-right" : "text-left"}`}>{t("TakeAway") || "Takeaway"}</td>
-                    <td className="p-3 text-center font-medium">{reportData?.take_away?.count || 0}</td>
-                    <td className={`p-3 font-medium ${isArabic ? "text-left" : "text-right"}`}>{formatAmount(reportData?.take_away?.amount || 0)}</td>
+                    <td className="p-3 text-center font-medium">{reportData?.orders_count?.take_away_orders_count || 0}</td>
                   </tr>
                   <tr className="border-b">
                     <td className={`p-3 ${isArabic ? "text-right" : "text-left"}`}>{t("Delivery") || "Delivery"}</td>
-                    <td className="p-3 text-center font-medium">{reportData?.delivery?.count || 0}</td>
-                    <td className={`p-3 font-medium ${isArabic ? "text-left" : "text-right"}`}>{formatAmount(reportData?.delivery?.amount || 0)}</td>
+                    <td className="p-3 text-center font-medium">{reportData?.orders_count?.delivery_orders_count || 0}</td>
                   </tr>
                   <tr className="bg-gray-800 text-white font-bold">
                     <td className={`p-3 ${isArabic ? "rounded-r-md text-right" : "rounded-l-md text-left"}`}>{t("TotalOrders") || "Total orders"}</td>
                     <td className="p-3 text-center">{order_count || 0}</td>
-                    <td className={`p-3 ${isArabic ? "rounded-l-md text-left" : "rounded-r-md text-right"}`}>{formatAmount(reportData?.total_orders || 0)}</td>
                   </tr>
                 </tbody>
               </table>
@@ -446,12 +442,12 @@ export default function EndShiftReportModal({
           >
             {t("ConfirmCloseShift") || "Confirm Close Shift"}
           </button>
-          <button
+          {/* <button
             onClick={onClose}
             className="px-6 py-3 bg-gray-200 text-gray-800 rounded-lg font-semibold hover:bg-gray-300 transition"
           >
             {t("Cancel") || "Cancel"}
-          </button>
+          </button> */}
         </div>
       </div>
 
