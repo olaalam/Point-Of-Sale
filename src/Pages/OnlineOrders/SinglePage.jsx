@@ -10,6 +10,8 @@ import Loading from "@/components/Loading";
 import { IoClose, IoSearch } from "react-icons/io5";
 import { usePut } from "@/Hooks/usePut";
 import { FaPrint } from "react-icons/fa";
+import { prepareReceiptData, printReceiptSilently } from "../utils/printReceipt";
+
 const SinglePage = () => {
   const StatusRef = useRef(null);
   const { id } = useParams();
@@ -251,6 +253,58 @@ const SinglePage = () => {
     }
   };
 
+  const orderSummary = useMemo(() => {
+    if (!detailsData?.order_details) {
+      return {
+        itemsPrice: 0,
+        addonsPrice: 0,
+        variationsPrice: 0,
+        extrasPrice: 0,
+        subtotal: 0
+      };
+    }
+
+    let itemsPrice = 0;
+    let addonsPrice = 0;
+    let variationsPrice = 0;
+    let extrasPrice = 0;
+
+    detailsData.order_details.forEach((orderDetail) => {
+      // Calculate product price
+      const product = orderDetail.product;
+      if (product) {
+        itemsPrice += (product.price || 0) * (product.count || 0);
+      }
+
+      // Calculate extras price
+      (orderDetail.extras || []).forEach((extra) => {
+        extrasPrice += extra.price || 0;
+      });
+
+      // Calculate addons price
+      (orderDetail.addons || []).forEach((addon) => {
+        addonsPrice += (addon.price || 0) * (addon.count || 0);
+      });
+
+      // Calculate variations price (if needed)
+      (orderDetail.variations || []).forEach((variation) => {
+        (variation.options || []).forEach((option) => {
+          variationsPrice += option.price || 0;
+        });
+      });
+    });
+
+    const subtotal = itemsPrice + addonsPrice + extrasPrice;
+
+    return {
+      itemsPrice,
+      addonsPrice,
+      variationsPrice,
+      extrasPrice,
+      subtotal
+    };
+  }, [detailsData?.order_details]);
+
   // Move handleChangeStaus outside the function
   const handleChangeStaus = async (id, status, reason = "") => {
     try {
@@ -262,6 +316,35 @@ const SinglePage = () => {
 
       if (responseStatus) {
         toast.success(t("StatusUpdatedSuccessfully") || "Status updated!");
+
+        // Print receipt if order is confirmed
+        if (status === "confirmed" && responseStatus?.kitchen) {
+          const subtotal = orderSummary?.subtotal || detailsData?.subtotal || detailsData?.total || 0;
+          
+          const combinedResponse = {
+            ...detailsData,
+            ...responseStatus,
+            kitchen_items: responseStatus.kitchen?.kitchen_items,
+          };
+          
+          const receiptData = prepareReceiptData(
+            detailsData?.order_details || [],
+            subtotal,
+            detailsData?.total_tax || 0,
+            detailsData?.total_discount || 0,
+            0,
+            {},
+            detailsData?.order_type || "take_away",
+            detailsData?.total,
+            responseStatus.kitchen?.success || [],
+            combinedResponse
+          );
+
+          printReceiptSilently(receiptData, combinedResponse, () => {
+             console.log("Printed receipt for confirmed online order");
+          });
+        }
+
         refetchDetailsOrder();
         setShowReason(false);
       }
@@ -350,57 +433,7 @@ const SinglePage = () => {
       setTimeout(() => setCopied(false), 2000); // Reset after 2 seconds
     });
   };
-  const orderSummary = useMemo(() => {
-    if (!detailsData?.order_details) {
-      return {
-        itemsPrice: 0,
-        addonsPrice: 0,
-        variationsPrice: 0,
-        extrasPrice: 0,
-        subtotal: 0
-      };
-    }
 
-    let itemsPrice = 0;
-    let addonsPrice = 0;
-    let variationsPrice = 0;
-    let extrasPrice = 0;
-
-    detailsData.order_details.forEach((orderDetail) => {
-      // Calculate product price
-      const product = orderDetail.product;
-      if (product) {
-        itemsPrice += (product.price || 0) * (product.count || 0);
-      }
-
-      // Calculate extras price
-      (orderDetail.extras || []).forEach((extra) => {
-        extrasPrice += extra.price || 0;
-      });
-
-      // Calculate addons price
-      (orderDetail.addons || []).forEach((addon) => {
-        addonsPrice += (addon.price || 0) * (addon.count || 0);
-      });
-
-      // Calculate variations price (if needed)
-      (orderDetail.variations || []).forEach((variation) => {
-        (variation.options || []).forEach((option) => {
-          variationsPrice += option.price || 0;
-        });
-      });
-    });
-
-    const subtotal = itemsPrice + addonsPrice + extrasPrice;
-
-    return {
-      itemsPrice,
-      addonsPrice,
-      variationsPrice,
-      extrasPrice,
-      subtotal
-    };
-  }, [detailsData?.order_details]);
   return (
     <>
 
