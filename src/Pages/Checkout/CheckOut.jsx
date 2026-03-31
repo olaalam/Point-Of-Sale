@@ -559,13 +559,12 @@ const CheckOut = ({
           );
           printReceiptSilently(receiptData, response, () => {
             handleNavigation(response);
+            onClose?.();
           });
         } else {
           handleNavigation(response);
+          onClose?.();
         }
-
-        onClearCart?.();
-        onClose?.();
       }
       // مفيش else هنا دلوقتي – كل الـ non-success بيروح للـ catch
     } catch (error) {

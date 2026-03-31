@@ -1250,7 +1250,14 @@ export const printKitchenOnly = async (receiptData, apiResponse, callback) => {
         type: "kitchen",
       });
 
-      allHtmlToPrint.push({ html: kitchenHtml, printerName: kitchen.print_name });
+      // Prevent pushing duplicate receipts for the same printer
+      const isDuplicate = allHtmlToPrint.some(
+        job => job.printerName === kitchen.print_name && job.html === kitchenHtml
+      );
+      
+      if (!isDuplicate) {
+        allHtmlToPrint.push({ html: kitchenHtml, printerName: kitchen.print_name });
+      }
     }
 
     // --- التنفيذ النهائي ---
@@ -1405,7 +1412,15 @@ export const printReceiptSilently = async (receiptData, apiResponse, callback, o
         };
 
         const kitchenHtml = getReceiptHTML(kitchenReceiptData, { design: "kitchen", type: "kitchen" });
-        electronJobs.push({ html: kitchenHtml, printerName: kitchen.print_name, type: "kitchen" });
+        
+        // Prevent pushing duplicate receipts for the same printer
+        const isDuplicate = electronJobs.some(
+          job => job.type === "kitchen" && job.printerName === kitchen.print_name && job.html === kitchenHtml
+        );
+        
+        if (!isDuplicate) {
+          electronJobs.push({ html: kitchenHtml, printerName: kitchen.print_name, type: "kitchen" });
+        }
       }
     }
     if (isMobile) {
