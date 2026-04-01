@@ -163,7 +163,7 @@ export default function Home() {
         }
         // ملحوظة: إذا كان السيرفر لا يرسل الرقم، يفضل جلب الرقم من كائن الطاولة المختار قبل مناداة الـ API
 
-        toast.success(t("Order transferred successfully"));
+        toast.success(t("OrderTransferred", { sourceTableId, newTableId }));
         clearTransferData();
 
         setState((prevState) => ({
@@ -207,7 +207,7 @@ export default function Home() {
 
     if (state.isTransferring) {
       if (!sourceTableId || !cartIds || cartIds.length === 0) {
-        toast.error(t("Cannot transfer order: Table ID or Cart IDs are missing."));
+        toast.error(t("CannottransferorderTableIDorCartIDsaremissing"));
         clearTransferData();
         setState(prev => ({ ...prev, isTransferring: false }));
         return;

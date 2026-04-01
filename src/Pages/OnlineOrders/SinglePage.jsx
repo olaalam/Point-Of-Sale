@@ -320,13 +320,13 @@ const SinglePage = () => {
         // Print receipt if order is confirmed
         if (status === "confirmed" && responseStatus?.kitchen) {
           const subtotal = orderSummary?.subtotal || detailsData?.subtotal || detailsData?.total || 0;
-          
+
           const combinedResponse = {
             ...detailsData,
             ...responseStatus,
             kitchen_items: responseStatus.kitchen?.kitchen_items,
           };
-          
+
           const receiptData = prepareReceiptData(
             detailsData?.order_details || [],
             subtotal,
@@ -341,7 +341,7 @@ const SinglePage = () => {
           );
 
           printReceiptSilently(receiptData, combinedResponse, () => {
-             console.log("Printed receipt for confirmed online order");
+            console.log("Printed receipt for confirmed online order");
           });
         }
 
@@ -472,7 +472,7 @@ const SinglePage = () => {
                               className="flex items-center justify-center gap-2 px-4 py-2 bg-bg-primary text-white rounded-lg font-TextFontMedium hover:bg-red-600 transition"
                             >
                               <FaPrint />
-                              {t("View Invoice")}
+                              {t("ViewInvoice")}
                             </button>
                             <div className="flex flex-wrap items-center justify-between w-full">
                               <h1 className="text-2xl text-gray-800 font-TextFontMedium">
@@ -526,8 +526,8 @@ const SinglePage = () => {
                               </span>{" "}
                               <span
                                 className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium border ${detailsData?.payment === "Paid"
-                                    ? "bg-green-100 text-green-800 border-green-300"
-                                    : "bg-red-100 text-red-800 border-red-300"
+                                  ? "bg-green-100 text-green-800 border-green-300"
+                                  : "bg-red-100 text-red-800 border-red-300"
                                   }`}
                               >
                                 {t(detailsData?.payment) || detailsData?.payment || "-"}
@@ -579,8 +579,8 @@ const SinglePage = () => {
                               </span>{" "}
                               <span
                                 className={`px-2 py-1 rounded-full text-md ${detailsData?.order_type === "take_away"
-                                    ? "text-green-700 bg-green-100" // Green text with light green bg
-                                    : "text-blue-700 bg-blue-100" // Adjust for delivery (blue as example)
+                                  ? "text-green-700 bg-green-100" // Green text with light green bg
+                                  : "text-blue-700 bg-blue-100" // Adjust for delivery (blue as example)
                                   }`}
                               >
                                 {detailsData?.order_type || ""}
@@ -1095,47 +1095,47 @@ const SinglePage = () => {
                           const allStatuses = [
                             {
                               name: "pending",
-                              label: "Pending",
+                              label: t("Pending") || "Pending",
                               icon: "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z",
                             },
                             {
                               name: "processing",
-                              label: "Accept",
+                              label: t("Accept") || "Accept",
                               icon: "M5 13l4 4L19 7",
                             },
                             {
                               name: "confirmed",
-                              label: "Processing",
+                              label: t("Processing") || "Processing",
                               icon: "M5 13l4 4L19 7",
                             },
                             {
                               name: "out_for_delivery",
-                              label: "OutforDelivery",
+                              label: t("OutforDelivery") || "OutforDelivery",
                               icon: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2",
                             },
                             {
                               name: "delivered",
-                              label: "Delivered",
+                              label: t("Delivered") || "Delivered",
                               icon: "M5 13l4 4L19 7",
                             },
                             {
                               name: "faild_to_deliver",
-                              label: "FailedtoDeliver",
+                              label: t("FailedtoDeliver") || "FailedtoDeliver",
                               icon: "M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z",
                             },
                             {
                               name: "returned",
-                              label: "Returned",
+                              label: t("Returned") || "Returned",
                               icon: "M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15",
                             },
                             {
                               name: "canceled",
-                              label: "Canceled",
+                              label: t("Canceled") || "Canceled",
                               icon: "M6 18L18 6M6 6l12 12",
                             },
                             {
                               name: "refund",
-                              label: "Refund",
+                              label: t("Refund") || "Refund",
                               icon: "M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z",
                             },
                           ];
@@ -1528,8 +1528,8 @@ const SinglePage = () => {
                                 <div
                                   // Make the entire tile clickable
                                   className={`flex items-center justify-between p-3 rounded-xl cursor-pointer transition-all duration-200 ${selectedDeliveryId === delivery.id
-                                      ? "bg-blue-50 border-blue-500 border-2 shadow-md"
-                                      : "border border-gray-200 hover:border-gray-300"
+                                    ? "bg-blue-50 border-blue-500 border-2 shadow-md"
+                                    : "border border-gray-200 hover:border-gray-300"
                                     }`}
                                   key={`${delivery.id}-${detailsData.id}`}
                                   onClick={() =>
@@ -1824,8 +1824,8 @@ const SinglePage = () => {
                         key={branch.id}
                         onClick={() => setSelectedBranchId(branch.id)}
                         className={`flex items-center justify-between p-3 rounded-lg cursor-pointer transition-all ${selectedBranchId === branch.id
-                            ? "bg-green-50 border-2 border-green-500"
-                            : "border border-gray-200 hover:border-gray-300"
+                          ? "bg-green-50 border-2 border-green-500"
+                          : "border border-gray-200 hover:border-gray-300"
                           }`}
                       >
                         <div className="flex items-center gap-3">

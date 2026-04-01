@@ -121,7 +121,7 @@ export default function Navbar() {
           }
 
           audioRef.current.play().catch((e) => console.warn("Audio play blocked:", e));
-          toast.info(t("New Order Received!"));
+          toast.info(t("NewOrderReceived"));
         }
       }
 
@@ -225,8 +225,8 @@ export default function Navbar() {
     // Always start with an empty cart for the new module 
     // unless we load a saved one later
     if (!isRepeated) {
-       console.log("🧹 Clearing main cart for new module transition");
-       localStorage.removeItem("cart");
+      console.log("🧹 Clearing main cart for new module transition");
+      localStorage.removeItem("cart");
     }
 
     // Load target module's cart if it exists
@@ -256,7 +256,7 @@ export default function Navbar() {
     } else if (value === "online-order") {
       navigate("/online-orders", { replace: true });
     }
-    
+
     setShowCartConfirmModal(false);
     setPendingTabValue(null);
   };
@@ -640,7 +640,7 @@ export default function Navbar() {
                 {isDropdownOpen && (
                   <div className={`absolute ${isArabic ? "left-0" : "right-0"} mt-3 w-80 bg-white rounded-2xl shadow-2xl border border-gray-100 z-[9999] max-h-96 overflow-y-auto`}>
                     <div className="p-4 border-b border-gray-100 bg-gray-50 rounded-t-2xl">
-                      <h3 className="font-extrabold text-gray-800 text-lg">{t("New Orders")} ({notificationCount})</h3>
+                      <h3 className="font-extrabold text-gray-800 text-lg">{t("NewOrders")} ({notificationCount})</h3>
                     </div>
                     <div className="py-2">
                       {notifications.length > 0 ? (
@@ -660,7 +660,7 @@ export default function Navbar() {
                       ) : (
                         <div className="p-10 text-center">
                           <FaBell className="text-4xl text-gray-200 mx-auto mb-3" />
-                          <p className="text-gray-400 font-bold">{t("No new orders")}</p>
+                          <p className="text-gray-400 font-bold">{t("Noneworders")}</p>
                         </div>
                       )}
                     </div>
@@ -815,8 +815,8 @@ export default function Navbar() {
           <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
             <div className="bg-white p-6 md:p-8 rounded-2xl shadow-2xl w-[95vw] sm:w-full max-w-md border border-gray-100">
               <div className="text-center mb-6">
-                <h3 className="text-2xl font-bold text-gray-800">إغلاق الوردية</h3>
-                <p className="text-gray-500 mt-2">كم المبلغ الموجود في العهدة الآن؟</p>
+                <h3 className="text-2xl font-bold text-gray-800">{t("closeshift")}</h3>
+                <p className="text-gray-500 mt-2">{t("CashInHandAmount")}</p>
               </div>
               <div className="relative">
                 <input
@@ -834,14 +834,14 @@ export default function Navbar() {
                   onClick={() => { setShowCashInputModal(false); setCashAmount(""); }}
                   className="flex-1 py-3 text-gray-600 font-semibold hover:bg-gray-100 rounded-xl transition"
                 >
-                  إلغاء
+                  {t("Cancel")}
                 </button>
                 <button
                   onClick={handleCashConfirmed}
                   disabled={!cashAmount || reportLoading}
                   className="flex-1 py-3 bg-bg-primary text-white font-semibold rounded-xl shadow-lg hover:bg-red-700 transition disabled:opacity-50"
                 >
-                  {reportLoading ? "جاري التحميل..." : "تأكيد وإرسال"}
+                  {reportLoading ? t("Loading") : t("ConfirmAndSend")}
                 </button>
               </div>
             </div>

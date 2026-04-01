@@ -23,8 +23,8 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card } from "@/components/ui/card";
-import { toast , ToastContainer } from "react-toastify";
-
+import { toast, ToastContainer } from "react-toastify";
+import { useTranslation } from "react-i18next";
 import DeliverySelect from "./DeliverySelect";
 import AllOrder from "./AllOrder";
 import Current from "./Current";
@@ -32,7 +32,6 @@ import Return from "./Return";
 import History from "./History";
 import { usePost } from "@/Hooks/usePost";
 import { useGet } from "@/Hooks/useGet";
-import Loading from "@/components/Loading";
 
 export default function DeliveryOrder() {
   const [dateFrom, setDateFrom] = useState();
@@ -41,6 +40,7 @@ export default function DeliveryOrder() {
   const [selectedDelivery, setSelectedDelivery] = useState(null);
   const [selectedOrders, setSelectedOrders] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
+  const { t, i18n } = useTranslation();
 
 
 
@@ -52,22 +52,22 @@ export default function DeliveryOrder() {
   const CONFIRM_ENDPOINT = "cashier/delivery_balance/confirm_faild_order";
 
   // All Orders data
-const { data: allData, isLoading: allLoading, refetch: refetchAll } = useGet(
-  `cashier/delivery/single_page/orders?page=${currentPage}${dateFrom ? `&from=${format(dateFrom, "yyyy-MM-dd")}` : ""}${dateTo ? `&to=${format(dateTo, "yyyy-MM-dd")}` : ""}`,
-  { enabled: activeTab === "all" }
-);
+  const { data: allData, isLoading: allLoading, refetch: refetchAll } = useGet(
+    `cashier/delivery/single_page/orders?page=${currentPage}${dateFrom ? `&from=${format(dateFrom, "yyyy-MM-dd")}` : ""}${dateTo ? `&to=${format(dateTo, "yyyy-MM-dd")}` : ""}`,
+    { enabled: activeTab === "all" }
+  );
   // Returned/Failed Orders data
-  const { 
-    data: returnedData, 
-    isLoading: returnedLoading, 
-    refetch: refetchReturned 
+  const {
+    data: returnedData,
+    isLoading: returnedLoading,
+    refetch: refetchReturned
   } = useGet(
     "cashier/delivery_balance/faild_orders",
     { enabled: activeTab === "returned" }
   );
 
   const allOrders = allData?.data || [];
-  const returnedOrders = returnedData?.orders|| [];
+  const returnedOrders = returnedData?.orders || [];
 
 
   const currentOrdersForReturned = returnedOrders;
@@ -75,8 +75,8 @@ const { data: allData, isLoading: allLoading, refetch: refetchAll } = useGet(
   const isSelectionTab = activeTab === "all" || activeTab === "returned";
 
   // Pagination & Select All logic (للـ all و returned فقط)
-const currentOrders = activeTab === "all" ? (allData?.data || []) : (returnedData?.orders || []);
-const totalPages = allData?.last_page || 1;
+  const currentOrders = activeTab === "all" ? (allData?.data || []) : (returnedData?.orders || []);
+  const totalPages = allData?.last_page || 1;
 
   const pageAllSelected = currentOrders.every((o) => selectedOrders.includes(o.id));
   const pageSomeSelected = currentOrders.some((o) => selectedOrders.includes(o.id));
@@ -133,7 +133,7 @@ const totalPages = allData?.last_page || 1;
       setCurrentPage(1);
       refetchAll();
     } catch (err) {
-      toast.error("Failed to assign orders",err);
+      toast.error("Failed to assign orders", err);
     }
   };
 
@@ -153,7 +153,7 @@ const totalPages = allData?.last_page || 1;
       setCurrentPage(1);
       refetchReturned();
     } catch (err) {
-      toast.error("Failed to confirm returned orders",err);
+      toast.error("Failed to confirm returned orders", err);
     }
   };
 
@@ -161,10 +161,10 @@ const totalPages = allData?.last_page || 1;
     <div className="space-y-6">
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="all">All Orders</TabsTrigger>
-          <TabsTrigger value="current">Current</TabsTrigger>
-          <TabsTrigger value="returned">Returned / Failed</TabsTrigger>
-          <TabsTrigger value="history">History</TabsTrigger>
+          <TabsTrigger value="all">{t("AllOrders")}</TabsTrigger>
+          <TabsTrigger value="current">{t("Current")}</TabsTrigger>
+          <TabsTrigger value="returned">{t("Returned")}</TabsTrigger>
+          <TabsTrigger value="history">{t("History")}</TabsTrigger>
         </TabsList>
 
         {/* All Orders Tab */}
@@ -175,7 +175,7 @@ const totalPages = allData?.last_page || 1;
               <PopoverTrigger asChild>
                 <Button variant="outline" className="w-[200px] justify-start">
                   <CalendarIcon className="mr-2 h-4 w-4" />
-                  {dateFrom ? format(dateFrom, "PPP") : "From"}
+                  {dateFrom ? format(dateFrom, "PPP") : t("From")}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="p-0">
@@ -187,7 +187,7 @@ const totalPages = allData?.last_page || 1;
               <PopoverTrigger asChild>
                 <Button variant="outline" className="w-[200px] justify-start">
                   <CalendarIcon className="mr-2 h-4 w-4" />
-                  {dateTo ? format(dateTo, "PPP") : "To"}
+                  {dateTo ? format(dateTo, "PPP") : t("To")}
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="p-0">
@@ -197,7 +197,7 @@ const totalPages = allData?.last_page || 1;
 
             {(dateFrom || dateTo) && (
               <Button onClick={handleClearFilter} variant="outline">
-                Clear Filter
+                {t("Clear Filter")}
               </Button>
             )}
           </div>
@@ -206,7 +206,7 @@ const totalPages = allData?.last_page || 1;
           <div className="flex justify-between items-center gap-4">
             <div className="flex gap-3 items-center">
               <span className="text-sm text-muted-foreground">
-                Selected: {selectedOrders.length} / {currentOrders.length}
+                {t("Selected")} {selectedOrders.length} / {currentOrders.length}
               </span>
               <Button
                 variant="outline"
@@ -214,14 +214,14 @@ const totalPages = allData?.last_page || 1;
                 onClick={() => setSelectedOrders(currentOrders.map((o) => o.id))}
                 disabled={currentOrders.length === 0}
               >
-                Select All
+                {t("SelectAll")}
               </Button>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => setSelectedOrders([])}
               >
-                Clear Selection
+                {t("ClearSelection")}
               </Button>
 
               <DeliverySelect
@@ -233,7 +233,7 @@ const totalPages = allData?.last_page || 1;
                 onClick={handleAssign}
                 disabled={postLoading || selectedOrders.length === 0}
               >
-                Assign Selected Orders
+                {t("AssignSelectedOrders")}
               </Button>
             </div>
           </div>
@@ -250,13 +250,13 @@ const totalPages = allData?.last_page || 1;
                       onChange={handlePageSelectAll}
                     />
                   </TableHead>
-                  <TableHead>Order ID</TableHead>
-                  <TableHead>Order Number</TableHead>
-                  <TableHead>Customer</TableHead>
-                  <TableHead>Phone</TableHead>
-                  <TableHead>Address</TableHead>
-                  <TableHead>Amount</TableHead>
-                  <TableHead>Date</TableHead>
+                  <TableHead>{t("OrderID")}</TableHead>
+                  <TableHead>{t("OrderNumber")}</TableHead>
+                  <TableHead>{t("Customer")}</TableHead>
+                  <TableHead>{t("Phone")}</TableHead>
+                  <TableHead>{t("Address")}</TableHead>
+                  <TableHead>{t("Amount")}</TableHead>
+                  <TableHead>{t("Date")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -264,32 +264,32 @@ const totalPages = allData?.last_page || 1;
                   orders={currentOrders}
                   selectedOrders={selectedOrders}
                   setSelectedOrders={setSelectedOrders}
-                  isLoading={allLoading }
+                  isLoading={allLoading}
                 />
               </TableBody>
             </Table>
 
-{totalPages > 1 && (
-  <div className="flex items-center justify-center gap-6 py-4 border-t">
-    <Button
-      variant="outline"
-      disabled={currentPage === 1}
-      onClick={() => setCurrentPage((p) => p - 1)}
-    >
-      <ChevronLeft className="w-4 h-4" /> Previous
-    </Button>
-    <span className="text-sm font-medium">
-      Page {currentPage} of {totalPages}
-    </span>
-    <Button
-      variant="outline"
-      disabled={currentPage === totalPages}
-      onClick={() => setCurrentPage((p) => p + 1)}
-    >
-      Next <ChevronRight className="w-4 h-4" />
-    </Button>
-  </div>
-)}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-center gap-6 py-4 border-t">
+                <Button
+                  variant="outline"
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage((p) => p - 1)}
+                >
+                  <ChevronLeft className="w-4 h-4" /> {t("Previous")}
+                </Button>
+                <span className="text-sm font-medium">
+                  {t("Page")} {currentPage} {t("of")} {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  disabled={currentPage === totalPages}
+                  onClick={() => setCurrentPage((p) => p + 1)}
+                >
+                  {t("Next")} <ChevronRight className="w-4 h-4" />
+                </Button>
+              </div>
+            )}
           </Card>
         </TabsContent>
 
@@ -328,14 +328,14 @@ const totalPages = allData?.last_page || 1;
                       onChange={handlePageSelectAll}
                     />
                   </TableHead>
-                  <TableHead>Order ID</TableHead>
-                  <TableHead>Order Number</TableHead>
-                  <TableHead>Customer</TableHead>
-                  <TableHead>Phone</TableHead>
-                  <TableHead>Address</TableHead>
-                  <TableHead>Amount</TableHead>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Time</TableHead>
+                  <TableHead>{t("OrderID")}</TableHead>
+                  <TableHead>{t("OrderNumber")}</TableHead>
+                  <TableHead>{t("Customer")}</TableHead>
+                  <TableHead>{t("Phone")}</TableHead>
+                  <TableHead>{t("Address")}</TableHead>
+                  <TableHead>{t("Amount")}</TableHead>
+                  <TableHead>{t("Date")}</TableHead>
+                  <TableHead>{t("Time")}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>

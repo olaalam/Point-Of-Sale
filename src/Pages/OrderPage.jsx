@@ -49,7 +49,7 @@ export default function OrderPage({
         name: detail.name ||
           detail.product_name ||
           detail.product?.[0]?.product?.name ||
-          "Unknown Productييي",
+          t("UnknownProduct"),
         price: parseFloat(detail.price || 0),
         originalPrice: parseFloat(detail.price || 0),
         count: parseFloat(detail.count || 1),

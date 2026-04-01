@@ -752,7 +752,7 @@ const CheckOut = ({
               proceedWithOrderSubmission(0, undefined, remainingAmount)
             }
           >
-            تأكيد الطلب مع Due Module ({remainingAmount.toFixed(2)} {t("EGP")})
+            {t("ConfirmOrderWithDueModule", { amount: remainingAmount.toFixed(2) })}
           </Button>
         </div>
       )}
@@ -841,7 +841,7 @@ const CheckOut = ({
       {/* Amount Paid by Customer */}
       <div className="mb-4">
         <label className="text-xs font-bold text-gray-500 mb-1 block">
-          {t("Amount by Customer")}
+          {t("AmountbyCustomer")}
         </label>
         <div className="relative">
           <Input
@@ -970,7 +970,7 @@ const CheckOut = ({
         {loading ? (
           <Loading />
         ) : (
-          t("Pay Now")
+          t("PayNow")
         )}
       </Button>
 

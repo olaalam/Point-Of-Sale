@@ -130,10 +130,10 @@ const AddressFormFields = ({
       {/* Grid for optional fields */}
       <div className="grid grid-cols-2 gap-4">
         {[
-          { name: "street", label: t("Street (optional)") },
-          { name: "building_num", label: t("BuildingNumber (optional)") },
-          { name: "floor_num", label: t("FloorNumber (optional)") },
-          { name: "apartment", label: t("Apartment (optional)") },
+          { name: "street", label: t("Street") },
+          { name: "building_num", label: t("BuildingNumber") },
+          { name: "floor_num", label: t("FloorNumber") },
+          { name: "apartment", label: t("Apartment") },
         ].map(({ name, label }) => (
           <FormField
             key={name}
@@ -241,9 +241,8 @@ const AddressFormFields = ({
                     >
                       {field.value
                         ? availableZones.find((z) => z.id.toString() === field.value)
-                          ? `${availableZones.find((z) => z.id.toString() === field.value)?.zone} • ${
-                              availableZones.find((z) => z.id.toString() === field.value)?.price
-                            } EGP`
+                          ? `${availableZones.find((z) => z.id.toString() === field.value)?.zone} • ${availableZones.find((z) => z.id.toString() === field.value)?.price
+                          } EGP`
                           : t("SelectZone")
                         : t("SelectZone")}
                       <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />

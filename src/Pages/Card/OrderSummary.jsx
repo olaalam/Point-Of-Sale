@@ -371,7 +371,7 @@ const PrintableOrder = React.forwardRef(
           {/* ← إضافة رسوم التوصيل */}
           {calculations.deliveryFee > 0 && (
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "3px", fontSize: "12px" }}>
-              <span>{isArabic ? "رسوم التوصيل" : "Delivery Fee"}</span>
+              <span>{isArabic ? "رسوم التوصيل" : "DeliveryFee"}</span>
               <span style={{ fontWeight: "bold" }}>{calculations.deliveryFee.toFixed(2)}</span>
             </div>
           )}
@@ -692,7 +692,7 @@ export default function OrderSummary({
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           className="w-full min-h-[60px] text-sm"
-          placeholder={t("Order Notes...")}
+          placeholder={t("OrderNotes")}
         />
       </div>
 

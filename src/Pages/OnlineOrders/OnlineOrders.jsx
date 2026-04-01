@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { toast ,ToastContainer } from "react-toastify";
+import { toast, ToastContainer } from "react-toastify";
 import { useTranslation } from "react-i18next";
 import Loading from "@/components/Loading";
-import { 
-  Search, 
+import {
+  Search,
   Package,
   Clock,
   MapPin,
@@ -29,7 +29,7 @@ export default function OnlineOrders() {
   const isArabic = i18n.language === "ar";
 
   // جلب الطلبات
-  const { data, isLoading, error } = useGet("cashier/orders/online_orders"); 
+  const { data, isLoading, error } = useGet("cashier/orders/online_orders");
 
   // جلب العدد للـ cards
   const { data: countDataRaw, isLoading: countLoading, error: countError } = useGet("cashier/orders/order_count");
@@ -49,17 +49,16 @@ export default function OnlineOrders() {
 
   // حالات الـ cards والفلتر (بدون failed_to_deliver في الفلتر الرئيسي لأنه منفصل في التصميم)
   const statusConfig = [
-    { key: "pending", label: "Pending", icon: Hourglass, color: "text-red-600" },
-    { key: "confirmed", label: "Accept", icon: CheckCircle, color: "text-green-600" },
-    { key: "processing", label: "Processing", icon: PackageIcon, color: "text-purple-600" },
-    { key: "out_for_delivery", label: "Out For Delivery", icon: Truck, color: "text-indigo-600" },
-    { key: "delivered", label: "Delivered", icon: CheckCircle, color: "text-green-600" },
-    { key: "canceled", label: "Canceled", icon: XCircle, color: "text-gray-600" },
-    { key: "returned", label: "Returned", icon: RotateCw, color: "text-orange-600" },
-    { key: "refund", label: "Refund", icon: DollarSign, color: "text-pink-600" },
+    { key: "pending", label: t("Pending"), icon: Hourglass, color: "text-red-600" },
+    { key: "confirmed", label: t("Accept"), icon: CheckCircle, color: "text-green-600" },
+    { key: "processing", label: t("Processing"), icon: PackageIcon, color: "text-purple-600" },
+    { key: "out_for_delivery", label: t("OutforDelivery"), icon: Truck, color: "text-indigo-600" },
+    { key: "delivered", label: t("Delivered"), icon: CheckCircle, color: "text-green-600" },
+    { key: "canceled", label: t("Canceled"), icon: XCircle, color: "text-gray-600" },
+    { key: "returned", label: t("Returned"), icon: RotateCw, color: "text-orange-600" },
+    { key: "refund", label: t("Refund"), icon: DollarSign, color: "text-pink-600" },
   ];
-
-  const failedConfig = { key: "failed_to_deliver", label: "Failed To Deliver", icon: AlertTriangle, color: "text-red-600" };
+  const failedConfig = { key: "failed_to_deliver", label: t("FailedToDeliver"), icon: AlertTriangle, color: "text-red-600" };
 
   // حالات الفلتر المؤقتة
   const [tempType, setTempType] = useState("all");
@@ -112,7 +111,7 @@ export default function OnlineOrders() {
 
     // البحث
     if (searchTerm) {
-      filtered = filtered.filter(order => 
+      filtered = filtered.filter(order =>
         order.order_number?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         order.user?.f_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         order.user?.l_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -140,25 +139,25 @@ export default function OnlineOrders() {
 
   const getStatusColor = (status) => {
     const colors = {
-        pending: "bg-yellow-100 text-yellow-800 border-yellow-300",
-        confirmed: "bg-blue-100 text-blue-800 border-blue-300",
-        processing: "bg-purple-100 text-purple-800 border-purple-300",
-        out_for_delivery: "bg-indigo-100 text-indigo-800 border-indigo-300",
-        delivered: "bg-green-100 text-green-800 border-green-300",
-        returned: "bg-orange-100 text-orange-800 border-orange-300",
-        failed_to_deliver: "bg-red-100 text-red-800 border-red-300", 
-        canceled: "bg-gray-100 text-gray-800 border-gray-300",
-        scheduled: "bg-teal-100 text-teal-800 border-teal-300",
-        refund: "bg-pink-100 text-pink-800 border-pink-300"
+      pending: "bg-yellow-100 text-yellow-800 border-yellow-300",
+      confirmed: "bg-blue-100 text-blue-800 border-blue-300",
+      processing: "bg-purple-100 text-purple-800 border-purple-300",
+      out_for_delivery: "bg-indigo-100 text-indigo-800 border-indigo-300",
+      delivered: "bg-green-100 text-green-800 border-green-300",
+      returned: "bg-orange-100 text-orange-800 border-orange-300",
+      failed_to_deliver: "bg-red-100 text-red-800 border-red-300",
+      canceled: "bg-gray-100 text-gray-800 border-gray-300",
+      scheduled: "bg-teal-100 text-teal-800 border-teal-300",
+      refund: "bg-pink-100 text-pink-800 border-pink-300"
     };
     return colors[status] || "bg-gray-100 text-gray-800 border-gray-300";
   };
 
   const formatDate = (dateString) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('en-GB', { 
-      day: '2-digit', 
-      month: '2-digit', 
+    return date.toLocaleDateString('en-GB', {
+      day: '2-digit',
+      month: '2-digit',
       year: 'numeric',
       hour: '2-digit',
       minute: '2-digit'
@@ -173,7 +172,7 @@ export default function OnlineOrders() {
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-6" dir={isArabic ? "rtl" : "ltr"}>
-            <ToastContainer  />
+      <ToastContainer />
 
       {/* Header */}
       <div className="mb-6">
@@ -188,12 +187,12 @@ export default function OnlineOrders() {
       {/* قسم الفلتر الجديد (Type + Date Range) */}
       <div className="bg-white rounded-lg shadow-sm p-6 mb-8">
         <h2 className="text-lg font-semibold text-gray-800 mb-4">
-          Select Date Range
+          {t("SelectDateRange") || "Select Date Range"}
         </h2>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
           {/* Order Type */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Order Type:</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">{t("OrderType") || "Order Type"}:</label>
             <select
               value={tempType}
               onChange={(e) => setTempType(e.target.value)}
@@ -210,7 +209,7 @@ export default function OnlineOrders() {
 
           {/* Start Date */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Start Date:</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">{t("StartDate") || "Start Date"}:</label>
             <input
               type="date"
               value={tempStart}
@@ -221,7 +220,7 @@ export default function OnlineOrders() {
 
           {/* End Date */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">End Date:</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">{t("EndDate") || "End Date"}:</label>
             <input
               type="date"
               value={tempEnd}
@@ -236,13 +235,13 @@ export default function OnlineOrders() {
               onClick={handleReset}
               className="px-6 py-2 border border-red-600 text-red-600 rounded-lg hover:bg-red-50"
             >
-              Reset
+              {t("Reset") || "Reset"}
             </button>
             <button
               onClick={handleApply}
               className="px-6 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
             >
-              Show Data
+              {t("ShowData") || "Show Data"}
             </button>
           </div>
         </div>
@@ -316,7 +315,7 @@ export default function OnlineOrders() {
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredOrders.map((order) => (
-                <tr 
+                <tr
                   key={order.id}
                   onClick={() => handleOrderClick(order.id)}
                   className="hover:bg-gray-50 cursor-pointer transition-colors"

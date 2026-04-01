@@ -498,7 +498,7 @@ ${moduleLine}
   <!-- Delivery Fees -->
   ${receiptData.deliveryFees > 0
       ? `<div class="totals-row">
-         <span>${isArabic ? "رسوم التوصيل" : "Delivery Fee"}</span>
+         <span>${isArabic ? "رسوم التوصيل" : "DeliveryFee"}</span>
          <span>${receiptData.deliveryFees.toFixed(2)}</span>
        </div>`
       : ""
@@ -1254,7 +1254,7 @@ export const printKitchenOnly = async (receiptData, apiResponse, callback) => {
       const isDuplicate = allHtmlToPrint.some(
         job => job.printerName === kitchen.print_name && job.html === kitchenHtml
       );
-      
+
       if (!isDuplicate) {
         allHtmlToPrint.push({ html: kitchenHtml, printerName: kitchen.print_name });
       }
@@ -1412,12 +1412,12 @@ export const printReceiptSilently = async (receiptData, apiResponse, callback, o
         };
 
         const kitchenHtml = getReceiptHTML(kitchenReceiptData, { design: "kitchen", type: "kitchen" });
-        
+
         // Prevent pushing duplicate receipts for the same printer
         const isDuplicate = electronJobs.some(
           job => job.type === "kitchen" && job.printerName === kitchen.print_name && job.html === kitchenHtml
         );
-        
+
         if (!isDuplicate) {
           electronJobs.push({ html: kitchenHtml, printerName: kitchen.print_name, type: "kitchen" });
         }

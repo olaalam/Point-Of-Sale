@@ -81,9 +81,7 @@ export default function AllOrders() {
           const fakeData = res.orders || [];
           setFakeOrders(fakeData);
           setDisplayedOrders(fakeData);  // هنا هتعرض في الجدول فورًا
-          toast.info(
-            isArabic ? "تم تفعيل وضع الطلباتة" : " orders mode activated"
-          );
+          toast.info(t("OrdersModeActivated"));
         } else {
           setIsFakeMode(false);
           setOrders(res.orders);
@@ -118,8 +116,7 @@ export default function AllOrders() {
     } catch (err) {
       console.error("Error fetching orders:", err);
       const errorMsg =
-        err.response?.data?.message ||
-        (isArabic ? "فشل جلب الطلبات " : "Failed to load orders");
+        err.response?.data?.message || t("FailedToLoadOrders");
       toast.error(errorMsg);
       setFakeOrders([]);
       setDisplayedOrders([]);
@@ -139,9 +136,7 @@ export default function AllOrders() {
 
     if (isFakeMode) {
       if (!dateFromInput || !dateToInput) {
-        toast.warning(
-          isArabic ? "يرجى تحديد نطاق التاريخ" : "Please select a date range"
-        );
+        toast.warning(t("PleaseSelectDateRange"));
         return;
       }
       fetchFakeOrders(dateFromInput, dateToInput);
@@ -183,7 +178,7 @@ export default function AllOrders() {
       toast.success(t("Ordersrefreshedsuccessfully"));
     } catch (err) {
       console.error("Refresh Error:", err);
-      toast.error(t("Failedtorefreshorders") || "فشل تحديث الطلبات");
+      toast.error(t("Failedtorefreshorders") || t("FailedToRefreshOrders"));
     }
   };
 
@@ -192,24 +187,23 @@ export default function AllOrders() {
   // =========================================================
   const generateReceiptHTML = (data) => {
     const orderType = data.order_type || "";
-    let orderTypeLabel = isArabic ? "تيك اواي" : "TAKEAWAY";
+    let orderTypeLabel = t("take_away");
     let tableLabel = "";
 
     if (orderType === "dine_in") {
-      orderTypeLabel = isArabic ? "صالة" : "DINE IN";
+      orderTypeLabel = t("Dinein");
       if (data.table) {
-        tableLabel = isArabic ? `طاولة: ${data.table}` : `Table: ${data.table}`;
+        tableLabel = t("Table") + ": " + data.table;
       }
     } else if (orderType === "delivery") {
-      orderTypeLabel = isArabic ? "توصيل" : "DELIVERY";
+      orderTypeLabel = t("Delivery");
     } else if (orderType === "pickup") {
-      orderTypeLabel = isArabic ? "استلام" : "PICKUP";
+      orderTypeLabel = t("PickUp");
     }
 
     const showCustomerInfo = orderType === "delivery" && data.user;
     const restaurantName =
-      localStorage.getItem("resturant_name") ||
-      (isArabic ? "اسم المطعم" : "Restaurant Name");
+      localStorage.getItem("resturant_name") || t("title");
 
     const subtotal = (data.amount - (data.total_tax || 0) - (data.delivery_fees || 0)).toFixed(2);
 
@@ -302,11 +296,11 @@ export default function AllOrders() {
             <table class="meta-grid">
               <tr>
                 <td width="50%" style="border-${isArabic ? "left" : "right"}: 1px dotted #000; padding: 0 5px;">
-                  <div class="meta-label">${isArabic ? "رقم الفاتورة" : "ORDER NO"}</div>
+                  <div class="meta-label">${t("OrderNumber")}</div>
                   <div class="meta-value" style="font-size: 18px;">#${data.order_number}</div>
                 </td>
                 <td width="50%" style="padding: 0 5px; text-align: ${isArabic ? "left" : "right"};">
-                  <div class="meta-label">${isArabic ? "التاريخ / الوقت" : "DATE / TIME"}</div>
+                  <div class="meta-label">${t("DateTime")}</div>
                   <div style="font-weight: bold; font-size: 11px;">${data.order_date || "—"}</div>
                   <div style="font-weight: bold; font-size: 11px;">${data.order_time || "—"}</div>
                 </td>
@@ -364,7 +358,7 @@ export default function AllOrders() {
                       <td class="item-total">${rowTotal.toFixed(2)}</td>
                     </tr>
                   `;
-    }).join("") || '<tr><td colspan="3" class="text-center py-4">لا توجد أصناف</td></tr>'}
+    }).join("") || `<tr><td colspan="3" class="text-center py-4">${t("NoItemsFound")}</td></tr>`}
               </tbody>
             </table>
 
@@ -402,7 +396,7 @@ export default function AllOrders() {
 
             <div style="text-align: center; margin-top: 15px; font-size: 11px;">
               <p style="margin: 0; font-weight: bold;">
-                ${isArabic ? "شكراً لزيارتكم" : "Thank You For Your Visit"}
+                ${t("ThankYouForVisit")}
               </p>
               <p style="margin: 5px 0 0 0;">***</p>
             </div>
@@ -579,12 +573,8 @@ export default function AllOrders() {
               className="px-6"
             >
               {getLoading || loading
-                ? isArabic
-                  ? "جاري البحث..."
-                  : "Searching..."
-                : isArabic
-                  ? "بحث"
-                  : "Search"}
+                ? t("Searching")
+                : t("Search")}
             </Button>
           </div>
 
@@ -601,14 +591,14 @@ export default function AllOrders() {
                     {t("Type")}
                   </th>
                   <th className={`border p-3 ${isArabic ? "text-right" : "text-left"}`}>
-                    {isArabic ? "رسوم التوصيل" : "Delivery Fees"}
+                    {t("DeliveryFees") || "Delivery Fees"}
                   </th>
                   <th className={`border p-3 ${isArabic ? "text-right" : "text-left"}`}>
                     {t("Amount")}
                   </th>
                   {/* العمود الجديد */}
                   <th className={`border p-3 ${isArabic ? "text-right" : "text-left"}`}>
-                    {isArabic ? "بيانات العميل" : "Customer Info"}
+                    {t("CustomerInfo") || "Customer Info"}
                   </th>
                   <th className={`border p-3 ${isArabic ? "text-right" : "text-left"}`}>
                     {t("Status")}
@@ -717,12 +707,8 @@ export default function AllOrders() {
           {displayedOrders.length === 0 && !getLoading && (
             <p className="text-center text-gray-500 mt-8">
               {isFakeMode
-                ? isArabic
-                  ? "لا توجد طلبات وهمية - اضغط بحث بعد تحديد التواريخ"
-                  : "No  orders found - click Search after selecting dates"
-                : isArabic
-                  ? "لا توجد طلبات مطابقة للفلاتر الحالية"
-                  : "No orders match the current filters"}
+                ? t("NoOrdersFoundClickSearch")
+                : t("NoOrdersMatchFilters")}
             </p>
           )}
 
