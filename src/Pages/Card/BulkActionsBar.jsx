@@ -84,42 +84,6 @@ export default function BulkActionsBar({
 
   return (
     <div className="flex items-center justify-start mb-4 gap-4 flex-wrap p-4 bg-white rounded-lg shadow-md border border-gray-100">
-
-      {/* 🟠 زر "تحت التجهيز" السريع */}
-      {preparingInfo && (
-        <Button
-          onClick={handleQuickPrepare}
-          disabled={selectedItems.length === 0 || isLoading}
-          className="bg-orange-500 hover:bg-orange-600 text-white text-sm flex items-center gap-2 shadow-sm transition-all"
-        >
-          <preparingInfo.icon size={16} />
-          <span>{preparingInfo.label}</span>
-          {selectedItems.length > 0 && (
-            <span className="bg-white/20 px-2 py-0.5 rounded-full text-xs">
-              {selectedItems.length}
-            </span>
-          )}
-        </Button>
-      )}
-      {DoneInfo && (
-        <Button
-          onClick={handleQuickDone}
-          disabled={selectedItems.length === 0 || isLoading}
-          className="bg-green-500 hover:bg-green-600 text-white text-sm flex items-center gap-2 shadow-sm transition-all"
-        >
-          <DoneInfo.icon size={16} />
-          <span>{DoneInfo.label}</span>
-          {selectedItems.length > 0 && (
-            <span className="bg-white/20 px-2 py-0.5 rounded-full text-xs">
-              {selectedItems.length}
-            </span>
-          )}
-        </Button>
-      )}
-
-      {/* فاصل بصري بسيط */}
-      <div className="h-8 w-[1px] bg-gray-200 mx-1 hidden sm:block" />
-
       {/* اختيار بقية الحالات */}
       <div className="flex items-center gap-2">
         <Select value={bulkStatus} onValueChange={setBulkStatus}>
@@ -149,57 +113,92 @@ export default function BulkActionsBar({
           className="bg-bg-primary text-white hover:bg-red-700 text-sm"
           disabled={selectedItems.length === 0 || !bulkStatus || isLoading}
         >
-          {t("ApplyStatus")}
+          {t("Apply")}
         </Button>
       </div>
-
-      {/* زر نقل الطاولة كما هو */}
-      <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogTrigger asChild>
+      {/* 🟠 زر "تحت التجهيز" السريع */}
+      <div className="flex items-center gap-2">
+        {preparingInfo && (
           <Button
+            onClick={handleQuickPrepare}
             disabled={selectedItems.length === 0 || isLoading}
-            className="bg-purple-600 hover:bg-purple-700 text-white text-sm flex items-center gap-2 ml-auto"
+            className="bg-orange-500 hover:bg-orange-600 text-white text-sm flex items-center gap-2 shadow-sm transition-all"
           >
-            {t("ChangeTable") || "نقل إلى طاولة"}
+            <preparingInfo.icon size={16} />
+            <span>{preparingInfo.label}</span>
+            {selectedItems.length > 0 && (
+              <span className="bg-white/20 px-2 py-0.5 rounded-full text-xs">
+                {selectedItems.length}
+              </span>
+            )}
           </Button>
-        </DialogTrigger>
+        )}
+        {DoneInfo && (
+          <Button
+            onClick={handleQuickDone}
+            disabled={selectedItems.length === 0 || isLoading}
+            className="bg-green-500 hover:bg-green-600 text-white text-sm flex items-center gap-2 shadow-sm transition-all"
+          >
+            <DoneInfo.icon size={16} />
+            <span>{DoneInfo.label}</span>
+            {selectedItems.length > 0 && (
+              <span className="bg-white/20 px-2 py-0.5 rounded-full text-xs">
+                {selectedItems.length}
+              </span>
+            )}
+          </Button>
+        )}
+      </div>
+      {/* زر نقل الطاولة كما هو */}
 
-        <DialogContent className="bg-white sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle className="text-right">
-              {t("ConfirmTransfer") || "تأكيد عملية النقل"}
-            </DialogTitle>
-            <DialogDescription className="text-right pt-2 text-gray-500">
-              {t("AreYouSureTransferItems") || "هل تريد نقل العناصر المختارة إلى طاولة أخرى؟"}
-            </DialogDescription>
-          </DialogHeader>
+      <div className="flex items-center gap-2">
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+          <DialogTrigger asChild>
+            <Button
+              disabled={selectedItems.length === 0 || isLoading}
+              className="bg-purple-600 hover:bg-purple-700 text-white text-sm flex items-center gap-2 ml-auto"
+            >
+              {t("ChangeTable") || "نقل إلى طاولة"}
+            </Button>
+          </DialogTrigger>
 
-          <DialogFooter className="flex flex-row-reverse gap-2 sm:justify-start mt-4">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setIsOpen(false)}
-            >
-              {t("Cancel") || "إلغاء"}
-            </Button>
-            <Button
-              type="button"
-              className="bg-purple-600 text-white hover:bg-purple-700"
-              onClick={handleConfirmTransfer}
-            >
-              {t("Confirm") || "تأكيد"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-      <CaptainSelectionModal
-        isOpen={isCaptainModalOpen}
-        onOpenChange={setIsCaptainModalOpen}
-        captainsData={captainsData}
-        isLoading={loadingCaptains}
-        t={t}
-        disabled={selectedItems.length === 0 || isLoading}
-      />
+          <DialogContent className="bg-white sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle className="text-right">
+                {t("ConfirmTransfer") || "تأكيد عملية النقل"}
+              </DialogTitle>
+              <DialogDescription className="text-right pt-2 text-gray-500">
+                {t("AreYouSureTransferItems") || "هل تريد نقل العناصر المختارة إلى طاولة أخرى؟"}
+              </DialogDescription>
+            </DialogHeader>
+
+            <DialogFooter className="flex flex-row-reverse gap-2 sm:justify-start mt-4">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsOpen(false)}
+              >
+                {t("Cancel") || "إلغاء"}
+              </Button>
+              <Button
+                type="button"
+                className="bg-purple-600 text-white hover:bg-purple-700"
+                onClick={handleConfirmTransfer}
+              >
+                {t("Confirm") || "تأكيد"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+        <CaptainSelectionModal
+          isOpen={isCaptainModalOpen}
+          onOpenChange={setIsCaptainModalOpen}
+          captainsData={captainsData}
+          isLoading={loadingCaptains}
+          t={t}
+          disabled={selectedItems.length === 0 || isLoading}
+        />
+      </div>
     </div>
   );
 }
