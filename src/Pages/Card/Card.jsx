@@ -138,6 +138,7 @@ export default function Card({
   const clearCart = () => {
     updateOrderItems([]); // تصفير مصفوفة المنتجات
     localStorage.removeItem("cart");
+    localStorage.removeItem(`cart_${orderType}`);
     setSelectedItems([]);
     setSelectedPaymentItems([]);
 
@@ -161,8 +162,10 @@ export default function Card({
     // نحدث localStorage بالباقي
     if (remainingItems.length > 0) {
       localStorage.setItem("cart", JSON.stringify(remainingItems));
+      localStorage.setItem(`cart_${orderType}`, JSON.stringify(remainingItems));
     } else {
       localStorage.removeItem("cart");
+      localStorage.removeItem(`cart_${orderType}`);
     }
 
     // نرست التحديدات

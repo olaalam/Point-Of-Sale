@@ -43,6 +43,7 @@ import {
 import ExpensesModal from "@/Pages/ExpensesModal";
 import PasswordConfirmModal from "@/Pages/PasswordConfirmModal";
 import EndShiftReportModal from "@/Pages/ReportsAfterShift";
+import CartSwitchConfirmModal from "@/components/CartSwitchConfirmModal";
 
 export default function Navbar() {
   const FALLBACK_SOUND = "https://www.soundjay.com/buttons/sounds/button-1.mp3";
@@ -72,6 +73,8 @@ export default function Navbar() {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [showCartConfirmModal, setShowCartConfirmModal] = useState(false);
+  const [pendingTabValue, setPendingTabValue] = useState(null);
 
   const isMobile = useIsMobile();
   const userData = JSON.parse(localStorage.getItem("user") || "{}");
@@ -173,19 +176,70 @@ export default function Navbar() {
   };
 
   const handleTabChange = (value) => {
+    const activeTab = localStorage.getItem("tab") || "take_away";
+    console.log("Navigating to:", value, "Current tab:", activeTab);
+
     if (!permissions[value.replace("-", "_")]) {
+      console.log("Permission denied for:", value);
       toast.warn(t("You do not have permission for this section"));
       return;
     }
 
+    if (value === activeTab) {
+      console.log("Already on this tab, doing nothing.");
+      return;
+    }
+
+    const cartString = localStorage.getItem("cart");
+    console.log("Cart string from localStorage:", cartString);
+    const cart = cartString && cartString !== "undefined" ? JSON.parse(cartString) : [];
+    console.log("Parsed cart count:", cart.length);
+
+    if (cart.length > 0) {
+      console.log("Cart not empty, showing confirmation modal...");
+      setPendingTabValue(value);
+      setShowCartConfirmModal(true);
+    } else {
+      console.log("Cart empty, proceeding with normal switch.");
+      proceedWithTabChange(value);
+    }
+  };
+
+  const proceedWithTabChange = (value, action = "clear") => {
     const isRepeated = localStorage.getItem("is_repeating_order") === "true";
+    const currentTabStored = localStorage.getItem("tab") || "take_away";
+
+    if (action === "keep") {
+      // Save current cart to its specific module key
+      const cartString = localStorage.getItem("cart");
+      console.log(`💾 Saving items to cart_${currentTabStored}:`, cartString);
+      if (cartString) {
+        localStorage.setItem(`cart_${currentTabStored}`, cartString);
+      }
+    } else {
+      // Clear current module's specific cart if clearing
+      console.log(`🗑️ Clearing saved items for cart_${currentTabStored}`);
+      localStorage.removeItem(`cart_${currentTabStored}`);
+    }
+
+    // Always start with an empty cart for the new module 
+    // unless we load a saved one later
+    if (!isRepeated) {
+       console.log("🧹 Clearing main cart for new module transition");
+       localStorage.removeItem("cart");
+    }
+
+    // Load target module's cart if it exists
+    const targetCart = localStorage.getItem(`cart_${value}`);
+    if (targetCart && targetCart !== "undefined") {
+      console.log(`📦 Loading saved items from cart_${value} into main cart`);
+      localStorage.setItem("cart", targetCart);
+    }
 
     localStorage.setItem("tab", value);
     localStorage.setItem("order_type", value);
 
-    if (!isRepeated) {
-      localStorage.removeItem("cart");
-    } else {
+    if (isRepeated) {
       localStorage.removeItem("is_repeating_order");
     }
 
@@ -202,6 +256,17 @@ export default function Navbar() {
     } else if (value === "online-order") {
       navigate("/online-orders", { replace: true });
     }
+    
+    setShowCartConfirmModal(false);
+    setPendingTabValue(null);
+  };
+
+  const onClearAndSwitch = () => {
+    proceedWithTabChange(pendingTabValue, "clear");
+  };
+
+  const onKeepAndSwitch = () => {
+    proceedWithTabChange(pendingTabValue, "keep");
   };
 
   const handleTables = () => {
@@ -792,6 +857,21 @@ export default function Navbar() {
           />
         )
       }
+      <CartSwitchConfirmModal
+        open={showCartConfirmModal}
+        onOpenChange={setShowCartConfirmModal}
+        onClearAndSwitch={onClearAndSwitch}
+        onKeepAndSwitch={onKeepAndSwitch}
+        itemCount={(() => {
+          const cartString = localStorage.getItem("cart");
+          if (!cartString || cartString === "undefined") return 0;
+          try {
+            return JSON.parse(cartString).length;
+          } catch {
+            return 0;
+          }
+        })()}
+      />
     </>
   );
 }

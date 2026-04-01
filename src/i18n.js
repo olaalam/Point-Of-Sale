@@ -103,6 +103,11 @@ const resources = {
       SubTotal: "Sub Total:",
       Tax: "Tax:",
       OtherCharge: "OtherCharge:",
+      "Cart Has Items": "Cart Has Items",
+      "You have": "You have",
+      "item(s) in your cart. What would you like to do?": "item(s) in your cart. What would you like to do?",
+      "Clear & Switch": "Clear & Switch",
+      "Keep for Later": "Keep for Later",
       //item
       QuantityIncreased: "The quantity of \"{{name}}\" has been increased to {{quantity}}.",
       UpdateFailed: "Failed to update \"{{name}}\".",
@@ -781,6 +786,11 @@ const resources = {
       OtherCharge: "رسوم أخرى",
       Tax: "ضريبة",
       SubTotal: "المجموع الفرعي",
+      "Cart Has Items": "السلة تحتوي على منتجات",
+      "You have": "لديك",
+      "item(s) in your cart. What would you like to do?": "منتج(ات) في السلة. ماذا تود أن تفعل؟",
+      "Clear & Switch": "مسح والانتقال",
+      "Keep for Later": "الاحتفاظ بها",
       Notes: "ملاحظات",
       //item
       QuantityIncreased: "تم زيادة كمية \"{{name}}\" إلى {{quantity}}.",

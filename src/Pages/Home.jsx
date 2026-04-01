@@ -100,9 +100,9 @@ export default function Home() {
     }
 
     // Default: clear cart if not a repeat order and not selecting a user
-    if (!isRepeat && !locationState?.userId) {
-      localStorage.removeItem("cart");
-    }
+    // if (!isRepeat && !locationState?.userId) {
+    //   localStorage.removeItem("cart");
+    // }
   }, [location]);
 
   const { postData, loading: transferLoading } = usePost();

@@ -166,11 +166,14 @@ export default function OrderPage({
     if (currentOrderType === "take_away") {
       setTakeAwayItems([]);
       localStorage.removeItem("cart");
+      localStorage.removeItem("cart_take_away");
       localStorage.removeItem("pending_order_info");
     } else if (currentOrderType === "dine_in" && currentTableId) {
       setOrdersByTable((prev) => ({ ...prev, [currentTableId]: [] }));
     } else if (currentOrderType === "delivery" && currentUserId) {
       setOrdersByUser((prev) => ({ ...prev, [currentUserId]: [] }));
+      localStorage.removeItem("cart");
+      localStorage.removeItem("cart_delivery");
       localStorage.removeItem("selected_user_id");
       localStorage.removeItem("selected_address_id");
     }
@@ -221,10 +224,8 @@ export default function OrderPage({
     }
 
     // 2. 🟢 المزامنة مع localStorage لكل الحالات لضمان وجود cart_id دائماً
-    // هذا السطر يضمن أن أي موديول آخر (مثل تغيير الحالة) يجد البيانات
     localStorage.setItem("cart", JSON.stringify(safeNewItems));
-
-    console.log("💾 Updated cart in localStorage (All Modes):", safeNewItems);
+    console.log("💾 Updated cart in localStorage (updateOrderItems):", safeNewItems.length, "items");
   };
   const handleAddItem = (item) => {
     // 1. تحقق إذا كان المنتج قادم من الميزان
@@ -262,18 +263,23 @@ export default function OrderPage({
 
       // أ- تحديث الـ takeAwayItems (عشان الـ Takeaway يفضل شغال)
       setTakeAwayItems((prev) => {
+        let newItems;
         if (isScaleItem) {
-          return [...prev, { ...item }];
+          newItems = [...prev, { ...item }];
+        } else {
+          const existingItemIndex = prev.findIndex((i) => areProductsEqual(i, item));
+          if (existingItemIndex > -1) {
+            const updatedItems = [...prev];
+            const addedCount = parseFloat(item.count || 1);
+            updatedItems[existingItemIndex].count += addedCount;
+            updatedItems[existingItemIndex].quantity = (updatedItems[existingItemIndex].quantity || 0) + addedCount;
+            newItems = updatedItems;
+          } else {
+            newItems = [...prev, item];
+          }
         }
-        const existingItemIndex = prev.findIndex((i) => areProductsEqual(i, item));
-        if (existingItemIndex > -1) {
-          const updatedItems = [...prev];
-          const addedCount = parseFloat(item.count || 1);
-          updatedItems[existingItemIndex].count += addedCount;
-          updatedItems[existingItemIndex].quantity = (updatedItems[existingItemIndex].quantity || 0) + addedCount;
-          return updatedItems;
-        }
-        return [...prev, item];
+        localStorage.setItem("cart", JSON.stringify(newItems));
+        return newItems;
       });
 
       // ب- تحديث الـ ordersByUser (عشان الـ Delivery يظهر في الـ Card)
@@ -281,26 +287,30 @@ export default function OrderPage({
         setOrdersByUser((prev) => {
           const userId = currentUserId;
           const currentItems = prev[userId] || [];
+          let newItems;
 
           if (isScaleItem) {
-            return {
-              ...prev,
-              [userId]: [...currentItems, { ...item }],
-            };
-          }
+            newItems = [...currentItems, { ...item }];
+          } else {
+            const existingItemIndex = currentItems.findIndex((i) =>
+              areProductsEqual(i, item)
+            );
 
-          const existingItemIndex = currentItems.findIndex((i) =>
-            areProductsEqual(i, item)
-          );
-
-          if (existingItemIndex > -1) {
-            const updatedItems = [...currentItems];
-            const addedCount = parseFloat(item.count || 1);
-            updatedItems[existingItemIndex].count += addedCount;
-            updatedItems[existingItemIndex].quantity = (updatedItems[existingItemIndex].quantity || 0) + addedCount;
-            return { ...prev, [userId]: updatedItems };
+            if (existingItemIndex > -1) {
+              const updatedItems = [...currentItems];
+              const addedCount = parseFloat(item.count || 1);
+              updatedItems[existingItemIndex].count += addedCount;
+              updatedItems[existingItemIndex].quantity = (updatedItems[existingItemIndex].quantity || 0) + addedCount;
+              newItems = updatedItems;
+            } else {
+              newItems = [...currentItems, item];
+            }
           }
-          return { ...prev, [userId]: [...currentItems, item] };
+          localStorage.setItem("cart", JSON.stringify(newItems));
+          return {
+            ...prev,
+            [userId]: newItems,
+          };
         });
       }
     }
@@ -343,6 +353,7 @@ export default function OrderPage({
 
     // مسح الـ localStorage
     localStorage.setItem("cart", JSON.stringify([]));
+    localStorage.removeItem(`cart_${currentOrderType}`);
 
     console.log("✅ Cart cleared successfully");
   };
