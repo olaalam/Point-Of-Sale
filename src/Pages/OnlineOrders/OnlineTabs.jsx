@@ -11,8 +11,8 @@ import ExpensesList from "./ExpensesList";
 import { useTranslation } from "react-i18next";
 
 export default function OnlineTabs() {
-    const { t,i18n } = useTranslation();
-  
+  const { t, i18n } = useTranslation();
+
   return (
     <div className="w-full p-4">
       <Tabs defaultValue="orders" className="w-full">
@@ -25,25 +25,25 @@ export default function OnlineTabs() {
           >
             {t("OnlineOrders")}
           </TabsTrigger>
-
+          {/* 
           <TabsTrigger
             value="expenses"
             className="text-xs  data-[state=active]:bg-bg-primary data-[state=active]:text-white rounded-md"
           >
             {t("Expenses")}
-          </TabsTrigger>
+          </TabsTrigger> */}
         </TabsList>
 
         {/* === ONLINE ORDERS CONTENT === */}
         <TabsContent value="orders" className="mt-6">
-            <OnlineOrders/>
+          <OnlineOrders />
         </TabsContent>
 
         {/* === EXPENSES CONTENT === */}
-        <TabsContent value="expenses" className="mt-6">
-          <ExpensesList/>
+        {/* <TabsContent value="expenses" className="mt-6">
+          <ExpensesList />
 
-        </TabsContent>
+        </TabsContent> */}
 
       </Tabs>
     </div>

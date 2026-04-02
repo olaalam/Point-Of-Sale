@@ -27,6 +27,7 @@ import FakeOrders from "./Pages/FakeOrders/FakeOrders";
 import DeliveryOrder from "./Pages/DeliveryOrder/DeliveryOrder";
 import InvoicePage from "./Pages/OnlineOrders/InvoicePage";
 import DineInReport from "./Pages/DineInReport/DineInReport";
+import ExpensesList from "./Pages/OnlineOrders/ExpensesList";
 
 const router = createBrowserRouter(
   [
@@ -190,11 +191,11 @@ const router = createBrowserRouter(
             </ProtectedRoute>
           ),
         },
-                        {
-          path:"/invoice/:id",
-          element:(
+        {
+          path: "/invoice/:id",
+          element: (
             <ProtectedRoute>
-              <InvoicePage/>
+              <InvoicePage />
             </ProtectedRoute>
           )
         },
@@ -204,75 +205,83 @@ const router = createBrowserRouter(
           element: <NotFound />,
         },
 
-                {
-          path:"/all-orders"
-          ,          element:(
+        {
+          path: "/all-orders"
+          , element: (
             <ProtectedRoute>
-              <AllOrders/>
-            </ProtectedRoute>
-          )
-        },
-                        {
-          path:"/tables"
-          ,          element:(
-            <ProtectedRoute>
-              <Dine/>
+              <AllOrders />
             </ProtectedRoute>
           )
         },
         {
-          path:"/online-orders",
-          element:(
+          path: "/tables"
+          , element: (
             <ProtectedRoute>
-              <OnlineTabs/>
+              <Dine />
             </ProtectedRoute>
           )
         },
-                {
-          path:"/online-orders/:id",
-          element:(
+        {
+          path: "/online-orders",
+          element: (
             <ProtectedRoute>
-              <SinglePage/>
+              <OnlineTabs />
             </ProtectedRoute>
           )
         },
-                        {
-          path:"/support",
-          element:(
-           
-              <ContactSupport/>
-           
-          )
-        },
-                                {
-          path:"/Forders",
-          element:(
-           
-              <FakeOrders/>
-           
-          )
-        },
-                        {
-          path:"/policy",
-          element:(
-            
-              <Policy/>
-           
-          )
-        },
-                {
-          path:"/deliveryOrders",
-          element:(
+        {
+          path: "/online-orders/:id",
+          element: (
             <ProtectedRoute>
-              <DeliveryOrder/>
+              <SinglePage />
             </ProtectedRoute>
           )
         },
-                        {
-          path:"/dine-in-orders",
-          element:(
+        {
+          path: "/support",
+          element: (
+
+            <ContactSupport />
+
+          )
+        },
+        {
+          path: "/Forders",
+          element: (
+
+            <FakeOrders />
+
+          )
+        },
+        {
+          path: "/policy",
+          element: (
+
+            <Policy />
+
+          )
+        },
+        {
+          path: "/deliveryOrders",
+          element: (
             <ProtectedRoute>
-              <DineInReport/>
+              <DeliveryOrder />
+            </ProtectedRoute>
+          )
+        },
+        {
+          path: "/dine-in-orders",
+          element: (
+            <ProtectedRoute>
+              <DineInReport />
+            </ProtectedRoute>
+          )
+        },
+        {
+          path: "/expenses",
+          element: (
+            <ProtectedRoute>
+              <ExpensesList />
             </ProtectedRoute>
           )
         },

@@ -280,8 +280,10 @@ export default function Navbar() {
   const handleDueUsers = () => navigate("/due");
   const handleAllOrders = () => navigate("/all-orders");
   const handleExpenses = () => setShowExpensesModal(true);
+  const handleExpensesList = () => navigate("/expenses");
   const handleDeliveryOrder = () => navigate("/deliveryOrders");
   const handleDineInOrder = () => navigate("/dine-in-orders");
+
 
   const handleCloseShift = () => {
     if (!isShiftOpen) {
@@ -560,6 +562,12 @@ export default function Navbar() {
                       <FaExclamationCircle size={14} />
                     </div>
                     <span className="font-bold text-gray-700">{t("Due")}</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleExpensesList} className="flex items-center gap-3 p-3 cursor-pointer hover:bg-gray-50 rounded-lg group">
+                    <div className="w-8 h-8 rounded-full bg-red-50 text-red-600 flex items-center justify-center group-hover:bg-red-600 group-hover:text-white transition-colors">
+                      <FaExclamationCircle size={14} />
+                    </div>
+                    <span className="font-bold text-gray-700">{t("Expenses")}</span>
                   </DropdownMenuItem>
 
                   {permissions.dine_in && (
