@@ -1,3 +1,4 @@
+import { getCurrencySymbol } from '../../utils/currency';
 import React, { useState, useEffect } from "react";
 import { useGet } from "@/Hooks/useGet";
 import { toast } from "react-toastify";
@@ -46,7 +47,7 @@ const DueUsers = () => {
             className="bg-white p-4 rounded-lg shadow-md border border-gray-200"
           >
             <h3 className="text-lg font-semibold mb-2">{user.name}</h3>
-            <p className="text-red-600 font-bold mb-2">{t("Due")}: {user.due.toFixed(2)} {t("EGP")}</p>
+            <p className="text-red-600 font-bold mb-2">{t("Due")}: {user.due.toFixed(2)} {getCurrencySymbol()}</p>
             <button
               onClick={() => handlePayClick(user, user.due)}
               className="w-full bg-bg-primary text-white py-2 rounded-md hover:bg-red-700 transition duration-200"

@@ -1,3 +1,4 @@
+import { getCurrencySymbol } from '../../utils/currency';
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast, ToastContainer } from "react-toastify";
@@ -344,7 +345,7 @@ export default function OnlineOrders() {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center text-sm font-medium text-gray-900">
-                      {order.amount?.toFixed(2)} EGP
+                      {order.amount?.toFixed(2)} {getCurrencySymbol()}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">

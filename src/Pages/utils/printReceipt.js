@@ -1,3 +1,4 @@
+import { getCurrencySymbol } from '../../utils/currency';
 import { toast } from "react-toastify";
 import qz from "qz-tray";
 // ===================================================================
@@ -1318,11 +1319,11 @@ const printViaWebBluetooth = async (receiptData) => {
     textReceipt += "--------------------------------\n";
 
     receiptData.items.forEach(item => {
-      textReceipt += `${item.qty}x ${item.nameEn || item.name}  -  ${item.total} EGP\n`;
+      textReceipt += `${item.qty}x ${item.nameEn || item.name}  -  ${item.total} ${getCurrencySymbol()}\n`;
     });
 
     textReceipt += "--------------------------------\n";
-    textReceipt += `Total: ${receiptData.total} EGP\n`;
+    textReceipt += `Total: ${receiptData.total} ${getCurrencySymbol()}\n`;
     textReceipt += "================================\n";
     textReceipt += "       Powered by Food2Go       \n";
     textReceipt += "\n\n\n\n"; // مسافات إضافية عشان الورقة تطلع لبرة

@@ -1,3 +1,4 @@
+import { getCurrencySymbol } from '../../utils/currency';
 // src/Pages/DeliveryOrder/Return.jsx
 "use client";
 
@@ -63,7 +64,7 @@ export default function Return({ orders, selectedOrders, setSelectedOrders, isLo
           </TableCell>
 
           <TableCell className="font-semibold">
-            {order.amount} EGP
+            {order.amount} {getCurrencySymbol()}
           </TableCell>
 
           <TableCell>{order.date || "-"}</TableCell>

@@ -1,3 +1,4 @@
+import { getCurrencySymbol } from '../utils/currency';
 // src/Pages/EndShiftReportModal.jsx
 import React, { useRef, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
@@ -262,7 +263,7 @@ export default function EndShiftReportModal({
   const cashShortage = (actual_total || 0) - (net_cash_drawer || 0);
   const netAmountCalculated = (total_amount || 0) - (void_order_sum || 0) - (expenses_total || 0);
 
-  const formatAmount = (amount, currency = t("EGP")) => {
+  const formatAmount = (amount, currency = getCurrencySymbol()) => {
     return `${(amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`;
   };
 

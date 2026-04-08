@@ -1,3 +1,4 @@
+import { getCurrencySymbol } from '../../utils/currency';
 import React, { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import SummaryRow from "./SummaryRow";
@@ -701,7 +702,7 @@ export default function OrderSummary({
           <div className="grid grid-cols-2 gap-4 items-center mb-4">
             <p className="text-gray-600">{t("TotalOrderAmount")}:</p>
             <p className="text-right text-lg font-semibold">
-              {totalAmountDisplay.toFixed(2)} {t("EGP")}
+              {totalAmountDisplay.toFixed(2)} {getCurrencySymbol()}
             </p>
           </div>
           <div className="grid grid-cols-2 gap-4 items-center mb-4">
@@ -709,7 +710,7 @@ export default function OrderSummary({
               {t("SelectedItems", { count: selectedPaymentCount })}:
             </p>
             <p className="text-right text-lg font-semibold text-green-600">
-              {amountToPay.toFixed(2)} {t("EGP")}
+              {amountToPay.toFixed(2)} {getCurrencySymbol()}
             </p>
           </div>
           <hr className="my-4 border-t border-gray-300" />
@@ -719,7 +720,7 @@ export default function OrderSummary({
       <div className="grid grid-cols-2 gap-4 items-center mb-6">
         <p className="text-bg-primary text-lg md:text-xl font-bold">{t("AmountToPay")}</p>
         <p className="text-right text-xl md:text-2xl font-bold text-green-700">
-          {amountToPay.toFixed(2)} {t("EGP")}
+          {amountToPay.toFixed(2)} {getCurrencySymbol()}
         </p>
       </div>
       {hasDiscount && (
@@ -729,7 +730,7 @@ export default function OrderSummary({
             <div className="flex justify-between text-sm">
               <span className="text-gray-800 font-semibold">{t("Original")}</span>
               <span className="font-semibold">
-                {(parseFloat(amountToPay) + totalAppliedDiscountNum).toFixed(2)} EGP
+                {(parseFloat(amountToPay) + totalAppliedDiscountNum).toFixed(2)} {getCurrencySymbol()}
               </span>
             </div>
 
@@ -754,7 +755,7 @@ export default function OrderSummary({
                 return (
                   <div className={cn("flex justify-between text-sm font-semibold", discountColor)}>
                     <span>{discountLabel}</span>
-                    <span>-{totalAppliedDiscount} EGP</span>
+                    <span>-{totalAppliedDiscount} {getCurrencySymbol()}</span>
                   </div>
                 );
               })()
@@ -764,7 +765,7 @@ export default function OrderSummary({
             {/* Total After Discount */}
             <div className="flex justify-between font-bold text-2xl pt-3 border-t-2 border-dashed border-gray-400">
               <span className="text-[#800000]">{t("Total After Discount")}</span>
-              <span className="text-[#800000]">{finalAmountAfterDiscount} EGP</span>
+              <span className="text-[#800000]">{finalAmountAfterDiscount} {getCurrencySymbol()}</span>
             </div>
           </div>
         </div>
@@ -933,7 +934,7 @@ export default function OrderSummary({
                     <SelectItem value="0">{t("NoDiscount")}</SelectItem>
                     {discountListData?.discount_list?.map((d) => (
                       <SelectItem key={d.id} value={String(d.id)}>
-                        {d.name} ({d.amount}{d.type === "precentage" ? "%" : t("EGP")})
+                        {d.name} ({d.amount}{d.type === "precentage" ? "%" : getCurrencySymbol()})
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -999,7 +1000,7 @@ export default function OrderSummary({
               // لو الباسوورد صح، نطبق الخصم
               setFreeDiscount(discountAmount.toFixed(2));
               setFreeDiscountPassword(password);
-              toast.success(t("Free discount applied") + `: ${discountAmount} EGP`);
+              toast.success(t("Free discount applied") + `: ${discountAmount} {getCurrencySymbol()}`);
 
               // تنظيف الحالة وإغلاق المودال
               setTempFreeDiscount("");

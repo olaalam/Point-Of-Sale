@@ -1,3 +1,4 @@
+import { getCurrencySymbol } from '../../utils/currency';
 import React from "react";
 import { useTranslation } from "react-i18next";
 
@@ -15,7 +16,7 @@ const safeValue = Number(value || 0);
     >
       <p>{label}</p>
       <p>
-        {value.toFixed(2)} {isArabic ? "ج.م" : "EGP"}
+        {value.toFixed(2)} {isArabic ? "ج.م" : getCurrencySymbol()}
       </p>
     </div>
   );

@@ -1,3 +1,4 @@
+import { getCurrencySymbol } from '../../utils/currency';
 import {
   FormControl,
   FormField,
@@ -242,7 +243,7 @@ const AddressFormFields = ({
                       {field.value
                         ? availableZones.find((z) => z.id.toString() === field.value)
                           ? `${availableZones.find((z) => z.id.toString() === field.value)?.zone} • ${availableZones.find((z) => z.id.toString() === field.value)?.price
-                          } EGP`
+                          } {getCurrencySymbol()}`
                           : t("SelectZone")
                         : t("SelectZone")}
                       <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -267,7 +268,7 @@ const AddressFormFields = ({
                                 field.value === zone.id.toString() ? "opacity-100" : "opacity-0"
                               )}
                             />
-                            {zone.zone} • {zone.price} EGP
+                            {zone.zone} • {zone.price} {getCurrencySymbol()}
                           </CommandItem>
                         ))}
                       </CommandGroup>

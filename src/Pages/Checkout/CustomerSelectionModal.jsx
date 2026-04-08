@@ -1,3 +1,4 @@
+import { getCurrencySymbol } from '../../utils/currency';
 import { useTranslation } from "react-i18next";
 
 const CustomerSelectionModal = ({
@@ -47,7 +48,7 @@ const CustomerSelectionModal = ({
         </h2>
 
         <p className="text-center text-sm mb-4 text-gray-600">
-          {t("OrderTotal")}: <strong>{requiredTotal.toFixed(2)} {t("EGP")}</strong>
+          {t("OrderTotal")}: <strong>{requiredTotal.toFixed(2)} {getCurrencySymbol()}</strong>
         </p>
 
         {/* حقل البحث */}
@@ -86,7 +87,7 @@ const CustomerSelectionModal = ({
                          withinLimit ? "text-green-600" : "text-red-600"
                       }`}
                     >
-                      {t("DebitLimit")}: {customer.can_debit.toFixed(2)} {t("EGP")}
+                      {t("DebitLimit")}: {customer.can_debit.toFixed(2)} {getCurrencySymbol()}
                     </span>
                   </div>
                   <Button

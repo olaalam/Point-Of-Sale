@@ -1,3 +1,4 @@
+import { getCurrencySymbol } from '../../utils/currency';
 // src/Pages/DeliveryOrder/Current.jsx
 "use client";
 
@@ -212,7 +213,7 @@ export default function Current() {
           <div className="font-medium text-blue-900">
             {selectedOrders.length} {selectedOrders.length === 1 ? "order" : "orders"} selected
             <span className="ml-4 font-bold">
-              Total: {selectedTotal.toFixed(2)} EGP
+              Total: {selectedTotal.toFixed(2)} {getCurrencySymbol()}
             </span>
           </div>
           <Button variant="destructive" onClick={handleCollectPayment}>
@@ -227,7 +228,7 @@ export default function Current() {
           <CardContent className="p-6 text-center">
             <p className="text-lg opacity-90">Total Amount</p>
             <p className="text-3xl font-bold">
-              {parseFloat(ordersData.total_amount || 0).toFixed(2)} EGP
+              {parseFloat(ordersData.total_amount || 0).toFixed(2)} {getCurrencySymbol()}
             </p>
           </CardContent>
         </Card>
@@ -236,7 +237,7 @@ export default function Current() {
           <CardContent className="p-6 text-center">
             <p className="text-lg opacity-90">On The Way</p>
             <p className="text-3xl font-bold">
-              {parseFloat(ordersData.on_the_way_amount || 0).toFixed(2)} EGP
+              {parseFloat(ordersData.on_the_way_amount || 0).toFixed(2)} {getCurrencySymbol()}
             </p>
           </CardContent>
         </Card>
@@ -245,7 +246,7 @@ export default function Current() {
           <CardContent className="p-6 text-center">
             <p className="text-lg opacity-90">Cash On Hand</p>
             <p className="text-3xl font-bold">
-              {parseFloat(ordersData.cash_on_hand_amount || 0).toFixed(2)} EGP
+              {parseFloat(ordersData.cash_on_hand_amount || 0).toFixed(2)} {getCurrencySymbol()}
             </p>
           </CardContent>
         </Card>
@@ -297,7 +298,7 @@ export default function Current() {
                     {order.address.address}
                   </TableCell>
                   <TableCell className="font-medium">
-                    {parseFloat(order.amount).toFixed(2)} EGP
+                    {parseFloat(order.amount).toFixed(2)} {getCurrencySymbol()}
                   </TableCell>
                 </TableRow>
               ))

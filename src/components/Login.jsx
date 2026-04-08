@@ -84,6 +84,7 @@ export default function LoginPage() {
       // ✅ تخزين البيانات في localStorage (الكود القديم)
       localStorage.setItem("token", res.data.token);
       localStorage.setItem("user", JSON.stringify(res.data.cashier));
+      localStorage.setItem("currency", JSON.stringify(res.data.currency));
       localStorage.setItem("branch_id", res.data.cashier.branch_id);
       localStorage.setItem("resturant_name", res.data.resturant_name);
       localStorage.setItem(

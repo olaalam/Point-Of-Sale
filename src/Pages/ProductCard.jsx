@@ -1,3 +1,4 @@
+import { getCurrencySymbol } from '../utils/currency';
 //page for product card component that displays product details and allows adding to order (products div)
 import React, { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -51,12 +52,12 @@ const ProductCard = ({ product, onAddToOrder, onOpenModal }) => {
             <div className="flex flex-col">
               <div className="flex items-center gap-1">
                 <span className="text-gray-400 text-xs line-through font-normal">
-                  {Number(product.price).toFixed(2)} {t("EGP")}
+                  {Number(product.price).toFixed(2)} {getCurrencySymbol()}
                 </span>
                 <span className="text-[10px] text-gray-400 font-normal">({t("BeforeTax")})</span>
               </div>
               <div className="text-bg-primary">
-                {Number(product.final_price).toFixed(2)} {t("EGP")}
+                {Number(product.final_price).toFixed(2)} {getCurrencySymbol()}
                 <span className="text-[10px] ml-1 font-normal">({t("AfterTax")})</span>
               </div>
             </div>
@@ -64,16 +65,16 @@ const ProductCard = ({ product, onAddToOrder, onOpenModal }) => {
             // حالة وجود خصم
             <>
               <span className="text-red-600 line-through mr-1 font-normal">
-                {originalPrice.toFixed(2)} {t("EGP")}
+                {originalPrice.toFixed(2)} {getCurrencySymbol()}
               </span>
               <span>
-                {Number(product.final_price).toFixed(2)} {t("EGP")}
+                {Number(product.final_price).toFixed(2)} {getCurrencySymbol()}
               </span>
             </>
           ) : (
             // السعر العادي (لو الضريبة 0 أو مشمولة)
             <span>
-              {Number(product.final_price).toFixed(2)} {t("EGP")}
+              {Number(product.final_price).toFixed(2)} {getCurrencySymbol()}
             </span>
           )}
         </div>
