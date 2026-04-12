@@ -77,7 +77,7 @@ export default function CardHeader({
             <HeaderButton
               onClick={onTransferToDineIn}
               icon={<MoveRight size={20} />}
-              label={t("Transfer To DineIn")}
+              label={t("TransferDineIn")}
               color="bg-blue-600 hover:bg-blue-500"
               disabled={isLoading}
             />

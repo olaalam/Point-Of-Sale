@@ -1,3 +1,4 @@
+import { getCurrencySymbol } from '../utils/currency';
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Loading from "@/components/Loading";
@@ -270,7 +271,7 @@ export default function PendingOrders() {
                       <div className="flex justify-between text-sm">
                         <span className="text-gray-600">{t("Total")}:</span>
                         <span className="font-bold text-green-600">
-                          {parseFloat(order.amount || 0).toFixed(2)} EGP
+                          {parseFloat(order.amount || 0).toFixed(2)} {getCurrencySymbol()}
                         </span>
                       </div>
                       {order.notes && (

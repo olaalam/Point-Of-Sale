@@ -1,3 +1,4 @@
+import { getCurrencySymbol } from '../../utils/currency';
 // src/Pages/DeliveryOrder/AllOrder.jsx
 import {
   TableRow,
@@ -61,7 +62,7 @@ export default function AllOrder({ orders, selectedOrders, setSelectedOrders, is
           </TableCell>
 
           <TableCell className="font-semibold">
-            {order?.amount} EGP
+            {order?.amount} {getCurrencySymbol()}
           </TableCell>
 
           <TableCell>{order?.date}</TableCell>

@@ -1,3 +1,4 @@
+import { getCurrencySymbol } from '../utils/currency';
 // src/Pages/EndShiftReportModal.jsx
 import React, { useRef, useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
@@ -262,7 +263,7 @@ export default function EndShiftReportModal({
   const cashShortage = (actual_total || 0) - (net_cash_drawer || 0);
   const netAmountCalculated = (total_amount || 0) - (void_order_sum || 0) - (expenses_total || 0);
 
-  const formatAmount = (amount, currency = t("EGP")) => {
+  const formatAmount = (amount, currency = getCurrencySymbol()) => {
     return `${(amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${currency}`;
   };
 
@@ -401,7 +402,7 @@ export default function EndShiftReportModal({
             <div className="flex justify-between items-center">
               <div>
                 <p className="font-bold text-lg">{t("NetCashInDrawer") || "Net cash in drawer"}</p>
-                <p className="text-xs text-gray-400">(total cash in shift - expenses - returns)</p>
+                <p className="text-xs text-gray-400">{t("TotalCashInShift") || "Total cash in shift"} - {t("Expenses") || "Expenses"} - {t("Returns") || "Returns"}</p>
               </div>
               <div className="text-2xl font-black text-green-400">{formatAmount(net_cash_drawer || 0)}</div>
             </div>
@@ -411,7 +412,7 @@ export default function EndShiftReportModal({
             <div className="flex justify-between items-center">
               <div>
                 <p className="font-bold text-lg">{t("CashShortage") || "Cash shortage / Gap"}</p>
-                <p className="text-xs text-gray-400">(actual total in drawer - net cash in drawer)</p>
+                <p className="text-xs text-gray-400">{t("ActualTotalInDrawer") || "Actual total in drawer"} - {t("NetCashInDrawer") || "Net cash in drawer"}</p>
               </div>
               <div className={`text-2xl font-black ${cashShortage < 0 ? "text-red-400" : "text-white"}`}>
                 {formatAmount(cashShortage)}
@@ -423,7 +424,7 @@ export default function EndShiftReportModal({
             <div className="flex justify-between items-center">
               <div>
                 <p className="font-bold text-lg">{t("TotalSales") || "Total sales"}</p>
-                <p className="text-xs text-gray-400">(all payment methods - expenses - returns)</p>
+                <p className="text-xs text-gray-400">{t("AllPaymentMethods") || "All payment methods"} - {t("Expenses") || "Expenses"} - {t("Returns") || "Returns"}</p>
               </div>
               <div className="text-2xl font-black text-blue-400">
                 {formatAmount((total_amount || 0) - (expenses_total || 0) - (void_order_sum || 0))}

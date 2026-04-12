@@ -1,3 +1,4 @@
+import { getCurrencySymbol } from '../../utils/currency';
 import { toast } from "react-toastify";
 import qz from "qz-tray";
 // ===================================================================
@@ -5,7 +6,7 @@ import qz from "qz-tray";
 // ===================================================================
 const PRINTER_CONFIG = {
   cashier: {
-    printerName: "XP-58C",
+    printerName: "POS-80C (copy 1)",
     type: "cashier",
     printAll: true,
     categories: [],
@@ -498,7 +499,7 @@ ${moduleLine}
   <!-- Delivery Fees -->
   ${receiptData.deliveryFees > 0
       ? `<div class="totals-row">
-         <span>${isArabic ? "رسوم التوصيل" : "Delivery Fee"}</span>
+         <span>${isArabic ? "رسوم التوصيل" : "DeliveryFee"}</span>
          <span>${receiptData.deliveryFees.toFixed(2)}</span>
        </div>`
       : ""
@@ -1250,7 +1251,14 @@ export const printKitchenOnly = async (receiptData, apiResponse, callback) => {
         type: "kitchen",
       });
 
-      allHtmlToPrint.push({ html: kitchenHtml, printerName: kitchen.print_name });
+      // Prevent pushing duplicate receipts for the same printer
+      const isDuplicate = allHtmlToPrint.some(
+        job => job.printerName === kitchen.print_name && job.html === kitchenHtml
+      );
+
+      if (!isDuplicate) {
+        allHtmlToPrint.push({ html: kitchenHtml, printerName: kitchen.print_name });
+      }
     }
 
     // --- التنفيذ النهائي ---
@@ -1311,11 +1319,11 @@ const printViaWebBluetooth = async (receiptData) => {
     textReceipt += "--------------------------------\n";
 
     receiptData.items.forEach(item => {
-      textReceipt += `${item.qty}x ${item.nameEn || item.name}  -  ${item.total} EGP\n`;
+      textReceipt += `${item.qty}x ${item.nameEn || item.name}  -  ${item.total} ${getCurrencySymbol()}\n`;
     });
 
     textReceipt += "--------------------------------\n";
-    textReceipt += `Total: ${receiptData.total} EGP\n`;
+    textReceipt += `Total: ${receiptData.total} ${getCurrencySymbol()}\n`;
     textReceipt += "================================\n";
     textReceipt += "       Powered by Food2Go       \n";
     textReceipt += "\n\n\n\n"; // مسافات إضافية عشان الورقة تطلع لبرة
@@ -1355,7 +1363,40 @@ const printViaWebBluetooth = async (receiptData) => {
   }
 };
 // ===================================================================
-// 10. دالة الطباعة الرئيسية (Cashier + Kitchen)
+// 10. دالة فتح درج الكاشير (Cash Drawer)
+// ===================================================================
+/**
+ *  يبعت أمر ESC/POS لفتح الدرج:
+ *  ESC p 0 48 48  → [0x1B, 0x70, 0x00, 0x30, 0x30]
+ *  مدعوم على أغلب طابعات POS (Xprinter, Epson, …)
+ */
+export const openCashDrawer = async () => {
+  try {
+    // --- Electron ---
+    if (window.electronAPI?.openCashDrawer) {
+      window.electronAPI.openCashDrawer();
+      return;
+    }
+
+    // --- QZ Tray ---
+    if (typeof qz !== "undefined" && qz.websocket.isActive()) {
+      const printerName = await qz.printers.getDefault();
+      const config = qz.configs.create(printerName);
+      // ESC p 0 on-time off-time  →  فتح الدرج
+      await qz.print(config, [
+        { type: "raw", format: "hex", data: "1B70003030" },
+      ]);
+      return;
+    }
+
+    console.warn("⚠️ openCashDrawer: لا يوجد Electron أو QZ Tray");
+  } catch (err) {
+    console.error("❌ openCashDrawer error:", err);
+  }
+};
+
+// ===================================================================
+// 11. دالة الطباعة الرئيسية (Cashier + Kitchen)
 // ===================================================================
 export const printReceiptSilently = async (receiptData, apiResponse, callback, options = {}) => {
   const { shouldSkipKitchenPrint = false } = options;
@@ -1405,7 +1446,15 @@ export const printReceiptSilently = async (receiptData, apiResponse, callback, o
         };
 
         const kitchenHtml = getReceiptHTML(kitchenReceiptData, { design: "kitchen", type: "kitchen" });
-        electronJobs.push({ html: kitchenHtml, printerName: kitchen.print_name, type: "kitchen" });
+
+        // Prevent pushing duplicate receipts for the same printer
+        const isDuplicate = electronJobs.some(
+          job => job.type === "kitchen" && job.printerName === kitchen.print_name && job.html === kitchenHtml
+        );
+
+        if (!isDuplicate) {
+          electronJobs.push({ html: kitchenHtml, printerName: kitchen.print_name, type: "kitchen" });
+        }
       }
     }
     if (isMobile) {
@@ -1423,7 +1472,11 @@ export const printReceiptSilently = async (receiptData, apiResponse, callback, o
         // والـ main.js هيعرف إنه يطبع Default
         window.electronAPI.sendPrintOrder(job.html, job.printerName);
       }
-      toast.success("✅ تم إرسال الأوامر للطابعة عبر Electron");
+      // ✅ فتح الدرج بعد طباعة الكاشير
+      if (window.electronAPI?.openCashDrawer) {
+        window.electronAPI.openCashDrawer();
+      }
+      toast.success("✅ تم إرسال الأوامر للطابعة وفتح الدرج");
 
     } else if (typeof qz !== "undefined" && qz.websocket.isActive()) {
       const cashierPrinterName = await qz.printers.getDefault();
@@ -1434,7 +1487,11 @@ export const printReceiptSilently = async (receiptData, apiResponse, callback, o
         printJobs.push(qz.print(config, [{ type: "html", format: "plain", data: job.html }]));
       }
       await Promise.all(printJobs);
-      toast.success("✅ تم طباعة الإيصالات عبر QZ");
+
+      // ✅ فتح الدرج بعد طباعة الكاشير مباشرةً
+      await openCashDrawer();
+
+      toast.success("✅ تم طباعة الإيصالات وفتح الدرج");
     } else {
       toast.warn("⚠️ لا يوجد وسيلة طباعة متاحة (Electron أو QZ Tray)");
     }

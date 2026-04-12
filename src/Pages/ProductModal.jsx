@@ -1,3 +1,4 @@
+import { getCurrencySymbol } from '../utils/currency';
 {/* ProductModal.jsx - With Weight Support, Duplicate Check, and Notes */ }
 
 import React, { useState } from "react";
@@ -188,12 +189,12 @@ const ProductModal = ({
     // إذا كان هناك سعر كلي للخيار، نعرضه كقيمة مطلقة
     if (option.total_option_price > 0 || isSizeVariation(variation)) {
       priceToDisplay = parseFloat(option.total_option_price || option.final_price || 0);
-      return `${option.name} (${priceToDisplay.toFixed(2)} ${t("EGP")})`;
+      return `${option.name} (${priceToDisplay.toFixed(2)} ${getCurrencySymbol()})`;
     } else {
       // لو مجرد زيادة (Add-on variation)
       priceToDisplay = parseFloat(option.price ?? 0);
       if (priceToDisplay === 0) return option.name;
-      return `${option.name} (+${priceToDisplay.toFixed(2)} ${t("EGP")})`;
+      return `${option.name} (+${priceToDisplay.toFixed(2)} ${getCurrencySymbol()})`;
     }
   };
   const handleWeightChange = (e) => {
@@ -248,7 +249,7 @@ const ProductModal = ({
                 {selectedProduct.name}
               </DialogTitle>
               <span className="text-xl font-semibold text-red-600">
-                {totalPrice.toFixed(2)} {t("EGP")}
+                {totalPrice.toFixed(2)} {getCurrencySymbol()}
               </span>
             </div>
             <DialogDescription className="text-gray-500 text-sm mb-4">
@@ -302,7 +303,7 @@ const ProductModal = ({
                               </span>
                               {parseFloat(option.final_price || option.price_after_tax || 0) > 0 && (
                                 <span className="text-xs">
-                                  +{(option.final_price || option.price_after_tax).toFixed(2)} EGP
+                                  +{(option.final_price || option.price_after_tax).toFixed(2)} {getCurrencySymbol()}
                                 </span>
                               )}
                             </button>
@@ -340,7 +341,7 @@ const ProductModal = ({
                                 <div className="text-xs text-gray-500">
                                   {parseFloat(option.final_price || option.price_after_tax || option.price || 0) === 0
                                     ? "Free"
-                                    : `+${(option.final_price || option.price_after_tax || option.price).toFixed(2)} EGP`
+                                    : `+${(option.final_price || option.price_after_tax || option.price).toFixed(2)} {getCurrencySymbol()}`
                                   }
                                 </div>
                               </div>
@@ -410,7 +411,7 @@ const ProductModal = ({
                                 extra.final_price ??
                                 extra.price ??
                                 0
-                              ).toFixed(2)} ${t("EGP")}`
+                              ).toFixed(2)} ${getCurrencySymbol()}`
                               : t("Free")}
                           </div>
                         </div>
@@ -466,7 +467,7 @@ const ProductModal = ({
 
                               0
                             ).toFixed(2)}{" "}
-                            {t('EGP')}
+                            {getCurrencySymbol()}
                             {addon.tax && (
                               <span className="ml-1 text-xs text-gray-400">
                                 ({t("inclTax")})
@@ -547,7 +548,7 @@ const ProductModal = ({
               <div className="text-lg font-bold">
                 {t("Total")}{" "}
                 <span className="text-red-600">
-                  {totalPrice.toFixed(2)} {t("EGP")}
+                  {totalPrice.toFixed(2)} {getCurrencySymbol()}
                 </span>
               </div>
 

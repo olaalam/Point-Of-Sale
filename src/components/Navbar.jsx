@@ -43,6 +43,7 @@ import {
 import ExpensesModal from "@/Pages/ExpensesModal";
 import PasswordConfirmModal from "@/Pages/PasswordConfirmModal";
 import EndShiftReportModal from "@/Pages/ReportsAfterShift";
+import CartSwitchConfirmModal from "@/components/CartSwitchConfirmModal";
 
 export default function Navbar() {
   const FALLBACK_SOUND = "https://www.soundjay.com/buttons/sounds/button-1.mp3";
@@ -72,6 +73,8 @@ export default function Navbar() {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const dropdownRef = useRef(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [showCartConfirmModal, setShowCartConfirmModal] = useState(false);
+  const [pendingTabValue, setPendingTabValue] = useState(null);
 
   const isMobile = useIsMobile();
   const userData = JSON.parse(localStorage.getItem("user") || "{}");
@@ -118,7 +121,7 @@ export default function Navbar() {
           }
 
           audioRef.current.play().catch((e) => console.warn("Audio play blocked:", e));
-          toast.info(t("New Order Received!"));
+          toast.info(t("NewOrderReceived"));
         }
       }
 
@@ -173,19 +176,70 @@ export default function Navbar() {
   };
 
   const handleTabChange = (value) => {
+    const activeTab = localStorage.getItem("tab") || "take_away";
+    console.log("Navigating to:", value, "Current tab:", activeTab);
+
     if (!permissions[value.replace("-", "_")]) {
+      console.log("Permission denied for:", value);
       toast.warn(t("You do not have permission for this section"));
       return;
     }
 
+    if (value === activeTab) {
+      console.log("Already on this tab, doing nothing.");
+      return;
+    }
+
+    const cartString = localStorage.getItem("cart");
+    console.log("Cart string from localStorage:", cartString);
+    const cart = cartString && cartString !== "undefined" ? JSON.parse(cartString) : [];
+    console.log("Parsed cart count:", cart.length);
+
+    if (cart.length > 0) {
+      console.log("Cart not empty, showing confirmation modal...");
+      setPendingTabValue(value);
+      setShowCartConfirmModal(true);
+    } else {
+      console.log("Cart empty, proceeding with normal switch.");
+      proceedWithTabChange(value);
+    }
+  };
+
+  const proceedWithTabChange = (value, action = "clear") => {
     const isRepeated = localStorage.getItem("is_repeating_order") === "true";
+    const currentTabStored = localStorage.getItem("tab") || "take_away";
+
+    if (action === "keep") {
+      // Save current cart to its specific module key
+      const cartString = localStorage.getItem("cart");
+      console.log(`💾 Saving items to cart_${currentTabStored}:`, cartString);
+      if (cartString) {
+        localStorage.setItem(`cart_${currentTabStored}`, cartString);
+      }
+    } else {
+      // Clear current module's specific cart if clearing
+      console.log(`🗑️ Clearing saved items for cart_${currentTabStored}`);
+      localStorage.removeItem(`cart_${currentTabStored}`);
+    }
+
+    // Always start with an empty cart for the new module 
+    // unless we load a saved one later
+    if (!isRepeated) {
+      console.log("🧹 Clearing main cart for new module transition");
+      localStorage.removeItem("cart");
+    }
+
+    // Load target module's cart if it exists
+    const targetCart = localStorage.getItem(`cart_${value}`);
+    if (targetCart && targetCart !== "undefined") {
+      console.log(`📦 Loading saved items from cart_${value} into main cart`);
+      localStorage.setItem("cart", targetCart);
+    }
 
     localStorage.setItem("tab", value);
     localStorage.setItem("order_type", value);
 
-    if (!isRepeated) {
-      localStorage.removeItem("cart");
-    } else {
+    if (isRepeated) {
       localStorage.removeItem("is_repeating_order");
     }
 
@@ -202,6 +256,17 @@ export default function Navbar() {
     } else if (value === "online-order") {
       navigate("/online-orders", { replace: true });
     }
+
+    setShowCartConfirmModal(false);
+    setPendingTabValue(null);
+  };
+
+  const onClearAndSwitch = () => {
+    proceedWithTabChange(pendingTabValue, "clear");
+  };
+
+  const onKeepAndSwitch = () => {
+    proceedWithTabChange(pendingTabValue, "keep");
   };
 
   const handleTables = () => {
@@ -215,8 +280,10 @@ export default function Navbar() {
   const handleDueUsers = () => navigate("/due");
   const handleAllOrders = () => navigate("/all-orders");
   const handleExpenses = () => setShowExpensesModal(true);
+  const handleExpensesList = () => navigate("/expenses");
   const handleDeliveryOrder = () => navigate("/deliveryOrders");
   const handleDineInOrder = () => navigate("/dine-in-orders");
+
 
   const handleCloseShift = () => {
     if (!isShiftOpen) {
@@ -496,6 +563,12 @@ export default function Navbar() {
                     </div>
                     <span className="font-bold text-gray-700">{t("Due")}</span>
                   </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleExpensesList} className="flex items-center gap-3 p-3 cursor-pointer hover:bg-gray-50 rounded-lg group">
+                    <div className="w-8 h-8 rounded-full bg-red-50 text-red-600 flex items-center justify-center group-hover:bg-red-600 group-hover:text-white transition-colors">
+                      <FaExclamationCircle size={14} />
+                    </div>
+                    <span className="font-bold text-gray-700">{t("Expenses")}</span>
+                  </DropdownMenuItem>
 
                   {permissions.dine_in && (
                     <DropdownMenuItem onClick={handleTables} className="flex items-center gap-3 p-3 cursor-pointer hover:bg-gray-50 rounded-lg group">
@@ -575,7 +648,7 @@ export default function Navbar() {
                 {isDropdownOpen && (
                   <div className={`absolute ${isArabic ? "left-0" : "right-0"} mt-3 w-80 bg-white rounded-2xl shadow-2xl border border-gray-100 z-[9999] max-h-96 overflow-y-auto`}>
                     <div className="p-4 border-b border-gray-100 bg-gray-50 rounded-t-2xl">
-                      <h3 className="font-extrabold text-gray-800 text-lg">{t("New Orders")} ({notificationCount})</h3>
+                      <h3 className="font-extrabold text-gray-800 text-lg">{t("NewOrders")} ({notificationCount})</h3>
                     </div>
                     <div className="py-2">
                       {notifications.length > 0 ? (
@@ -595,7 +668,7 @@ export default function Navbar() {
                       ) : (
                         <div className="p-10 text-center">
                           <FaBell className="text-4xl text-gray-200 mx-auto mb-3" />
-                          <p className="text-gray-400 font-bold">{t("No new orders")}</p>
+                          <p className="text-gray-400 font-bold">{t("Noneworders")}</p>
                         </div>
                       )}
                     </div>
@@ -750,8 +823,8 @@ export default function Navbar() {
           <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
             <div className="bg-white p-6 md:p-8 rounded-2xl shadow-2xl w-[95vw] sm:w-full max-w-md border border-gray-100">
               <div className="text-center mb-6">
-                <h3 className="text-2xl font-bold text-gray-800">إغلاق الوردية</h3>
-                <p className="text-gray-500 mt-2">كم المبلغ الموجود في العهدة الآن؟</p>
+                <h3 className="text-2xl font-bold text-gray-800">{t("closeshift")}</h3>
+                <p className="text-gray-500 mt-2">{t("CashInHandAmount")}</p>
               </div>
               <div className="relative">
                 <input
@@ -769,14 +842,14 @@ export default function Navbar() {
                   onClick={() => { setShowCashInputModal(false); setCashAmount(""); }}
                   className="flex-1 py-3 text-gray-600 font-semibold hover:bg-gray-100 rounded-xl transition"
                 >
-                  إلغاء
+                  {t("Cancel")}
                 </button>
                 <button
                   onClick={handleCashConfirmed}
                   disabled={!cashAmount || reportLoading}
                   className="flex-1 py-3 bg-bg-primary text-white font-semibold rounded-xl shadow-lg hover:bg-red-700 transition disabled:opacity-50"
                 >
-                  {reportLoading ? "جاري التحميل..." : "تأكيد وإرسال"}
+                  {reportLoading ? t("Loading") : t("ConfirmAndSend")}
                 </button>
               </div>
             </div>
@@ -792,6 +865,21 @@ export default function Navbar() {
           />
         )
       }
+      <CartSwitchConfirmModal
+        open={showCartConfirmModal}
+        onOpenChange={setShowCartConfirmModal}
+        onClearAndSwitch={onClearAndSwitch}
+        onKeepAndSwitch={onKeepAndSwitch}
+        itemCount={(() => {
+          const cartString = localStorage.getItem("cart");
+          if (!cartString || cartString === "undefined") return 0;
+          try {
+            return JSON.parse(cartString).length;
+          } catch {
+            return 0;
+          }
+        })()}
+      />
     </>
   );
 }

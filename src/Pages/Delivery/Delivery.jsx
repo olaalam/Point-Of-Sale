@@ -1,3 +1,4 @@
+import { getCurrencySymbol } from '../../utils/currency';
 import React, { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -594,11 +595,11 @@ export default function Delivery({ orderType: propOrderType }) {
                     </div>
                     <div className="text-right">
                       <p className="text-2xl font-bold text-green-600">
-                        {order.amount} {t("EGP")}
+                        {order.amount} {getCurrencySymbol()}
                       </p>
                       {order.total_discount > 0 && (
                         <p className="text-sm text-gray-500">
-                          {t("Discount")}: {order.total_discount} {t("EGP")}
+                          {t("Discount")}: {order.total_discount} {getCurrencySymbol()}
                         </p>
                       )}
                     </div>
@@ -628,7 +629,7 @@ export default function Delivery({ orderType: propOrderType }) {
                               {productData.name}
                             </p>
                             <p className="text-sm text-gray-600">
-                              {t("Quantity")}: {product.count} x {productData.price} {t("EGP")}
+                              {t("Quantity")}: {product.count} x {productData.price} {getCurrencySymbol()}
                             </p>
                             {product.notes && (
                               <p className="text-xs text-gray-500 italic">
@@ -642,7 +643,7 @@ export default function Delivery({ orderType: propOrderType }) {
                             )}
                           </div>
                           <p className="font-semibold text-gray-800">
-                            {(productData.price * product.count).toFixed(2)} {t("EGP")}
+                            {(productData.price * product.count).toFixed(2)} {getCurrencySymbol()}
                           </p>
                         </div>
                       );

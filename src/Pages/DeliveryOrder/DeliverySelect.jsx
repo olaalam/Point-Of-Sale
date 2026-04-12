@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { ChevronDown } from "lucide-react";
 import Loading from "@/components/Loading";
 import { useGet } from "@/Hooks/useGet";
+import { useTranslation } from "react-i18next";
 
 export default function DeliverySelect({ value, onChange }) {
   const [open, setOpen] = useState(false);
@@ -11,6 +12,7 @@ export default function DeliverySelect({ value, onChange }) {
     isLoading,
     error,
   } = useGet("cashier/delivery_balance/lists", { useCache: true });
+  const { t } = useTranslation();
 
   // 🧠 deliveries من الريسبونس
   const deliveries = useMemo(
@@ -37,7 +39,7 @@ export default function DeliverySelect({ value, onChange }) {
           {!isLoading && !error && (
             selectedDelivery
               ? `${selectedDelivery.name} (${selectedDelivery.phone})`
-              : "Choose Delivery Man"
+              : t("ChooseDeliveryMan")
           )}
         </span>
         <ChevronDown className="w-4 h-4 text-gray-500" />

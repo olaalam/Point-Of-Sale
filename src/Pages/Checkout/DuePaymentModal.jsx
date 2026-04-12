@@ -1,3 +1,4 @@
+import { getCurrencySymbol } from '../../utils/currency';
 import React, { useState, useEffect, useMemo } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -60,7 +61,7 @@ const DuePaymentModal = ({
     const maxAllowed = requiredTotal - totalOthers;
 
     if (num > maxAllowed) {
-      toast.error(`Max allowed: ${maxAllowed.toFixed(2)} EGP`);
+      toast.error(`Max allowed: ${maxAllowed.toFixed(2)} {getCurrencySymbol()}`);
       return;
     }
 
@@ -170,15 +171,15 @@ const handleConfirm = () => {
           <div className="space-y-1 text-sm">
             <div className="flex justify-between">
               <span>Total Order:</span>
-              <span className="font-bold">{requiredTotal.toFixed(2)} EGP</span>
+              <span className="font-bold">{requiredTotal.toFixed(2)} {getCurrencySymbol()}</span>
             </div>
             <div className="flex justify-between text-green-600">
               <span>Paid Now:</span>
-              <span>{paidNow.toFixed(2)} EGP</span>
+              <span>{paidNow.toFixed(2)} {getCurrencySymbol()}</span>
             </div>
             <div className="flex justify-between text-red-600 font-bold">
               <span>Due Amount:</span>
-              <span>{dueAmount.toFixed(2)} EGP</span>
+              <span>{dueAmount.toFixed(2)} {getCurrencySymbol()}</span>
             </div>
           </div>
         </div>

@@ -1,3 +1,4 @@
+import { getCurrencySymbol } from '../../utils/currency';
 import React, { useState, useEffect, useMemo, useRef } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -559,13 +560,12 @@ const CheckOut = ({
           );
           printReceiptSilently(receiptData, response, () => {
             handleNavigation(response);
+            onClose?.();
           });
         } else {
           handleNavigation(response);
+          onClose?.();
         }
-
-        onClearCart?.();
-        onClose?.();
       }
       // مفيش else هنا دلوقتي – كل الـ non-success بيروح للـ catch
     } catch (error) {
@@ -741,7 +741,7 @@ const CheckOut = ({
             <p className="text-lg font-bold text-red-600">
               {t("PlatformWillPayRemaining")} (Due Module):{" "}
               <strong>
-                {remainingAmount.toFixed(2)} {t("EGP")}
+                {remainingAmount.toFixed(2)} {getCurrencySymbol()}
               </strong>
             </p>
           </div>
@@ -753,7 +753,7 @@ const CheckOut = ({
               proceedWithOrderSubmission(0, undefined, remainingAmount)
             }
           >
-            تأكيد الطلب مع Due Module ({remainingAmount.toFixed(2)} {t("EGP")})
+            {t("ConfirmOrderWithDueModule", { amount: remainingAmount.toFixed(2) })}
           </Button>
         </div>
       )}
@@ -842,7 +842,7 @@ const CheckOut = ({
       {/* Amount Paid by Customer */}
       <div className="mb-4">
         <label className="text-xs font-bold text-gray-500 mb-1 block">
-          {t("Amount by Customer")}
+          {t("AmountbyCustomer")}
         </label>
         <div className="relative">
           <Input
@@ -861,14 +861,14 @@ const CheckOut = ({
       {/* Summary */}
       <div className="bg-gray-100 p-4 rounded-xl">
         <p className="text-4xl text-center m-auto font-black text-red-700">
-          {requiredTotal.toFixed(2)} EGP
+          {requiredTotal.toFixed(2)} {getCurrencySymbol()}
         </p>
 
         {parseFloat(customerPaid) > requiredTotal && (
           <div className="flex justify-between items-center mt-2 pt-2 border-t border-gray-200 text-green-600 font-bold">
             <span>{t("Change")}</span>
             <span>
-              {(parseFloat(customerPaid) - requiredTotal).toFixed(2)} EGP
+              {(parseFloat(customerPaid) - requiredTotal).toFixed(2)} {getCurrencySymbol()}
             </span>
           </div>
         )}
@@ -971,7 +971,7 @@ const CheckOut = ({
         {loading ? (
           <Loading />
         ) : (
-          t("Pay Now")
+          t("PayNow")
         )}
       </Button>
 

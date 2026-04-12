@@ -1,7 +1,6 @@
-import React from "react";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { toast } from "react-toastify";
+import { getCurrencySymbol } from '../../utils/currency';
+import { useTranslation } from "react-i18next";
+
 const CustomerSelectionModal = ({
   isOpen,
   onClose,
@@ -12,6 +11,7 @@ const CustomerSelectionModal = ({
   loading,
   requiredTotal,
 }) => {
+  const { t } = useTranslation();
   // التحقق من أن المبلغ المطلوب ضمن حد الائتمان للعميل
   const isWithinDebitLimit = (customer) => {
     return requiredTotal <= customer.can_debit;
@@ -23,7 +23,10 @@ const CustomerSelectionModal = ({
       onSelectCustomer(customer);
     } else {
       toast.error(
-        `Order amount (${requiredTotal.toFixed(2)} EGP) exceeds customer's debit limit (${customer.can_debit.toFixed(2)} EGP).`
+        t("OrderExceedsDebitLimitWithValues", {
+          amount: requiredTotal.toFixed(2),
+          limit: customer.can_debit.toFixed(2),
+        })
       );
     }
   };
@@ -41,23 +44,23 @@ const CustomerSelectionModal = ({
         </button>
 
         <h2 className="text-xl font-semibold mb-4 text-center text-red-600">
-          Select Customer for Due Order
+          {t("SelectCustomerForDueOrder")}
         </h2>
 
         <p className="text-center text-sm mb-4 text-gray-600">
-          Order Total: <strong>{requiredTotal.toFixed(2)} EGP</strong>
+          {t("OrderTotal")}: <strong>{requiredTotal.toFixed(2)} {getCurrencySymbol()}</strong>
         </p>
 
         {/* حقل البحث */}
         <Input
-          placeholder="Search by name or phone..."
+          placeholder={t("Pleasesearchbynameorphonetofindusers")}
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           className="mb-4"
         />
 
         {loading && (
-          <p className="text-center text-sm text-gray-500">Searching...</p>
+          <p className="text-center text-sm text-gray-500">{t("Searching")}</p>
         )}
 
         {/* قائمة العملاء */}
@@ -81,10 +84,10 @@ const CustomerSelectionModal = ({
                     </span>
                     <span
                       className={`text-xs ${
-                        withinLimit ? "text-green-600" : "text-red-600"
+                         withinLimit ? "text-green-600" : "text-red-600"
                       }`}
                     >
-                      Debit Limit: {customer.can_debit.toFixed(2)} EGP
+                      {t("DebitLimit")}: {customer.can_debit.toFixed(2)} {getCurrencySymbol()}
                     </span>
                   </div>
                   <Button
@@ -92,14 +95,14 @@ const CustomerSelectionModal = ({
                     variant={withinLimit ? "default" : "outline"}
                     disabled={!withinLimit}
                   >
-                    {withinLimit ? "Select" : "Limit Exceeded"}
+                    {withinLimit ? t("Select") || "Select" : t("LimitExceeded")}
                   </Button>
                 </div>
               );
             })
           ) : (
             <p className="text-sm text-gray-500 text-center">
-              No customers found. Please refine your search.
+              {t("NoCustomersFoundRefineSearch")}
             </p>
           )}
         </div>
