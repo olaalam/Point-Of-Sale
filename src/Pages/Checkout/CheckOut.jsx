@@ -734,29 +734,6 @@ const CheckOut = ({
         onSkip={handleSkip}
       />
 
-      {/* سيكشن الـ Due Module - المنصة تدفع الباقي */}
-      {isDueModuleAllowed && remainingAmount > 0.01 && (
-        <div className="p-4  bg-red-50 border border-red-200 rounded-lg shadow-sm">
-          <div className="text-center mb-4">
-            <p className="text-lg font-bold text-red-600">
-              {t("PlatformWillPayRemaining")} (Due Module):{" "}
-              <strong>
-                {remainingAmount.toFixed(2)} {getCurrencySymbol()}
-              </strong>
-            </p>
-          </div>
-
-          <Button
-            className="w-full text-white text-lg font-bold py-6 bg-red-600 hover:bg-red-700"
-            disabled={loading}
-            onClick={() =>
-              proceedWithOrderSubmission(0, undefined, remainingAmount)
-            }
-          >
-            {t("ConfirmOrderWithDueModule", { amount: remainingAmount.toFixed(2) })}
-          </Button>
-        </div>
-      )}
       {/* 🟢 Checkout Methods (يظهر عند الضغط على زر Checkout أو Pay) */}
       {requiredTotal > 0 && (
         <div className="border border-gray-300 rounded-lg overflow-hidden animate-in slide-in-from-top-2 duration-300">
@@ -797,6 +774,22 @@ const CheckOut = ({
                 </button>
               );
             })}
+
+            {/* Due Module as Visa - Platform pays remaining */}
+            {isDueModuleAllowed && remainingAmount > 0.01 && (
+              <button
+                disabled={loading}
+                onClick={() => proceedWithOrderSubmission(0, undefined, remainingAmount)}
+                className="flex flex-col items-center justify-center p-3 rounded-xl border-2 border-red-200 bg-white text-[#1A1F71] hover:border-blue-200 hover:bg-blue-50 transition-all gap-2 h-24"
+              >
+                <div className="w-10 h-10 flex items-center justify-center">
+                  <span className="text-2xl font-black italic tracking-tighter">VISA</span>
+                </div>
+                <span className="text-[10px] font-bold text-center uppercase">
+                  Visa ({groupProducts.find(g => g.id === parseInt(lastSelectedGroup))?.name || "Talabat"})
+                </span>
+              </button>
+            )}
 
             {/* Due - لون أورانج ثابت */}
             <button
