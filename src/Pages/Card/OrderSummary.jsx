@@ -546,15 +546,19 @@ export default function OrderSummary({
       if (response.success) {
         setAppliedDiscount(response.discount);
         toast.success(t("DiscountApplied", { discount: response.discount }));
+        setDiscountCode("");
       } else {
         setAppliedDiscount(0);
+        setDiscountCode("");
         setDiscountError("Invalid or Off discount code.");
         toast.error(t("InvalidOrOffDiscountCode"));
+
       }
     } catch (e) {
       console.log(e?.response?.data?.errors);
 
       setAppliedDiscount(0);
+      setDiscountCode("");
       setDiscountError(e?.response?.data?.errors || "Failed to validate discount code.");
       toast.error(e?.response?.data?.errors || t("FailedToValidateDiscountCode"));
     } finally {
@@ -638,7 +642,21 @@ export default function OrderSummary({
     prep: localStorage.getItem("preparation_number"),
     Phone: localStorage.getItem("restaurant_phone") || "",
   };
+  useEffect(() => {
+    if (!isDiscountExpanded) {
+      setTempFreeDiscount("");
+      setDiscountCode("");
+      setActiveDiscountTab(null);
+      setDiscountError(null);
+    }
+  }, [isDiscountExpanded]);
 
+  // تفريغ الحقول عند التنقل بين أنواع الخصومات (اختياري حسب رغبتك)
+  useEffect(() => {
+    setTempFreeDiscount("");
+    setDiscountCode("");
+    setDiscountError(null);
+  }, [activeDiscountTab]);
 
   return (
     <div className="flex-shrink-0 bg-white border-t-2 border-gray-200 pt-4 md:pt-6 mt-4">
@@ -989,6 +1007,7 @@ export default function OrderSummary({
 
           if (isNaN(discountAmount) || discountAmount <= 0) {
             toast.error(t("Please enter a valid amount"));
+            setTempFreeDiscount("");
             return;
           }
 
@@ -1009,10 +1028,12 @@ export default function OrderSummary({
             } else {
               // لو الباسوورد غلط (حسب رد الباك إند)
               toast.error(response.message || t("Invalid Password"));
+              setTempFreeDiscount("");
             }
           } catch (error) {
             console.error("Discount Error:", error);
             toast.error(error?.response?.data?.message || t("Verification failed"));
+            setTempFreeDiscount("");
           }
         }}
       />
