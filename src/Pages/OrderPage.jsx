@@ -386,6 +386,7 @@ export default function OrderPage({
           onClose={handleClose}
           refreshCartData={refreshCartData}
           orderItems={currentOrderItems}
+          updateOrderItems={updateOrderItems}
           cartHasItems={currentOrderItems.length > 0}
         />
       </div>

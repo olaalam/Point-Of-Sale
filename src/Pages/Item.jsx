@@ -50,7 +50,7 @@ const INITIAL_PRODUCT_ROWS = 2;
 const PRODUCTS_PER_ROW = 4;
 const PRODUCTS_TO_SHOW_INITIALLY = INITIAL_PRODUCT_ROWS * PRODUCTS_PER_ROW;
 
-export default function Item({ onAddToOrder, onClose, onClearCart, cartHasItems }) {
+export default function Item({ onAddToOrder, onClose, onClearCart, cartHasItems, orderItems, updateOrderItems }) {
   const [selectedMainCategory, setSelectedMainCategory] = useState("favorite");
   const [selectedSubCategory, setSelectedSubCategory] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -143,17 +143,7 @@ export default function Item({ onAddToOrder, onClose, onClearCart, cartHasItems 
   });
   const groupProducts = useMemo(() => groupData?.group_product || [], [groupData]);
 
-  // 2. جلب تصنيفات المجموعة المختارة
-  const { data: favouriteCategoriesData, isLoading: isFavCatLoading } = useQuery({
-    queryKey: ["favouriteCategories", selectedGroup, branchIdState],
-    queryFn: () =>
-      apiPoster(`cashier/group_product/favourite`, {
-        group_id: parseInt(selectedGroup),
-        branch_id: parseInt(branchIdState),
-      }),
-    enabled: selectedGroup !== "all" && !!branchIdState && !isNormalPrice,
-    staleTime: 5 * 60 * 1000,
-  });
+  // Removed favouriteCategoriesData fetch based on user request to only change cart prices
 
   // 3. جلب البيانات الأساسية
   const allModulesEndpoint = useMemo(() => {
@@ -169,9 +159,8 @@ export default function Item({ onAddToOrder, onClose, onClearCart, cartHasItems 
   });
 
   const finalCategories = useMemo(() => {
-    if (isNormalPrice || selectedGroup === "all") return allModulesData?.categories || [];
-    return favouriteCategoriesData?.categories || allModulesData?.categories || [];
-  }, [selectedGroup, allModulesData, favouriteCategoriesData, isNormalPrice]);
+    return allModulesData?.categories || [];
+  }, [allModulesData]);
 
   const favouriteProducts = useMemo(() => {
     if (!allModulesData) return [];
@@ -220,14 +209,10 @@ export default function Item({ onAddToOrder, onClose, onClearCart, cartHasItems 
     }
 
     // 2. حدد الليست الأساسية
-    if (selectedMainCategory === "favorite") {
+    if (selectedMainCategory === "favorite" || selectedGroup === "all") {
       products = favouriteProducts;
-    } else if (selectedGroup === "all") {
-      products = favouriteProducts;
-    } else if (isNormalPrice || selectedGroup === "none") {
-      products = allProducts;
     } else {
-      products = favouriteCategoriesData?.products || [];
+      products = allProducts;
     }
 
     // 3. فلتر حسب الـ category/sub
@@ -242,7 +227,6 @@ export default function Item({ onAddToOrder, onClose, onClearCart, cartHasItems 
   }, [
     allProducts,
     favouriteProducts,
-    favouriteCategoriesData,
     selectedMainCategory,
     selectedSubCategory,
     searchQuery,
@@ -272,25 +256,17 @@ export default function Item({ onAddToOrder, onClose, onClearCart, cartHasItems 
   };
 
   const handleNormalPricesClick = () => {
-    const performSwitch = () => {
-      if (onClearCart && !isNormalPrice) {
-        onClearCart();
-      }
-      setIsNormalPrice(true);
-      setSelectedGroup("none");
-      setShowCategories(true);
-      setSelectedMainCategory("all");
-      setSelectedSubCategory(null);
-      localStorage.removeItem("module_order_number");
-      setShowClearModal(false);
-    };
-
-    if (!isNormalPrice && cartHasItems) {
-      setPendingAction(() => performSwitch);
-      setShowClearModal(true);
-    } else {
-      performSwitch();
-    }
+    setIsNormalPrice(true);
+    setSelectedGroup("none");
+    setShowCategories(true);
+    setSelectedMainCategory("all");
+    setSelectedSubCategory(null);
+    localStorage.removeItem("module_order_number");
+    
+    // Optionally we could reset prices in cart back to normal, but if they add other normal items it will be fine.
+    // If we want to restore cart to normal prices, we would need to map over normal products.
+    // For now, no clear modal is requested.
+    setShowClearModal(false);
   };
 
   const handleGroupChange = (groupId) => {
@@ -313,9 +289,41 @@ export default function Item({ onAddToOrder, onClose, onClearCart, cartHasItems 
       // في الـ favorites أحياناً السعر بيكون في price_after_discount أو final_price
       const basePrice = parseFloat(product.final_price || product.price_after_discount || product.price || 0);
 
-      const pricePerUnit = product.totalPrice
+      let pricePerUnit = product.totalPrice
         ? parseFloat(product.totalPrice) / finalQuantity
         : basePrice;
+
+      if (!isNormalPrice && selectedGroup && selectedGroup !== "none" && selectedGroup !== "all") {
+        try {
+          const payload = {
+            branch_id: branchIdState,
+            group_id: selectedGroup,
+            products: [product.product_id || product.id]
+          };
+          const response = await apiPoster("cashier/group_product/group_lists", payload);
+          const resProducts = response?.data?.products_items || response?.products_items || response?.data?.products || response?.products || response?.data || response?.success?.products || response || [];
+          let arrayToMap = [];
+          if (Array.isArray(resProducts)) arrayToMap = resProducts;
+          else if (Array.isArray(resProducts.products)) arrayToMap = resProducts.products;
+          
+          if (arrayToMap.length > 0) {
+             const matchedProduct = arrayToMap[0];
+             const finalGroupPrice = parseFloat(matchedProduct.final_price || matchedProduct.price_after_discount || matchedProduct.price || matchedProduct.price_after_tax || 0);
+             if (finalGroupPrice > 0 && !product.totalPrice) {
+                 pricePerUnit = finalGroupPrice;
+                 
+                 const originalMatchedPrice = parseFloat(matchedProduct.price || 0);
+                 product.final_price = finalGroupPrice;
+                 product.price_after_discount = finalGroupPrice;
+                 product.price = originalMatchedPrice > 0 ? originalMatchedPrice : finalGroupPrice;
+                 // Set discount_val so ItemRow.jsx calculates the correct strike-through original price
+                 product.discount_val = originalMatchedPrice > finalGroupPrice ? originalMatchedPrice - finalGroupPrice : 0;
+             }
+          }
+        } catch(e) {
+          console.error("Failed to fetch group price for added item:", e);
+        }
+      }
 
       const totalAmount = pricePerUnit * finalQuantity;
 
@@ -389,8 +397,7 @@ export default function Item({ onAddToOrder, onClose, onClearCart, cartHasItems 
 
   if (
     groupLoading ||
-    isAllDataLoading ||
-    (selectedGroup !== "all" && isFavCatLoading && !isNormalPrice)
+    isAllDataLoading
   ) {
     return (
       <div className="flex justify-center items-center h-40">
@@ -821,32 +828,78 @@ export default function Item({ onAddToOrder, onClose, onClearCart, cartHasItems 
     </div>
   );
 
-  const handleSaveModuleOrder = () => {
-    const performSave = () => {
-      if (onClearCart && isNormalPrice) {
-        onClearCart();
-      }
-      localStorage.setItem("module_order_number", moduleOrderNumber.trim());
-      setIsNormalPrice(false);
-      const id = tempGroupId.toString();
-      localStorage.setItem("last_selected_group", id);
-      setSelectedGroup(id);
-      setShowCategories(true);
-      setSelectedMainCategory("all");
-      setSelectedSubCategory(null);
-      setIsModuleOrderModalOpen(false);
-      setTempGroupId(null);
-      setModuleOrderNumber("");
-      toast.success(t("ModuleOrderNumberSaved") || "تم حفظ رقم الطلب بنجاح");
-      setShowClearModal(false);
-    };
+  const handleSaveModuleOrder = async () => {
+    const id = tempGroupId?.toString();
+    const groupNum = moduleOrderNumber.trim();
+    const branchId = branchIdState;
 
-    if (isNormalPrice && cartHasItems) {
-      setPendingAction(() => performSave);
-      setShowClearModal(true);
-    } else {
-      performSave();
+    setIsNormalPrice(false);
+    localStorage.setItem("module_order_number", groupNum);
+    localStorage.setItem("last_selected_group", id);
+    setSelectedGroup(id);
+    setShowCategories(true);
+    setSelectedMainCategory("all");
+    setSelectedSubCategory(null);
+    setIsModuleOrderModalOpen(false);
+    setTempGroupId(null);
+    setModuleOrderNumber("");
+
+    // Fetch new prices for cart items specifically
+    if (cartHasItems && orderItems && orderItems.length > 0) {
+      try {
+        const payload = {
+          branch_id: branchId,
+          group_id: id,
+          products: orderItems.map((item) => item.product_id || item.id)
+        };
+        const response = await apiPoster("cashier/group_product/group_lists", payload);
+
+        const resProducts = response?.data?.products_items || response?.products_items || response?.data?.products || response?.products || response?.data || response?.success?.products || response || [];
+        const updatedProductsMap = new Map();
+        
+        let arrayToMap = [];
+        if (Array.isArray(resProducts)) arrayToMap = resProducts;
+        else if (Array.isArray(resProducts.products)) arrayToMap = resProducts.products;
+        
+        arrayToMap.forEach(p => {
+          updatedProductsMap.set(p.id?.toString(), p);
+          if (p.product_id) updatedProductsMap.set(p.product_id?.toString(), p);
+        });
+
+        const newlyPricedCart = orderItems.map(item => {
+          const pIdStr = (item.product_id || item.id)?.toString();
+          const matchedProduct = updatedProductsMap.get(pIdStr);
+          if (matchedProduct) {
+            const finalPrice = parseFloat(matchedProduct.final_price || matchedProduct.price_after_discount || matchedProduct.price || item.price || 0);
+            const originalMatchedPrice = parseFloat(matchedProduct.price || 0);
+            const finalQuantity = parseFloat(item.quantity || item.count || 1);
+            const newTotalPrice = finalPrice * finalQuantity;
+
+            return {
+              ...item,
+              price: originalMatchedPrice > 0 ? originalMatchedPrice : finalPrice, // Base price
+              final_price: finalPrice,        // Crucial for ItemRow
+              price_after_discount: finalPrice, 
+              discount_val: originalMatchedPrice > finalPrice ? originalMatchedPrice - finalPrice : 0, // Calculates strike-through
+              totalPrice: newTotalPrice,
+              originalPrice: originalMatchedPrice || finalPrice,
+              module_id: id,
+            };
+          }
+          return item;
+        });
+
+        if (updateOrderItems) {
+          updateOrderItems(newlyPricedCart);
+        }
+      } catch (error) {
+        console.error("Failed to update cart prices", error);
+        toast.error(t("FailedToUpdatePrices") || "فشل تحديث الأسعار بالسلة");
+      }
     }
+
+    toast.success(t("ModuleOrderNumberSaved") || "تم حفظ رقم الطلب بنجاح");
+    setShowClearModal(false);
   };
 
   return (
