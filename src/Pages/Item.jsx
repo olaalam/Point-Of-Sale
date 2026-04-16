@@ -11,6 +11,7 @@ import ProductCard from "./ProductCard";
 import ProductModal from "./ProductModal";
 import { useTranslation } from "react-i18next";
 import { buildProductPayload } from "@/services/productProcessor";
+import { processProductItem } from "./Checkout/processProductItem";
 import ModuleOrderModal from "./ModuleOrderModal";
 import GroupSelector from "./GroupSelector";
 
@@ -143,6 +144,16 @@ export default function Item({ onAddToOrder, onClose, onClearCart, cartHasItems,
   });
   const groupProducts = useMemo(() => groupData?.group_product || [], [groupData]);
 
+  // 🟢 المزامنة المؤكدة بين الـ state والـ localStorage عشان ما يحصلش تعارض (زى ظهور الفيزا فالـ Normal)
+  useEffect(() => {
+    if (isNormalPrice || selectedGroup === "none" || selectedGroup === "all") {
+      localStorage.removeItem("last_selected_group");
+    } else if (selectedGroup) {
+      localStorage.setItem("last_selected_group", selectedGroup);
+    }
+  }, [isNormalPrice, selectedGroup]);
+
+
   // Removed favouriteCategoriesData fetch based on user request to only change cart prices
 
   // 3. جلب البيانات الأساسية
@@ -262,10 +273,7 @@ export default function Item({ onAddToOrder, onClose, onClearCart, cartHasItems,
     setSelectedMainCategory("all");
     setSelectedSubCategory(null);
     localStorage.removeItem("module_order_number");
-    
-    // Optionally we could reset prices in cart back to normal, but if they add other normal items it will be fine.
-    // If we want to restore cart to normal prices, we would need to map over normal products.
-    // For now, no clear modal is requested.
+    localStorage.removeItem("last_selected_group"); // 🟢 عشان isDueModuleAllowed في CheckOut يتصفر
     setShowClearModal(false);
   };
 
@@ -295,32 +303,64 @@ export default function Item({ onAddToOrder, onClose, onClearCart, cartHasItems,
 
       if (!isNormalPrice && selectedGroup && selectedGroup !== "none" && selectedGroup !== "all") {
         try {
+          const pPayload = buildProductPayload(product);
           const payload = {
             branch_id: branchIdState,
             group_id: selectedGroup,
-            products: [product.product_id || product.id]
+            products: [{
+              id: pPayload.product_id || product.product_id || product.id,
+              extras: pPayload.extra_id || [],
+              addons: pPayload.addons || [],
+              variations: (pPayload.variation || []).map(v => ({
+                id: v.variation_id,
+                options: v.option_id
+              }))
+            }]
           };
           const response = await apiPoster("cashier/group_product/group_lists", payload);
           const resProducts = response?.data?.products_items || response?.products_items || response?.data?.products || response?.products || response?.data || response?.success?.products || response || [];
           let arrayToMap = [];
           if (Array.isArray(resProducts)) arrayToMap = resProducts;
           else if (Array.isArray(resProducts.products)) arrayToMap = resProducts.products;
-          
+
           if (arrayToMap.length > 0) {
-             const matchedProduct = arrayToMap[0];
-             const finalGroupPrice = parseFloat(matchedProduct.final_price || matchedProduct.price_after_discount || matchedProduct.price || matchedProduct.price_after_tax || 0);
-             if (finalGroupPrice > 0 && !product.totalPrice) {
-                 pricePerUnit = finalGroupPrice;
-                 
-                 const originalMatchedPrice = parseFloat(matchedProduct.price || 0);
-                 product.final_price = finalGroupPrice;
-                 product.price_after_discount = finalGroupPrice;
-                 product.price = originalMatchedPrice > 0 ? originalMatchedPrice : finalGroupPrice;
-                 // Set discount_val so ItemRow.jsx calculates the correct strike-through original price
-                 product.discount_val = originalMatchedPrice > finalGroupPrice ? originalMatchedPrice - finalGroupPrice : 0;
-             }
+            const matchedProduct = arrayToMap[0];
+            const finalGroupPrice = parseFloat(matchedProduct.final_price || matchedProduct.price_after_discount || matchedProduct.price || matchedProduct.price_after_tax || 0);
+            if (finalGroupPrice > 0) {
+              pricePerUnit = finalGroupPrice;
+
+              const originalMatchedPrice = parseFloat(matchedProduct.price || 0);
+              product.final_price = finalGroupPrice;
+              product.price_after_discount = finalGroupPrice;
+              product.price = originalMatchedPrice > 0 ? originalMatchedPrice : finalGroupPrice;
+              // Set discount_val so ItemRow.jsx calculates the correct strike-through original price
+              product.discount_val = originalMatchedPrice > finalGroupPrice ? originalMatchedPrice - finalGroupPrice : 0;
+
+              // التحديث عشان لو كان المودال حاسب totalPrice قبل كده
+              product.totalPrice = finalGroupPrice * finalQuantity;
+              
+              // 🔴 مسح أسعار الإضافات والأحجام لأن الباك إند رجع السعر الـ Absolute الشامل لكل حاجة
+              product.is_group_priced = true;
+              if (product.variations) {
+                product.variations = product.variations.map(v => ({
+                  ...v,
+                  options: v.options?.map(o => ({ ...o, price: 0, final_price: 0, price_after_tax: 0, price_after_discount: 0, total_option_price: 0 }))
+                }));
+              }
+              if (product.addons) {
+                product.addons = product.addons.map(a => ({
+                  ...a, price: 0, final_price: 0, price_after_tax: 0, price_after_discount: 0,
+                  options: a.options?.map(o => ({ ...o, price: 0, price_after_discount: 0 }))
+                }));
+              }
+              if (product.allExtras) {
+                product.allExtras = product.allExtras.map(e => ({
+                  ...e, price: 0, final_price: 0, price_after_tax: 0
+                }));
+              }
+            }
           }
-        } catch(e) {
+        } catch (e) {
           console.error("Failed to fetch group price for added item:", e);
         }
       }
@@ -850,17 +890,28 @@ export default function Item({ onAddToOrder, onClose, onClearCart, cartHasItems,
         const payload = {
           branch_id: branchId,
           group_id: id,
-          products: orderItems.map((item) => item.product_id || item.id)
+          products: orderItems.map((item) => {
+            const processed = processProductItem(item);
+            return {
+              id: processed.product_id || item.product_id || item.id,
+              extras: processed.extra_id || [],
+              addons: processed.addons || [],
+              variations: (processed.variation || []).map(v => ({
+                id: v.variation_id,
+                options: v.option_id
+              }))
+            };
+          })
         };
         const response = await apiPoster("cashier/group_product/group_lists", payload);
 
         const resProducts = response?.data?.products_items || response?.products_items || response?.data?.products || response?.products || response?.data || response?.success?.products || response || [];
         const updatedProductsMap = new Map();
-        
+
         let arrayToMap = [];
         if (Array.isArray(resProducts)) arrayToMap = resProducts;
         else if (Array.isArray(resProducts.products)) arrayToMap = resProducts.products;
-        
+
         arrayToMap.forEach(p => {
           updatedProductsMap.set(p.id?.toString(), p);
           if (p.product_id) updatedProductsMap.set(p.product_id?.toString(), p);
@@ -879,11 +930,23 @@ export default function Item({ onAddToOrder, onClose, onClearCart, cartHasItems,
               ...item,
               price: originalMatchedPrice > 0 ? originalMatchedPrice : finalPrice, // Base price
               final_price: finalPrice,        // Crucial for ItemRow
-              price_after_discount: finalPrice, 
+              price_after_discount: finalPrice,
               discount_val: originalMatchedPrice > finalPrice ? originalMatchedPrice - finalPrice : 0, // Calculates strike-through
               totalPrice: newTotalPrice,
               originalPrice: originalMatchedPrice || finalPrice,
               module_id: id,
+              is_group_priced: true,
+              variations: item.variations?.map(v => ({
+                ...v,
+                options: v.options?.map(o => ({ ...o, price: 0, final_price: 0, price_after_tax: 0, price_after_discount: 0, total_option_price: 0 }))
+              })),
+              addons: item.addons?.map(a => ({
+                ...a, price: 0, final_price: 0, price_after_tax: 0, price_after_discount: 0,
+                options: a.options?.map(o => ({ ...o, price: 0, price_after_discount: 0 }))
+              })),
+              allExtras: item.allExtras?.map(e => ({
+                ...e, price: 0, final_price: 0, price_after_tax: 0
+              }))
             };
           }
           return item;

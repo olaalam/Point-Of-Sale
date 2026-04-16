@@ -64,19 +64,18 @@ const CheckOut = ({
   const lastSelectedGroup = localStorage.getItem("last_selected_group");
   const { data: groupData } = useGet("cashier/group_product");
   const groupProducts = groupData?.group_product || [];
-  const isDueModuleAllowed = (() => {
+  const isDueModuleAllowed = useMemo(() => {
     if (!orderType || !groupProducts || groupProducts.length === 0)
       return false;
 
-    const lastSelectedGroupId = localStorage.getItem("last_selected_group");
-    if (!lastSelectedGroupId || lastSelectedGroupId === "all") return false;
+    if (!lastSelectedGroup || lastSelectedGroup === "all") return false;
 
-    const groupId = parseInt(lastSelectedGroupId);
+    const groupId = parseInt(lastSelectedGroup);
     if (isNaN(groupId)) return false;
 
     const selectedGroup = groupProducts.find((g) => g.id === groupId);
     return selectedGroup?.due === 1;
-  })();
+  }, [orderType, groupProducts, lastSelectedGroup]);
   const { data: discountListData, loading: discountsLoading } = useGet(
     "captain/discount_list"
   );
@@ -502,8 +501,11 @@ const CheckOut = ({
 
     const hasDealItems = safeOrderItems.some((item) => item.is_deal);
     const endpoint = getOrderEndpoint(orderType, safeOrderItems, totalDineInItems, hasDealItems);
-    const financialsPayload = buildFinancialsPayload(paymentSplits, financialAccounts);
     const moduleId = localStorage.getItem("last_selected_group");
+
+    // 🟢 لو Talabat بتدفع المبلغ كله (due_module = كامل المبلغ) → financials فاضية
+    const isFullDueModule = dueModuleValue > 0 && Math.abs(dueModuleValue - discountedAmount) < 0.01;
+    const financialsPayload = isFullDueModule ? [] : buildFinancialsPayload(paymentSplits, financialAccounts);
 
     let payload;
     if (hasDealItems) {
@@ -775,11 +777,11 @@ const CheckOut = ({
               );
             })}
 
-            {/* Due Module as Visa - Platform pays remaining */}
-            {isDueModuleAllowed && remainingAmount > 0.01 && (
+            {/* Due Module as Visa - Platform pays */}
+            {isDueModuleAllowed && (
               <button
                 disabled={loading}
-                onClick={() => proceedWithOrderSubmission(0, undefined, remainingAmount)}
+                onClick={() => proceedWithOrderSubmission(0, undefined, discountedAmount)}
                 className="flex flex-col items-center justify-center p-3 rounded-xl border-2 border-red-200 bg-white text-[#1A1F71] hover:border-blue-200 hover:bg-blue-50 transition-all gap-2 h-24"
               >
                 <div className="w-10 h-10 flex items-center justify-center">

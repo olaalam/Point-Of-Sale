@@ -114,7 +114,7 @@ const ItemRow = ({
       selectedOption.price || 0
     );
 
-    if (isSize) {
+    if (isSize && !item.is_group_priced) {
       // إذا كان حجماً: السعر الأساسي يصبح هو سعر هذا الحجم
       unitBasePrice = optionPrice;
     } else {
