@@ -88,39 +88,45 @@ export const useProductModal = () => {
   useEffect(() => {
     if (!selectedProduct) return;
 
-    let basePrice = parseFloat(selectedProduct.final_price ?? selectedProduct.price_after_discount ?? 0);
+    // السعر الأساسي المبدئي
+    let currentBasePrice = parseFloat(selectedProduct.final_price ?? selectedProduct.price_after_discount ?? 0);
     let extraCharges = 0;
 
-    // 1. حساب الـ Variations
     if (selectedProduct.variations) {
       selectedProduct.variations.forEach((v) => {
         const selected = selectedVariation[v.id];
-        if (v.type === "single" && selected) {
+        if (!selected) return;
+
+        if (v.type === "single") {
           const opt = v.options.find((o) => o.id === selected);
           if (opt) {
-            if (opt.total_option_price) {
-              extraCharges += (parseFloat(opt.total_option_price) - basePrice);
+            // إذا كان خيار حجم يغير السعر الأساسي
+            if (opt.total_option_price > 0) {
+              currentBasePrice = parseFloat(opt.total_option_price);
             } else {
-              extraCharges += parseFloat(opt.final_price || opt.price_after_tax || opt.price || 0);
+              extraCharges += parseFloat(opt.final_price || opt.price || 0);
             }
           }
         } else if (v.type === "multiple" && Array.isArray(selected)) {
           selected.forEach((id) => {
             const opt = v.options.find((o) => o.id === id);
-            if (opt) extraCharges += parseFloat(opt.final_price || opt.price_after_tax || opt.price || 0);
+            if (opt) {
+              // إضافة سعر "باتر فلاي" أو غيره للتكاليف الإضافية
+              extraCharges += parseFloat(opt.final_price || opt.price_after_tax || opt.price || 0);
+            }
           });
         }
       });
     }
 
-    // 2. حساب الـ Extras (بناءً على التكرار)
+    // حساب الـ Extras الخارجية
     selectedExtras.forEach((id) => {
       const extra = [...(selectedProduct.allExtras || []), ...(selectedProduct.addons || [])]
         .find((e) => e.id === parseInt(id));
-      if (extra) extraCharges += parseFloat(extra.final_price || extra.price_after_discount || extra.price || 0);
+      if (extra) extraCharges += parseFloat(extra.final_price || extra.price || 0);
     });
 
-    setTotalPrice((basePrice + extraCharges) * (parseFloat(quantity) || 0));
+    setTotalPrice((currentBasePrice + extraCharges) * (parseFloat(quantity) || 0));
   }, [quantity, selectedExtras, selectedProduct, selectedVariation]);
 
   return {

@@ -2,61 +2,9 @@ import React from "react";
 import { PREPARATION_STATUSES } from "./constants";
 import { Trash2, FileText } from "lucide-react";
 import ProductDetailModalWrapper from "./ProductDetailModalWrapper";
+import { calculateItemUnitPrice } from "../utils/orderPriceUtils";
 
-/**
- * 🟢 دالة حساب الإضافات (Addons + Extras)
- * تم تعديلها لتتعامل مع حالتين: 
- * 1. الإضافات الموجودة مباشرة ككائنات في مصفوفة addons.
- * 2. الـ Extras التي تأتي كـ IDs وتحتاج بحث في allExtras.
- */
-const calculateAddonsTotal = (item) => {
-  let total = 0;
 
-  // 1. حساب الـ Variations التي تعتبر "إضافات" وليست "أحجام"
-  // 1. حساب الـ Variations التي تعتبر "إضافات" وليست "أحجام"
-  if (item.variations && Array.isArray(item.variations)) {
-    item.variations.forEach((v) => {
-      // إذا لم يكن حجم (Size)، نأخذ قيمة الـ price كزيادة
-      const name = (v.name || "").toLowerCase();
-      const isSize = name.includes('size') || name.includes('حجم') || name.includes('maqas');
-
-      if (!isSize) {
-        const selectedId = v.selected_option_id;
-        const options = Array.isArray(selectedId) ? selectedId : [selectedId];
-
-        options.forEach(optId => {
-          const opt = v.options?.find(o => o.id === optId);
-          if (opt) {
-            // ⚠️ استخدام || مش ?? لأن price_after_discount ممكن تكون 0 فتحجب باقي القيم
-            total += Number(opt.price || opt.final_price || opt.total_option_price || 0);
-          }
-        });
-      }
-    });
-  }
-
-  // 2. حساب الـ Addons (مثل fries, combo)
-  if (item.addons && Array.isArray(item.addons)) {
-    item.addons.forEach((ad) => {
-      const isSelected = ad.selected === true || (Number(ad.quantity) > 0);
-      if (isSelected) {
-        total += Number(ad.price_after_tax || ad.final_price || ad.price || 0) * Number(ad.quantity || 1);
-      }
-    });
-  }
-
-  // 3. حساب الـ Extras (المختارة من القائمة)
-  if (item.selectedExtras && Array.isArray(item.selectedExtras)) {
-    item.selectedExtras.forEach((extraId) => {
-      const extraData = item.allExtras?.find((e) => e.id === extraId);
-      if (extraData) {
-        total += Number(extraData.final_price || extraData.price || 0);
-      }
-    });
-  }
-
-  return total;
-};
 
 const ItemRow = ({
   item,
@@ -155,25 +103,19 @@ const ItemRow = ({
     : unitBasePrice;
 
   // 4. حساب الإضافات (addons + extras)
-  const addonsTotal = calculateAddonsTotal(item);
+  const addonsTotal = calculateItemUnitPrice(item);
 
   // 5. الكمية / الوزن
   const quantity = isWeightProduct
-    ? (isScaleWeightItem
-      ? Number(item._weight_kg || item._weight_grams / 1000 || 0)
-      : Number(item.quantity || 0))
+    ? (isScaleWeightItem ? Number(item._weight_kg || 0) : Number(item.quantity || 0))
     : Number(item.count || 1);
 
-  // 6. الأسعار التي سيتم عرضها في الأعمدة
-  // للوزن: نعرض (سعر الكيلو + الإضافات الثابتة) عشان السعر يتغير لما اليوزر يختار variation
-  let displayedUnitPrice = unitBasePrice + addonsTotal;
+  const displayedUnitPrice = calculateItemUnitPrice(item); // سعر الوحدة الشامل
+  const totalPrice = (displayedUnitPrice * quantity).toFixed(2);
 
   let displayedOriginalUnitPrice = originalUnitBasePrice + addonsTotal;
 
-  // 7. الإجمالي النهائي للسطر
-  // نفس منطق calculateProductTotalPrice في ProductModal:
-  // الـ variations بتتضرب في الكمية/الوزن مش بتتجمع بعدهم
-  const totalPrice = ((unitBasePrice + addonsTotal) * quantity).toFixed(2);
+
 
   return (
     <tr className={`border-b last:border-b-0 hover:bg-gray-50 ${item.type === "addon" ? "bg-blue-50" : ""} ${selectedPaymentItems?.includes(item.temp_id) ? "bg-green-50" : ""}`}>

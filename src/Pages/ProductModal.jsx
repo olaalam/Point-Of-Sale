@@ -1,6 +1,5 @@
 import { getCurrencySymbol } from '../utils/currency';
 {/* ProductModal.jsx - With Weight Support, Duplicate Check, and Notes */ }
-
 import React, { useState } from "react";
 import {
   Dialog,
@@ -12,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Minus, Plus } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { useTranslation } from "react-i18next";
+import { calculateItemUnitPrice } from './utils/orderPriceUtils';
 
 // Helper function to calculate total price including variations, extras, and addons
 // --- 1. دالة مساعدة لمعرفة هل المتغير هو "حجم" (Size) أم لا ---
@@ -20,76 +20,6 @@ const isSizeVariation = (variation) => {
   const name = variation.name.toLowerCase();
   // نفحص الكلمات الدلالية للحجم بالعربي والإنجليزي
   return name.includes('size') || name.includes('حجم') || name.includes('maqas') || name.includes('مقاس');
-};
-
-
-
-export const calculateProductTotalPrice = (
-  baseProduct,
-  selectedVariation = {},
-  selectedExtras = [],
-  quantity = 1,
-  productType = "piece"
-) => {
-  const isWeightProduct = productType === "weight" || baseProduct.weight_status === 1;
-
-  // 1. السعر الأساسي الابتدائي
-  let mainPrice = parseFloat(baseProduct.final_price || baseProduct.price_after_discount || baseProduct.price || 0);
-
-  if (baseProduct.variations && Object.keys(selectedVariation).length > 0) {
-    baseProduct.variations.forEach(variation => {
-      const selected = selectedVariation[variation.id];
-      if (selected !== undefined) {
-
-        if (variation.type === 'single') {
-          const opt = variation.options?.find(o => o.id === selected);
-          if (opt) {
-            // --- المنطق الجديد هنا ---
-            // إذا كان الخيار يحتوي على سعر كلي (total_option_price) نعتبره هو السعر الأساسي الجديد
-            const totalOptPrice = parseFloat(opt.total_option_price || 0);
-
-            if (totalOptPrice > 0) {
-              // استبدال السعر الأساسي بسعر الخيار (مثل: 300 أو 350 في السوشي)
-              mainPrice = totalOptPrice;
-            } else if (isSizeVariation(variation)) {
-              // Fallback للأحجام لو السعر موجود في final_price
-              const sizePrice = parseFloat(opt.final_price || opt.price_after_tax || 0);
-              if (sizePrice > 0) mainPrice = sizePrice;
-            } else {
-              // لو مجرد خيار عادي (إضافة إجبارية مثلاً) بنزود الـ price
-              mainPrice += parseFloat(opt.price || 0);
-            }
-          }
-        }
-
-        else if (variation.type === 'multiple') {
-          const arr = Array.isArray(selected) ? selected : [selected];
-          arr.forEach(id => {
-            const opt = variation.options?.find(o => o.id === id);
-            if (opt) {
-              mainPrice += parseFloat(opt.price || opt.final_price || 0);
-            }
-          });
-        }
-      }
-    });
-  }
-
-  // 2. حساب الإضافات (Extras & Addons)
-  let extrasPrice = 0;
-  if (selectedExtras?.length > 0) {
-    selectedExtras.forEach(id => {
-      let item = baseProduct.allExtras?.find(e => e.id === id) ||
-        baseProduct.addons?.find(a => a.id === id);
-      if (item) {
-        extrasPrice += parseFloat(item.final_price || item.price || 0);
-      }
-    });
-  }
-
-  return isWeightProduct
-    ? (mainPrice * quantity) + extrasPrice
-    : (mainPrice + extrasPrice) * quantity;
 };
 
 // ✅ تحديث دالة المقارنة لتشمل الـ Addons
@@ -152,13 +82,12 @@ const ProductModal = ({
 
   const isWeightProduct = productType === "weight" || selectedProduct.weight_status === 1;
 
-  const totalPrice = calculateProductTotalPrice(
+  const unitPrice = calculateItemUnitPrice(
     selectedProduct,
     selectedVariation,
-    selectedExtras,
-    quantity,
-    productType
+    selectedExtras
   );
+  const totalPrice = unitPrice * quantity;
 
   const hasVariations =
     selectedProduct.variations && selectedProduct.variations.length > 0;
@@ -589,72 +518,41 @@ const ProductModal = ({
             <Button
               data-enter
               onClick={() => {
-                const totalUnitPrice = calculateProductTotalPrice(
+                const totalUnitPrice = calculateItemUnitPrice(
                   selectedProduct,
                   selectedVariation,
-                  selectedExtras,
-                  1
+                  selectedExtras
                 );
 
-                // 🟦 فلترة الـ extras: IDs موجودة فقط في allExtras
-                const filteredExtras = selectedExtras.filter(id =>
-                  (selectedProduct.allExtras || []).some(e => e.id === id)
-                );
+                const finalQuantity = parseFloat(quantity) || 0;
 
-                // 🟧 فلترة الـ addons: IDs موجودة فقط في addons_list
-                const filteredAddons = selectedExtras.filter(id =>
-                  (selectedProduct.addons || []).some(a => a.id === id)
-                );
-
-                // 🟨 بناء addons للباك إند
-                const addonsForBackend = filteredAddons.map(addonId => {
-                  const src = (selectedProduct.addons || []).find(a => a.id === addonId);
-                  return {
-                    addon_id: addonId,
-                    quantity: 1,
-                    price: src ? parseFloat(
-                      src.final_price ||
-                      src.price_after_discount ||
-                      src.price_after_tax ||
-
-                      0
-                    ) : 0,
-                  };
-                });
-const finalQuantity = parseFloat(quantity) || 0;
-                // 👇 بناء المنتج النهائي
                 const enhancedProduct = {
                   ...selectedProduct,
                   temp_id: `item-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
                   selectedVariation,
-                  selectedExtras: filteredExtras,
-                  selectedExcludes,
+                  selectedExtras: selectedExtras.filter(id => (selectedProduct.allExtras || []).some(e => e.id === id)),
                   quantity: finalQuantity,
                   notes: notes.trim(),
 
-                  // ❌ الخطأ كان هنا: كنت ترسل السعر المحسوب (totalUnitPrice) كأنه السعر الأساسي
-                  // price: totalUnitPrice, 
+                  // 🚀 الإصلاح الجوهري: يجب أن يكون السعر هنا هو السعر شامل الإضافات
+                  // لأن الكارت والأوردر يعتمدان على حقل price لحساب الإجمالي
+                  price: totalUnitPrice,
 
-                  // ✅ الصح: أرسل السعر الأصلي للمنتج فقط، ودع Item.jsx يحسب الإضافات
-                  price: selectedProduct.final_price || selectedProduct.price_after_discount || 0,
-
-                  // يمكنك الاحتفاظ بالسعر المحسوب في متغير آخر لو احتجته للعرض فقط
                   modalCalculatedPrice: totalUnitPrice,
-
                   originalPrice: selectedProduct.final_price,
-                  totalPrice: totalUnitPrice * finalQuantity, // هذا للعرض فقط
-                  addons: addonsForBackend,
-                  allExtras: selectedProduct.allExtras,
-                  addons_list: selectedProduct.addons,
+                  totalPrice: totalUnitPrice * finalQuantity,
+
+                  // باقي الحقول كما هي...
+                  addons: (selectedExtras.filter(id => (selectedProduct.addons || []).some(a => a.id === id))).map(addonId => {
+                    const src = (selectedProduct.addons || []).find(a => a.id === addonId);
+                    return { addon_id: addonId, quantity: 1, price: src ? parseFloat(src.final_price || src.price || 0) : 0 };
+                  }),
                   variations: (selectedProduct.variations || []).map(group => ({
                     ...group,
-                    selected_option_id: Array.isArray(selectedVariation[group.id])
-                      ? selectedVariation[group.id]
-                      : selectedVariation[group.id] || null
+                    selected_option_id: selectedVariation[group.id] || null
                   })),
                 };
 
-                // إرسال للكارت
                 onAddFromModal(enhancedProduct, { checkDuplicate: true });
                 setNotes("");
                 onClose();

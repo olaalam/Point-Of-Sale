@@ -460,17 +460,12 @@ export default function OrderSummary({
 
   // حساب القيم الحقيقية للطباعة باستخدام الدالة الموحدة
   const realSubTotal = orderItems.reduce((acc, item) => {
-    const unitPrice = calculateItemUnitPrice(item);
-    const basePrice = Number(item.final_price ?? item.price_after_discount ?? 0);
-    const extras = unitPrice - basePrice;
-    const qty = item.count ?? item.quantity ?? 1;
+    const unitPrice = calculateItemUnitPrice(item); // الدالة الموحدة
+    const qty = (item.weight_status === 1 || item.weight_status === "1")
+      ? Number(item.quantity || 0)
+      : Number(item.count || item.quantity || 1);
 
-    // تطبيق نفس المنطق: الوزن للسعر الأساسي فقط
-    const itemTotal = (item.weight_status === 1 || item.weight_status === "1")
-      ? (basePrice * qty) + extras
-      : (unitPrice * qty);
-
-    return acc + itemTotal;
+    return acc + (unitPrice * qty);
   }, 0);
   const realServiceFee = (serviceFeeData && ["dine_in", "take_away"].includes(orderType))
     ? (serviceFeeData.type === "precentage"

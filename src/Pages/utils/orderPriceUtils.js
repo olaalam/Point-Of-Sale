@@ -1,80 +1,59 @@
 /**
  * calculateItemUnitPrice
- * نفس منطق calculateAddonsTotal في ItemRow تماماً (اللي بيشتغل صح)
- * + منطق استبدال السعر الأساسي لو الـ variation عنده total_option_price
+ * النسخة النهائية المعتمدة لحساب سعر المنتج شاملاً كافة الإضافات والمتغيرات
  */
-export const calculateItemUnitPrice = (item) => {
-  // ── السعر الأساسي الابتدائي ──────────────────────────────────────
-  let basePrice = Number(item.final_price || item.price_after_discount || item.price || 0);
-  let extras = 0;
+export const calculateItemUnitPrice = (baseProduct, selectedVariation = {}, selectedExtras = []) => {
+  // 1. تحديد السعر الأساسي الابتدائي للمنتج (مثلاً 46.25)[cite: 1, 3]
+  let basePrice = parseFloat(baseProduct.final_price || baseProduct.price || 0);
+  let additions = 0;
 
-  // ── 1. Variations ─────────────────────────────────────────────────
-  // نفس الكود المستخدم في calculateAddonsTotal في ItemRow (شغال صح)
-  if (item.variations && Array.isArray(item.variations)) {
-    item.variations.forEach((v) => {
-      const variationName = (v.name || "").toLowerCase();
-      const isSize =
-        variationName.includes('size') ||
-        variationName.includes('حجم') ||
-        variationName.includes('maqas') ||
-        variationName.includes('مقاس');
+  // 2. حساب المتغيرات (Variations)[cite: 2, 3]
+  if (baseProduct.variations) {
+    baseProduct.variations.forEach(variation => {
+      // سحب الاختيار المختار من الـ state أو البيانات المدمجة[cite: 2, 3]
+      const selectedId = selectedVariation[variation.id] || variation.selected_option_id;
+      if (!selectedId) return;
 
-      const selectedId = v.selected_option_id;
-      if (selectedId === null || selectedId === undefined) return;
-
+      // تحويل الاختيار لمصفوفة دائماً لضمان عمل الدالة مع الـ Single والـ Multiple[cite: 1, 3]
       const ids = Array.isArray(selectedId) ? selectedId : [selectedId];
 
-      ids.forEach((optId) => {
-        const opt = v.options?.find((o) => o.id === optId);
+      ids.forEach(id => {
+        const opt = variation.options?.find(o => o.id === id);
         if (!opt) return;
 
-        const totalOptPrice = Number(opt.total_option_price || 0);
+        const optPrice = parseFloat(opt.price || opt.final_price || 0);
+        const totalOptPrice = parseFloat(opt.total_option_price || 0);
 
-        if (totalOptPrice > 0 && !item.is_group_priced) {
-          // يستبدل السعر الأساسي بالكامل (مثل سوشي 300 أو 350)
+        /**
+         * منطق الفصل بين الحجم والإضافة:
+         * - إذا كان النوع single وله total_option_price (مثل الأوزان)، نحدث السعر الأساسي[cite: 2, 3]
+         * - إذا كان النوع multiple (مثل باتر فلاي) نجمع الـ price كإضافة
+         */
+        if (variation.type === 'single' && totalOptPrice > 0) {
           basePrice = totalOptPrice;
-        } else if (isSize && !item.is_group_priced) {
-          // حجم → استبدال بـ final_price
-          const sp = Number(opt.final_price || opt.price_after_tax || 0);
-          if (sp > 0) basePrice = sp;
         } else {
-          // إضافة عادية (باتر فلاي +65، 1/3 +16 ...)
-          // ⚠️ || مش ?? عشان price=0 لا يحجب القيم التالية
-          extras += Number(
-            opt.price || opt.final_price || opt.price_after_tax || opt.total_option_price || 0
-          );
+          // جمع سعر الإضافة (مثلاً 65.00) فوق السعر الأساسي
+          additions += optPrice;
         }
       });
     });
   }
 
-  // ── 2. Extras (المختارة من قائمة allExtras) ───────────────────────
-  if (item.selectedExtras?.length > 0 && item.allExtras?.length > 0) {
-    item.selectedExtras.forEach((id) => {
-      const extra = item.allExtras.find((e) => e.id === id);
+  // 3. حساب الـ Extras و الـ Addons الخارجية[cite: 1, 3]
+  const allPossibleAddons = [
+    ...(baseProduct.allExtras || []),
+    ...(baseProduct.addons || [])
+  ];
+
+  if (selectedExtras && selectedExtras.length > 0) {
+    selectedExtras.forEach(id => {
+      const extra = allPossibleAddons.find(e => e.id === parseInt(id));
       if (extra) {
-        extras += Number(extra.final_price || extra.price_after_tax || extra.price || 0);
+        additions += parseFloat(extra.final_price || extra.price || 0);
       }
     });
   }
 
-  // ── 3. Addons ─────────────────────────────────────────────────────
-  if (item.addons?.length > 0) {
-    item.addons.forEach((addon) => {
-      // format بعد add to cart: { addon_id, quantity, price }
-      if (addon.addon_id !== undefined) {
-        if (Number(addon.quantity) > 0) {
-          extras += Number(addon.price || 0) * Number(addon.quantity);
-        }
-        return;
-      }
-      // format قديم
-      const isSelected = addon.selected === true || Number(addon.quantity) > 0;
-      if (isSelected && addon.price > 0) {
-        extras += Number(addon.price) * Number(addon.quantity || 1);
-      }
-    });
-  }
-
-  return Number((basePrice + extras).toFixed(2));
+  // الإجمالي: (سعر الحجم المختار أو الأساسي) + (مجموع كل الإضافات والمتغيرات)[cite: 2, 3]
+  return basePrice + additions;
 };
