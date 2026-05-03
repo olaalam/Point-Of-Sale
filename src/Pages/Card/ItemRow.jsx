@@ -27,8 +27,8 @@ const calculateAddonsTotal = (item) => {
         options.forEach(optId => {
           const opt = v.options?.find(o => o.id === optId);
           if (opt) {
-            // التعديل هنا: التأكد إننا بناخد السعر المتاح لجمعه كإضافة
-            total += Number(opt.price_after_discount ?? opt.price ?? opt.total_option_price ?? 0);
+            // ⚠️ استخدام || مش ?? لأن price_after_discount ممكن تكون 0 فتحجب باقي القيم
+            total += Number(opt.price || opt.final_price || opt.total_option_price || 0);
           }
         });
       }
@@ -87,44 +87,69 @@ const ItemRow = ({
   const isWeightProduct = item.weight_status === 1 || item.weight_status === "1";
   const isScaleWeightItem = isWeightProduct && item._source === "scale_barcode";
 
-
-
-
   // 2. تحديد الخصم وسعر الوحدة الأساسي
   let hasDiscount = Number(item.discount_val || 0) > 0;
 
-  // الاحتفاظ بالسعر الأساسي للمنتج (السوشي مثلاً)
+  // السعر الأساسي الابتدائي للمنتج
   let unitBasePrice = Number(item.final_price || item.price_after_discount || item.price || 0);
 
-  const selectedOptionId = item.variations?.[0]?.selected_option_id;
-  const selectedOption = item.variations?.[0]?.options?.find(opt => opt.id === selectedOptionId);
+  // --- نلوب على كل الـ variations (مش بس الأولى) ---
+  // نفس المنطق المستخدم في calculateProductTotalPrice في ProductModal
+  let firstSelectedOption = null; // للعرض في اسم الـ item
 
-  if (selectedOption) {
-    const optDiscount = Number(selectedOption.discount_val || 0);
-    hasDiscount = hasDiscount || optDiscount > 0;
+  if (item.variations && Array.isArray(item.variations)) {
+    item.variations.forEach((variation, idx) => {
+      const selectedId = variation.selected_option_id;
+      if (selectedId === null || selectedId === undefined) return;
 
-    // التحقق هل هذا الاختيار هو "حجم" (يستبدل السعر) أم "إضافة" (يُجمع على السعر)
-    const variationName = (item.variations?.[0]?.name || "").toLowerCase();
-    const isSize = variationName.includes('size') || variationName.includes('حجم') || variationName.includes('maqas');
+      const variationName = (variation.name || "").toLowerCase();
+      const isSize =
+        variationName.includes('size') ||
+        variationName.includes('حجم') ||
+        variationName.includes('maqas') ||
+        variationName.includes('مقاس');
 
-    const optionPrice = Number(
-      selectedOption.final_price ||
-      selectedOption.total_option_price ||
-      selectedOption.price_after_tax ||
-      selectedOption.price || 0
-    );
+      if (variation.type === 'single' || !variation.type) {
+        // single-select: selected_option_id هو ID واحد
+        const ids = Array.isArray(selectedId) ? selectedId : [selectedId];
+        ids.forEach(optId => {
+          const opt = variation.options?.find(o => o.id === optId);
+          if (!opt) return;
 
-    if (isSize && !item.is_group_priced) {
-      // إذا كان حجماً: السعر الأساسي يصبح هو سعر هذا الحجم
-      unitBasePrice = optionPrice;
-    } else {
-      // إذا كانت إضافة (مثل الـ 20 قطعة): نترك السعر الأساسي (100) كما هو
-      // وسيتم جمع الـ (20) تلقائياً عبر دالة calculateAddonsTotal التي استدعيناها سابقاً
-    }
+          // احتفظ بأول خيار محدد لعرض اسمه في الصف
+          if (idx === 0 && !firstSelectedOption) firstSelectedOption = opt;
+
+          const optDiscount = Number(opt.discount_val || 0);
+          if (optDiscount > 0) hasDiscount = true;
+
+          const totalOptPrice = Number(opt.total_option_price || 0);
+
+          if (totalOptPrice > 0 && !item.is_group_priced) {
+            // هذا الخيار يستبدل السعر الأساسي بالكامل (مثل: حجم سوشي 300 أو 350)
+            unitBasePrice = totalOptPrice;
+          } else if (isSize && !item.is_group_priced) {
+            // حجم عادي بدون total_option_price: استبدال بـ final_price
+            const sizePrice = Number(opt.final_price || opt.price_after_tax || 0);
+            if (sizePrice > 0) unitBasePrice = sizePrice;
+          }
+          // غير ذلك: الخيار عبارة عن إضافة عادية وسيُجمع في calculateAddonsTotal
+        });
+      } else if (variation.type === 'multiple') {
+        // multiple-select: selected_option_id هو array
+        const ids = Array.isArray(selectedId) ? selectedId : [selectedId];
+        ids.forEach(optId => {
+          const opt = variation.options?.find(o => o.id === optId);
+          if (!opt) return;
+          if (idx === 0 && !firstSelectedOption) firstSelectedOption = opt;
+        });
+      }
+    });
   }
 
+  // للتوافق مع كود العرض القديم (اسم الخيار في الصف)
+  const selectedOption = firstSelectedOption;
+
   // 3. السعر الأصلي قبل الخصم (لعرضه مشطوباً)
-  // نجمع قيمة الخصم للسعر النهائي لنصل للسعر القديم
   let originalUnitBasePrice = hasDiscount
     ? unitBasePrice + (selectedOption ? Number(selectedOption.discount_val || 0) : Number(item.discount_val || 0))
     : unitBasePrice;
@@ -140,18 +165,15 @@ const ItemRow = ({
     : Number(item.count || 1);
 
   // 6. الأسعار التي سيتم عرضها في الأعمدة
-  let displayedUnitPrice = isWeightProduct
-    ? unitBasePrice  // في الوزن نعرض سعر الكيلو فقط
-    : unitBasePrice + addonsTotal; // في القطع نجمع الإضافات مع سعر الوحدة
+  // للوزن: نعرض (سعر الكيلو + الإضافات الثابتة) عشان السعر يتغير لما اليوزر يختار variation
+  let displayedUnitPrice = unitBasePrice + addonsTotal;
 
-  let displayedOriginalUnitPrice = isWeightProduct
-    ? originalUnitBasePrice
-    : originalUnitBasePrice + addonsTotal;
+  let displayedOriginalUnitPrice = originalUnitBasePrice + addonsTotal;
 
   // 7. الإجمالي النهائي للسطر
-  const totalPrice = isWeightProduct
-    ? (unitBasePrice * quantity + addonsTotal).toFixed(2)
-    : (displayedUnitPrice * quantity).toFixed(2);
+  // نفس منطق calculateProductTotalPrice في ProductModal:
+  // الـ variations بتتضرب في الكمية/الوزن مش بتتجمع بعدهم
+  const totalPrice = ((unitBasePrice + addonsTotal) * quantity).toFixed(2);
 
   return (
     <tr className={`border-b last:border-b-0 hover:bg-gray-50 ${item.type === "addon" ? "bg-blue-50" : ""} ${selectedPaymentItems?.includes(item.temp_id) ? "bg-green-50" : ""}`}>

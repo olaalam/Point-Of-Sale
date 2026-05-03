@@ -1,36 +1,89 @@
 import { useMemo } from "react";
 import { statusOrder } from "../constants";
-import { calculateItemUnitPrice } from "@/Pages/utils/orderPriceUtils";
+
+// حساب الإضافات - نفس منطق calculateAddonsTotal في ItemRow بالظبط
+const getItemAddonsTotal = (item) => {
+  let total = 0;
+  if (item.variations && Array.isArray(item.variations)) {
+    item.variations.forEach((v) => {
+      const name = (v.name || "").toLowerCase();
+      const isSize = name.includes('size') || name.includes('حجم') || name.includes('maqas') || name.includes('مقاس');
+      if (!isSize) {
+        const selectedId = v.selected_option_id;
+        if (selectedId === null || selectedId === undefined) return;
+        const ids = Array.isArray(selectedId) ? selectedId : [selectedId];
+        ids.forEach(optId => {
+          const opt = v.options?.find(o => o.id === optId);
+          if (opt) {
+            total += Number(opt.price || opt.final_price || opt.price_after_tax || opt.total_option_price || 0);
+          }
+        });
+      }
+    });
+  }
+  if (item.selectedExtras?.length > 0 && item.allExtras?.length > 0) {
+    item.selectedExtras.forEach(id => {
+      const extra = item.allExtras.find(e => e.id === id);
+      if (extra) total += Number(extra.final_price || extra.price || 0);
+    });
+  }
+  if (item.addons?.length > 0) {
+    item.addons.forEach(addon => {
+      if (addon.addon_id !== undefined && Number(addon.quantity) > 0) {
+        total += Number(addon.price || 0) * Number(addon.quantity);
+      }
+    });
+  }
+  return total;
+};
+
+// حساب السعر الأساسي — فقط single-type variations بتستبدل السعر
+// multiple-type بيتحسب كإضافات في getItemAddonsTotal عشان نتفادى double-counting
+const getItemBasePrice = (item) => {
+  let basePrice = Number(item.final_price || item.price_after_discount || item.price || 0);
+  if (item.variations && Array.isArray(item.variations)) {
+    item.variations.forEach((v) => {
+      // ⚠️ skip multiple-type — بيضيفوا على الـ extras مش بيستبدلوا الأساسي
+      if (v.type === 'multiple') return;
+      const name = (v.name || "").toLowerCase();
+      const isSize = name.includes('size') || name.includes('حجم') || name.includes('maqas') || name.includes('مقاس');
+      const selectedId = v.selected_option_id;
+      if (selectedId === null || selectedId === undefined) return;
+      const ids = Array.isArray(selectedId) ? selectedId : [selectedId];
+      ids.forEach(optId => {
+        const opt = v.options?.find(o => o.id === optId);
+        if (!opt) return;
+        const totalOptPrice = Number(opt.total_option_price || 0);
+        if (totalOptPrice > 0 && !item.is_group_priced) {
+          basePrice = totalOptPrice;
+        } else if (isSize && !item.is_group_priced) {
+          const sp = Number(opt.final_price || opt.price_after_tax || 0);
+          if (sp > 0) basePrice = sp;
+        }
+      });
+    });
+  }
+  return basePrice;
+};
 
 export function useOrderCalculations(
   orderItems,
   selectedPaymentItems,
   orderType,
   serviceFeeData,
-  deliveryFee = 0   // ← comes from Card.jsx / localStorage
+  deliveryFee = 0
 ) {
   return useMemo(() => {
-    // ── Subtotal (items only) ──────────────────────────────────────────
-// داخل useOrderCalculations.js
-const subTotal = (orderItems ?? []).reduce((sum, item) => {
-  const unitPrice = calculateItemUnitPrice(item); // السعر الإجمالي (أساسي + إضافات)
-  
-  // استخراج السعر الأساسي فقط (بدون إضافات) بنفس المسمى القديم
-  const basePrice = Number(item.price_after_discount ?? item.price ?? 0);
-  // استخراج قيمة الإضافات فقط
-  const extras = unitPrice - basePrice;
-
-  const qty = (item.weight_status === 1 || item.weight_status === "1")
-    ? (item._source === "scale_barcode" ? Number(item._weight_kg || 0) : Number(item.quantity || 0))
-    : Number(item.count || item.quantity || 1);
-
-  // المنطق الجديد: إذا كان وزن يضرب السعر الأساسي فقط في الوزن ويجمع الإضافات
-  const itemTotal = (item.weight_status === 1 || item.weight_status === "1")
-    ? (basePrice * qty) + extras
-    : (unitPrice * qty);
-
-  return sum + itemTotal;
-}, 0);
+    // ── Subtotal ───────────────────────────────────────────────────────
+    const subTotal = (orderItems ?? []).reduce((sum, item) => {
+      const basePrice = getItemBasePrice(item);
+      const addonsTotal = getItemAddonsTotal(item);
+      const unitPrice = basePrice + addonsTotal;
+      const qty = (item.weight_status === 1 || item.weight_status === "1")
+        ? (item._source === "scale_barcode" ? Number(item._weight_kg || 0) : Number(item.quantity || 0))
+        : Number(item.count || item.quantity || 1);
+      return sum + (unitPrice * qty);
+    }, 0);
 
     // ── Taxes ──────────────────────────────────────────────────────────
     let totalTax = 0;
