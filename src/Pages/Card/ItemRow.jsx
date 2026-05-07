@@ -138,13 +138,9 @@ const ItemRow = ({
           <div className="flex flex-col gap-1">
             <div className="text-gray-800 font-medium hover:text-red-600 cursor-pointer transition-colors leading-tight">
               <span className="text-bg-primary font-bold mr-1.5 bg-red-50 px-1 rounded">
-                {isWeightProduct
-                  ? (() => {
-                    let formatted = quantity.toFixed(3).replace(/0+$/, '');
-                    if (formatted.endsWith('.')) formatted = formatted.slice(0, -1);
-                    return formatted + 'kg';
-                  })()
-                  : `${quantity}x`}
+                {isWeightProduct && quantity < 1 && quantity > 0
+                  ? (quantity.toFixed(3).replace(/0+$/, '').replace(/\.$/, '') + ' kg')
+                  : `${Math.round(quantity)}x`}
               </span>
               <span className="text-[14px]">{item.name || item.product_name || "Unknown Product"}</span>
             </div>
