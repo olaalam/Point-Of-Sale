@@ -71,6 +71,7 @@ export default function Item({ onAddToOrder, onClose, onClearCart, cartHasItems,
   const [showClearModal, setShowClearModal] = useState(false);
   const [pendingAction, setPendingAction] = useState(null);
   const scannerInputRef = useRef(null);
+  const [viewMode, setViewMode] = useState("sidebar");
 
   const {
     selectedProduct,
@@ -338,7 +339,7 @@ export default function Item({ onAddToOrder, onClose, onClearCart, cartHasItems,
 
               // التحديث عشان لو كان المودال حاسب totalPrice قبل كده
               product.totalPrice = finalGroupPrice * finalQuantity;
-              
+
               // 🔴 مسح أسعار الإضافات والأحجام لأن الباك إند رجع السعر الـ Absolute الشامل لكل حاجة
               product.is_group_priced = true;
               if (product.variations) {
@@ -741,7 +742,30 @@ export default function Item({ onAddToOrder, onClose, onClearCart, cartHasItems,
     }
   };
 
+  const viewModeToggles = (
+    <div className="flex gap-2 p-2 mb-2 bg-gray-50 rounded-lg border border-gray-100">
+      <Button
+        variant={viewMode === 'sidebar' ? 'default' : 'outline'}
+        onClick={() => setViewMode('sidebar')}
+        className="flex-1 h-8 text-[10px]"
+      >
+        الشكل الحالي
+      </Button>
+      <Button
+        variant={viewMode === 'grid' ? 'default' : 'outline'}
+        onClick={() => setViewMode('grid')}
+        className="flex-1 h-8 text-[10px]"
+      >
+        عرض شبكي
+      </Button>
+    </div>
+  );
+
   const categoriesSection = (
+
+
+
+
     <div
       dir={isArabic ? "rtl" : "ltr"}
       className="lg:w-45 w-full lg:sticky lg:top-4 bg-white z-10 lg:h-[calc(100vh-120px)] flex flex-col gap-2"
@@ -868,6 +892,22 @@ export default function Item({ onAddToOrder, onClose, onClearCart, cartHasItems,
     </div>
   );
 
+  const categoriesGrid = (
+    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 p-4">
+      {finalCategories.map((cat) => (
+        <div
+          key={cat.id}
+          onClick={() => handleCategorySelect(cat.id)}
+          className="flex flex-col items-center justify-center p-6 bg-white rounded-3xl border-2 border-transparent hover:border-bg-primary hover:shadow-xl transition-all cursor-pointer group"
+        >
+          <div className="w-20 h-20 mb-4 rounded-2xl overflow-hidden bg-gray-50">
+            <img src={cat.image_link} alt={cat.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform" />
+          </div>
+          <span className="font-bold text-sm text-gray-800">{cat.name}</span>
+        </div>
+      ))}
+    </div>
+  );
   const handleSaveModuleOrder = async () => {
     const id = tempGroupId?.toString();
     const groupNum = moduleOrderNumber.trim();
@@ -975,6 +1015,42 @@ export default function Item({ onAddToOrder, onClose, onClearCart, cartHasItems,
         onClose={onClose}
       />
       <div className="flex flex-col lg:flex-row gap-4 items-start w-full px-2">
+
+        {/* 1. إذا كان وضع Sidebar (الشكل الحالي) */}
+        {viewMode === 'sidebar' && (
+          <>
+            <div className="w-full lg:w-[85%]">{productsGridSection}</div>
+            <div className="w-full lg:w-[15%]">
+              {viewModeToggles}
+              {categoriesSection}
+            </div>
+          </>
+        )}
+
+        {/* 2. إذا كان وضع Grid (الصورة رقم 1) */}
+        {viewMode === 'grid' && (
+          <div className="w-full flex flex-col">
+            {viewModeToggles}
+
+            {/* لو مفيش تصنيف مختار، اعرض شبكة التصنيفات */}
+            {selectedMainCategory === "all" || selectedMainCategory === "favorite" ? (
+              categoriesGrid
+            ) : (
+              /* لو اختار تصنيف، اعرض المنتجات ومعاها زر "رجوع" */
+              <div className="flex flex-col">
+                <Button
+                  onClick={() => setSelectedMainCategory("all")}
+                  className="mb-4 w-fit bg-gray-100 text-gray-700 hover:bg-gray-200"
+                >
+                  {isArabic ? "⬅️ العودة للتصنيفات" : "⬅️ Back to Categories"}
+                </Button>
+                {productsGridSection}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+      {/* <div className="flex flex-col lg:flex-row gap-4 items-start w-full px-2">
         {selectedMainCategory === "offers" ? (
           <>
             <div className="w-full lg:w-[85%]">{offersGridSection}</div>
@@ -991,7 +1067,7 @@ export default function Item({ onAddToOrder, onClose, onClearCart, cartHasItems,
             <div className="w-full lg:w-[15%]">{categoriesSection}</div>
           </>
         )}
-      </div>
+      </div> */}
       <ProductModal
         isOpen={isProductModalOpen}
         onClose={closeProductModal}
