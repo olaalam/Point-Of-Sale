@@ -553,7 +553,7 @@ const ProductModal = ({
                   })),
                 };
 
-                onAddFromModal(enhancedProduct, { checkDuplicate: true });
+                onAddFromModal(enhancedProduct, { isFromModal: true, checkDuplicate: true });
                 setNotes("");
                 onClose();
               }}

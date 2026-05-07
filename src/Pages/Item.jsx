@@ -297,14 +297,22 @@ export default function Item({ onAddToOrder, onClose, onClearCart, cartHasItems,
       // 2. تأمين قراءة السعر
       // في الـ favorites أحياناً السعر بيكون في price_after_discount أو final_price
       const basePrice = parseFloat(product.final_price || product.price_after_discount || product.price || 0);
+      const hasRequiredVariations = product.variations?.some(v => v.required === 1 || v.type === "single");
+      const isWeightProduct = productType === "weight" || product.is_weight === 1;
 
+      // التعديل هنا: بنضيف شرط !options.isFromModal 
+      // عشان لو جاي من المودال ميفضلش يفتح المودال في loop
+      if (!options.isFromModal && (hasRequiredVariations || isWeightProduct)) {
+        openProductModal(product);
+        return;
+      }
       let pricePerUnit = product.totalPrice
         ? parseFloat(product.totalPrice) / finalQuantity
         : basePrice;
 
       if (!isNormalPrice && selectedGroup && selectedGroup !== "none" && selectedGroup !== "all") {
         try {
-          const pPayload = buildProductPayload(product);
+          const pPayload = buildProductPayload(product, options, isWeightProduct, orderType);
           const payload = {
             branch_id: branchIdState,
             group_id: selectedGroup,
@@ -433,7 +441,7 @@ export default function Item({ onAddToOrder, onClose, onClearCart, cartHasItems,
         toast.success(t("ProductAddedToCart"));
       }
     },
-    [orderType, onAddToOrder, postOrder, t, selectedGroup] // أضيفي selectedGroup هنا للمراقبة
+    [orderType, onAddToOrder, postOrder, t, selectedGroup, productType, openProductModal]// أضيفي selectedGroup هنا للمراقبة
   );
 
   if (
