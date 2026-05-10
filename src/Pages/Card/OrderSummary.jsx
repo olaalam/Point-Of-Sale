@@ -239,24 +239,33 @@ const PrintableOrder = React.forwardRef(
                     >
                       <div>
                         <strong>{productName}</strong>
-
-                        {/* Variations */}
+                        {/* Variations & Variation Tax */}
                         {item.variations?.map((group, i) => {
-                          const selected = Array.isArray(group.selected_option_id)
-                            ? group.options?.find((opt) =>
+                          // نجلب الكائن الكامل للاختيار (أو الاختيارات) المحددة للوصول لـ tax_val
+                          const selectedOptions = Array.isArray(group.selected_option_id)
+                            ? group.options?.filter((opt) =>
                               group.selected_option_id.includes(opt.id)
                             )
-                            : group.options?.find(
+                            : group.options?.filter(
                               (opt) => opt.id === group.selected_option_id
                             );
-                          return selected ? (
+
+                          return selectedOptions?.map((selected, j) => (
                             <div
-                              key={i}
+                              key={`${i}-${j}`}
                               style={{ fontSize: "9px", color: "#555", marginTop: "2px" }}
                             >
                               • {group.name}: {selected.name}
+
+                              {/* عرض الضريبة الخاصة بهذا الوزن/الاختيار لو كانت أكبر من صفر */}
+                              {selected.tax_val > 0 && (
+                                <span style={{ color: "#d97706", marginInlineStart: "5px", fontWeight: "bold" }}>
+                                  ({isArabic ? "ضريبة: " : "Tax: "}
+                                  {Number(selected.tax_val).toFixed(2)})
+                                </span>
+                              )}
                             </div>
-                          ) : null;
+                          ));
                         })}
 
                         {/* Addons */}

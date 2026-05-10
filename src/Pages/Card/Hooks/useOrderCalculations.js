@@ -33,14 +33,16 @@ export function useOrderCalculations(
   selectedPaymentItems,
   orderType,
   serviceFeeData,
-  deliveryFee = 0
+  deliveryFee = 0,
+
 ) {
   return useMemo(() => {
-    // ── Subtotal ───────────────────────────────────────────────────────
-    const subTotal = (orderItems ?? []).reduce((sum, item) => {
+    const items = orderItems ?? [];
+
+    // ── Subtotal Calculation ───────────────────────────────────────────
+    const subTotal = items.reduce((sum, item) => {
       const unitPrice = calculateItemUnitPrice(item);
 
-      // توحيد منطق الكمية/الوزن مع الـ ItemRow
       const isWeightProduct = item.weight_status === 1 || item.weight_status === "1";
       const isScaleWeightItem = isWeightProduct && item._source === "scale_barcode";
 
@@ -51,33 +53,64 @@ export function useOrderCalculations(
       return sum + (unitPrice * qty);
     }, 0);
 
-    // ── Taxes ──────────────────────────────────────────────────────────
+    // ── Taxes Calculation & Details ────────────────────────────────────
     let totalTax = 0;
-    const taxInfo = {};
+    const taxDetailsMap = {};
 
-    (orderItems ?? []).forEach((item) => {
-      const taxVal = Number(item.tax_val ?? 0);
-      const qty = item.count ?? item.quantity ?? 1;
+    items.forEach((item) => {
+      const qty = (item.weight_status === 1 || item.weight_status === "1")
+        ? Number(item.quantity || 1)
+        : Number(item.count || 1);
 
-      if (taxVal > 0) {
-        totalTax += taxVal * qty;
+      // حساب ضريبة الـ variations
+      let variationTaxSum = 0;
+      if (item.variations) {
+        item.variations.forEach(v => {
+          const selectedId = v.selected_option_id;
+          if (selectedId !== null && selectedId !== undefined) {
+            const ids = Array.isArray(selectedId) ? selectedId : [selectedId];
+            ids.forEach(optId => {
+              const opt = v.options?.find(o => String(o.id) === String(optId));
+              if (opt && opt.tax_val) {
+                variationTaxSum += Number(opt.tax_val);
+              }
+            });
+          }
+        });
+      }
 
-        if (item.tax_obj) {
-          const id = item.tax_obj.id;
-          taxInfo[id] = taxInfo[id] || {
-            name: item.tax_obj.name,
-            amount: item.tax_obj.amount,
-            type: item.tax_obj.type,
+      // تحديد قيمة الضريبة للعنصر الواحد
+      let itemTax = variationTaxSum > 0 ? variationTaxSum : Number(item.tax_val || 0);
+
+      // إذا كانت الضريبة مشمولة في السعر
+      if (item.taxes === "included") {
+        const basePrice = Number(item.final_price || item.price || 0);
+        const taxRate = item.tax_obj?.amount ? Number(item.tax_obj.amount) / 100 : 0.14;
+        itemTax = basePrice - (basePrice / (1 + taxRate));
+      }
+      const totalItemTax = itemTax * qty;
+      totalTax += totalItemTax;
+
+      // التعديل هنا: نتحقق أن هناك ضريبة فعلاً (أكبر من صفر) وأن الـ tax_obj موجود
+      if (totalItemTax > 0 && item.tax_obj) {
+        const taxName = item.tax_obj.name || "Tax"; // اسم افتراضي إذا كان الاسم فارغاً
+        const taxId = item.tax_obj.id || 'default'; // استخدام ID كمفتاح أدق من الاسم
+
+        if (!taxDetailsMap[taxId]) {
+          taxDetailsMap[taxId] = {
+            name: taxName,
             total: 0,
+            amount: item.tax_obj.amount,
+            type: item.tax_obj.type
           };
-          taxInfo[id].total += taxVal * qty;
         }
+        taxDetailsMap[taxId].total += totalItemTax;
       }
     });
 
-    const taxDetails = Object.values(taxInfo);
+    const taxDetails = Object.values(taxDetailsMap);
 
-    // ── Service Fee (only for dine_in / take_away) ─────────────────────
+    // ── Service Fee (dine_in / take_away) ─────────────────────────────
     const sfAmt = serviceFeeData?.amount ?? 0;
     const sfType = serviceFeeData?.type ?? "precentage";
     const applySF = ["dine_in", "take_away"].includes(orderType) && sfAmt > 0;
@@ -88,33 +121,40 @@ export function useOrderCalculations(
         : sfAmt
       : 0;
 
-    // ── Base total before delivery ─────────────────────────────────────
+    // ── Totals ─────────────────────────────────────────────────────────
     const totalBeforeDelivery = subTotal + totalTax + serviceCharge;
-
-    // ── Final amount to pay ────────────────────────────────────────────
     let amountToPay = totalBeforeDelivery;
 
-    // 1. Apply delivery fee for delivery orders
+    // 1. حساب مصاريف التوصيل
     if (orderType === "delivery") {
       amountToPay += Number(deliveryFee);
     }
 
-    // 2. Handle partial payment (dine_in only) - overrides delivery logic
+    // 2. معالجة الدفع الجزئي (Dine In)
     if (orderType === "dine_in" && selectedPaymentItems?.length > 0) {
-      const selected = (orderItems ?? []).filter(
-        (i) =>
-          selectedPaymentItems.includes(i.temp_id) &&
-          i.preparation_status === "done"
+      const selected = items.filter(
+        (i) => selectedPaymentItems.includes(i.temp_id) && i.preparation_status === "done"
       );
 
       const selSub = selected.reduce((s, i) => {
         return s + calculateItemUnitPrice(i) * (i.count ?? i.quantity ?? 1);
       }, 0);
 
-      const selTax = selected.reduce(
-        (s, i) => s + Number(i.tax_val ?? 0) * (i.count ?? i.quantity ?? 1),
-        0
-      );
+      const selTax = selected.reduce((s, i) => {
+        // نعيد حساب الضريبة للعناصر المختارة فقط بنفس المنطق
+        let vTax = 0;
+        if (i.variations) {
+          i.variations.forEach(v => {
+            const ids = Array.isArray(v.selected_option_id) ? v.selected_option_id : [v.selected_option_id];
+            ids.forEach(optId => {
+              const opt = v.options?.find(o => String(o.id) === String(optId));
+              if (opt && opt.tax_val) vTax += Number(opt.tax_val);
+            });
+          });
+        }
+        let itmTax = vTax > 0 ? vTax : Number(i.tax_val ?? 0);
+        return s + (itmTax * (i.count ?? i.quantity ?? 1));
+      }, 0);
 
       let selSF = applySF
         ? sfType === "precentage"
@@ -123,20 +163,15 @@ export function useOrderCalculations(
         : 0;
 
       amountToPay = selSub + selTax + selSF;
-      // Note: No delivery fee in dine_in → already excluded above
     }
 
-    // ── Other useful values ────────────────────────────────────────────
-    const doneItems = (orderItems ?? []).filter(
-      (i) => i.preparation_status === "done"
-    );
+    // ── Helper Values ──────────────────────────────────────────────────
+    const doneItems = items.filter((i) => i.preparation_status === "done");
 
     const checkoutItems =
       orderType === "dine_in" && selectedPaymentItems?.length > 0
-        ? (orderItems ?? []).filter(
-          (i) => selectedPaymentItems.includes(i.temp_id) && i.preparation_status === "done"
-        )
-        : (orderItems ?? []);
+        ? items.filter((i) => selectedPaymentItems.includes(i.temp_id) && i.preparation_status === "done")
+        : items;
 
     return {
       subTotal: Number(subTotal.toFixed(2)),
@@ -148,7 +183,6 @@ export function useOrderCalculations(
       doneItems,
       checkoutItems,
       currentLowestSelectedStatus: statusOrder[0],
-      // Optional: useful for display in OrderSummary / receipt
       deliveryFee: orderType === "delivery" ? Number(deliveryFee.toFixed(2)) : 0,
     };
   }, [
@@ -157,6 +191,7 @@ export function useOrderCalculations(
     orderType,
     serviceFeeData?.amount,
     serviceFeeData?.type,
-    deliveryFee,           // ← important!
+    deliveryFee,
+
   ]);
 }
