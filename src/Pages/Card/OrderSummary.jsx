@@ -200,7 +200,7 @@ const PrintableOrder = React.forwardRef(
             {orderItems.map((item, index) => {
               const finalUnitPrice = calculateItemUnitPrice(item);
               // السعر الأساسي (زي اللي معروض في الـ UI)
-              const basePrice = Number(item.final_price ?? item.price_after_discount ?? 0);
+              const basePrice = Number(item.price ?? item.final_price ?? item.price_after_discount ?? 0);
 
               // الإضافات (الفرق بين السعر الشامل والأساسي)
               const extras = finalUnitPrice - basePrice;
@@ -756,7 +756,7 @@ export default function OrderSummary({
               </span>
             </div>
 
-            {/* Discount Row الوحيد - اسمه ولونه حسب الأولوية */}
+            {/* Discount Row الوحيد - اسم ولونه حسب الأولوية */}
             {hasDiscountPermission && (
               (() => {
                 let discountLabel = t("Discount");

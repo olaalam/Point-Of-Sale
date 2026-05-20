@@ -4,7 +4,7 @@
  */
 export const calculateItemUnitPrice = (baseProduct, selectedVariation = {}, selectedExtras = []) => {
   // 1. تحديد السعر الأساسي الابتدائي للمنتج (مثلاً 46.25)[cite: 1, 3]
-  let basePrice = parseFloat(baseProduct.final_price || baseProduct.price || 0);
+  let basePrice = parseFloat(baseProduct.price || baseProduct.final_price || 0);
   let additions = 0;
 
   // 2. حساب المتغيرات (Variations)[cite: 2, 3]
@@ -49,7 +49,7 @@ export const calculateItemUnitPrice = (baseProduct, selectedVariation = {}, sele
     selectedExtras.forEach(id => {
       const extra = allPossibleAddons.find(e => e.id === parseInt(id));
       if (extra) {
-        additions += parseFloat(extra.final_price || extra.price || 0);
+        additions += parseFloat(extra.price || extra.final_price || 0);
       }
     });
   }

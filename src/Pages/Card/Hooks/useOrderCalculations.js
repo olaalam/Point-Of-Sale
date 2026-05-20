@@ -3,7 +3,7 @@ import { statusOrder } from "../constants";
 import { calculateItemUnitPrice } from "@/Pages/utils/orderPriceUtils";
 
 const getItemBasePrice = (item) => {
-  let basePrice = Number(item.final_price || item.price_after_discount || item.price || 0);
+  let basePrice = Number(item.price || item.final_price || item.price_after_discount || 0);
   if (item.variations && Array.isArray(item.variations)) {
     item.variations.forEach((v) => {
       if (v.type === 'multiple') return;
@@ -84,7 +84,7 @@ export function useOrderCalculations(
 
       // إذا كانت الضريبة مشمولة في السعر
       if (item.taxes === "included") {
-        const basePrice = Number(item.final_price || item.price || 0);
+        const basePrice = Number(item.price || item.final_price || 0);
         const taxRate = item.tax_obj?.amount ? Number(item.tax_obj.amount) / 100 : 0.14;
         itemTax = basePrice - (basePrice / (1 + taxRate));
       }

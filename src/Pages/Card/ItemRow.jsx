@@ -39,7 +39,7 @@ const ItemRow = ({
   let hasDiscount = Number(item.discount_val || 0) > 0;
 
   // السعر الأساسي الابتدائي للمنتج
-  let unitBasePrice = Number(item.final_price || item.price_after_discount || item.price || 0);
+  let unitBasePrice = Number(item.price || item.final_price || item.price_after_discount || 0);
 
   // --- نلوب على كل الـ variations (مش بس الأولى) ---
   // نفس المنطق المستخدم في calculateProductTotalPrice في ProductModal
