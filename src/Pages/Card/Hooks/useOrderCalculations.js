@@ -3,7 +3,8 @@ import { statusOrder } from "../constants";
 import { calculateItemUnitPrice } from "@/Pages/utils/orderPriceUtils";
 
 const getItemBasePrice = (item) => {
-  let basePrice = Number(item.price || item.final_price || item.price_after_discount || 0);
+  // نستخدم price_after_discount أو price (قبل الضريبة) وليس final_price/price_after_tax
+  let basePrice = Number(item.price_after_discount || item.price || 0);
   if (item.variations && Array.isArray(item.variations)) {
     item.variations.forEach((v) => {
       if (v.type === 'multiple') return;

@@ -3,8 +3,14 @@
  * النسخة النهائية المعتمدة لحساب سعر المنتج شاملاً كافة الإضافات والمتغيرات
  */
 export const calculateItemUnitPrice = (baseProduct, selectedVariation = {}, selectedExtras = []) => {
-  // 1. تحديد السعر الأساسي الابتدائي للمنتج (مثلاً 46.25)[cite: 1, 3]
-  let basePrice = parseFloat(baseProduct.price || baseProduct.final_price || 0);
+  // 1. تحديد السعر الأساسي الابتدائي للمنتج (قبل الضريبة)
+  // نستخدم price_after_discount أو price (السعر قبل الضريبة) وليس final_price/price_after_tax
+  // لأن الضريبة تُحسب بشكل منفصل في useOrderCalculations
+  let basePrice = parseFloat(
+    baseProduct.price_after_discount ||
+    baseProduct.price ||
+    0
+  );
   let additions = 0;
 
   // 2. حساب المتغيرات (Variations)[cite: 2, 3]

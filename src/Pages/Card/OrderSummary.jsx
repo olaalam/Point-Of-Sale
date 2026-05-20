@@ -199,8 +199,8 @@ const PrintableOrder = React.forwardRef(
           <tbody>
             {orderItems.map((item, index) => {
               const finalUnitPrice = calculateItemUnitPrice(item);
-              // السعر الأساسي (زي اللي معروض في الـ UI)
-              const basePrice = Number(item.price ?? item.final_price ?? item.price_after_discount ?? 0);
+              // السعر الأساسي (قبل الضريبة)
+              const basePrice = Number(item.price_after_discount ?? item.price ?? 0);
 
               // الإضافات (الفرق بين السعر الشامل والأساسي)
               const extras = finalUnitPrice - basePrice;
