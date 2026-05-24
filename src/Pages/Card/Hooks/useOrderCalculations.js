@@ -2,33 +2,6 @@ import { useMemo } from "react";
 import { statusOrder } from "../constants";
 import { calculateItemUnitPrice } from "@/Pages/utils/orderPriceUtils";
 
-const getItemBasePrice = (item) => {
-  // نستخدم price_after_discount أو price (قبل الضريبة) وليس final_price/price_after_tax
-  let basePrice = Number(item.price_after_discount || item.price || 0);
-  if (item.variations && Array.isArray(item.variations)) {
-    item.variations.forEach((v) => {
-      if (v.type === 'multiple') return;
-      const name = (v.name || "").toLowerCase();
-      const isSize = name.includes('size') || name.includes('حجم') || name.includes('maqas') || name.includes('مقاس') || name.includes('وزن') || name.includes('weight');
-      const selectedId = v.selected_option_id;
-      if (selectedId === null || selectedId === undefined) return;
-      const ids = Array.isArray(selectedId) ? selectedId : [selectedId];
-      ids.forEach(optId => {
-        const opt = v.options?.find(o => o.id === optId);
-        if (!opt) return;
-        const totalOptPrice = Number(opt.total_option_price || 0);
-        if (totalOptPrice > 0 && !item.is_group_priced) {
-          basePrice = totalOptPrice;
-        } else if (isSize && !item.is_group_priced) {
-          const sp = Number(opt.final_price || opt.price_after_tax || 0);
-          if (sp > 0) basePrice = sp;
-        }
-      });
-    });
-  }
-  return basePrice;
-};
-
 export function useOrderCalculations(
   orderItems,
   selectedPaymentItems,
@@ -81,11 +54,12 @@ export function useOrderCalculations(
       }
 
       // تحديد قيمة الضريبة للعنصر الواحد
-      let itemTax = variationTaxSum > 0 ? variationTaxSum : Number(item.tax_val || 0);
+      // ضريبة المنتج الأساسية + ضريبة الـ variation المختارة (يُجمعان معاً)
+      let itemTax = Number(item.tax_val || 0) + variationTaxSum;
 
       // إذا كانت الضريبة مشمولة في السعر
       if (item.taxes === "included") {
-        const basePrice = Number(item.price || item.final_price || 0);
+        const basePrice = Number(item.price_after_discount || item.price || 0);
         const taxRate = item.tax_obj?.amount ? Number(item.tax_obj.amount) / 100 : 0.14;
         itemTax = basePrice - (basePrice / (1 + taxRate));
       }
@@ -153,7 +127,7 @@ export function useOrderCalculations(
             });
           });
         }
-        let itmTax = vTax > 0 ? vTax : Number(i.tax_val ?? 0);
+        let itmTax = vTax + Number(i.tax_val ?? 0);
         return s + (itmTax * (i.count ?? i.quantity ?? 1));
       }, 0);
 
