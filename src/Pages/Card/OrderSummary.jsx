@@ -20,6 +20,7 @@ import { useGet } from "@/Hooks/useGet";
 import { Textarea } from "@/components/ui/textarea";
 import FreeDiscountPasswordModal from "../Checkout/FreeDiscountPasswordModal";
 import { usePost } from "@/Hooks/usePost";
+import { printReceiptSilently } from "../utils/printReceipt";
 
 // مكون الطباعة
 const PrintableOrder = React.forwardRef(
@@ -601,43 +602,78 @@ export default function OrderSummary({
   };
 
   const handlePrint = () => {
-    if (!printRef.current) return;
+    // بناء receiptData من الـ orderItems الحالية للطباعة الصامتة
+    const now = new Date();
+    const dateFormatted = now.toLocaleDateString("en-GB", {
+      day: "2-digit", month: "2-digit", year: "2-digit",
+    });
+    const timeFormatted = now.toLocaleTimeString("en-US", {
+      hour: "2-digit", minute: "2-digit", hour12: true,
+    });
 
-    const printWindow = window.open("", "_blank", "width=350,height=600");
-    const printContents = printRef.current.innerHTML;
+    const receiptData = {
+      invoiceNumber: localStorage.getItem("last_order_id") || "—",
+      orderType: orderType,
+      table: tableId || localStorage.getItem("table_number") || "N/A",
+      table_number: tableId || localStorage.getItem("table_number") || "N/A",
+      dateFormatted,
+      timeFormatted,
+      restaurantName: localStorage.getItem("resturant_name") || "Restaurant",
+      restaurantAddress: localStorage.getItem("restaurant_address") || "",
+      restaurantPhone: localStorage.getItem("restaurant_phone") || "",
+      subtotal: amountToPay,
+      tax: totalTax,
+      discount: 0,
+      serviceFees: totalOtherCharge || 0,
+      serviceTitle: serviceFeeData?.name || "Service Fee",
+      deliveryFees: 0,
+      financials: [],
+      orderNote: notes || "",
+      preparationNum: localStorage.getItem("preparation_number") || "",
+      customer: null,
+      address: null,
+      items: orderItems.map((item) => {
+        const unitPrice = calculateItemUnitPrice(item);
+        const qty = (item.weight_status === 1 || item.weight_status === "1")
+          ? Number(item.quantity || 1)
+          : Number(item.count || 1);
 
-    printWindow.document.write(`
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta charset="UTF-8">
-          <title>Order Receipt</title>
-          <style>
-            @media print {
-              body { margin: 0; padding: 0; }
-              @page { 
-                margin: 5mm;
-                size: 100% auto;
-              }
-            }
-            * { box-sizing: border-box; }
-            body {
-              -webkit-print-color-adjust: exact !important;
-              print-color-adjust: exact !important;
-            }
-          </style>
-        </head>
-        <body>${printContents}</body>
-      </html>
-    `);
+        // الـ variation المختارة
+        const selectedVariations = (item.variations || [])
+          .map((v) => {
+            const selectedId = v.selected_option_id;
+            if (!selectedId) return null;
+            const ids = Array.isArray(selectedId) ? selectedId : [selectedId];
+            const opts = ids.map(id => v.options?.find(o => o.id === id)?.name).filter(Boolean);
+            return opts.length ? { options: opts } : null;
+          })
+          .filter(Boolean);
 
-    printWindow.document.close();
-    printWindow.focus();
+        return {
+          qty,
+          name: item.name || item.product_name || "—",
+          nameAr: item.name_ar || item.nameAr || item.name,
+          nameEn: item.name_en || item.nameEn || item.name,
+          price: unitPrice,
+          total: unitPrice * qty,
+          notes: item.notes || "",
+          id: item.id,
+          addons: (item.addons || []).filter(a => a.selected || a.quantity > 0).map(a => ({
+            name: a.name || item.addons_list?.find(l => l.id === a.addon_id)?.name || "",
+            price: a.price || 0,
+          })),
+          extras: (item.selectedExtras || []).map(exId => ({
+            name: item.allExtras?.find(e => e.id === exId)?.name || "",
+          })),
+          excludes: (item.selectedExcludes || []).map(exId => ({
+            name: item.excludes?.find(e => e.id === exId)?.name || "",
+          })),
+          variations: selectedVariations,
+        };
+      }),
+    };
 
-    setTimeout(() => {
-      printWindow.print();
-      printWindow.close();
-    }, 300);
+    printReceiptSilently(receiptData, {}, null, { shouldSkipKitchenPrint: true });
   };
 
   const restaurantInfo = {
