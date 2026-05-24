@@ -71,7 +71,7 @@ export default function Item({ onAddToOrder, onClose, onClearCart, cartHasItems,
   const [showClearModal, setShowClearModal] = useState(false);
   const [pendingAction, setPendingAction] = useState(null);
   const scannerInputRef = useRef(null);
-  const [viewMode, setViewMode] = useState("sidebar");
+  const [viewMode, setViewMode] = useState("grid");
 
   const {
     selectedProduct,
@@ -751,7 +751,7 @@ export default function Item({ onAddToOrder, onClose, onClearCart, cartHasItems,
   };
 
   const viewModeToggles = (
-    <div className="flex gap-2 p-2 mb-2 bg-gray-50 rounded-lg border border-gray-100">
+    <div className="flex gap-2 p-2  mb-2 bg-gray-50 rounded-lg border border-gray-100">
       <Button
         variant={viewMode === 'sidebar' ? 'default' : 'outline'}
         onClick={() => setViewMode('sidebar')}
@@ -770,10 +770,6 @@ export default function Item({ onAddToOrder, onClose, onClearCart, cartHasItems,
   );
 
   const categoriesSection = (
-
-
-
-
     <div
       dir={isArabic ? "rtl" : "ltr"}
       className="lg:w-45 w-full lg:sticky lg:top-4 bg-white z-10 lg:h-[calc(100vh-120px)] flex flex-col gap-2"
@@ -1013,7 +1009,7 @@ export default function Item({ onAddToOrder, onClose, onClearCart, cartHasItems,
     setShowClearModal(false);
   };
 
-  return (
+return (
     <div className={`flex flex-col h-full ${isArabic ? "text-right" : "text-left"}`} dir={isArabic ? "ltr" : "rtl"}>
       <DeliveryInfo
         orderType={orderType}
@@ -1022,27 +1018,70 @@ export default function Item({ onAddToOrder, onClose, onClearCart, cartHasItems,
         userError={userError}
         onClose={onClose}
       />
-      <div className="flex flex-col lg:flex-row gap-4 items-start w-full px-2">
+      
+      <div className="w-full px-2 flex flex-col gap-2">
+        {/* أزرار التبديل وشريط البحث دائمًا في الأعلى بشكل منظم ومتناسق */}
+        <div className="w-full flex flex-col md:flex-row md:items-center justify-between gap-3 bg-white p-2 rounded-xl border border-gray-100 shadow-sm">
+          <div className="flex-1 w-full">
+            {searchAndToggleSection}
+          </div>
+          <div className="w-full md:w-auto min-w-[200px] flex-shrink-0">
+            {viewModeToggles}
+          </div>
+        </div>
 
-        {/* 1. إذا كان وضع Sidebar (الشكل الحالي) */}
+        {/* 1. إذا كان وضع الـ Sidebar (الشكل الحالي) */}
         {viewMode === 'sidebar' && (
-          <>
-            <div className="w-full lg:w-[85%]">{productsGridSection}</div>
+          <div className="flex flex-col lg:flex-row gap-4 items-start w-full mt-2">
+            {/* عرض المنتجات فقط بدون تكرار شريط البحث */}
+            <div className="w-full lg:w-[85%]">
+              {filteredProducts.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-20 text-gray-400">
+                  <span className="text-5xl mb-4">🔍</span>
+                  <p className="text-lg font-medium">{t("No_products_found")}</p>
+                </div>
+              ) : (
+                <>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 p-2 h-[calc(100vh-260px)] overflow-y-auto scrollbar-hide">
+                    {productsToDisplay.map((product) => (
+                      <ProductCard
+                        key={product.id}
+                        product={product}
+                        onAddToOrder={handleAddToOrder}
+                        onOpenModal={openProductModal}
+                        orderLoading={orderLoading}
+                      />
+                    ))}
+                  </div>
+                  {visibleProductCount < filteredProducts.length && (
+                    <div className="flex justify-center mt-4 pb-4">
+                      <Button
+                        onClick={() => setVisibleProductCount((prev) => prev + 10)}
+                        className="bg-bg-primary text-white px-10 rounded-full shadow-md hover:opacity-90 transition-opacity"
+                      >
+                        {t("Load_More")}
+                      </Button>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+
+            {/* عمود التصنيفات الجانبي */}
             <div className="w-full lg:w-[15%]">
-              {viewModeToggles}
               {categoriesSection}
             </div>
-          </>
+          </div>
         )}
 
-        {/* 2. إذا كان وضع Grid (الصورة رقم 1) */}
+        {/* 2. إذا كان وضع الـ Grid (عرض شبكي) */}
         {viewMode === 'grid' && (
-          <div className="w-full flex flex-col">
-            {viewModeToggles}
-
+          <div className="w-full flex flex-col gap-2 mt-2">
             {/* لو مفيش تصنيف مختار، اعرض شبكة التصنيفات */}
             {selectedMainCategory === "all" || selectedMainCategory === "favorite" ? (
-              categoriesGrid
+              <div className="h-[calc(100vh-260px)] overflow-y-auto scrollbar-hide">
+                {categoriesGrid}
+              </div>
             ) : (
               /* لو اختار تصنيف، اعرض المنتجات ومعاها زر "رجوع" */
               <div className="flex flex-col">
@@ -1052,30 +1091,34 @@ export default function Item({ onAddToOrder, onClose, onClearCart, cartHasItems,
                 >
                   {isArabic ? "⬅️ العودة للتصنيفات" : "⬅️ Back to Categories"}
                 </Button>
-                {productsGridSection}
+                
+                <div className="h-[calc(100vh-320px)] overflow-y-auto scrollbar-hide">
+                  {filteredProducts.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-20 text-gray-400">
+                      <span className="text-5xl mb-4">🔍</span>
+                      <p className="text-lg font-medium">{t("No_products_found")}</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 p-2">
+                      {productsToDisplay.map((product) => (
+                        <ProductCard
+                          key={product.id}
+                          product={product}
+                          onAddToOrder={handleAddToOrder}
+                          onOpenModal={openProductModal}
+                          orderLoading={orderLoading}
+                        />
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             )}
           </div>
         )}
       </div>
-      {/* <div className="flex flex-col lg:flex-row gap-4 items-start w-full px-2">
-        {selectedMainCategory === "offers" ? (
-          <>
-            <div className="w-full lg:w-[85%]">{offersGridSection}</div>
-            <div className="w-full lg:w-[15%]">{categoriesSection}</div>
-          </>
-        ) : isArabic ? (
-          <>
-            <div className="w-full lg:w-[85%]">{productsGridSection}</div>
-            <div className="w-full lg:w-[15%]">{categoriesSection}</div>
-          </>
-        ) : (
-          <>
-            <div className="w-full lg:w-[85%]">{productsGridSection}</div>
-            <div className="w-full lg:w-[15%]">{categoriesSection}</div>
-          </>
-        )}
-      </div> */}
+
+      {/* المودالات والإضافات (كما هي بدون تغيير) */}
       <ProductModal
         isOpen={isProductModalOpen}
         onClose={closeProductModal}
@@ -1094,11 +1137,13 @@ export default function Item({ onAddToOrder, onClose, onClearCart, cartHasItems,
         orderLoading={orderLoading}
         productType={productType}
       />
+      
       {orderLoading && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-[100]">
           <Loading />
         </div>
       )}
+      
       <ModuleOrderModal
         isOpen={isModuleOrderModalOpen}
         onClose={() => {
@@ -1113,42 +1158,21 @@ export default function Item({ onAddToOrder, onClose, onClearCart, cartHasItems,
         groupImage={selectedGroupInfo?.image}
         groupName={selectedGroupInfo?.name}
       />
+      
       {showClearModal && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden transform transition-all scale-100">
             <div className="p-6 text-center">
               <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-red-100 mb-4">
                 <svg className="h-8 w-8 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth="2"
-                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-                  />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                 </svg>
               </div>
-
               <h3 className="text-lg font-bold text-gray-900 mb-2">{t("Attention") || "تنبيه"}</h3>
-              <p className="text-sm text-gray-500 mb-6">
-                {t("ChangingModeWillClearCart") || "الانتقال لهذا النظام سيقوم بمسح محتويات السلة الحالية. هل أنت متأكد؟"}
-              </p>
-
+              <p className="text-sm text-gray-500 mb-6">{t("ChangingModeWillClearCart") || "الانتقال لهذا النظام سيقوم بمسح محتويات السلة الحالية. هل أنت متأكد؟"}</p>
               <div className="flex gap-3 justify-center">
-                <Button
-                  onClick={() => setShowClearModal(false)}
-                  variant="outline"
-                  className="flex-1 border-gray-200 text-gray-700 hover:bg-gray-50"
-                >
-                  {t("Cancel") || "إلغاء"}
-                </Button>
-                <Button
-                  onClick={() => {
-                    if (pendingAction) pendingAction();
-                  }}
-                  className="flex-1 bg-red-600 hover:bg-red-700 text-white border-none"
-                >
-                  {t("Confirm") || "موافق ومسح"}
-                </Button>
+                <Button onClick={() => setShowClearModal(false)} variant="outline" className="flex-1 border-gray-200 text-gray-700 hover:bg-gray-50">{t("Cancel") || "إلغاء"}</Button>
+                <Button onClick={() => { if (pendingAction) pendingAction(); }} className="flex-1 bg-red-600 hover:bg-red-700 text-white border-none">{t("Confirm") || "موافق ومسح"}</Button>
               </div>
             </div>
           </div>
