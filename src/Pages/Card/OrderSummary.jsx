@@ -882,8 +882,8 @@ export default function OrderSummary({
                 </button>
               );
             })()}
-            {/* Print Button - يظهر في الـ Dine-in أو الـ Take-away لما الطلبات تخلص */}
-            {(orderType === "dine_in" || orderType === "take_away") && allItemsDone && (
+            {/* Print Button - يظهر في الـ Dine-in أو الـ Take-away */}
+            {(orderType === "dine_in" || orderType === "take_away") && orderItemsLength > 0 && (
               <Button
                 onClick={handlePrint}
                 variant="outline"
