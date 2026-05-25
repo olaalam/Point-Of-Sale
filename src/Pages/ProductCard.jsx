@@ -26,7 +26,7 @@ const ProductCard = ({ product, onAddToOrder, onOpenModal }) => {
   // التحقق من وجود خصم حقيقي
   const hasRealDiscount = Number(product.discount_val || 0) > 0;
   // السعر الأصلي قبل الخصم (السعر الحالي + قيمة الخصم)
-  const originalPrice = Number(product.final_price || 0) + Number(product.discount_val || 0);
+  const originalPrice = Number(product.final_price || 0) ;
 
   return (
     <div className="bg-white border border-gray-200 rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow duration-200 relative pb-16 w-[100%]">

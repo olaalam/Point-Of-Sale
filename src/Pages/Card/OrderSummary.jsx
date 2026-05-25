@@ -788,7 +788,7 @@ export default function OrderSummary({
             <div className="flex justify-between text-sm">
               <span className="text-gray-800 font-semibold">{t("Original")}</span>
               <span className="font-semibold">
-                {(parseFloat(amountToPay) + totalAppliedDiscountNum).toFixed(2)} {getCurrencySymbol()}
+                {parseFloat(amountToPay).toFixed(2)} {getCurrencySymbol()}
               </span>
             </div>
 
