@@ -148,29 +148,29 @@ const PrintableReport = React.forwardRef(
                 <tr>
                   <th>{t("OrderType") || "Type"}</th>
                   <th>{t("NumberOfOrders") || "Number of orders"}</th>
-
+                  <th>{t("OrderAmount") || "Order amount"}</th>
                 </tr>
               </thead>
               <tbody>
                 <tr>
                   <td>{t("DineIn") || "Dine in"}</td>
                   <td>{reportData?.orders_count?.dine_in_orders_count || 0}</td>
-
+                  <td>{formatAmount(reportData?.orders_amount?.dine_in_amount || 0)}</td>
                 </tr>
                 <tr>
                   <td>{t("TakeAway") || "Takeaway"}</td>
                   <td>{reportData?.orders_count?.take_away_orders_count || 0}</td>
-
+                  <td>{formatAmount(reportData?.orders_amount?.take_away_amount || 0)}</td>
                 </tr>
                 <tr>
                   <td>{t("Delivery") || "Delivery"}</td>
                   <td>{reportData?.orders_count?.delivery_orders_count || 0}</td>
-
+                  <td>{formatAmount(reportData?.orders_amount?.delivery_amount || 0)}</td>
                 </tr>
                 <tr style={{ backgroundColor: "#e0e0e0", fontWeight: "bold" }}>
                   <td>{t("TotalOrders") || "Total orders"}</td>
                   <td>{order_count || 0}</td>
-                  <td>{formatAmount(reportData?.total_orders || 0)}</td>
+                  <td>{formatAmount((reportData?.orders_amount?.dine_in_amount || 0) + (reportData?.orders_amount?.take_away_amount || 0) + (reportData?.orders_amount?.delivery_amount || 0))}</td>
                 </tr>
               </tbody>
             </table>
@@ -371,25 +371,29 @@ export default function EndShiftReportModal({
                   <tr className="bg-gray-100 text-gray-700 uppercase text-xs">
                     <th className={`p-3 border-b ${isArabic ? "text-right" : "text-left"}`}>{t("OrderType")}</th>
                     <th className="p-3 border-b text-center">{t("NumberOfOrders")}</th>
-
+                    <th className="p-3 border-b text-center">{t("OrderAmount") || "Order Amount"}</th>
                   </tr>
                 </thead>
                 <tbody className="text-sm">
                   <tr className="border-b">
                     <td className={`p-3 ${isArabic ? "text-right" : "text-left"}`}>{t("DineIn") || "Dine in"}</td>
                     <td className="p-3 text-center font-medium">{reportData?.orders_count?.dine_in_orders_count || 0}</td>
+                    <td className="p-3 text-center font-medium">{formatAmount(reportData?.orders_amount?.dine_in_amount || 0)}</td>
                   </tr>
                   <tr className="border-b">
                     <td className={`p-3 ${isArabic ? "text-right" : "text-left"}`}>{t("TakeAway") || "Takeaway"}</td>
                     <td className="p-3 text-center font-medium">{reportData?.orders_count?.take_away_orders_count || 0}</td>
+                    <td className="p-3 text-center font-medium">{formatAmount(reportData?.orders_amount?.take_away_amount || 0)}</td>
                   </tr>
                   <tr className="border-b">
                     <td className={`p-3 ${isArabic ? "text-right" : "text-left"}`}>{t("Delivery") || "Delivery"}</td>
                     <td className="p-3 text-center font-medium">{reportData?.orders_count?.delivery_orders_count || 0}</td>
+                    <td className="p-3 text-center font-medium">{formatAmount(reportData?.orders_amount?.delivery_amount || 0)}</td>
                   </tr>
                   <tr className="bg-gray-800 text-white font-bold">
                     <td className={`p-3 ${isArabic ? "rounded-r-md text-right" : "rounded-l-md text-left"}`}>{t("TotalOrders") || "Total orders"}</td>
                     <td className="p-3 text-center">{order_count || 0}</td>
+                    <td className="p-3 text-center">{formatAmount((reportData?.orders_amount?.dine_in_amount || 0) + (reportData?.orders_amount?.take_away_amount || 0) + (reportData?.orders_amount?.delivery_amount || 0))}</td>
                   </tr>
                 </tbody>
               </table>
