@@ -530,7 +530,10 @@ const ProductModal = ({
                   ...selectedProduct,
                   temp_id: `item-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
                   selectedVariation,
-                  selectedExtras: selectedExtras.filter(id => (selectedProduct.allExtras || []).some(e => e.id === id)),
+                  selectedExtras: selectedExtras.filter(id =>
+                    (selectedProduct.allExtras || []).some(e => e.id === id) ||
+                    (selectedProduct.addons || []).some(a => a.id === id)
+                  ),
                   quantity: finalQuantity,
                   notes: notes.trim(),
 
