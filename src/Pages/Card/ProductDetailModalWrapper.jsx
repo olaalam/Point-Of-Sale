@@ -33,18 +33,10 @@ useEffect(() => {
       setSelectedVariation(existingItem.selectedVariation || {});
       setSelectedExcludes(existingItem.selectedExcludes || []);
 
-      // كود استعادة الـ Addons اللي ظبطناه سوا
-      const recoveredExtras = [];
-      if (existingItem.selectedExtras) {
-        existingItem.selectedExtras.forEach(id => recoveredExtras.push(id));
-      }
-      if (existingItem.addons) {
-        existingItem.addons.forEach(addon => {
-          for (let i = 0; i < addon.quantity; i++) {
-            recoveredExtras.push(addon.addon_id);
-          }
-        });
-      }
+      // كود استعادة الـ Addons
+      // selectedExtras على الـ item بتحتوي على كل الـ IDs (extras + addons معاً)
+      // فنستخدمها مباشرة بدون ما نضيف من addons تاني (عشان منضافش مرتين)
+      const recoveredExtras = [...(existingItem.selectedExtras || [])];
       setSelectedExtras(recoveredExtras);
     } else {
       setIsExistingInCart(false);
@@ -218,8 +210,14 @@ const handleAddToCart = async (enhancedProduct) => {
         }}
        selectedProduct={{
     ...product,
-    // نضمن أن المودال لديه القائمة الكاملة للأسماء والأسعار
-    addons: product.addons_list || product.addons || [] 
+    // نضمن أن المودال لديه القائمة الكاملة للأسماء والأسعار (catalog)
+    // addons_list هي الـ catalog الكامل، addons هي الـ stored format
+    addons: product.addons_list || (
+      // لو addons_list مش موجودة، نتحقق هل addons هي catalog (عندها id) أم stored (عندها addon_id)
+      (product.addons || []).some(a => a.addon_id !== undefined)
+        ? []  // stored format - مش صالحة للمودال
+        : (product.addons || [])  // catalog format - نستخدمها
+    )
   }}
         selectedVariation={selectedVariation}
         selectedExtras={selectedExtras}

@@ -45,21 +45,41 @@ export const calculateItemUnitPrice = (baseProduct, selectedVariation = {}, sele
   }
 
   // 3. حساب الـ Extras و الـ Addons الخارجية
-  // لو selectedExtras مش متمررة كـ parameter، نقرأها من الـ item نفسه
-  const extrasToUse = selectedExtras !== null
-    ? selectedExtras
-    : (baseProduct.selectedExtras || []);
-
-  const allPossibleAddons = [
-    ...(baseProduct.allExtras || []),
-    ...(baseProduct.addons || [])
-  ];
-
-  if (extrasToUse && extrasToUse.length > 0) {
-    extrasToUse.forEach(id => {
+  if (selectedExtras !== null) {
+    // ── المسار 1: استدعاء من المودال مع selectedExtras صريحة ──
+    // نبحث عن كل ID في allExtras و addons (الـ catalog الكامل للمنتج)
+    const allPossibleAddons = [
+      ...(baseProduct.allExtras || []),
+      ...(baseProduct.addons || [])
+    ];
+    selectedExtras.forEach(id => {
       const extra = allPossibleAddons.find(e => e.id === parseInt(id));
       if (extra) {
         additions += parseFloat(extra.price || extra.final_price || 0);
+      }
+    });
+  } else {
+    // ── المسار 2: استدعاء من الـ cart/order (item مخزن) ──
+
+    // أولاً: الـ extras من allExtras (محفوظة كـ IDs في selectedExtras)
+    const storedExtras = baseProduct.selectedExtras || [];
+    if (storedExtras.length > 0) {
+      const allExtrasCatalog = baseProduct.allExtras || [];
+      storedExtras.forEach(id => {
+        const extra = allExtrasCatalog.find(e => e.id === parseInt(id));
+        if (extra) {
+          additions += parseFloat(extra.price || extra.final_price || 0);
+        }
+      });
+    }
+
+    // ثانياً: الـ addons المحفوظة على الـ item (شكلها: [{ addon_id, quantity, price }])
+    // نتعرف عليها بوجود addon_id (مش id) — السعر محفوظ جاهز فيها
+    const storedAddons = baseProduct.addons || [];
+    storedAddons.forEach(addon => {
+      if (addon.addon_id !== undefined) {
+        const qty = parseFloat(addon.quantity || addon.count || 1);
+        additions += parseFloat(addon.price || 0) * qty;
       }
     });
   }

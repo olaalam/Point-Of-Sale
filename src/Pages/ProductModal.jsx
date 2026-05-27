@@ -545,6 +545,9 @@ const ProductModal = ({
                   originalPrice: selectedProduct.final_price,
                   totalPrice: totalUnitPrice * finalQuantity,
 
+                  // نحفظ الـ catalog الكامل للـ addons عشان نقدر نسترجعه لاحقاً
+                  addons_list: selectedProduct.addons_list || selectedProduct.addons || [],
+
                   // باقي الحقول كما هي...
                   addons: (selectedExtras.filter(id => (selectedProduct.addons || []).some(a => a.id === id))).map(addonId => {
                     const src = (selectedProduct.addons || []).find(a => a.id === addonId);
