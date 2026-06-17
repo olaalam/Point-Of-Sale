@@ -364,18 +364,8 @@ ${moduleLine}
           ? item.nameAr || item.name_ar || item.name
           : item.nameEn || item.name_en || item.name;
 
-        // ✅ حساب إجمالي الـ addons (لأنها لها total أو price منفصل)
-        const addonsTotal = (item.addons || []).reduce((sum, add) => {
-          return sum + Number(add.total || add.price || 0);
-        }, 0);
-
-        // إجمالي المنتج بعد الـ addons (extras و variations نفترض سعرهم مضاف في item.total بالفعل، لأنهم بدون price منفصل)
-        const calculatedTotal = Number(item.total || item.price * item.qty) + addonsTotal;
-
-        // سعر الوحدة بعد الـ addons
-        const calculatedUnitPrice = item.qty > 0
-          ? (calculatedTotal / Number(item.qty)).toFixed(2)
-          : Number(item.price).toFixed(2);
+        // ✅ السعر الأساسي للوحدة 
+        const baseUnitPrice = Number(item.price || 0);
 
         // === دالة مساعدة لتحويل أي شيء إلى نص آمن ===
         const safeName = (addon) => {
@@ -387,30 +377,44 @@ ${moduleLine}
           return String(addon);
         };
 
-        // Addons مع السعر (مثل الـ API)
+        // ✅ حساب إضافات الوحدة (Addons)
+        let addonsUnitPrice = 0;
         const addonsHTML = (item.addons || [])
           .map((add) => {
             const name = safeName(add);
-            const price = add.price || add.total
-              ? ` (${Number(add.price || add.total).toFixed(2)})`
-              : "";
-            return name
-              ? `<div class="addon-row">+ ${name}${price}</div>`
-              : "";
+            if (!name) return "";
+            const addonCount = Number(add.count || add.qty || 1);
+            const addonPrice = Number(add.price || 0);
+            const addonUnitAdd = addonPrice * addonCount;
+            addonsUnitPrice += addonUnitAdd;
+
+            let priceStr = "";
+            if (addonUnitAdd > 0) {
+              priceStr = addonCount > 1
+                ? ` (${addonCount} × ${addonPrice.toFixed(2)})`
+                : ` (${addonUnitAdd.toFixed(2)})`;
+            }
+            return `<div class="addon-row" style="color:#0066cc;"> ${name}${priceStr}</div>`;
           })
           .filter(Boolean)
           .join("");
 
-        // Extras (بدون سعر منفصل في الـ API → نطبع الاسم فقط)
+        // ✅ حساب إضافات الإكسترا (Extras)
+        let extrasUnitPrice = 0;
         const extrasHTML = (item.extras || [])
           .map((extra) => {
             const name = safeName(extra);
-            return name ? `<div class="addon-row">+ ${name}</div>` : "";
+            if (!name) return "";
+            const extraPrice = Number(extra.price || extra.total || 0);
+            extrasUnitPrice += extraPrice;
+
+            const priceStr = extraPrice > 0 ? ` (${extraPrice.toFixed(2)})` : "";
+            return `<div class="addon-row" style="color:#0066cc;"> ${name}${priceStr}</div>`;
           })
           .filter(Boolean)
           .join("");
 
-        // Excludes
+        // ✅ Excludes
         const excludesHTML = (item.excludes || [])
           .map((exc) => {
             const name = safeName(exc);
@@ -421,7 +425,7 @@ ${moduleLine}
           .filter(Boolean)
           .join("");
 
-        // Variations (بدون سعر منفصل → نطبع الخيار فقط)
+        // ✅ Variations - نعرض اسم الخيار المختار فقط
         const variationsHTML = (() => {
           const getVariationsArray = (v) =>
             Array.isArray(v)
@@ -432,22 +436,24 @@ ${moduleLine}
 
           return getVariationsArray(item.variations)
             .flatMap((group) => {
-              if (!group || !group.options) return [];
-              // ✅ Fix: options can be an array of strings OR an array of objects
-              const optionText = group.options
-                .map((opt) => (typeof opt === "object" ? opt.name : opt))
-                .join(", ");
-              return [`• ${optionText}`];
+              if (!group) return [];
+              if (group.options && Array.isArray(group.options)) {
+                const optionText = group.options
+                  .map((opt) => (typeof opt === "object" ? opt.name : opt))
+                  .join(", ");
+                return [optionText];
+              }
+              return [];
             })
-            .map((text) => `<div class="addon-row">${text}</div>`)
+            .map((text) => `<div class="addon-row" style="color:#555;">• ${text}</div>`)
             .join("");
         })();
 
         const modifiersHTML = [
+          variationsHTML,
           addonsHTML,
           extrasHTML,
           excludesHTML,
-          variationsHTML,
         ]
           .filter(Boolean)
           .join("");
@@ -455,6 +461,12 @@ ${moduleLine}
         const notesHTML = item.notes
           ? `<div style="margin-top: 6px; font-weight: bold; font-size: 13px; color: #d00;">(${item.notes})</div>`
           : "";
+
+        // ✅ السعر النهائي للوحدة شاملاً الإضافات (زي الكارت)
+        const finalUnitPrice = baseUnitPrice + addonsUnitPrice + extrasUnitPrice;
+
+        // ✅ الإجمالي للصف بالكامل 
+        const rowTotal = finalUnitPrice * Number(item.qty || 1);
 
         return `
 <tr>
@@ -464,10 +476,8 @@ ${moduleLine}
     ${modifiersHTML ? `<div style="margin-top:4px;">${modifiersHTML}</div>` : ""}
     ${notesHTML}
   </td>
-  <!-- ✅ السعر الآن شامل الـ addons (و extras/variations مضافين أصلاً في price المنتج) -->
-  <td class="item-total">${calculatedUnitPrice}</td>
-  <!-- ✅ الإجمالي شامل الـ addons -->
-  <td class="item-total">${calculatedTotal.toFixed(2)}</td>
+  <td class="item-total">${finalUnitPrice.toFixed(2)}</td>
+  <td class="item-total">${rowTotal.toFixed(2)}</td>
 </tr>
 `;
       })
@@ -848,8 +858,14 @@ ${receiptData.items
         const addonsHTML = (item.addons || [])
           .map((add) => {
             const name = safeName(add);
-            const price = add.price ? ` (${Number(add.price).toFixed(2)})` : "";
-            return name ? `<div class="addon-row">+ ${name}${price}</div>` : "";
+            if (!name) return "";
+            const addonCount = Number(add.count || add.qty || 1);
+            const addonUnitPrice = Number(add.price || 0);
+            const addonTotal = Number(add.total || (addonUnitPrice * addonCount));
+            const priceStr = addonTotal > 0
+              ? (addonCount > 1 ? ` (${addonCount}×${addonUnitPrice.toFixed(2)})` : ` (${addonTotal.toFixed(2)})`)
+              : "";
+            return `<div class="addon-row"> ${name}${priceStr}</div>`;
           })
           .filter(Boolean)
           .join("");
@@ -857,7 +873,9 @@ ${receiptData.items
         const extrasHTML = (item.extras || [])
           .map((extra) => {
             const name = safeName(extra);
-            return name ? `<div class="addon-row">+ ${name}</div>` : "";
+            const extraPrice = Number(extra.price || extra.total || 0);
+            const priceStr = extraPrice > 0 ? ` (${extraPrice.toFixed(2)})` : "";
+            return name ? `<div class="addon-row"> ${name}${priceStr}</div>` : "";
           })
           .filter(Boolean)
           .join("");
@@ -866,38 +884,31 @@ ${receiptData.items
           .map((exc) => {
             const name = safeName(exc);
             return name
-              ? `<div class="addon-row" style="color:#d00;">- ${name}</div>`
+              ? `<div class="addon-row" style="color:#d00;">${name}</div>`
               : "";
           })
           .filter(Boolean)
           .join("");
 
-
-
-        // في دالة formatKitchenReceipt، استبدل كل الـ variationsHTML block بالكود ده بالكامل:
-
+        // ✅ Variations (بدون label)
         const variationsHTML = (item.variations || item.variation_selected || [])
           .map((group) => {
-            // لو مفيش group أو name، نتخطاه
-            if (!group || !group.name) return "";
+            if (!group) return "";
 
-            // نستخرج أسماء الـ options الداخلية فقط (اللي هي الاختيارات الفعلية)
+            // نستخرج أسماء الـ options (قد تكون strings أو objects)
             const optionsText = (group.options || [])
-              .map((opt) => opt.name || opt.option || String(opt)) // نأخذ الـ name أولاً
-              .filter(Boolean) // نتخلص من أي فارغ
+              .map((opt) => (typeof opt === "object" ? (opt.name || opt.option || "") : opt))
+              .filter(Boolean)
               .join(", ");
 
-            // لو مفيش options مختارة، نتخطاه
             if (!optionsText) return "";
-
-            // نرجع النص النهائي: اسم الـ group + الـ options
-            return `• ${group.name}: ${optionsText}`;
+            return `• ${optionsText}`;
           })
-          .filter(Boolean) // نتخلص من أي فارغ
+          .filter(Boolean)
           .map((text) => `<div style="font-size:10px;margin:2px 0;">${text}</div>`)
           .join("");
 
-        const allModifiers = [addonsHTML, extrasHTML, excludesHTML, variationsHTML]
+        const allModifiers = [variationsHTML, addonsHTML, extrasHTML, excludesHTML]
           .filter(Boolean)
           .join("");
 

@@ -182,33 +182,80 @@ export default function FakeOrders() {
             <table class="items-table">
               <thead>
                 <tr>
-                  <th width="25%">${isArabic ? "كمية" : "Qt"}</th>
-                  <th width="50%" style="text-align: ${isArabic ? "right" : "left"};">${isArabic ? "الصنف" : "Item"}</th>
-                  <th width="25%">${isArabic ? "إجمالي" : "Total"}</th>
+                  <th width="12%">${isArabic ? "ع" : "Qt"}</th>
+                  <th width="52%" style="text-align: ${isArabic ? "right" : "left"};">${isArabic ? "الصنف" : "Item"}</th>
+                  <th width="18%">${isArabic ? "سعر" : "Price"}</th>
+                  <th width="18%">${isArabic ? "إجمالي" : "Total"}</th>
                 </tr>
               </thead>
               <tbody>
                 ${data.order_details.map(item => {
       const productObj = item.product || {};
-      const price = Number(item.price || item.final_price || productObj.price || productObj.final_price || productObj.total_price || 0);
+      
+      // ✅ السعر الأساسي للوحدة 
+      const baseUnitPrice = Number(item.price || item.final_price || productObj.price || productObj.final_price || productObj.total_price || 0);
       const qty = Number(item.count || item.qty || productObj.count || 1);
-      const addonsTotal = item.addons?.reduce((sum, addon) => sum + (Number(addon.total || addon.price || 0) * qty), 0) || 0;
-      const rowTotal = Number(item.total || productObj.total || productObj.total_price || (price * qty)) + addonsTotal;
+      
+      // ✅ Variations - اسم الخيار المختار فقط
+      let variationsHTML = "";
+      if (item.variations && item.variations.length > 0) {
+        variationsHTML = item.variations.map(v => {
+          const opts = Array.isArray(v.options)
+            ? v.options.map(o => (typeof o === "object" ? o.name : o)).join(", ")
+            : "";
+          if (!opts) return "";
+          return `<div class="addon-row" style="color:#555;">• ${opts}</div>`;
+        }).join("");
+      }
 
+      // ✅ Addons مع حساب الإضافات للوحدة
+      let addonsUnitPrice = 0;
       let addonsHTML = "";
       if (item.addons && item.addons.length > 0) {
-        addonsHTML = item.addons.map(add =>
-          `<div class="addon-row">+ ${add.name} (${Number(add.price || add.total || 0).toFixed(2)})</div>`
-        ).join("");
+        addonsHTML = item.addons.map(add => {
+          const addonCount = Number(add.count || add.qty || 1);
+          const addonPrice = Number(add.price || 0);
+          const addonUnitAdd = addonPrice * addonCount;
+          addonsUnitPrice += addonUnitAdd;
+          
+          const priceStr = addonUnitAdd > 0
+            ? (addonCount > 1 ? ` (${addonCount} × ${addonPrice.toFixed(2)})` : ` (+${addonUnitAdd.toFixed(2)})`)
+            : "";
+          return `<div class="addon-row" style="color:#0066cc;">+ ${add.name}${priceStr}</div>`;
+        }).join("");
       }
+
+      // ✅ Extras مع السعر
+      let extrasUnitPrice = 0;
+      let extrasHTML = "";
+      if (item.extras && item.extras.length > 0) {
+        extrasHTML = item.extras.map(ex => {
+          const name = typeof ex === "string" ? ex : (ex.name || "");
+          const extraPrice = Number(ex.price || ex.total || 0);
+          extrasUnitPrice += extraPrice;
+          
+          const priceStr = extraPrice > 0 ? ` (+${extraPrice.toFixed(2)})` : "";
+          return name ? `<div class="addon-row" style="color:#0066cc;">+ ${name}${priceStr}</div>` : "";
+        }).filter(Boolean).join("");
+      }
+
+      // ✅ السعر النهائي للوحدة شاملاً الإضافات (زي الكارت)
+      const finalUnitPrice = baseUnitPrice + addonsUnitPrice + extrasUnitPrice;
+      
+      // ✅ الإجمالي للصف بالكامل 
+      const rowTotal = finalUnitPrice * qty;
+
       return `
                     <tr>
                       <td class="item-qty">${qty}</td>
                       <td class="item-name" style="text-align: ${isArabic ? "right" : "left"};">
                         ${item.name || productObj.name || "—"}
+                        ${variationsHTML}
                         ${addonsHTML}
+                        ${extrasHTML}
                         ${item.notes || productObj.notes ? `<div class="notes-row">(${item.notes || productObj.notes})</div>` : ""}
                       </td>
+                      <td class="item-total">${finalUnitPrice.toFixed(2)}</td>
                       <td class="item-total">${rowTotal.toFixed(2)}</td>
                     </tr>
                   `;
