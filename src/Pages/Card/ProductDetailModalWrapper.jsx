@@ -171,7 +171,7 @@ const handleAddToCart = async (enhancedProduct) => {
   };
 
   // دوال التحكم بالإضافات والمتغيرات
-  const handleVariationChange = (variationId, optionId, action = "set") => {
+  const handleVariationChange = (variationId, optionId, action = "set", value = null) => {
     setSelectedVariation(prev => {
       if (action === "add") {
         const current = prev[variationId] || [];
@@ -180,6 +180,10 @@ const handleAddToCart = async (enhancedProduct) => {
       if (action === "remove") {
         const current = prev[variationId] || [];
         return { ...prev, [variationId]: current.filter(id => id !== optionId) };
+      }
+      if (action === "set" && value !== null) {
+        // للمتغيرات بالوزن، نحفظ القيمة العشرية
+        return { ...prev, [variationId]: { optionId, value } };
       }
       return { ...prev, [variationId]: optionId };
     });

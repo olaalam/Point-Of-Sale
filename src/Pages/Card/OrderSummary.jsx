@@ -259,10 +259,10 @@ const PrintableOrder = React.forwardRef(
                               • {group.name}: {selected.name}
 
                               {/* عرض الضريبة الخاصة بهذا الوزن/الاختيار لو كانت أكبر من صفر */}
-                              {selected.tax_val > 0 && (
+                              {selected.tax_only > 0 && (
                                 <span style={{ color: "#d97706", marginInlineStart: "5px", fontWeight: "bold" }}>
                                   ({isArabic ? "ضريبة: " : "Tax: "}
-                                  {Number(selected.tax_val).toFixed(2)})
+                                  {Number(selected.tax_only).toFixed(2)})
                                 </span>
                               )}
                             </div>
@@ -441,6 +441,7 @@ export default function OrderSummary({
   orderType,
   subTotal,
   totalTax,
+  apiTotalDiscount,
   totalOtherCharge,
   serviceFeeData,
   taxDetails,
@@ -727,6 +728,14 @@ export default function OrderSummary({
           ))
         ) : (
           <SummaryRow label={t("Tax")} value={totalTax} />
+        )}
+
+        {apiTotalDiscount > 0 && (
+          <SummaryRow
+            label={t("Discount")}
+            value={-apiTotalDiscount}
+            valueClassName="text-green-600"
+          />
         )}
 
         {["dine_in", "take_away"].includes(orderType) && totalOtherCharge > 0 && (

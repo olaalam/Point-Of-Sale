@@ -48,7 +48,7 @@ const ProductCard = ({ product, onAddToOrder, onOpenModal }) => {
       <div className="px-3">
         <div className="mt-1 text-sm font-bold text-bg-primary">
           {/* شرط: الضريبة مستبعدة وقيمتها أكبر من صفر */}
-          {product.taxes === "excluded" && Number(product.tax_val) > 0 ? (
+          {product.taxes === "excluded" && Number(product.tax_only) > 0 ? (
             <div className="flex flex-col">
               <div className="flex items-center gap-1">
                 <span className="text-gray-400 text-xs line-through font-normal">

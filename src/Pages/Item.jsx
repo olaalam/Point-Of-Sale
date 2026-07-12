@@ -399,7 +399,7 @@ export default function Item({ onAddToOrder, onClose, onClearCart, cartHasItems,
           cashier_id: localStorage.getItem("cashier_id"),
           amount: totalAmount.toFixed(2),
           // تأمين حساب الضريبة
-          total_tax: (parseFloat(product.tax_val || 0) * finalQuantity).toFixed(2),
+          total_tax: (parseFloat(product.tax_only || 0) * finalQuantity).toFixed(2),
           total_discount: "0.00",
           source: "web",
           products: [processedItem],

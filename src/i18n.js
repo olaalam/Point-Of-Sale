@@ -102,6 +102,7 @@ const resources = {
       PendingOrders: "Pending Orders",
       SubTotal: "Sub Total:",
       Tax: "Tax:",
+      Discount: "Discount:",
       OtherCharge: "OtherCharge:",
       "Cart Has Items": "Cart Has Items",
       "You have": "You have",

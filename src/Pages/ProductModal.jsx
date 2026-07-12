@@ -82,11 +82,19 @@ const ProductModal = ({
 
   const isWeightProduct = productType === "weight" || selectedProduct.weight_status === 1;
 
-  const unitPrice = calculateItemUnitPrice(
-    selectedProduct,
-    selectedVariation,
-    selectedExtras
-  );
+  // استخدام final_price مباشرة من الباك إند
+  const basePrice = parseFloat(selectedProduct.final_price || 0);
+  
+  // إضافة الـ extras فقط
+  let extraPrice = 0;
+  selectedExtras.forEach(id => {
+    const extra = [...(selectedProduct.allExtras || []), ...(selectedProduct.addons || [])].find(e => e.id === parseInt(id));
+    if (extra) {
+      extraPrice += parseFloat(extra.final_price || extra.price || 0);
+    }
+  });
+  
+  const unitPrice = basePrice + extraPrice;
   const totalPrice = unitPrice * quantity;
 
   const hasVariations =
@@ -229,6 +237,12 @@ const ProductModal = ({
                             >
                               <span className="capitalize">
                                 {getVariationOptionDisplay(option, variation)}
+                                {/* عرض وحدة الوزن إذا كانت متوفرة */}
+                                {variation.weight_status === 1 && variation.weight_unit && (
+                                  <span className="text-xs text-gray-500 ml-1">
+                                    ({variation.weight_unit})
+                                  </span>
+                                )}
                               </span>
                               {parseFloat(option.final_price || option.price_after_tax || 0) > 0 && (
                                 <span className="text-xs">
@@ -248,9 +262,22 @@ const ProductModal = ({
                         {variation.options.map((option) => {
                           const selectedOptions =
                             selectedVariation[variation.id] || [];
-                          const optionCount = selectedOptions.filter(
-                            (id) => id === option.id
-                          ).length;
+                          
+                          // حساب الكمية بناءً على نوع البيانات المحفوظة
+                          let optionCount = 0;
+                          if (variation.weight_status === 1) {
+                            const weightOption = selectedOptions.find(opt => 
+                              typeof opt === 'object' ? opt.optionId === option.id : opt === option.id
+                            );
+                            optionCount = weightOption && typeof weightOption === 'object' 
+                              ? weightOption.value || 0 
+                              : (selectedOptions.includes(option.id) ? 1 : 0);
+                          } else {
+                            optionCount = selectedOptions.filter(
+                              opt => typeof opt === 'object' ? opt.optionId === option.id : opt === option.id
+                            ).length;
+                          }
+                          
                           const totalSelected = selectedOptions.length;
 
                           const canDecrease =
@@ -266,6 +293,12 @@ const ProductModal = ({
                               <div className="flex-1">
                                 <span className="text-sm font-medium text-gray-700 capitalize">
                                   {option.name}
+                                  {/* عرض وحدة الوزن */}
+                                  {variation.weight_status === 1 && variation.weight_unit && (
+                                    <span className="text-xs text-gray-500 ml-1">
+                                      ({variation.weight_unit})
+                                    </span>
+                                  )}
                                 </span>
                                 <div className="text-xs text-gray-500">
                                   {parseFloat(option.final_price || option.price_after_tax || option.price || 0) === 0
@@ -274,37 +307,62 @@ const ProductModal = ({
                                   }
                                 </div>
                               </div>
-                              <div className="flex items-center space-x-2">
-                                <button
-                                  className="bg-gray-200 text-red-600 p-1 rounded-full hover:bg-gray-300 transition-colors disabled:opacity-50"
-                                  onClick={() =>
-                                    onVariationChange(
-                                      variation.id,
-                                      option.id,
-                                      "remove"
-                                    )
-                                  }
-                                  disabled={optionCount === 0 || !canDecrease}
-                                >
-                                  <Minus size={16} />
-                                </button>
-                                <span className="text-sm font-semibold w-8 text-center">
-                                  {optionCount}
-                                </span>
-                                <button
-                                  className="bg-red-600 text-white p-1 rounded-full hover:bg-red-700 transition-colors disabled:opacity-50"
-                                  onClick={() =>
-                                    onVariationChange(
-                                      variation.id,
-                                      option.id,
-                                      "add"
-                                    )
-                                  }
-                                  disabled={!canIncrease}
-                                >
-                                  <Plus size={16} />
-                                </button>
-                              </div>
+                              
+                              {/* عرض input للوزن أو buttons للقطع */}
+                              {variation.weight_status === 1 ? (
+                                <div className="flex items-center space-x-2">
+                                  <input
+                                    type="number"
+                                    step="0.1"
+                                    min="0.1"
+                                    value={optionCount || ''}
+                                    onChange={(e) => {
+                                      const value = parseFloat(e.target.value) || 0;
+                                      if (value >= 0.1 || e.target.value === '') {
+                                        // تحديث الكمية للـ variation
+                                        onVariationChange(variation.id, option.id, "set", value);
+                                      }
+                                    }}
+                                    placeholder="0.0"
+                                    className="w-20 px-2 py-1 border border-gray-300 rounded text-center text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+                                  />
+                                  <span className="text-xs text-gray-500">
+                                    {variation.weight_unit || 'kg'}
+                                  </span>
+                                </div>
+                              ) : (
+                                <div className="flex items-center space-x-2">
+                                  <button
+                                    className="bg-gray-200 text-red-600 p-1 rounded-full hover:bg-gray-300 transition-colors disabled:opacity-50"
+                                    onClick={() =>
+                                      onVariationChange(
+                                        variation.id,
+                                        option.id,
+                                        "remove"
+                                      )
+                                    }
+                                    disabled={optionCount === 0 || !canDecrease}
+                                  >
+                                    <Minus size={16} />
+                                  </button>
+                                  <span className="text-sm font-semibold w-8 text-center">
+                                    {optionCount}
+                                  </span>
+                                  <button
+                                    className="bg-red-600 text-white p-1 rounded-full hover:bg-red-700 transition-colors disabled:opacity-50"
+                                    onClick={() =>
+                                      onVariationChange(
+                                        variation.id,
+                                        option.id,
+                                        "add"
+                                      )
+                                    }
+                                    disabled={!canIncrease}
+                                  >
+                                    <Plus size={16} />
+                                  </button>
+                                </div>
+                              )}
                             </div>
                           );
                         })}
@@ -518,13 +576,10 @@ const ProductModal = ({
             <Button
               data-enter
               onClick={() => {
-                const totalUnitPrice = calculateItemUnitPrice(
-                  selectedProduct,
-                  selectedVariation,
-                  selectedExtras
-                );
-
                 const finalQuantity = parseFloat(quantity) || 0;
+
+                // حساب السعر الإجمالي مع الـ extras
+                const totalUnitPrice = basePrice + extraPrice;
 
                 const enhancedProduct = {
                   ...selectedProduct,
@@ -537,10 +592,8 @@ const ProductModal = ({
                   quantity: finalQuantity,
                   notes: notes.trim(),
 
-                  // 🚀 الإصلاح الجوهري: يجب أن يكون السعر هنا هو السعر شامل الإضافات
-                  // لأن الكارت والأوردر يعتمدان على حقل price لحساب الإجمالي
+                  // استخدام final_price من الباك إند
                   price: totalUnitPrice,
-
                   modalCalculatedPrice: totalUnitPrice,
                   originalPrice: selectedProduct.final_price,
                   totalPrice: totalUnitPrice * finalQuantity,
@@ -553,10 +606,38 @@ const ProductModal = ({
                     const src = (selectedProduct.addons || []).find(a => a.id === addonId);
                     return { addon_id: addonId, quantity: 1, price: src ? parseFloat(src.final_price || src.price || 0) : 0 };
                   }),
-                  variations: (selectedProduct.variations || []).map(group => ({
-                    ...group,
-                    selected_option_id: selectedVariation[group.id] || null
-                  })),
+                  variations: (selectedProduct.variations || []).map(group => {
+                    const selectedValue = selectedVariation[group.id];
+                    
+                    if (group.type === "single") {
+                      return {
+                        ...group,
+                        selected_option_id: selectedValue || null
+                      };
+                    } else if (group.type === "multiple") {
+                      const selectedOptions = selectedValue || [];
+                      return {
+                        ...group,
+                        selected_options: selectedOptions.map(item => {
+                          if (typeof item === 'object') {
+                            // للمتغيرات بالوزن
+                            return {
+                              option_id: item.optionId,
+                              quantity: item.value || 1
+                            };
+                          } else {
+                            // للمتغيرات العادية
+                            return {
+                              option_id: item,
+                              quantity: 1
+                            };
+                          }
+                        })
+                      };
+                    }
+                    
+                    return group;
+                  }),
                 };
 
                 onAddFromModal(enhancedProduct, { isFromModal: true, checkDuplicate: true });

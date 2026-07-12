@@ -39,7 +39,7 @@ export const useProductModal = () => {
     setSelectedProduct(null);
   };
 
-  const handleVariationChange = (variationId, optionId) => {
+  const handleVariationChange = (variationId, optionId, action = "toggle", value = null) => {
     setSelectedVariation((prev) => {
       const variation = selectedProduct.variations.find((v) => v.id === variationId);
       if (!variation) return prev;
@@ -47,17 +47,56 @@ export const useProductModal = () => {
       if (variation.type === "single") {
         return { ...prev, [variationId]: optionId };
       } else {
+        // للمتغيرات المتعددة
+        if (action === "set" && value !== null) {
+          // للمتغيرات بالوزن، نحفظ القيمة العشرية
+          const currentOptions = prev[variationId] || [];
+          const existingIndex = currentOptions.findIndex(opt => 
+            typeof opt === 'object' ? opt.optionId === optionId : opt === optionId
+          );
+          
+          if (existingIndex >= 0) {
+            // تحديث القيمة الموجودة
+            const newOptions = [...currentOptions];
+            newOptions[existingIndex] = { optionId, value };
+            return { ...prev, [variationId]: newOptions };
+          } else {
+            // إضافة قيمة جديدة
+            return { ...prev, [variationId]: [...currentOptions, { optionId, value }] };
+          }
+        }
+        
+        if (action === "add") {
+          const currentOptions = prev[variationId] || [];
+          const maxAllowed = variation.max || Infinity;
+          return currentOptions.length < maxAllowed 
+            ? { ...prev, [variationId]: [...currentOptions, optionId] }
+            : prev;
+        }
+        
+        if (action === "remove") {
+          const currentOptions = prev[variationId] || [];
+          return { ...prev, [variationId]: currentOptions.filter(opt => 
+            typeof opt === 'object' ? opt.optionId !== optionId : opt !== optionId
+          ) };
+        }
+        
+        // الـ toggle الافتراضي
         const currentOptions = prev[variationId] || [];
-        const isSelected = currentOptions.includes(optionId);
-        let newOptions;
-
+        const isSelected = currentOptions.some(opt => 
+          typeof opt === 'object' ? opt.optionId === optionId : opt === optionId
+        );
+        
         if (isSelected) {
-          newOptions = currentOptions.filter((id) => id !== optionId);
+          return { ...prev, [variationId]: currentOptions.filter(opt => 
+            typeof opt === 'object' ? opt.optionId !== optionId : opt !== optionId
+          ) };
         } else {
           const maxAllowed = variation.max || Infinity;
-          newOptions = currentOptions.length < maxAllowed ? [...currentOptions, optionId] : currentOptions;
+          return currentOptions.length < maxAllowed 
+            ? { ...prev, [variationId]: [...currentOptions, optionId] }
+            : prev;
         }
-        return { ...prev, [variationId]: newOptions };
       }
     });
   };
@@ -88,45 +127,18 @@ export const useProductModal = () => {
   useEffect(() => {
     if (!selectedProduct) return;
 
-    // السعر الأساسي المبدئي
-    let currentBasePrice = parseFloat(selectedProduct.final_price ?? selectedProduct.price_after_discount ?? 0);
+    // استخدام final_price مباشرة من الباك إند
+    let currentPrice = parseFloat(selectedProduct.final_price || selectedProduct.price_after_discount || 0);
     let extraCharges = 0;
 
-    if (selectedProduct.variations) {
-      selectedProduct.variations.forEach((v) => {
-        const selected = selectedVariation[v.id];
-        if (!selected) return;
-
-        if (v.type === "single") {
-          const opt = v.options.find((o) => o.id === selected);
-          if (opt) {
-            // إذا كان خيار حجم يغير السعر الأساسي
-            if (opt.total_option_price > 0) {
-              currentBasePrice = parseFloat(opt.total_option_price);
-            } else {
-              extraCharges += parseFloat(opt.final_price || opt.price || 0);
-            }
-          }
-        } else if (v.type === "multiple" && Array.isArray(selected)) {
-          selected.forEach((id) => {
-            const opt = v.options.find((o) => o.id === id);
-            if (opt) {
-              // إضافة سعر "باتر فلاي" أو غيره للتكاليف الإضافية
-              extraCharges += parseFloat(opt.final_price || opt.price_after_tax || opt.price || 0);
-            }
-          });
-        }
-      });
-    }
-
-    // حساب الـ Extras الخارجية
+    // حساب الـ Extras الخارجية فقط (variations محسوبة في final_price)
     selectedExtras.forEach((id) => {
       const extra = [...(selectedProduct.allExtras || []), ...(selectedProduct.addons || [])]
         .find((e) => e.id === parseInt(id));
       if (extra) extraCharges += parseFloat(extra.final_price || extra.price || 0);
     });
 
-    setTotalPrice((currentBasePrice + extraCharges) * (parseFloat(quantity) || 0));
+    setTotalPrice((currentPrice + extraCharges) * (parseFloat(quantity) || 0));
   }, [quantity, selectedExtras, selectedProduct, selectedVariation]);
 
   return {
