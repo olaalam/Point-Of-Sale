@@ -84,7 +84,7 @@ const ProductModal = ({
   // حساب السعر مع الـ variations
   let basePrice = parseFloat(selectedProduct.final_price || 0);
   let variationPrice = 0;
-  
+
   // حساب الـ variations
   if (selectedProduct.variations) {
     selectedProduct.variations.forEach((v) => {
@@ -103,16 +103,16 @@ const ProductModal = ({
       } else if (v.type === "multiple" && Array.isArray(selected)) {
         selected.forEach((item) => {
           let opt, quantity = 1;
-          
+
           if (typeof item === 'object') {
             opt = v.options.find((o) => o.id === item.optionId);
             quantity = item.value || 1;
           } else {
             opt = v.options.find((o) => o.id === item);
           }
-          
+
           if (opt) {
-            if (opt.weight === 1) {
+            if (v.weight === 1 || v.weight === "1" || opt.weight === 1 || opt.weight === "1") {
               variationPrice += parseFloat(opt.price || 0) * quantity;
             } else {
               variationPrice += parseFloat(opt.final_price || opt.price_after_tax || opt.price || 0) * quantity;
@@ -122,7 +122,7 @@ const ProductModal = ({
       }
     });
   }
-  
+
   // إضافة الـ extras
   let extraPrice = 0;
   selectedExtras.forEach(id => {
@@ -131,7 +131,7 @@ const ProductModal = ({
       extraPrice += parseFloat(extra.final_price || extra.price || 0);
     }
   });
-  
+
   const unitPrice = basePrice + variationPrice + extraPrice;
   const totalPrice = unitPrice * quantity;
 
@@ -297,27 +297,32 @@ const ProductModal = ({
                     {variation.type === "multiple" && variation.options && (
                       <div className="space-y-3">
                         {variation.options.map((option) => {
-                          const selectedOptions =
-                            selectedVariation[variation.id] || [];
-                          
+                          const selectedOptions = selectedVariation[variation.id] || [];
+
                           // تحديد إذا كان الـ option بالوزن أم بالقطعة
-                          const isWeightOption = option.weight === 1;
-                          
+
+                          const isWeightOption =
+                            variation.weight === 1 ||
+                            variation.weight === "1" ||
+                            option.weight === 1 ||
+                            option.weight === "1" ||
+                            option.weight === true;
+                          console.log("Option:", option.name, "weight:", option.weight || 0, "isWeightOption:", isWeightOption);
                           // حساب الكمية بناءً على نوع البيانات المحفوظة
                           let optionCount = 0;
                           if (isWeightOption) {
-                            const weightOption = selectedOptions.find(opt => 
+                            const weightOption = selectedOptions.find(opt =>
                               typeof opt === 'object' ? opt.optionId === option.id : opt === option.id
                             );
-                            optionCount = weightOption && typeof weightOption === 'object' 
-                              ? weightOption.value || 0 
-                              : (selectedOptions.includes(option.id) ? 1 : 0);
+                            optionCount = weightOption && typeof weightOption === 'object'
+                              ? weightOption.value || 0
+                              : 0;
                           } else {
                             optionCount = selectedOptions.filter(
                               opt => typeof opt === 'object' ? opt.optionId === option.id : opt === option.id
                             ).length;
                           }
-                          
+
                           const totalSelected = selectedOptions.length;
 
                           const canDecrease =
@@ -333,15 +338,9 @@ const ProductModal = ({
                               <div className="flex-1">
                                 <span className="text-sm font-medium text-gray-700 capitalize">
                                   {option.name}
-                                  {/* عرض وحدة الوزن إذا كان Option بالوزن */}
-                                  {isWeightOption && variation.weight_unit && (
-                                    <span className="text-xs text-gray-500 ml-1">
-                                      ({variation.weight_unit})
-                                    </span>
-                                  )}
                                 </span>
                                 <div className="text-xs text-gray-500">
-                                  {/* عرض السعر مع الوزن إذا كان بالوزن */}
+                                  {/* عرض السعر بناءً على نوع الخيار */}
                                   {isWeightOption ? (
                                     // للخيارات بالوزن، عرض السعر للكيلو
                                     `${(option.price || 0).toFixed(2)} ${getCurrencySymbol()}/${variation.weight_unit || 'kg'}`
@@ -353,26 +352,43 @@ const ProductModal = ({
                                   )}
                                 </div>
                               </div>
-                              
-                              {/* عرض input للوزن أو buttons للقطع */}
+
+                              {/* عرض input للوزن (بدون أزرار) أو buttons للقطع */}
                               {isWeightOption ? (
                                 <div className="flex items-center space-x-2">
                                   <input
-                                    type="number"
-                                    step="0.1"
-                                    min="0.1"
-                                    value={optionCount || ''}
+                                    type="text"
+                                    inputMode="decimal"
+                                    value={optionCount > 0 ? optionCount : ''}
                                     onChange={(e) => {
-                                      const value = parseFloat(e.target.value) || 0;
-                                      if (value >= 0.1 || e.target.value === '') {
-                                        // تحديث الكمية للـ variation
-                                        onVariationChange(variation.id, option.id, "set", value);
+                                      const inputValue = e.target.value;
+                                      // السماح بالأرقام العشرية أثناء الكتابة (بما في ذلك "0." و ".5" إلخ)
+                                      if (inputValue === '' || /^\d*\.?\d*$/.test(inputValue)) {
+                                        // إذا كان الحقل فارغًا، نحذف الـ option
+                                        if (inputValue === '') {
+                                          onVariationChange(variation.id, option.id, "remove");
+                                        }
+                                        // إذا كان المستخدم يكتب (حتى لو "0." أو "."), نسمح بذلك مؤقتًا
+                                        else if (inputValue === '0' || inputValue === '0.' || inputValue === '.' || inputValue.endsWith('.')) {
+                                          // نمرر القيمة مباشرة لتسهيل الكتابة
+                                          onVariationChange(variation.id, option.id, "set", inputValue);
+                                        }
+                                        // إذا كانت قيمة رقمية صحيحة
+                                        else {
+                                          const numValue = parseFloat(inputValue);
+                                          if (!isNaN(numValue) && numValue > 0) {
+                                            onVariationChange(variation.id, option.id, "set", numValue);
+                                          } else if (numValue === 0) {
+                                            // إذا كانت القيمة صفر، نحذف الـ option
+                                            onVariationChange(variation.id, option.id, "remove");
+                                          }
+                                        }
                                       }
                                     }}
                                     placeholder="0.0"
-                                    className="w-20 px-2 py-1 border border-gray-300 rounded text-center text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+                                    className="w-24 px-3 py-2 border border-gray-300 rounded-lg text-center text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
                                   />
-                                  <span className="text-xs text-gray-500">
+                                  <span className="text-xs text-gray-600 font-medium">
                                     {variation.weight_unit || 'kg'}
                                   </span>
                                 </div>
@@ -642,7 +658,7 @@ const ProductModal = ({
                   modalCalculatedPrice: totalUnitPrice,
                   originalPrice: selectedProduct.final_price,
                   totalPrice: totalUnitPrice * finalQuantity,
-                  
+
                   // إضافة discount_val و tax_only بشكل صريح
                   discount_val: parseFloat(selectedProduct.discount_val || 0),
                   tax_only: parseFloat(selectedProduct.tax_only || 0),
@@ -657,7 +673,7 @@ const ProductModal = ({
                   }),
                   variations: (selectedProduct.variations || []).map(group => {
                     const selectedValue = selectedVariation[group.id];
-                    
+
                     if (group.type === "single") {
                       return {
                         ...group,
@@ -674,7 +690,7 @@ const ProductModal = ({
                             return {
                               option_id: item.optionId,
                               quantity: item.value || 1,
-                              is_weight: option?.weight === 1 ? true : false
+                              is_weight: (group.weight === 1 || group.weight === "1" || option?.weight === 1 || option?.weight === "1") ? true : false
                             };
                           } else {
                             // للمتغيرات العادية
@@ -687,7 +703,7 @@ const ProductModal = ({
                         })
                       };
                     }
-                    
+
                     return group;
                   }),
                 };

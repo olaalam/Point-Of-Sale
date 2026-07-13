@@ -182,8 +182,33 @@ const handleAddToCart = async (enhancedProduct) => {
         return { ...prev, [variationId]: current.filter(id => id !== optionId) };
       }
       if (action === "set" && value !== null) {
-        // للمتغيرات بالوزن، نحفظ القيمة العشرية
-        return { ...prev, [variationId]: { optionId, value } };
+        // للمتغيرات بالوزن، نحفظ القيمة العشرية (يمكن أن تكون أي رقم عشري مثل 1.5، 2.25)
+        const currentOptions = prev[variationId] || [];
+        const existingIndex = currentOptions.findIndex(opt => 
+          typeof opt === 'object' ? opt.optionId === optionId : opt === optionId
+        );
+        
+        // التأكد من أن القيمة عشرية صحيحة
+        const numericValue = parseFloat(value);
+        if (isNaN(numericValue) || numericValue <= 0) {
+          // إذا كانت القيمة غير صالحة، نحذف الـ option
+          if (existingIndex >= 0) {
+            const newOptions = [...currentOptions];
+            newOptions.splice(existingIndex, 1);
+            return { ...prev, [variationId]: newOptions };
+          }
+          return prev;
+        }
+        
+        if (existingIndex >= 0) {
+          // تحديث القيمة الموجودة
+          const newOptions = [...currentOptions];
+          newOptions[existingIndex] = { optionId, value: numericValue };
+          return { ...prev, [variationId]: newOptions };
+        } else {
+          // إضافة قيمة جديدة
+          return { ...prev, [variationId]: [...currentOptions, { optionId, value: numericValue }] };
+        }
       }
       return { ...prev, [variationId]: optionId };
     });

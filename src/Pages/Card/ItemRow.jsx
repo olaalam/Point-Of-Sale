@@ -110,11 +110,9 @@ const ItemRow = ({
     ? (isScaleWeightItem ? Number(item._weight_kg || 0) : Number(item.quantity || 0))
     : Number(item.count || 1);
 
-  const displayedUnitPrice = calculateItemUnitPrice(item); // سعر الوحدة الشامل
-  const totalPrice = (displayedUnitPrice * quantity).toFixed(2);
-
+  const displayedUnitPrice = Number(item.final_price || item.price_after_discount || 0);
+  const totalPrice = Number(item.totalPrice || item.modalCalculatedPrice || item.price || 0).toFixed(2);
   let displayedOriginalUnitPrice = originalUnitBasePrice + addonsTotal;
-
 
 
   return (
@@ -132,48 +130,69 @@ const ItemRow = ({
         </td>
       )}
 
-      {/* اسم المنتج وتفاصيله */}
-      <td className="p-2 text-left align-top">
-        <ProductDetailModalWrapper product={item} updateOrderItems={updateOrderItems} orderItems={orderItems} orderType={orderType} tableId={tableId}>
-          <div className="flex flex-col gap-1">
-            <div className="text-gray-800 font-medium hover:text-red-600 cursor-pointer transition-colors leading-tight">
-              <span className="text-bg-primary font-bold mr-1.5 bg-red-50 px-1 rounded">
-                {isWeightProduct && quantity < 1 && quantity > 0
-                  ? (quantity.toFixed(3).replace(/0+$/, '').replace(/\.$/, '') + ' kg')
-                  : `${Math.round(quantity)}x`}
-              </span>
-              <span className="text-[14px]">{item.name || item.product_name || "Unknown Product"}</span>
-            </div>
+{/* اسم المنتج وتفاصيله */}
+<td className="p-2 text-left align-top">
+  <ProductDetailModalWrapper product={item} updateOrderItems={updateOrderItems} orderItems={orderItems} orderType={orderType} tableId={tableId}>
+    <div className="flex flex-col gap-0.5">
+      
+      {/* 1. السطر الرئيسي: الكمية + الاسم */}
+      <div className="text-gray-900 font-semibold text-[14px] leading-tight flex items-center gap-2">
+        <span className="bg-red-50 text-red-600 text-[11px] font-bold px-1.5 py-0.5 rounded-md min-w-[35px] text-center">
+          {isWeightProduct && quantity < 1 && quantity > 0
+            ? (quantity.toFixed(2) + 'kg')
+            : `${Math.round(quantity)}x`}
+        </span>
+        {item.name || item.product_name}
+      </div>
 
-            {/* تفاصيل الاختيارات (Variations/Addons/Extras) */}
-            <div className="flex flex-wrap gap-1 mt-0.5">
-              {selectedOption && (
-                <span className="text-[10px] text-gray-500 bg-gray-100 px-1 rounded">
-                  {selectedOption.name}
-                </span>
-              )}
-              {item.addons?.filter(ad => ad.selected || ad.quantity > 0).map((ad, i) => (
-                <span key={i} className="text-[10px] text-blue-600 bg-blue-50 px-1 rounded">
-                  +{ad.name || item.addons_list?.find(l => l.id === ad.addon_id)?.name || 'Addon'}
-                </span>
-              ))}
-              {item.selectedExtras?.map((exId, i) => (
-                <span key={i} className="text-[10px] text-green-600 bg-green-50 px-1 rounded">
-                  +{item.allExtras?.find(e => e.id === exId)?.name || 'Extra'}
-                </span>
-              ))}
-            </div>
+{/* تفاصيل الاختيارات في سطر واحد */}
+<div className="flex flex-wrap items-center gap-1.5 mt-1">
+  
+  {/* 1. عرض الـ Variations */}
+  {item.variations?.map((v, i) => {
+    let selectedName = "";
+    let extraInfo = "";
 
-            {/* ملاحظات المنتج */}
-            {item.notes && item.notes.trim() !== "" && (
-              <div className="text-[10px] text-orange-600 italic flex items-center gap-1 mt-1">
-                <FileText size={10} />
-                <span>{item.notes}</span>
-              </div>
-            )}
-          </div>
-        </ProductDetailModalWrapper>
-      </td>
+    if (v.type === "multiple" && item.selectedVariation?.[v.id]) {
+       const sel = Array.isArray(item.selectedVariation[v.id]) ? item.selectedVariation[v.id][0] : item.selectedVariation[v.id];
+       const opt = v.options?.find(o => o.id === (sel.optionId || sel.id));
+       selectedName = opt?.name || "";
+       extraInfo = sel.value ? `(${sel.value} KG)` : "";
+    } else {
+       const selected = v.options?.find(opt => opt.id === v.selected_option_id);
+       selectedName = selected?.name || "";
+    }
+
+    return selectedName ? (
+      <span key={`var-${i}`} className="text-[10px] text-gray-600 bg-gray-100 px-1.5 py-0.5 rounded border border-gray-200 whitespace-nowrap">
+        {selectedName} {extraInfo && <span className="font-bold opacity-75">{extraInfo}</span>}
+      </span>
+    ) : null;
+  })}
+
+  {/* 2. عرض الـ Addons */}
+  {item.addons?.filter(ad => ad.selected || ad.quantity > 0).map((ad, i) => (
+    <span key={`addon-${i}`} className="text-[10px] text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded border border-blue-100 whitespace-nowrap">
+      +{ad.name}
+    </span>
+  ))}
+
+  {/* 3. عرض الـ Extras */}
+  {item.selectedExtras?.map((exId, i) => (
+    <span key={`extra-${i}`} className="text-[10px] text-green-700 bg-green-50 px-1.5 py-0.5 rounded border border-green-100 whitespace-nowrap">
+      +{item.allExtras?.find(e => e.id === exId)?.name || 'Extra'}
+    </span>
+  ))}
+</div>
+      {/* ملاحظات المنتج (إن وجدت) */}
+      {item.notes && (
+        <div className="text-[9px] text-orange-500 italic mt-1 ml-[45px]">
+          {item.notes}
+        </div>
+      )}
+    </div>
+  </ProductDetailModalWrapper>
+</td>
 
       {/* عمود سعر الوحدة */}
       <td className="py-3 px-4 text-center align-top">
@@ -222,12 +241,12 @@ const ItemRow = ({
       )}
 
       {/* السعر الإجمالي للعنصر */}
-      <td className="p-2 text-center align-middle">
+      <td className="py-3 px-4 text-center align-top">
         <span className="font-bold text-gray-900 text-sm">{totalPrice}</span>
       </td>
 
       {/* عمليات الحذف */}
-      <td className="p-2 text-center align-middle">
+      <td className="p-2 text-center align-top">
         <button
           onClick={() => orderType === "dine_in" ? handleVoidItem(item.temp_id) : handleRemoveFrontOnly(item.temp_id)}
           className="p-2 text-red-500 hover:bg-red-50 rounded-full transition-colors"

@@ -1,6 +1,5 @@
 import { useMemo } from "react";
 import { statusOrder } from "../constants";
-import { calculateItemUnitPrice } from "@/Pages/utils/orderPriceUtils";
 
 export function useOrderCalculations(
   orderItems,
@@ -8,39 +7,27 @@ export function useOrderCalculations(
   orderType,
   serviceFeeData,
   deliveryFee = 0,
-
 ) {
   return useMemo(() => {
     const items = orderItems ?? [];
 
-    // ── Subtotal Calculation ───────────────────────────────────────────
-    const subTotal = items.reduce((sum, item) => {
-      // استخدام السعر الأساسي قبل الخصم للـ subtotal
-      const unitPrice = parseFloat(item.price || 0);
-
-      const isWeightProduct = item.weight_status === 1 || item.weight_status === "1";
-      const isScaleWeightItem = isWeightProduct && item._source === "scale_barcode";
-
-      const qty = isWeightProduct
-        ? (isScaleWeightItem ? Number(item._weight_kg || 0) : Number(item.quantity || 0))
-        : Number(item.count || 1);
-
-      // إضافة سعر الـ extras والـ addons الخارجية
+    // --- دالة مساعدة لحساب أسعار جميع الإضافات بناءً على هيكل بياناتك ---
+    const calculateExtraPrice = (item) => {
       let extraPrice = 0;
       
-      // حساب الـ extras
+      // 1. حساب الـ extras
       const selectedExtras = item.selectedExtras || [];
       if (selectedExtras.length > 0) {
         const allExtrasCatalog = item.allExtras || [];
         selectedExtras.forEach(id => {
-          const extra = allExtrasCatalog.find(e => e.id === parseInt(id));
+          const extra = allExtrasCatalog.find(e => String(e.id) === String(id));
           if (extra) {
             extraPrice += parseFloat(extra.price || extra.final_price || 0);
           }
         });
       }
 
-      // حساب الـ addons
+      // 2. حساب الـ addons
       const storedAddons = item.addons || [];
       storedAddons.forEach(addon => {
         if (addon.addon_id !== undefined) {
@@ -49,7 +36,61 @@ export function useOrderCalculations(
         }
       });
 
-      return sum + ((unitPrice + extraPrice) * qty);
+      // 3. حساب الـ Variations بناءً على selectedVariation (اللغز اللي كان مفقود)
+      const selectedVariation = item.selectedVariation;
+      const variations = item.variations || [];
+
+      if (selectedVariation && typeof selectedVariation === 'object') {
+        Object.entries(selectedVariation).forEach(([variationId, selectedValue]) => {
+          const variationGroup = variations.find(v => String(v.id) === String(variationId));
+          if (!variationGroup) return;
+
+          let optionsList = [];
+
+          // فحص هل القيمة مصفوفة (زي الأوزان [{optionId: 697, value: 1.75}]) أو ID مباشر (زي 698)
+          if (Array.isArray(selectedValue)) {
+selectedValue.forEach(val => {
+  if (val && typeof val === 'object' && val.optionId) {
+    // استخدم val.value ككمية (وزن) وليس val.weight
+    optionsList.push({ id: val.optionId, weight: parseFloat(val.value || 1) });
+  } else {
+    optionsList.push({ id: val, weight: 1 });
+  }
+});
+          } else {
+            optionsList.push({ id: selectedValue, weight: 1 });
+          }
+
+          // ضرب السعر في الوزن المُدخل (value)
+          optionsList.forEach(opt => {
+            const optionData = variationGroup.options?.find(o => String(o.id) === String(opt.id));
+            if (optionData) {
+              const optPrice = parseFloat(optionData.price || optionData.additional_price || optionData.final_price || 0);
+              extraPrice += (optPrice * opt.weight); // مثال: 65 * 1.75 = 113.75
+            }
+          });
+        });
+      }
+
+      return extraPrice;
+    };
+
+    // ── Subtotal Calculation ───────────────────────────────────────────
+    const subTotal = items.reduce((sum, item) => {
+      // الاعتماد على السعر الأساسي الصافي
+      const basePrice = parseFloat(item.final_price || item.originalPrice || 0);
+
+      const isWeightProduct = item.weight_status === 1 || item.weight_status === "1";
+      const isScaleWeightItem = isWeightProduct && item._source === "scale_barcode";
+
+      const qty = isWeightProduct
+        ? (isScaleWeightItem ? Number(item._weight_kg || 0) : Number(item.quantity || 0))
+        : Number(item.count || 1);
+
+      const extraPrice = calculateExtraPrice(item);
+
+      // السعر النهائي = (السعر الأساسي 46.25 + الإضافات 113.75) * الكمية
+      return sum + ((basePrice + extraPrice) * qty);
     }, 0);
 
     // ── Taxes Calculation & Details ────────────────────────────────────
@@ -62,16 +103,13 @@ export function useOrderCalculations(
         ? Number(item.quantity || 1)
         : Number(item.count || 1);
 
-      // استخدام discount_val مباشرة من الباك إند
       const itemDiscount = Number(item.discount_val || 0);
       totalDiscount += itemDiscount * qty;
 
-      // استخدام tax_only مباشرة من الباك إند
       const itemTax = Number(item.tax_only || 0);
       const totalItemTax = itemTax * qty;
       totalTax += totalItemTax;
 
-      // إضافة تفاصيل الضريبة
       if (totalItemTax > 0 && item.tax_obj) {
         const taxName = item.tax_obj.name || "Tax";
         const taxId = item.tax_obj.id || 'default';
@@ -104,9 +142,8 @@ export function useOrderCalculations(
     // ── Totals ─────────────────────────────────────────────────────────
     const totalBeforeDelivery = subTotal + totalTax + serviceCharge;
     
-    // حساب Amount to Pay باستخدام final_price
     let amountToPay = items.reduce((sum, item) => {
-      const finalPrice = parseFloat(item.final_price || 0);
+      const basePrice = parseFloat(item.final_price || item.originalPrice || 0);
       
       const isWeightProduct = item.weight_status === 1 || item.weight_status === "1";
       const isScaleWeightItem = isWeightProduct && item._source === "scale_barcode";
@@ -115,74 +152,31 @@ export function useOrderCalculations(
         ? (isScaleWeightItem ? Number(item._weight_kg || 0) : Number(item.quantity || 0))
         : Number(item.count || 1);
 
-      // إضافة سعر الـ extras والـ addons للـ amount to pay
-      let extraPrice = 0;
-      
-      const selectedExtras = item.selectedExtras || [];
-      if (selectedExtras.length > 0) {
-        const allExtrasCatalog = item.allExtras || [];
-        selectedExtras.forEach(id => {
-          const extra = allExtrasCatalog.find(e => e.id === parseInt(id));
-          if (extra) {
-            extraPrice += parseFloat(extra.final_price || extra.price || 0);
-          }
-        });
-      }
+      const extraPrice = calculateExtraPrice(item);
 
-      const storedAddons = item.addons || [];
-      storedAddons.forEach(addon => {
-        if (addon.addon_id !== undefined) {
-          const addonQty = parseFloat(addon.quantity || addon.count || 1);
-          extraPrice += parseFloat(addon.price || 0) * addonQty;
-        }
-      });
-
-      return sum + ((finalPrice + extraPrice) * qty);
+      return sum + ((basePrice + extraPrice) * qty);
     }, 0);
 
-    // إضافة service charge للـ amount to pay
     amountToPay += serviceCharge;
 
-    // 1. حساب مصاريف التوصيل
     if (orderType === "delivery") {
       amountToPay += Number(deliveryFee);
     }
 
-    // 2. معالجة الدفع الجزئي (Dine In)
     if (orderType === "dine_in" && selectedPaymentItems?.length > 0) {
       const selected = items.filter(
         (i) => selectedPaymentItems.includes(i.temp_id) && i.preparation_status === "done"
       );
 
-      // حساب الـ subtotal للعناصر المختارة (بالسعر الأساسي)
       const selSub = selected.reduce((s, i) => {
-        const unitPrice = parseFloat(i.price || 0);
+        const basePrice = parseFloat(i.final_price || i.originalPrice || 0);
         const qty = (i.weight_status === 1 || i.weight_status === "1")
           ? Number(i.quantity || 1)
           : Number(i.count || 1);
         
-        let extraPrice = 0;
-        
-        const selectedExtras = i.selectedExtras || [];
-        if (selectedExtras.length > 0) {
-          const allExtrasCatalog = i.allExtras || [];
-          selectedExtras.forEach(id => {
-            const extra = allExtrasCatalog.find(e => e.id === parseInt(id));
-            if (extra) {
-              extraPrice += parseFloat(extra.price || extra.final_price || 0);
-            }
-          });
-        }
+        const extraPrice = calculateExtraPrice(i);
 
-        const storedAddons = i.addons || [];
-        storedAddons.forEach(addon => {
-          if (addon.addon_id !== undefined) {
-            const addonQty = parseFloat(addon.quantity || addon.count || 1);
-            extraPrice += parseFloat(addon.price || 0) * addonQty;
-          }
-        });
-
-        return s + ((unitPrice + extraPrice) * qty);
+        return s + ((basePrice + extraPrice) * qty);
       }, 0);
 
       const selTax = selected.reduce((s, i) => {
@@ -199,43 +193,21 @@ export function useOrderCalculations(
           : serviceCharge * (subTotal > 0 ? selSub / subTotal : 0)
         : 0;
 
-      // حساب amount to pay للعناصر المختارة (بالـ final_price)
       amountToPay = selected.reduce((s, i) => {
-        const finalPrice = parseFloat(i.final_price || 0);
+        const basePrice = parseFloat(i.final_price || i.originalPrice || 0);
         const qty = (i.weight_status === 1 || i.weight_status === "1")
           ? Number(i.quantity || 1)
           : Number(i.count || 1);
         
-        let extraPrice = 0;
-        
-        const selectedExtras = i.selectedExtras || [];
-        if (selectedExtras.length > 0) {
-          const allExtrasCatalog = i.allExtras || [];
-          selectedExtras.forEach(id => {
-            const extra = allExtrasCatalog.find(e => e.id === parseInt(id));
-            if (extra) {
-              extraPrice += parseFloat(extra.final_price || extra.price || 0);
-            }
-          });
-        }
+        const extraPrice = calculateExtraPrice(i);
 
-        const storedAddons = i.addons || [];
-        storedAddons.forEach(addon => {
-          if (addon.addon_id !== undefined) {
-            const addonQty = parseFloat(addon.quantity || addon.count || 1);
-            extraPrice += parseFloat(addon.price || 0) * addonQty;
-          }
-        });
-
-        return s + ((finalPrice + extraPrice) * qty);
+        return s + ((basePrice + extraPrice) * qty);
       }, 0);
 
       amountToPay += selSF;
     }
 
-    // ── Helper Values ──────────────────────────────────────────────────
     const doneItems = items.filter((i) => i.preparation_status === "done");
-
     const checkoutItems =
       orderType === "dine_in" && selectedPaymentItems?.length > 0
         ? items.filter((i) => selectedPaymentItems.includes(i.temp_id) && i.preparation_status === "done")
@@ -261,6 +233,5 @@ export function useOrderCalculations(
     serviceFeeData?.amount,
     serviceFeeData?.type,
     deliveryFee,
-
   ]);
 }

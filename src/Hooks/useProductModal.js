@@ -49,20 +49,59 @@ export const useProductModal = () => {
       } else {
         // للمتغيرات المتعددة
         if (action === "set" && value !== null) {
-          // للمتغيرات بالوزن، نحفظ القيمة العشرية
+          // للمتغيرات بالوزن، نحفظ القيمة (يمكن أن تكون string أثناء الكتابة أو number)
           const currentOptions = prev[variationId] || [];
           const existingIndex = currentOptions.findIndex(opt => 
             typeof opt === 'object' ? opt.optionId === optionId : opt === optionId
           );
           
+          // إذا كانت القيمة نصية (مثل "0." أو ".5" أثناء الكتابة)، نسمح بها مؤقتًا
+          if (typeof value === 'string') {
+            // نتحقق إذا كانت تنتهي بنقطة أو تبدأ بنقطة (حالات مؤقتة أثناء الكتابة)
+            if (value === '0' || value === '0.' || value === '.' || value.endsWith('.') || value.startsWith('.')) {
+              if (existingIndex >= 0) {
+                const newOptions = [...currentOptions];
+                newOptions[existingIndex] = { optionId, value: value };
+                return { ...prev, [variationId]: newOptions };
+              } else {
+                return { ...prev, [variationId]: [...currentOptions, { optionId, value: value }] };
+              }
+            }
+            
+            // محاولة تحويلها لرقم
+            const numericValue = parseFloat(value);
+            if (isNaN(numericValue) || numericValue <= 0) {
+              // إذا كانت القيمة غير صالحة، نحذف الـ option
+              if (existingIndex >= 0) {
+                const newOptions = [...currentOptions];
+                newOptions.splice(existingIndex, 1);
+                return { ...prev, [variationId]: newOptions };
+              }
+              return prev;
+            }
+            value = numericValue; // نحولها لرقم للحفظ النهائي
+          }
+          
+          // التأكد من أن القيمة رقمية صحيحة
+          const numericValue = typeof value === 'number' ? value : parseFloat(value);
+          if (isNaN(numericValue) || numericValue <= 0) {
+            // إذا كانت القيمة غير صالحة، نحذف الـ option
+            if (existingIndex >= 0) {
+              const newOptions = [...currentOptions];
+              newOptions.splice(existingIndex, 1);
+              return { ...prev, [variationId]: newOptions };
+            }
+            return prev;
+          }
+          
           if (existingIndex >= 0) {
             // تحديث القيمة الموجودة
             const newOptions = [...currentOptions];
-            newOptions[existingIndex] = { optionId, value };
+            newOptions[existingIndex] = { optionId, value: numericValue };
             return { ...prev, [variationId]: newOptions };
           } else {
             // إضافة قيمة جديدة
-            return { ...prev, [variationId]: [...currentOptions, { optionId, value }] };
+            return { ...prev, [variationId]: [...currentOptions, { optionId, value: numericValue }] };
           }
         }
         

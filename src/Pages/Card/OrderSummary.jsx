@@ -203,8 +203,7 @@ const PrintableOrder = React.forwardRef(
               let finalUnitPrice = item.finalPrice || item.price_after_tax || calculateItemUnitPrice(item);
               
               // السعر الأساسي
-              const basePrice = Number(item.originalPrice || item.price || 0);
-              
+const basePrice = Number(item.originalPrice || item.price || 0);              
               // الخصم والضريبة من البيانات المباشرة
               const discount = Number(item.discount_val || item.discount || 0);
               const tax = Number(item.tax_only || item.tax || 0);
