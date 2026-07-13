@@ -1,5 +1,4 @@
 import { getCurrencySymbol } from '../utils/currency';
-{/* ProductModal.jsx - With Weight Support, Duplicate Check, and Notes */ }
 import React, { useState } from "react";
 import {
   Dialog,
@@ -82,10 +81,49 @@ const ProductModal = ({
 
   const isWeightProduct = productType === "weight" || selectedProduct.weight_status === 1;
 
-  // استخدام final_price مباشرة من الباك إند
-  const basePrice = parseFloat(selectedProduct.final_price || 0);
+  // حساب السعر مع الـ variations
+  let basePrice = parseFloat(selectedProduct.final_price || 0);
+  let variationPrice = 0;
   
-  // إضافة الـ extras فقط
+  // حساب الـ variations
+  if (selectedProduct.variations) {
+    selectedProduct.variations.forEach((v) => {
+      const selected = selectedVariation[v.id];
+      if (!selected) return;
+
+      if (v.type === "single") {
+        const opt = v.options.find((o) => o.id === selected);
+        if (opt) {
+          if (opt.total_option_price > 0) {
+            basePrice = parseFloat(opt.total_option_price);
+          } else {
+            variationPrice += parseFloat(opt.final_price || opt.price || 0);
+          }
+        }
+      } else if (v.type === "multiple" && Array.isArray(selected)) {
+        selected.forEach((item) => {
+          let opt, quantity = 1;
+          
+          if (typeof item === 'object') {
+            opt = v.options.find((o) => o.id === item.optionId);
+            quantity = item.value || 1;
+          } else {
+            opt = v.options.find((o) => o.id === item);
+          }
+          
+          if (opt) {
+            if (opt.weight === 1) {
+              variationPrice += parseFloat(opt.price || 0) * quantity;
+            } else {
+              variationPrice += parseFloat(opt.final_price || opt.price_after_tax || opt.price || 0) * quantity;
+            }
+          }
+        });
+      }
+    });
+  }
+  
+  // إضافة الـ extras
   let extraPrice = 0;
   selectedExtras.forEach(id => {
     const extra = [...(selectedProduct.allExtras || []), ...(selectedProduct.addons || [])].find(e => e.id === parseInt(id));
@@ -94,7 +132,7 @@ const ProductModal = ({
     }
   });
   
-  const unitPrice = basePrice + extraPrice;
+  const unitPrice = basePrice + variationPrice + extraPrice;
   const totalPrice = unitPrice * quantity;
 
   const hasVariations =
@@ -134,6 +172,7 @@ const ProductModal = ({
       return `${option.name} (+${priceToDisplay.toFixed(2)} ${getCurrencySymbol()})`;
     }
   };
+
   const handleWeightChange = (e) => {
     const value = e.target.value;
     // بنمرر القيمة زي ما هي (كـ String مؤقتاً) عشان نسمح لليوزر يكتب "0." براحته من غير ما العلامة تتمسح
@@ -219,7 +258,6 @@ const ProductModal = ({
                     )}
 
                     {/* Single-select variations */}
-                    {/* Single-select variations - using button style like excludes */}
                     {variation.type === "single" && variation.options && (
                       <div className="flex flex-wrap gap-2">
                         {variation.options.map((option) => {
@@ -255,7 +293,6 @@ const ProductModal = ({
                       </div>
                     )}
 
-
                     {/* Multi-select variations - with counters */}
                     {variation.type === "multiple" && variation.options && (
                       <div className="space-y-3">
@@ -263,9 +300,12 @@ const ProductModal = ({
                           const selectedOptions =
                             selectedVariation[variation.id] || [];
                           
+                          // تحديد إذا كان الـ option بالوزن أم بالقطعة
+                          const isWeightOption = option.weight === 1;
+                          
                           // حساب الكمية بناءً على نوع البيانات المحفوظة
                           let optionCount = 0;
-                          if (variation.weight_status === 1) {
+                          if (isWeightOption) {
                             const weightOption = selectedOptions.find(opt => 
                               typeof opt === 'object' ? opt.optionId === option.id : opt === option.id
                             );
@@ -293,23 +333,29 @@ const ProductModal = ({
                               <div className="flex-1">
                                 <span className="text-sm font-medium text-gray-700 capitalize">
                                   {option.name}
-                                  {/* عرض وحدة الوزن */}
-                                  {variation.weight_status === 1 && variation.weight_unit && (
+                                  {/* عرض وحدة الوزن إذا كان Option بالوزن */}
+                                  {isWeightOption && variation.weight_unit && (
                                     <span className="text-xs text-gray-500 ml-1">
                                       ({variation.weight_unit})
                                     </span>
                                   )}
                                 </span>
                                 <div className="text-xs text-gray-500">
-                                  {parseFloat(option.final_price || option.price_after_tax || option.price || 0) === 0
-                                    ? "Free"
-                                    : `+${(option.final_price || option.price_after_tax || option.price).toFixed(2)} {getCurrencySymbol()}`
-                                  }
+                                  {/* عرض السعر مع الوزن إذا كان بالوزن */}
+                                  {isWeightOption ? (
+                                    // للخيارات بالوزن، عرض السعر للكيلو
+                                    `${(option.price || 0).toFixed(2)} ${getCurrencySymbol()}/${variation.weight_unit || 'kg'}`
+                                  ) : (
+                                    // للخيارات بالقطعة، عرض السعر العادي
+                                    parseFloat(option.final_price || option.price_after_tax || option.price || 0) === 0
+                                      ? "Free"
+                                      : `+${(option.final_price || option.price_after_tax || option.price).toFixed(2)} ${getCurrencySymbol()}`
+                                  )}
                                 </div>
                               </div>
                               
                               {/* عرض input للوزن أو buttons للقطع */}
-                              {variation.weight_status === 1 ? (
+                              {isWeightOption ? (
                                 <div className="flex items-center space-x-2">
                                   <input
                                     type="number"
@@ -451,7 +497,6 @@ const ProductModal = ({
                               addon.final_price ??
                               addon.price_after_tax ??
                               addon.price_after_discount ??
-
                               0
                             ).toFixed(2)}{" "}
                             {getCurrencySymbol()}
@@ -578,8 +623,8 @@ const ProductModal = ({
               onClick={() => {
                 const finalQuantity = parseFloat(quantity) || 0;
 
-                // حساب السعر الإجمالي مع الـ extras
-                const totalUnitPrice = basePrice + extraPrice;
+                // حساب السعر الإجمالي مع الـ variations والـ extras
+                const totalUnitPrice = basePrice + variationPrice + extraPrice;
 
                 const enhancedProduct = {
                   ...selectedProduct,
@@ -597,6 +642,10 @@ const ProductModal = ({
                   modalCalculatedPrice: totalUnitPrice,
                   originalPrice: selectedProduct.final_price,
                   totalPrice: totalUnitPrice * finalQuantity,
+                  
+                  // إضافة discount_val و tax_only بشكل صريح
+                  discount_val: parseFloat(selectedProduct.discount_val || 0),
+                  tax_only: parseFloat(selectedProduct.tax_only || 0),
 
                   // نحفظ الـ catalog الكامل للـ addons عشان نقدر نسترجعه لاحقاً
                   addons_list: selectedProduct.addons_list || selectedProduct.addons || [],
@@ -621,15 +670,18 @@ const ProductModal = ({
                         selected_options: selectedOptions.map(item => {
                           if (typeof item === 'object') {
                             // للمتغيرات بالوزن
+                            const option = group.options.find(opt => opt.id === item.optionId);
                             return {
                               option_id: item.optionId,
-                              quantity: item.value || 1
+                              quantity: item.value || 1,
+                              is_weight: option?.weight === 1 ? true : false
                             };
                           } else {
                             // للمتغيرات العادية
                             return {
                               option_id: item,
-                              quantity: 1
+                              quantity: 1,
+                              is_weight: false
                             };
                           }
                         })

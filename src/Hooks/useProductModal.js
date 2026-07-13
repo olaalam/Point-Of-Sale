@@ -127,18 +127,62 @@ export const useProductModal = () => {
   useEffect(() => {
     if (!selectedProduct) return;
 
-    // استخدام final_price مباشرة من الباك إند
+    // استخدام final_price كسعر أساسي
     let currentPrice = parseFloat(selectedProduct.final_price || selectedProduct.price_after_discount || 0);
-    let extraCharges = 0;
+    let variationCharges = 0;
 
-    // حساب الـ Extras الخارجية فقط (variations محسوبة في final_price)
+    // حساب الـ variations
+    if (selectedProduct.variations) {
+      selectedProduct.variations.forEach((v) => {
+        const selected = selectedVariation[v.id];
+        if (!selected) return;
+
+        if (v.type === "single") {
+          const opt = v.options.find((o) => o.id === selected);
+          if (opt) {
+            // إذا كان خيار حجم يغير السعر الأساسي
+            if (opt.total_option_price > 0) {
+              currentPrice = parseFloat(opt.total_option_price);
+            } else {
+              variationCharges += parseFloat(opt.final_price || opt.price || 0);
+            }
+          }
+        } else if (v.type === "multiple" && Array.isArray(selected)) {
+          selected.forEach((item) => {
+            let opt, quantity = 1;
+            
+            if (typeof item === 'object') {
+              // للمتغيرات بالوزن
+              opt = v.options.find((o) => o.id === item.optionId);
+              quantity = item.value || 1;
+            } else {
+              // للمتغيرات العادية
+              opt = v.options.find((o) => o.id === item);
+            }
+            
+            if (opt) {
+              // إذا كان الخيار بالوزن، نضرب السعر في الكمية المدخلة
+              if (opt.weight === 1) {
+                variationCharges += parseFloat(opt.price || 0) * quantity;
+              } else {
+                // للخيارات العادية، نستخدم السعر النهائي
+                variationCharges += parseFloat(opt.final_price || opt.price_after_tax || opt.price || 0) * quantity;
+              }
+            }
+          });
+        }
+      });
+    }
+
+    // حساب الـ Extras الخارجية
+    let extraCharges = 0;
     selectedExtras.forEach((id) => {
       const extra = [...(selectedProduct.allExtras || []), ...(selectedProduct.addons || [])]
         .find((e) => e.id === parseInt(id));
       if (extra) extraCharges += parseFloat(extra.final_price || extra.price || 0);
     });
 
-    setTotalPrice((currentPrice + extraCharges) * (parseFloat(quantity) || 0));
+    setTotalPrice((currentPrice + variationCharges + extraCharges) * (parseFloat(quantity) || 0));
   }, [quantity, selectedExtras, selectedProduct, selectedVariation]);
 
   return {

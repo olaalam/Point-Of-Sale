@@ -45,51 +45,75 @@ export default function PendingOrders() {
       console.log("🐛 PendingOrders API Data:", orderRawData);
       const mappedOrderDetails = [];
 
-      // الهيكل قد يكون في order أو order_details
-      const itemsArray = orderRawData.order || orderRawData.order_details || [];
+      // ✅ استخدام order_details (مش order) لأن فيه كل التفاصيل
+      const itemsArray = orderRawData.order_details || [];
 
       itemsArray.forEach((item) => {
-        let productInfo = null;
-        let itemCount = 1;
-
-        // 1. فحص الهيكل: إذا كان المنتج داخل مصفوفة (مثل الـ API الكبير)
+        // ✅ البيانات موجودة في item.product[0].product
         if (Array.isArray(item.product) && item.product.length > 0) {
-          productInfo = item.product[0].product;
-          itemCount = Number(item.product[0].count);
-        }
-        // 2. إذا كان الهيكل كائن مباشر (مثل Details API)
-        else if (item.product) {
-          productInfo = item.product;
-          // التعديل الجذري هنا: البحث عن count داخل product أولاً ثم في item
-          itemCount = Number(productInfo.count || item.count || 1);
-        }
+          const prodWrapper = item.product[0];
+          const productInfo = prodWrapper.product;
+          const itemCount = Number(prodWrapper.count || 1);
 
-        if (productInfo) {
-          mappedOrderDetails.push({
-            product_id: productInfo.id,
-            product_name: productInfo.name || "Unknown Product",
+          if (productInfo) {
+            mappedOrderDetails.push({
+              // ✅ نحتفظ بكل البيانات من الـ API
+              ...productInfo,
+              product_id: productInfo.id,
+              id: productInfo.id,
+              product_name: productInfo.name || "Unknown Product",
+              name: productInfo.name,
 
-            // التأكد من السعر
-            price: parseFloat(productInfo.price_after_discount || productInfo.price || 0),
+              // ✅ الأسعار من الـ API
+              price: parseFloat(productInfo.price_after_tax || productInfo.final_price || 0),
+              originalPrice: parseFloat(productInfo.price || 0),
+              final_price: parseFloat(productInfo.final_price || 0),
+              price_after_discount: parseFloat(productInfo.price_after_discount || 0),
+              price_after_tax: parseFloat(productInfo.price_after_tax || 0),
 
-            // تعيين الكمية الصحيحة (التي أصبحت الآن 4 بدلاً من 1)
-            count: itemCount || 1,
+              // ✅ الخصم والضريبة من الـ API
+              discount_val: parseFloat(productInfo.discount_val || 0),
+              tax_only: parseFloat(productInfo.tax_only || 0),
+              tax_val: parseFloat(productInfo.tax_val || 0),
+              discount: productInfo.discount,
+              tax: productInfo.tax,
+              tax_obj: productInfo.tax_obj,
 
-            addons: Array.isArray(item.addons)
-              ? item.addons.map(addon => ({
-                id: addon.id,
-                name: addon.name,
-                price: parseFloat(addon.price || 0)
-              }))
-              : [],
+              // ✅ الكمية
+              count: itemCount,
+              quantity: itemCount,
 
-            variation_id: item.variations?.[0]?.id || null,
-            variation_name: item.variations?.[0]?.name || null,
+              // ✅ الـ variations من item (مش من productInfo)
+              variations: item.variations || [],
+              selectedVariations: item.variations?.map(v => v.variation?.name || v.name) || [],
+              
+              // ✅ الـ addons والـ excludes من item
+              addons: item.addons || [],
+              selectedExtras: item.addons || [],
+              excludes: item.excludes || [],
+              selectedExcludes: item.excludes || [],
+              extras: item.extras || [],
 
-            temp_id: `pending_${productInfo.id}_${Math.random().toString(36).substr(2, 5)}`,
-            notes: item.notes || "",
-            image: productInfo.image_link
-          });
+              // ✅ الصور والبيانات الأخرى
+              image: productInfo.image_link,
+              image_link: productInfo.image_link,
+              description: productInfo.description,
+
+              // ✅ باقي البيانات
+              allExtras: productInfo.allExtras || [],
+              weight_status: productInfo.weight_status || 0,
+              product_code: productInfo.product_code,
+              category_id: productInfo.category_id,
+              sub_category_id: productInfo.sub_category_id,
+              item_type: productInfo.item_type,
+              stock_type: productInfo.stock_type,
+              taxes: productInfo.taxes,
+
+              // ✅ الملاحظات والـ temp_id
+              notes: prodWrapper.notes || "",
+              temp_id: `pending_${productInfo.id}_${Math.random().toString(36).substr(2, 5)}`,
+            });
+          }
         }
       });
 
@@ -97,33 +121,25 @@ export default function PendingOrders() {
         orderId: orderRawData.id,
         orderDetails: mappedOrderDetails,
         totalAmount: parseFloat(orderRawData.amount || 0),
+        orderNumber: orderRawData.order_number,
+        notes: orderRawData.notes,
         // Use API value first, then fallback to list value, then default "0"
         prepare_order: orderRawData.prepare_order || orderRawData.order?.prepare_order || selectedOrderPrepareStatus || "0"
       };
 
-      console.log("🐛 PendingOrders: finalOrderData.prepare_order =", finalOrderData.prepare_order);
-      console.log("🐛 PendingOrders: selectedOrderPrepareStatus =", selectedOrderPrepareStatus);
+      console.log("✅ PendingOrders: Mapped Order Data =", finalOrderData);
+      console.log("✅ PendingOrders: orderDetails =", mappedOrderDetails);
 
-      // حفظ البيانات الجديدة في localStorage للسلة
-      localStorage.setItem("cart", JSON.stringify(mappedOrderDetails));
+      // ❌ نشيل localStorage تماماً - نعتمد على state بس
+      // localStorage.setItem("cart", JSON.stringify(mappedOrderDetails));
+      // localStorage.setItem("pending_order_info", JSON.stringify({...}));
 
-      // ✅ حفظ prepare_order مباشرة في localStorage
-      localStorage.setItem("pending_order_info", JSON.stringify({
-        orderId: finalOrderData.orderId,
-        prepare_order: finalOrderData.prepare_order,
-        notes: finalOrderData.notes
-      }));
-
-      console.log("🐛 PendingOrders: Saved to localStorage:", {
-        orderId: finalOrderData.orderId,
-        prepare_order: finalOrderData.prepare_order
-      });
-
-      // التوجيه لشاشة الـ POS مع البيانات
+      // ✅ التوجيه لشاشة الـ POS مع البيانات في state فقط
       navigate("/", {
         state: {
           activeTab: "takeaway",
-          pendingOrder: finalOrderData
+          pendingOrder: finalOrderData,
+          fromPendingOrders: true, // ✅ flag عشان نعرف إننا جايين من pending
         }
       });
     }

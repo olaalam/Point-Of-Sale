@@ -51,43 +51,132 @@ const InvoicePage = () => {
                     <thead>
                         <tr className="bg-gray-100 text-right">
                             <th className="p-2 border">المنتج</th>
-                            <th className="p-2 border">الكمية</th>
                             <th className="p-2 border">السعر</th>
+                            <th className="p-2 border">الخصم</th>
+                            <th className="p-2 border">الضريبة</th>
+                            <th className="p-2 border">الكمية</th>
+                            <th className="p-2 border">الإجمالي</th>
                         </tr>
                     </thead>
                     <tbody className="text-right">
-                        {order.order_details.map((item, index) => (
-                            <tr key={index}>
-                                <td className="p-2 border">
-                                    {item.product?.name}
-                                    {item.variations?.map(v => v.options.map(opt => (
-                                        <span key={opt.id} className="block text-xs text-gray-500">- {opt.name}</span>
-                                    )))}
-                                </td>
-                                <td className="p-2 border">{item.product?.count}</td>
-                                <td className="p-2 border">{item.product?.price_after_tax} ج.م</td>
-                            </tr>
-                        ))}
+                        {order.order_details?.map((item, index) => {
+                            // البيانات تحت product[0]
+                            const productWrapper = item.product?.[0];
+                            const product = productWrapper?.product;
+                            const count = parseFloat(productWrapper?.count || 1);
+                            
+                            // الحصول على القيم من product
+                            const price = parseFloat(product?.price || 0);
+                            const discount = parseFloat(product?.discount_val || 0);
+                            const tax = parseFloat(product?.tax_only || 0);
+                            const finalPrice = parseFloat(product?.price_after_tax || 0);
+                            
+                            const total = finalPrice * count;
+                            
+                            return (
+                                <tr key={index}>
+                                    <td className="p-2 border">
+                                        <div className="font-medium">{product?.name}</div>
+                                        {/* عرض الـ Variations */}
+                                        {item.variations?.map((v, vidx) => (
+                                            <div key={vidx}>
+                                                <div className="text-xs font-semibold text-gray-600 mt-1">{v.name}:</div>
+                                                {v.options?.map((opt, oidx) => (
+                                                    <div key={oidx} className="text-xs text-gray-500">
+                                                        • {opt.name}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ))}
+                                        {/* عرض الـ Extras */}
+                                        {item.extras?.length > 0 && (
+                                            <div className="text-xs text-blue-500 mt-1">
+                                                <span className="font-semibold">Extras:</span>
+                                                {item.extras.map((extra, idx) => (
+                                                    <div key={idx}>+ {extra.name}</div>
+                                                ))}
+                                            </div>
+                                        )}
+                                        {/* عرض الـ Addons */}
+                                        {item.addons?.length > 0 && (
+                                            <div className="text-xs text-purple-500 mt-1">
+                                                <span className="font-semibold">Addons:</span>
+                                                {item.addons.map((addon, idx) => (
+                                                    <div key={idx}>+ {addon.name}</div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </td>
+                                    <td className="p-2 border text-center">{price.toFixed(2)}</td>
+                                    <td className="p-2 border text-center text-red-600">
+                                        {discount > 0 ? `-${discount.toFixed(2)}` : '-'}
+                                    </td>
+                                    <td className="p-2 border text-center text-green-600">
+                                        {tax > 0 ? `+${tax.toFixed(2)}` : '-'}
+                                    </td>
+                                    <td className="p-2 border text-center">{count}</td>
+                                    <td className="p-2 border text-center font-semibold">{total.toFixed(2)}</td>
+                                </tr>
+                            );
+                        })}
                     </tbody>
                 </table>
 
-                <div className="border-t pt-4 text-right space-y-1">
-                    <div className="flex justify-between">
-                        <span>المجموع الفرعي:</span>
-                        <span>{order.amount - order.total_tax - (order.address?.zone?.price || 0)} ج.م</span>
-                    </div>
-                    <div className="flex justify-between">
-                        <span>الضريبة:</span>
-                        <span>{order.total_tax} ج.م</span>
-                    </div>
-                    <div className="flex justify-between">
-                        <span>خدمة التوصيل:</span>
-                        <span>{order.address?.zone?.price || 0} ج.م</span>
-                    </div>
-                    <div className="flex justify-between font-bold text-lg border-t mt-2 pt-2">
-                        <span>الإجمالي الكلي:</span>
-                        <span>{order.amount} ج.م</span>
-                    </div>
+                <div className="border-t pt-4 text-right space-y-2">
+                    {/* حساب الـ Sub Total */}
+                    {(() => {
+                        let subTotal = 0;
+                        let totalDiscount = 0;
+                        let totalTax = 0;
+                        
+                        order.order_details?.forEach(item => {
+                            const productWrapper = item.product?.[0];
+                            const product = productWrapper?.product;
+                            const count = parseFloat(productWrapper?.count || 1);
+                            
+                            const price = parseFloat(product?.price || 0);
+                            const discount = parseFloat(product?.discount_val || 0);
+                            const tax = parseFloat(product?.tax_only || 0);
+                            
+                            subTotal += price * count;
+                            totalDiscount += discount * count;
+                            totalTax += tax * count;
+                        });
+                        
+                        const deliveryFee = parseFloat(order.address?.zone?.price || 0);
+                        const grandTotal = parseFloat(order.amount || 0);
+                        
+                        return (
+                            <>
+                                <div className="flex justify-between">
+                                    <span>المجموع الفرعي (قبل الخصم):</span>
+                                    <span className="font-medium">{subTotal.toFixed(2)} ج.م</span>
+                                </div>
+                                {totalDiscount > 0 && (
+                                    <div className="flex justify-between text-red-600">
+                                        <span>الخصم الإجمالي:</span>
+                                        <span className="font-medium">-{totalDiscount.toFixed(2)} ج.م</span>
+                                    </div>
+                                )}
+                                {totalTax > 0 && (
+                                    <div className="flex justify-between text-green-600">
+                                        <span>الضريبة الإجمالية:</span>
+                                        <span className="font-medium">+{totalTax.toFixed(2)} ج.م</span>
+                                    </div>
+                                )}
+                                {deliveryFee > 0 && (
+                                    <div className="flex justify-between">
+                                        <span>خدمة التوصيل:</span>
+                                        <span className="font-medium">+{deliveryFee.toFixed(2)} ج.م</span>
+                                    </div>
+                                )}
+                                <div className="flex justify-between font-bold text-lg border-t mt-3 pt-3 bg-red-50 p-3 rounded">
+                                    <span>الإجمالي الكلي:</span>
+                                    <span className="text-red-600">{grandTotal.toFixed(2)} ج.م</span>
+                                </div>
+                            </>
+                        );
+                    })()}
                 </div>
 
                 <div className="mt-10 text-center text-xs text-gray-400">

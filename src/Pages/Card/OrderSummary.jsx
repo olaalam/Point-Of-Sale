@@ -199,11 +199,17 @@ const PrintableOrder = React.forwardRef(
           </thead>
           <tbody>
             {orderItems.map((item, index) => {
-              const finalUnitPrice = calculateItemUnitPrice(item);
-              // السعر الأساسي (قبل الضريبة)
-              const basePrice = Number(item.price_after_discount ?? item.price ?? 0);
+              // التحقق من وجود بيانات pending order (tax_only و discount_val)
+              let finalUnitPrice = item.finalPrice || item.price_after_tax || calculateItemUnitPrice(item);
+              
+              // السعر الأساسي
+              const basePrice = Number(item.originalPrice || item.price || 0);
+              
+              // الخصم والضريبة من البيانات المباشرة
+              const discount = Number(item.discount_val || item.discount || 0);
+              const tax = Number(item.tax_only || item.tax || 0);
 
-              // الإضافات (الفرق بين السعر الشامل والأساسي)
+              // الإضافات (الفرق بين السعر النهائي والأساسي)
               const extras = finalUnitPrice - basePrice;
 
               const quantityForCalc =
@@ -211,15 +217,14 @@ const PrintableOrder = React.forwardRef(
                   ? Number(item.quantity || item.count || 1)
                   : Number(item.count || 1);
 
-              // الحساب الصحيح للإجمالي: (السعر الأساسي * الكمية/الوزن) + الإضافات
-              // ده اللي هيطلعلك الـ 800 (500 * 1.5 + 50)
-              const totalPrice = (item.weight_status === 1)
-                ? ((basePrice * quantityForCalc) + extras).toFixed(2)
+              // استخدام final_price إذا كان موجوداً
+              const totalPrice = item.finalPrice 
+                ? (item.finalPrice * quantityForCalc).toFixed(2)
                 : (finalUnitPrice * quantityForCalc).toFixed(2);
 
               const productName = isArabic
-                ? item.name_ar || item.nameAr || item.name
-                : item.name_en || item.nameEn || item.name;
+                ? item.name_ar || item.nameAr || item.product_name || item.name
+                : item.name_en || item.nameEn || item.product_name || item.name;
 
               const displayQty =
                 item.weight_status === 1 ? `${item.quantity} kg` : item.count;
@@ -469,18 +474,33 @@ export default function OrderSummary({
   const printRef = useRef();
   console.log("Current orderType:", orderType);
 
-  // حساب القيم الحقيقية للطباعة باستخدام الدالة الموحدة
+  // حساب القيم الحقيقية للطباعة باستخدام البيانات المباشرة من pending order أو الدالة
   const realSubTotal = orderItems.reduce((acc, item) => {
-    const unitPrice = calculateItemUnitPrice(item); // الدالة الموحدة
+    // استخدام السعر الأساسي من البيانات أو الحساب
+    const unitPrice = item.originalPrice || item.price || calculateItemUnitPrice(item);
     const qty = (item.weight_status === 1 || item.weight_status === "1")
       ? Number(item.quantity || 0)
       : Number(item.count || item.quantity || 1);
 
     return acc + (unitPrice * qty);
   }, 0);
+  
+  // حساب الخصم والضريبة من البيانات المباشرة
+  let realDiscount = 0;
+  let realTax = 0;
+  
+  orderItems.forEach(item => {
+    const qty = (item.weight_status === 1 || item.weight_status === "1")
+      ? Number(item.quantity || 0)
+      : Number(item.count || item.quantity || 1);
+    
+    realDiscount += (item.discount_val || item.discount || 0) * qty;
+    realTax += (item.tax_only || item.tax || 0) * qty;
+  });
+  
   const realServiceFee = (serviceFeeData && ["dine_in", "take_away"].includes(orderType))
     ? (serviceFeeData.type === "precentage"
-      ? (realSubTotal + totalTax) * (serviceFeeData.amount / 100)
+      ? (realSubTotal + realTax) * (serviceFeeData.amount / 100)
       : serviceFeeData.amount)
     : 0;
   const selectedUserData = JSON.parse(localStorage.getItem("selected_user_data") || "{}");
@@ -716,7 +736,7 @@ export default function OrderSummary({
 
       {/* Summary Display */}
       <div className="bg-gray-50 p-4 md:p-6 rounded-lg shadow-inner mb-4 md:mb-6">
-        <SummaryRow label={t("SubTotal")} value={subTotal} />
+        <SummaryRow label={t("SubTotal")} value={realSubTotal} />
 
         {taxDetails && taxDetails.length > 0 ? (
           taxDetails.map((tax, index) => (
@@ -727,13 +747,13 @@ export default function OrderSummary({
             />
           ))
         ) : (
-          <SummaryRow label={t("Tax")} value={totalTax} />
+          <SummaryRow label={t("Tax")} value={realTax} />
         )}
 
-        {apiTotalDiscount > 0 && (
+        {realDiscount > 0 && (
           <SummaryRow
             label={t("Discount")}
-            value={-apiTotalDiscount}
+            value={-realDiscount}
             valueClassName="text-green-600"
           />
         )}

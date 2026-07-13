@@ -344,6 +344,9 @@ export default function Item({ onAddToOrder, onClose, onClearCart, cartHasItems,
               product.price = originalMatchedPrice > 0 ? originalMatchedPrice : finalGroupPrice;
               // Set discount_val so ItemRow.jsx calculates the correct strike-through original price
               product.discount_val = originalMatchedPrice > finalGroupPrice ? originalMatchedPrice - finalGroupPrice : 0;
+              
+              // Set tax_only from group pricing response if available
+              product.tax_only = parseFloat(matchedProduct.tax_only || matchedProduct.tax_val || 0);
 
               // التحديث عشان لو كان المودال حاسب totalPrice قبل كده
               product.totalPrice = finalGroupPrice * finalQuantity;
@@ -394,6 +397,11 @@ export default function Item({ onAddToOrder, onClose, onClearCart, cartHasItems,
         const tableId = localStorage.getItem("table_id");
         if (!tableId) return toast.error(t("PleaseSelectTableFirst"));
 
+        // ✅ تنظيف الـ module_id - لو "none" أو "all" يبقى null
+        const moduleIdToSend = (selectedGroup && selectedGroup !== "none" && selectedGroup !== "all") 
+          ? selectedGroup 
+          : null;
+
         const payload = {
           table_id: tableId,
           cashier_id: localStorage.getItem("cashier_id"),
@@ -403,7 +411,7 @@ export default function Item({ onAddToOrder, onClose, onClearCart, cartHasItems,
           total_discount: "0.00",
           source: "web",
           products: [processedItem],
-          module_id: selectedGroup || null,
+          ...(moduleIdToSend && { module_id: moduleIdToSend }), // ✅ بس لو في module_id حقيقي
         };
 
         try {
@@ -423,6 +431,9 @@ export default function Item({ onAddToOrder, onClose, onClearCart, cartHasItems,
             quantity: finalQuantity, // نأكد وجود الاثنين لضمان التوافق
             price: pricePerUnit,
             totalPrice: totalAmount,
+            // إضافة discount_val و tax_only بشكل صريح
+            discount_val: parseFloat(product.discount_val || 0),
+            tax_only: parseFloat(product.tax_only || 0),
           });
           toast.success(t("ProductAddedToTable"));
         } catch (err) {
@@ -430,6 +441,9 @@ export default function Item({ onAddToOrder, onClose, onClearCart, cartHasItems,
           toast.error(t("FailedToAddToTable"));
         }
       } else {
+        // Takeaway / Delivery - نضيف للكارت محلياً (localStorage)
+        
+        // ✅ نضيف المنتج للكارت مباشرة بالبيانات اللي عندنا
         onAddToOrder({
           ...product,
           temp_id: createTempId(product.id),
@@ -437,6 +451,9 @@ export default function Item({ onAddToOrder, onClose, onClearCart, cartHasItems,
           quantity: finalQuantity,
           price: pricePerUnit,
           totalPrice: totalAmount,
+          // ✅ إضافة discount_val و tax_only بشكل صريح
+          discount_val: parseFloat(product.discount_val || 0),
+          tax_only: parseFloat(product.tax_only || 0),
         });
         toast.success(t("ProductAddedToCart"));
       }

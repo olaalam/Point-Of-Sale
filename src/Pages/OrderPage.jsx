@@ -25,6 +25,10 @@ export default function OrderPage({
   const [isLoading, setIsLoading] = useState(false);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [pendingOrderLoaded, setPendingOrderLoaded] = useState(false);
+  
+  // ✅ State للـ pending order info (بدلاً من localStorage)
+  const [pendingOrderInfo, setPendingOrderInfo] = useState(null);
+  
   const location = useLocation();
   const navigate = useNavigate();
   const pendingOrder = location.state?.pendingOrder;
@@ -40,46 +44,39 @@ export default function OrderPage({
     isDineIn && currentTableId ? `cashier/dine_in_table_order/${currentTableId}?locale=${locale}` : null
   );
 
-  // ✅ FIXED: تحميل الطلب المتكرر من localStorage للـ take_away
+  // ✅ FIXED: تحميل الطلب من API state (مش localStorage)
   useEffect(() => {
     if (pendingOrder && pendingOrder.orderDetails && !pendingOrderLoaded) {
-      const mappedItems = pendingOrder.orderDetails.map((detail, index) => ({
-        id: detail.product_id || `pending_${index}`,
-        temp_id: `pending_${detail.product_id || index}_${Date.now()}`,
-        name: detail.name ||
-          detail.product_name ||
-          detail.product?.[0]?.product?.name ||
-          t("UnknownProduct"),
-        price: parseFloat(detail.price || 0),
-        originalPrice: parseFloat(detail.price || 0),
-        count: parseFloat(detail.count || 1),
-        selectedVariation: detail.variation_name || null,
-        selectedExtras: Array.isArray(detail.addons) ? detail.addons : [],
-        selectedVariations: detail.variation_name ? [detail.variation_name] : [],
-        selectedExcludes: [],
-        preparation_status: "pending",
-        type: "main_item",
-        addons: Array.isArray(detail.addons) ? detail.addons.map((addon, addonIndex) => ({
-          id: `addon_${addonIndex}_${Date.now()}`,
-          name: addon.name || "Unknown Addon",
-          price: parseFloat(addon.price || 0),
-          originalPrice: parseFloat(addon.price || 0),
-          count: parseFloat(addon.count || 1),
-          preparation_status: "pending",
-        })) : [],
+      console.log("📦 Loading pending order from API state:", pendingOrder);
+      
+      // ✅ استخدام البيانات من الـ API مباشرة (بدون تحويل زيادة)
+      const mappedItems = pendingOrder.orderDetails.map((detail) => ({
+        // ✅ نستخدم كل البيانات من الـ API مباشرة
+        ...detail,
+        // فقط نتأكد من وجود الـ temp_id
+        temp_id: detail.temp_id || `pending_${detail.id}_${Date.now()}`,
       }));
+
       setTakeAwayItems(mappedItems);
       setPendingOrderLoaded(true);
-      localStorage.setItem("cart", JSON.stringify(mappedItems));
-      localStorage.setItem("order_type", "take_away");
-      localStorage.setItem("pending_order_info", JSON.stringify({
+      
+      // ✅ حفظ الـ order info في state (بدلاً من localStorage)
+      setPendingOrderInfo({
         orderId: pendingOrder.orderId,
         orderNumber: pendingOrder.orderNumber,
-        amount: pendingOrder.amount,
+        amount: pendingOrder.totalAmount,
         notes: pendingOrder.notes,
-        prepare_order: pendingOrder.prepare_order, // ✅ Save preparation status for toggle logic
-      }));
-    } else if (!pendingOrderLoaded && currentOrderType === "take_away") {
+        prepare_order: pendingOrder.prepare_order || "0",
+      });
+
+      // ❌ نشيل localStorage تماماً
+      // localStorage.setItem("cart", JSON.stringify(mappedItems));
+      // localStorage.setItem("order_type", "take_away");
+      // localStorage.setItem("pending_order_info", JSON.stringify({...}));
+      
+      console.log("✅ Pending order loaded from API:", mappedItems);
+    } else if (!pendingOrderLoaded && currentOrderType === "take_away" && !location.state?.fromPendingOrders) {
+      // فقط لو مش جايين من pending orders، نجرب نقرا من localStorage (للـ backward compatibility)
       const storedCartString = localStorage.getItem("cart");
       if (storedCartString && storedCartString !== "undefined") {
         try {
@@ -92,7 +89,7 @@ export default function OrderPage({
         }
       }
     }
-  }, [pendingOrder, pendingOrderLoaded, currentOrderType]);
+  }, [pendingOrder, pendingOrderLoaded, currentOrderType, location.state?.fromPendingOrders]);
 
   // dine-in: أضف originalPrice و temp_id
   useEffect(() => {
@@ -376,6 +373,7 @@ export default function OrderPage({
           userId={currentUserId}
           isLoading={dineInLoading || isLoading}
           discountData={discountData}
+          pendingOrderInfo={pendingOrderInfo} // ✅ بعت الـ pending order info
         />
       </div>
       <div className="w-full lg:w-[75%]  lg:mt-0">
