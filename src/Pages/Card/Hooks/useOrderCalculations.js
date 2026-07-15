@@ -14,7 +14,7 @@ export function useOrderCalculations(
     // --- دالة مساعدة لحساب أسعار جميع الإضافات بناءً على هيكل بياناتك ---
     const calculateExtraPrice = (item) => {
       let extraPrice = 0;
-      
+
       // 1. حساب الـ extras
       const selectedExtras = item.selectedExtras || [];
       if (selectedExtras.length > 0) {
@@ -49,14 +49,17 @@ export function useOrderCalculations(
 
           // فحص هل القيمة مصفوفة (زي الأوزان [{optionId: 697, value: 1.75}]) أو ID مباشر (زي 698)
           if (Array.isArray(selectedValue)) {
-selectedValue.forEach(val => {
-  if (val && typeof val === 'object' && val.optionId) {
-    // استخدم val.value ككمية (وزن) وليس val.weight
-    optionsList.push({ id: val.optionId, weight: parseFloat(val.value || 1) });
-  } else {
-    optionsList.push({ id: val, weight: 1 });
-  }
-});
+            selectedValue.forEach(val => {
+              if (val && typeof val === 'object' && val.optionId) {
+                // استخدم val.value ككمية (وزن) وليس val.weight
+                optionsList.push({ id: val.optionId, weight: parseFloat(val.value || 1) });
+              } else {
+                optionsList.push({ id: val, weight: 1 });
+              }
+            });
+          } else if (selectedValue && typeof selectedValue === 'object' && selectedValue.optionId !== undefined) {
+            // ✅ single بالوزن: { optionId, value } - نفس شكل الـ multiple لكن بدون array
+            optionsList.push({ id: selectedValue.optionId, weight: parseFloat(selectedValue.value || 0) });
           } else {
             optionsList.push({ id: selectedValue, weight: 1 });
           }
@@ -141,10 +144,10 @@ selectedValue.forEach(val => {
 
     // ── Totals ─────────────────────────────────────────────────────────
     const totalBeforeDelivery = subTotal + totalTax + serviceCharge;
-    
+
     let amountToPay = items.reduce((sum, item) => {
       const basePrice = parseFloat(item.final_price || item.originalPrice || 0);
-      
+
       const isWeightProduct = item.weight_status === 1 || item.weight_status === "1";
       const isScaleWeightItem = isWeightProduct && item._source === "scale_barcode";
 
@@ -173,7 +176,7 @@ selectedValue.forEach(val => {
         const qty = (i.weight_status === 1 || i.weight_status === "1")
           ? Number(i.quantity || 1)
           : Number(i.count || 1);
-        
+
         const extraPrice = calculateExtraPrice(i);
 
         return s + ((basePrice + extraPrice) * qty);
@@ -198,7 +201,7 @@ selectedValue.forEach(val => {
         const qty = (i.weight_status === 1 || i.weight_status === "1")
           ? Number(i.quantity || 1)
           : Number(i.count || 1);
-        
+
         const extraPrice = calculateExtraPrice(i);
 
         return s + ((basePrice + extraPrice) * qty);

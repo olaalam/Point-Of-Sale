@@ -92,9 +92,17 @@ const ProductModal = ({
       if (!selected) return;
 
       if (v.type === "single") {
-        const opt = v.options.find((o) => o.id === selected);
+        // ✅ الـ single ممكن يبقى شكله { optionId, value } لو كان بالوزن
+        const selectedOptionId = typeof selected === "object" ? selected.optionId : selected;
+        const opt = v.options.find((o) => o.id === selectedOptionId);
         if (opt) {
-          if (opt.total_option_price > 0) {
+          const isWeightOption =
+            v.weight === 1 || v.weight === "1" || opt.weight === 1 || opt.weight === "1";
+
+          if (isWeightOption) {
+            const enteredWeight = typeof selected === "object" ? parseFloat(selected.value) || 0 : 0;
+            variationPrice += parseFloat(opt.price || 0) * enteredWeight;
+          } else if (opt.total_option_price > 0) {
             basePrice = parseFloat(opt.total_option_price);
           } else {
             variationPrice += parseFloat(opt.final_price || opt.price || 0);
@@ -261,33 +269,92 @@ const ProductModal = ({
                     {variation.type === "single" && variation.options && (
                       <div className="flex flex-wrap gap-2">
                         {variation.options.map((option) => {
-                          const isSelected = selectedVariation[variation.id] === option.id;
+                          const selectedSingle = selectedVariation[variation.id];
+                          const selectedOptionId =
+                            typeof selectedSingle === "object" ? selectedSingle?.optionId : selectedSingle;
+                          const isSelected = selectedOptionId === option.id;
+
+                          // ✅ نفس فحص isWeightOption المستخدم في الـ multiple
+                          const isWeightOption =
+                            variation.weight === 1 ||
+                            variation.weight === "1" ||
+                            option.weight === 1 ||
+                            option.weight === "1" ||
+                            option.weight === true;
+
+                          const currentWeightValue =
+                            isSelected && typeof selectedSingle === "object" ? selectedSingle.value : "";
 
                           return (
-                            <button
-                              key={option.id}
-                              onClick={() => onVariationChange(variation.id, option.id)}
-                              className={`flex flex-col items-center justify-center px-2 rounded-lg border-2 text-sm font-medium transition-all duration-200
+                            <div key={option.id} className="flex flex-col gap-1">
+                              <button
+                                onClick={() => onVariationChange(variation.id, option.id)}
+                                className={`flex flex-col items-center justify-center px-2 rounded-lg border-2 text-sm font-medium transition-all duration-200
             ${isSelected
-                                  ? "bg-red-600 text-white border-red-600 scale-105"
-                                  : "bg-gray-100 text-gray-700 border-gray-300 hover:border-red-400"
-                                }`}
-                            >
-                              <span className="capitalize">
-                                {getVariationOptionDisplay(option, variation)}
-                                {/* عرض وحدة الوزن إذا كانت متوفرة */}
-                                {variation.weight_status === 1 && variation.weight_unit && (
-                                  <span className="text-xs text-gray-500 ml-1">
-                                    ({variation.weight_unit})
-                                  </span>
-                                )}
-                              </span>
-                              {parseFloat(option.final_price || option.price_after_tax || 0) > 0 && (
-                                <span className="text-xs">
-                                  +{(option.final_price || option.price_after_tax).toFixed(2)} {getCurrencySymbol()}
+                                    ? "bg-red-600 text-white border-red-600 scale-105"
+                                    : "bg-gray-100 text-gray-700 border-gray-300 hover:border-red-400"
+                                  }`}
+                              >
+                                <span className="capitalize">
+                                  {getVariationOptionDisplay(option, variation)}
+                                  {/* عرض وحدة الوزن إذا كانت متوفرة */}
+                                  {variation.weight_status === 1 && variation.weight_unit && (
+                                    <span className="text-xs text-gray-500 ml-1">
+                                      ({variation.weight_unit})
+                                    </span>
+                                  )}
                                 </span>
+                                {isWeightOption ? (
+                                  <span className="text-xs">
+                                    {(option.price || 0).toFixed(2)} {getCurrencySymbol()}/{variation.weight_unit || 'kg'}
+                                  </span>
+                                ) : (
+                                  parseFloat(option.final_price || option.price_after_tax || 0) > 0 && (
+                                    <span className="text-xs">
+                                      +{(option.final_price || option.price_after_tax).toFixed(2)} {getCurrencySymbol()}
+                                    </span>
+                                  )
+                                )}
+                              </button>
+
+                              {/* ✅ حقل إدخال الوزن (عشري) - بيظهر بس لو الخيار ده بالوزن وهو المختار حاليًا */}
+                              {isWeightOption && isSelected && (
+                                <div className="flex items-center space-x-2">
+                                  <input
+                                    type="text"
+                                    inputMode="decimal"
+                                    value={currentWeightValue}
+                                    onChange={(e) => {
+                                      const inputValue = e.target.value;
+                                      if (inputValue === '' || /^\d*\.?\d*$/.test(inputValue)) {
+                                        if (inputValue === '') {
+                                          onVariationChange(variation.id, option.id, "remove");
+                                        } else if (
+                                          inputValue === '0' ||
+                                          inputValue === '0.' ||
+                                          inputValue === '.' ||
+                                          inputValue.endsWith('.')
+                                        ) {
+                                          onVariationChange(variation.id, option.id, "set", inputValue);
+                                        } else {
+                                          const numValue = parseFloat(inputValue);
+                                          if (!isNaN(numValue) && numValue > 0) {
+                                            onVariationChange(variation.id, option.id, "set", numValue);
+                                          } else if (numValue === 0) {
+                                            onVariationChange(variation.id, option.id, "remove");
+                                          }
+                                        }
+                                      }
+                                    }}
+                                    placeholder="0.0"
+                                    className="w-24 px-3 py-2 border border-gray-300 rounded-lg text-center text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                                  />
+                                  <span className="text-xs text-gray-600 font-medium">
+                                    {variation.weight_unit || 'kg'}
+                                  </span>
+                                </div>
                               )}
-                            </button>
+                            </div>
                           );
                         })}
                       </div>
@@ -675,9 +742,21 @@ const ProductModal = ({
                     const selectedValue = selectedVariation[group.id];
 
                     if (group.type === "single") {
+                      // ✅ الـ single ممكن يبقى شكله { optionId, value } لو كان بالوزن
+                      const isObjectValue = selectedValue && typeof selectedValue === "object";
+                      const selectedOptionId = isObjectValue ? selectedValue.optionId : selectedValue;
+                      const selectedOption = group.options?.find(opt => opt.id === selectedOptionId);
+                      const isWeight =
+                        group.weight === 1 || group.weight === "1" ||
+                        selectedOption?.weight === 1 || selectedOption?.weight === "1";
+
                       return {
                         ...group,
-                        selected_option_id: selectedValue || null
+                        selected_option_id: selectedOptionId || null,
+                        ...(isWeight && {
+                          quantity: parseFloat(isObjectValue ? selectedValue.value : 0) || 0,
+                          is_weight: true
+                        })
                       };
                     } else if (group.type === "multiple") {
                       const selectedOptions = selectedValue || [];

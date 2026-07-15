@@ -201,9 +201,9 @@ const PrintableOrder = React.forwardRef(
             {orderItems.map((item, index) => {
               // التحقق من وجود بيانات pending order (tax_only و discount_val)
               let finalUnitPrice = item.finalPrice || item.price_after_tax || calculateItemUnitPrice(item);
-              
+
               // السعر الأساسي
-const basePrice = Number(item.originalPrice || item.price || 0);              
+              const basePrice = Number(item.originalPrice || item.price || 0);
               // الخصم والضريبة من البيانات المباشرة
               const discount = Number(item.discount_val || item.discount || 0);
               const tax = Number(item.tax_only || item.tax || 0);
@@ -217,7 +217,7 @@ const basePrice = Number(item.originalPrice || item.price || 0);
                   : Number(item.count || 1);
 
               // استخدام final_price إذا كان موجوداً
-              const totalPrice = item.finalPrice 
+              const totalPrice = item.finalPrice
                 ? (item.finalPrice * quantityForCalc).toFixed(2)
                 : (finalUnitPrice * quantityForCalc).toFixed(2);
 
@@ -473,6 +473,68 @@ export default function OrderSummary({
   const printRef = useRef();
   console.log("Current orderType:", orderType);
 
+  // ✅ نفس دالة حساب سعر الـ variations/addons/extras المستخدمة في useOrderCalculations
+  // (لازم تتكرر هنا عشان realSubTotal يطلع مطابق لسعر الجدول فوق)
+  const calculateExtraPrice = (item) => {
+    let extraPrice = 0;
+
+    const selectedExtras = item.selectedExtras || [];
+    if (selectedExtras.length > 0) {
+      const allExtrasCatalog = item.allExtras || [];
+      selectedExtras.forEach(id => {
+        const extra = allExtrasCatalog.find(e => String(e.id) === String(id));
+        if (extra) {
+          extraPrice += parseFloat(extra.price || extra.final_price || 0);
+        }
+      });
+    }
+
+    const storedAddons = item.addons || [];
+    storedAddons.forEach(addon => {
+      if (addon.addon_id !== undefined) {
+        const addonQty = parseFloat(addon.quantity || addon.count || 1);
+        extraPrice += parseFloat(addon.price || 0) * addonQty;
+      }
+    });
+
+    const selectedVariation = item.selectedVariation;
+    const variations = item.variations || [];
+
+    if (selectedVariation && typeof selectedVariation === 'object') {
+      Object.entries(selectedVariation).forEach(([variationId, selectedValue]) => {
+        const variationGroup = variations.find(v => String(v.id) === String(variationId));
+        if (!variationGroup) return;
+
+        let optionsList = [];
+
+        if (Array.isArray(selectedValue)) {
+          selectedValue.forEach(val => {
+            if (val && typeof val === 'object' && val.optionId) {
+              optionsList.push({ id: val.optionId, weight: parseFloat(val.value || 1) });
+            } else {
+              optionsList.push({ id: val, weight: 1 });
+            }
+          });
+        } else if (selectedValue && typeof selectedValue === 'object' && selectedValue.optionId !== undefined) {
+          // ✅ single بالوزن: { optionId, value }
+          optionsList.push({ id: selectedValue.optionId, weight: parseFloat(selectedValue.value || 0) });
+        } else {
+          optionsList.push({ id: selectedValue, weight: 1 });
+        }
+
+        optionsList.forEach(opt => {
+          const optionData = variationGroup.options?.find(o => String(o.id) === String(opt.id));
+          if (optionData) {
+            const optPrice = parseFloat(optionData.price || optionData.additional_price || optionData.final_price || 0);
+            extraPrice += (optPrice * opt.weight);
+          }
+        });
+      });
+    }
+
+    return extraPrice;
+  };
+
   // حساب القيم الحقيقية للطباعة باستخدام البيانات المباشرة من pending order أو الدالة
   const realSubTotal = orderItems.reduce((acc, item) => {
     // استخدام السعر الأساسي من البيانات أو الحساب
@@ -481,22 +543,25 @@ export default function OrderSummary({
       ? Number(item.quantity || 0)
       : Number(item.count || item.quantity || 1);
 
-    return acc + (unitPrice * qty);
+    // ✅ إضافة سعر الـ variations (زي أوزان الجمبري) عشان يطابق الجدول
+    const extraPrice = calculateExtraPrice(item);
+
+    return acc + ((unitPrice + extraPrice) * qty);
   }, 0);
-  
+
   // حساب الخصم والضريبة من البيانات المباشرة
   let realDiscount = 0;
   let realTax = 0;
-  
+
   orderItems.forEach(item => {
     const qty = (item.weight_status === 1 || item.weight_status === "1")
       ? Number(item.quantity || 0)
       : Number(item.count || item.quantity || 1);
-    
+
     realDiscount += (item.discount_val || item.discount || 0) * qty;
     realTax += (item.tax_only || item.tax || 0) * qty;
   });
-  
+
   const realServiceFee = (serviceFeeData && ["dine_in", "take_away"].includes(orderType))
     ? (serviceFeeData.type === "precentage"
       ? (realSubTotal + realTax) * (serviceFeeData.amount / 100)
