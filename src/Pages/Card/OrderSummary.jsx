@@ -474,7 +474,7 @@ export default function OrderSummary({
   console.log("Current orderType:", orderType);
 
   // ✅ نفس دالة حساب سعر الـ variations/addons/extras المستخدمة في useOrderCalculations
-  // (لازم تتكرر هنا عشان realSubTotal يطلع مطابق لسعر الجدول فوق)
+  // (لازم تتكرر هنا عشان subTotal يطلع مطابق لسعر الجدول فوق)
   const calculateExtraPrice = (item) => {
     let extraPrice = 0;
 
@@ -535,36 +535,36 @@ export default function OrderSummary({
     return extraPrice;
   };
 
-  // حساب القيم الحقيقية للطباعة باستخدام البيانات المباشرة من pending order أو الدالة
-  const realSubTotal = orderItems.reduce((acc, item) => {
-    // استخدام السعر الأساسي من البيانات أو الحساب
-    const unitPrice = item.originalPrice || item.price || calculateItemUnitPrice(item);
-    const qty = (item.weight_status === 1 || item.weight_status === "1")
-      ? Number(item.quantity || 0)
-      : Number(item.count || item.quantity || 1);
+  // // حساب القيم الحقيقية للطباعة باستخدام البيانات المباشرة من pending order أو الدالة
+  // const subTotal = orderItems.reduce((acc, item) => {
+  //   // نأخذ السعر الأساسي فقط لتجنب جمع الإضافات مرتين
+  //   const unitPrice = parseFloat(item.originalPrice || item.price || 0);
 
-    // ✅ إضافة سعر الـ variations (زي أوزان الجمبري) عشان يطابق الجدول
-    const extraPrice = calculateExtraPrice(item);
+  //   const qty = (item.weight_status === 1 || item.weight_status === "1")
+  //     ? Number(item.quantity || 0)
+  //     : Number(item.count || item.quantity || 1);
 
-    return acc + ((unitPrice + extraPrice) * qty);
-  }, 0);
+  //   // إضافة سعر الـ variations
+  //   const extraPrice = calculateExtraPrice(item);
 
-  // حساب الخصم والضريبة من البيانات المباشرة
-  let realDiscount = 0;
-  let realTax = 0;
+  //   return acc + ((unitPrice + extraPrice) * qty);
+  // }, 0);
+  // // حساب الخصم والضريبة من البيانات المباشرة
+  // let apiTotalDiscount = 0;
+  // let totalTax = 0;
 
   orderItems.forEach(item => {
     const qty = (item.weight_status === 1 || item.weight_status === "1")
       ? Number(item.quantity || 0)
       : Number(item.count || item.quantity || 1);
 
-    realDiscount += (item.discount_val || item.discount || 0) * qty;
-    realTax += (item.tax_only || item.tax || 0) * qty;
+    apiTotalDiscount += (item.discount_val || item.discount || 0) * qty;
+    totalTax += (item.tax_only || item.tax || 0) * qty;
   });
 
   const realServiceFee = (serviceFeeData && ["dine_in", "take_away"].includes(orderType))
     ? (serviceFeeData.type === "precentage"
-      ? (realSubTotal + realTax) * (serviceFeeData.amount / 100)
+      ? (subTotal + totalTax) * (serviceFeeData.amount / 100)
       : serviceFeeData.amount)
     : 0;
   const selectedUserData = JSON.parse(localStorage.getItem("selected_user_data") || "{}");
@@ -676,13 +676,13 @@ export default function OrderSummary({
   const finalAmountAfterDiscount = (parseFloat(amountToPay) - totalAppliedDiscountNum).toFixed(2);
 
   const printCalculations = {
-    subTotal: Number(realSubTotal.toFixed(2)),
+    subTotal: Number(subTotal.toFixed(2)),
     totalTax: totalTax,
     totalOtherCharge: Number(realServiceFee.toFixed(2)),
     taxDetails: taxDetails,
     deliveryFee: deliveryFee,
     amountToPay: Number(
-      (realSubTotal + realServiceFee + (totalTax || 0) + deliveryFee).toFixed(2)
+      (subTotal + realServiceFee + (totalTax || 0) + deliveryFee).toFixed(2)
     ),
   };
 
@@ -800,7 +800,7 @@ export default function OrderSummary({
 
       {/* Summary Display */}
       <div className="bg-gray-50 p-4 md:p-6 rounded-lg shadow-inner mb-4 md:mb-6">
-        <SummaryRow label={t("SubTotal")} value={realSubTotal} />
+        <SummaryRow label={t("SubTotal")} value={subTotal} />
 
         {taxDetails && taxDetails.length > 0 ? (
           taxDetails.map((tax, index) => (
@@ -811,13 +811,13 @@ export default function OrderSummary({
             />
           ))
         ) : (
-          <SummaryRow label={t("Tax")} value={realTax} />
+          <SummaryRow label={t("Tax")} value={totalTax} />
         )}
 
-        {realDiscount > 0 && (
+        {apiTotalDiscount > 0 && (
           <SummaryRow
             label={t("Discount")}
-            value={-realDiscount}
+            value={-apiTotalDiscount}
             valueClassName="text-green-600"
           />
         )}

@@ -81,7 +81,7 @@ export function useOrderCalculations(
     // ── Subtotal Calculation ───────────────────────────────────────────
     const subTotal = items.reduce((sum, item) => {
       // الاعتماد على السعر الأساسي الصافي
-      const basePrice = parseFloat(item.final_price || item.originalPrice || 0);
+      const basePrice = parseFloat(item.originalPrice || item.price || 0);
 
       const isWeightProduct = item.weight_status === 1 || item.weight_status === "1";
       const isScaleWeightItem = isWeightProduct && item._source === "scale_barcode";
@@ -93,7 +93,7 @@ export function useOrderCalculations(
       const extraPrice = calculateExtraPrice(item);
 
       // السعر النهائي = (السعر الأساسي 46.25 + الإضافات 113.75) * الكمية
-      return sum + ((basePrice + extraPrice) * qty);
+      return sum + ((basePrice * qty) + extraPrice);
     }, 0);
 
     // ── Taxes Calculation & Details ────────────────────────────────────
@@ -146,7 +146,7 @@ export function useOrderCalculations(
     const totalBeforeDelivery = subTotal + totalTax + serviceCharge;
 
     let amountToPay = items.reduce((sum, item) => {
-      const basePrice = parseFloat(item.final_price || item.originalPrice || 0);
+      const basePrice = parseFloat(item.originalPrice || item.price || 0);
 
       const isWeightProduct = item.weight_status === 1 || item.weight_status === "1";
       const isScaleWeightItem = isWeightProduct && item._source === "scale_barcode";
@@ -157,7 +157,7 @@ export function useOrderCalculations(
 
       const extraPrice = calculateExtraPrice(item);
 
-      return sum + ((basePrice + extraPrice) * qty);
+      return sum + ((basePrice * qty) + extraPrice);
     }, 0);
 
     amountToPay += serviceCharge;
@@ -172,14 +172,14 @@ export function useOrderCalculations(
       );
 
       const selSub = selected.reduce((s, i) => {
-        const basePrice = parseFloat(i.final_price || i.originalPrice || 0);
+        const basePrice = parseFloat(i.originalPrice || i.price || 0);
         const qty = (i.weight_status === 1 || i.weight_status === "1")
           ? Number(i.quantity || 1)
           : Number(i.count || 1);
 
         const extraPrice = calculateExtraPrice(i);
 
-        return s + ((basePrice + extraPrice) * qty);
+        return s + ((basePrice * qty) + extraPrice);
       }, 0);
 
       const selTax = selected.reduce((s, i) => {
@@ -197,14 +197,14 @@ export function useOrderCalculations(
         : 0;
 
       amountToPay = selected.reduce((s, i) => {
-        const basePrice = parseFloat(i.final_price || i.originalPrice || 0);
+        const basePrice = parseFloat(i.originalPrice || i.price || 0);
         const qty = (i.weight_status === 1 || i.weight_status === "1")
           ? Number(i.quantity || 1)
           : Number(i.count || 1);
 
         const extraPrice = calculateExtraPrice(i);
 
-        return s + ((basePrice + extraPrice) * qty);
+        return s + ((basePrice * qty) + extraPrice);
       }, 0);
 
       amountToPay += selSF;

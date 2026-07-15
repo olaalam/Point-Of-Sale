@@ -283,7 +283,17 @@ export const useProductModal = () => {
       if (extra) extraCharges += parseFloat(extra.final_price || extra.price || 0);
     });
 
-    setTotalPrice((currentPrice + variationCharges + extraCharges) * (parseFloat(quantity) || 0));
+    const isWeightProduct = selectedProduct.weight_status === 1 || selectedProduct.is_weight;
+    const parsedQuantity = parseFloat(quantity) || 0;
+
+    let finalTotal = 0;
+    if (isWeightProduct) {
+      finalTotal = (currentPrice * parsedQuantity) + variationCharges + extraCharges;
+    } else {
+      finalTotal = (currentPrice + variationCharges + extraCharges) * parsedQuantity;
+    }
+
+    setTotalPrice(finalTotal);
   }, [quantity, selectedExtras, selectedProduct, selectedVariation]);
 
   return {

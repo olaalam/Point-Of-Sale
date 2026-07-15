@@ -140,8 +140,21 @@ const ProductModal = ({
     }
   });
 
-  const unitPrice = basePrice + variationPrice + extraPrice;
-  const totalPrice = unitPrice * quantity;
+  let unitPrice = 0;
+  let totalPrice = 0;
+  const finalQuantity = parseFloat(quantity) || 0;
+
+  if (isWeightProduct) {
+    // بالنسبة لمنتجات الوزن: الإضافات والمتغيرات تُحسب قيمتها كإجمالي مستقل ولا تُضرب في كمية المنتج مرة أخرى
+    const totalVariationAndExtra = variationPrice + extraPrice;
+    totalPrice = (basePrice * finalQuantity) + totalVariationAndExtra;
+    // حساب سعر الوحدة ليُرسل للسلة (إجمالي السعر ÷ الكمية)
+    unitPrice = finalQuantity > 0 ? (totalPrice / finalQuantity) : basePrice;
+  } else {
+    // للمنتجات بالقطعة: المتغيرات والإضافات تطبق على كل قطعة
+    unitPrice = basePrice + variationPrice + extraPrice;
+    totalPrice = unitPrice * finalQuantity;
+  }
 
   const hasVariations =
     selectedProduct.variations && selectedProduct.variations.length > 0;
@@ -721,10 +734,10 @@ const ProductModal = ({
                   notes: notes.trim(),
 
                   // استخدام final_price من الباك إند
-                  price: totalUnitPrice,
-                  modalCalculatedPrice: totalUnitPrice,
+                  price: unitPrice,
+                  modalCalculatedPrice: unitPrice,
                   originalPrice: selectedProduct.final_price,
-                  totalPrice: totalUnitPrice * finalQuantity,
+                  totalPrice: totalPrice,
 
                   // إضافة discount_val و tax_only بشكل صريح
                   discount_val: parseFloat(selectedProduct.discount_val || 0),
